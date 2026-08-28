@@ -27,16 +27,19 @@ struct NoteView: View {
         ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading, spacing: 0) {
                 editor
+                if !model.images.isEmpty { photographs }
                 if hasFooter { footer }
             }
-            .opacity(age.presence)
+            // 종이는 누레지지만 잉크는 그만큼 사라지지 않는다. 오래된 메모도
+            // 읽을 수는 있어야 한다 — 물러나는 것과 안 보이는 것은 다르다.
+            .opacity(0.72 + 0.28 * age.presence)
 
             if isHovering || isPickingColor {
                 controls
             }
         }
-        .background(Theme.paper(color.tint, age: age))
-        .overlay(Theme.edge(color.tint, age: age))
+        .background(Theme.paper(color.paper, age: age))
+        .overlay(Theme.edge())
         .onHover { isHovering = $0 }
         .animation(Theme.reveal, value: isHovering)
         .animation(Theme.settle, value: age)
@@ -48,9 +51,18 @@ struct NoteView: View {
         MemoTextArea(
             text: $model.text,
             insets: NSSize(width: Theme.normal, height: Theme.normal),
+            linePitch: Paper.linePitch,
+            stylesMarkdown: true,
+            onPasteImage: { data, ext in
+                model.markdown(forPastedImage: data, fileExtension: ext)
+            },
+            onPasteLink: { model.markdown(forPastedLink: $0) },
             placeholder: "…",
             onEdit: model.edited
         )
+        .background(alignment: .top) {
+            RuledLines(topInset: Theme.normal)
+        }
     }
 
     // MARK: 겹쳐 뜨는 조작
@@ -72,7 +84,7 @@ struct NoteView: View {
         .padding(3)
         .background {
             // 글자 위에 겹치므로 얇은 바탕이 필요하다. 없으면 아이콘이 본문에 묻힌다.
-            Capsule().fill(.regularMaterial)
+            Capsule().fill(color.paper).shadow(color: .black.opacity(0.18), radius: 3, y: 1)
         }
         .padding(Theme.tight)
         .transition(.opacity)
@@ -119,6 +131,34 @@ struct NoteView: View {
         .padding(Theme.normal)
     }
 
+    // MARK: 붙인 사진
+
+    /// 붙여넣은 사진. 본문에는 마크다운 참조가 남고 실제 그림은 여기 붙는다.
+    ///
+    /// 글줄 사이에 그림을 끼워 넣지 않는 이유: 편집기의 글자를 건드리지 않는다는
+    /// 규칙(`MarkdownScanner`)을 지키면서 인라인 그림을 그리려면 원문을 숨기는
+    /// 편법이 필요하고, 그러면 커서와 되돌리기가 어긋난다. 종이에 사진을
+    /// 붙이는 것도 대개 글 아래다.
+    private var photographs: some View {
+        VStack(alignment: .leading, spacing: Theme.tight) {
+            ForEach(model.images) { attachment in
+                Image(nsImage: attachment.image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            .strokeBorder(.black.opacity(0.18), lineWidth: 0.75)
+                    )
+                    // 종이에 붙인 사진은 살짝 떠 있다.
+                    .shadow(color: .black.opacity(0.22), radius: 3, y: 1)
+            }
+        }
+        .padding(.horizontal, Theme.normal)
+        .padding(.bottom, Theme.snug)
+    }
+
     // MARK: 꼬리 — 날짜와 태그가 있을 때만
 
     private var footer: some View {
@@ -130,13 +170,13 @@ struct NoteView: View {
                     Image(systemName: model.memo.at != nil ? "clock" : "calendar")
                         .font(.system(size: 9))
                 }
-                .foregroundStyle(isPast ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.secondary))
+                .foregroundStyle(isPast ? Paper.ink.opacity(0.35) : Paper.fadedInk)
             }
 
             if !model.memo.tags.isEmpty {
                 Text(model.memo.tags.prefix(3).map { "#\($0)" }.joined(separator: " "))
                     .font(Theme.micro)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Paper.ink.opacity(0.40))
                     .lineLimit(1)
             }
 

@@ -9,8 +9,15 @@ import SwiftUI
 /// 조합을 통째로 맡기고, 우리는 조합이 끝난 결과만 읽는다.
 struct MemoTextEditor: NSViewRepresentable {
     @Binding var text: String
-    var font: NSFont = .systemFont(ofSize: 14)
+    var font: NSFont = .systemFont(ofSize: Paper.bodySize)
     var insets: NSSize = NSSize(width: 12, height: 10)
+    /// 괘선 간격. 주면 글줄이 그 높이에 맞춰 앉는다.
+    var linePitch: CGFloat?
+    /// 마크다운을 친 자리에서 바로 꾸밀지. 빠른 입력처럼 한 줄 적고 마는
+    /// 자리에서는 끈다 — 치는 동안 글자가 계속 움직이면 오히려 방해가 된다.
+    var stylesMarkdown = false
+    var onPasteImage: ((Data, String) -> String?)?
+    var onPasteLink: ((URL) -> String?)?
     /// 조합이 끝난 시점의 텍스트만 흘려보낸다. 자동 저장이 여기에 걸린다.
     var onEdit: (String) -> Void = { _ in }
     /// Return·Esc·화살표를 가로챈다. `true` 를 돌려주면 텍스트 뷰는 처리하지 않는다.
@@ -23,14 +30,32 @@ struct MemoTextEditor: NSViewRepresentable {
         scrollView.autohidesScrollers = true
         scrollView.borderType = .noBorder
 
-        let textView = NSTextView()
+        let textView = MemoNSTextView()
         textView.delegate = context.coordinator
+        textView.onPasteImage = onPasteImage
+        textView.onPasteLink = onPasteLink
         textView.string = text
 
         textView.drawsBackground = false
         textView.isRichText = false
         textView.font = font
+        textView.textColor = Paper.inkNSColor
+        textView.insertionPointColor = Paper.inkNSColor
         textView.textContainerInset = insets
+
+        // 글줄 높이를 못박아 괘선 위에 앉게 한다. 종이의 줄 간격이 글자
+        // 크기에 따라 흔들리면 줄과 글이 어긋나 가짜처럼 보인다.
+        if let pitch = linePitch {
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.minimumLineHeight = pitch
+            paragraph.maximumLineHeight = pitch
+            textView.defaultParagraphStyle = paragraph
+            textView.typingAttributes = [
+                .font: font,
+                .paragraphStyle: paragraph,
+                .foregroundColor: Paper.inkNSColor,
+            ]
+        }
         textView.allowsUndo = true
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
@@ -45,13 +70,19 @@ struct MemoTextEditor: NSViewRepresentable {
 
         scrollView.documentView = textView
         context.coordinator.textView = textView
+        context.coordinator.stylesMarkdown = stylesMarkdown
+        context.coordinator.baseFont = font
+        context.coordinator.paragraph = textView.defaultParagraphStyle
+        context.coordinator.restyle(textView)
         return scrollView
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? NSTextView else { return }
         // 조합 보호 규칙은 MemoTextSync 에 있다 — 테스트가 그쪽을 지킨다.
-        MemoTextSync.apply(text, to: textView)
+        if MemoTextSync.apply(text, to: textView) {
+            context.coordinator.restyle(textView)
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -64,6 +95,24 @@ struct MemoTextEditor: NSViewRepresentable {
         private let onEdit: (String) -> Void
         private let onCommand: (Selector) -> Bool
         weak var textView: NSTextView?
+
+        var stylesMarkdown = false
+        var baseFont: NSFont = .systemFont(ofSize: Paper.bodySize)
+        var paragraph: NSParagraphStyle?
+
+        /// 마크다운 꾸밈을 다시 입힌다.
+        ///
+        /// **조합 중에는 하지 않는다.** 속성을 통째로 다시 까는 동안 조합
+        /// 밑줄이 지워져 한글 입력이 어디까지 됐는지 알 수 없게 된다.
+        func restyle(_ textView: NSTextView) {
+            guard stylesMarkdown, !textView.hasMarkedText(),
+                  let storage = textView.textStorage
+            else { return }
+
+            let selection = textView.selectedRange()
+            MarkdownStyler.apply(to: storage, baseFont: baseFont, paragraph: paragraph)
+            textView.setSelectedRange(selection)
+        }
 
         init(
             text: Binding<String>,
@@ -88,6 +137,7 @@ struct MemoTextEditor: NSViewRepresentable {
             guard let textView = notification.object as? NSTextView else { return }
             let current = textView.string
             text.wrappedValue = current
+            restyle(textView)
 
             // 조합 중인 자모는 아직 확정된 글자가 아니다. 그대로 저장하면
             // 파일에 "ㅊ" 같은 중간 상태가 남는다.
@@ -98,6 +148,8 @@ struct MemoTextEditor: NSViewRepresentable {
         /// 조합이 끝나거나 포커스를 잃을 때 마지막 상태를 확정한다.
         func textDidEndEditing(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
+            // 조합이 막 끝났으므로 이제 꾸밀 수 있다.
+            restyle(textView)
             onEdit(textView.string)
         }
     }

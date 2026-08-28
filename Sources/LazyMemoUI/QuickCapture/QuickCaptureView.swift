@@ -38,8 +38,8 @@ struct QuickCaptureView: View {
             hint
         }
         .frame(width: QuickCaptureController.width)
-        .background(Theme.paper(Theme.accent, radius: Theme.panelRadius))
-        .overlay(Theme.edge(Theme.accent, radius: Theme.panelRadius))
+        .background(Theme.paper(MemoColor.yellow.paper, radius: Theme.panelRadius))
+        .overlay(Theme.edge(radius: Theme.panelRadius))
         .animation(Theme.reveal, value: model.matches.count)
         .animation(Theme.reveal, value: model.selection)
         .animation(Theme.reveal, value: model.scheduleLabel)
@@ -61,6 +61,7 @@ struct QuickCaptureView: View {
                     text: $model.query,
                     font: .systemFont(ofSize: 19),
                     insets: NSSize(width: 0, height: 0),
+                    onPasteLink: { LinkLabel.markdown(for: $0) },
                     placeholder: "무엇이든",
                     onCommand: handle(command:)
                 )

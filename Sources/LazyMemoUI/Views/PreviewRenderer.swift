@@ -20,16 +20,22 @@ enum PreviewRenderer {
         let samples = await makeSamples(store: store)
         log("표본 완료")
 
+        // 모델을 먼저 만들고 잠깐 기다린다 — 붙인 사진을 파일에서 불러오는
+        // 일이 비동기라, 만들자마자 그리면 그림이 아직 없다.
+        let scheduled = NoteModel(memo: samples.scheduled, store: store)
+        let plain = NoteModel(memo: samples.plain, store: store)
+        try? await Task.sleep(for: .milliseconds(300))
+
         await render(
             name: "note",
             size: CGSize(width: 268, height: 200),
-            content: NoteView(model: NoteModel(memo: samples.scheduled, store: store), onClose: {}),
+            content: NoteView(model: scheduled, onClose: {}),
             into: directory
         )
         await render(
             name: "note-plain",
-            size: CGSize(width: 268, height: 160),
-            content: NoteView(model: NoteModel(memo: samples.plain, store: store), onClose: {}),
+            size: CGSize(width: 300, height: 430),
+            content: NoteView(model: plain, onClose: {}),
             into: directory
         )
 
@@ -74,8 +80,22 @@ enum PreviewRenderer {
             at: appointment, tags: ["병원"], color: .blue
         )) ?? Memo(body: "치과 예약")
 
+        // 마크다운 꾸밈과 붙여넣기 결과를 한 장에 담아 눈으로 확인한다.
+        let attachment = (try? store.attachments.save(samplePhoto(), fileExtension: "png")) ?? ""
         let plain = (try? await store.create(
-            body: "우유, 계란, 식빵\n세제도 떨어졌음", color: .yellow
+            body: """
+                ## 장보기
+                - [x] 우유
+                - [ ] **계란** 두 판
+                - [ ] 식빵
+
+                > 세제도 떨어졌음
+
+                [example.com/recipes](https://example.com/recipes)
+
+                ![](\(attachment))
+                """,
+            color: .yellow
         )) ?? Memo(body: "장보기")
 
         _ = try? await store.create(
@@ -87,6 +107,26 @@ enum PreviewRenderer {
         )
 
         return Samples(scheduled: scheduled, plain: plain)
+    }
+
+    /// 붙여넣기 결과를 그려 보기 위한 가짜 사진.
+    private static func samplePhoto() -> Data {
+        let size = NSSize(width: 320, height: 150)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        NSGradient(
+            starting: NSColor(calibratedRed: 0.42, green: 0.55, blue: 0.72, alpha: 1),
+            ending: NSColor(calibratedRed: 0.78, green: 0.66, blue: 0.52, alpha: 1)
+        )?.draw(in: NSRect(origin: .zero, size: size), angle: -60)
+        NSColor(calibratedWhite: 1, alpha: 0.85).setFill()
+        NSBezierPath(ovalIn: NSRect(x: 232, y: 96, width: 34, height: 34)).fill()
+        image.unlockFocus()
+
+        guard let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              let data = bitmap.representation(using: .png, properties: [:])
+        else { return Data() }
+        return data
     }
 
     // MARK: 렌더

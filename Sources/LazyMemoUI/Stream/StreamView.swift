@@ -23,8 +23,8 @@ struct StreamView: View {
             Divider().opacity(0.3).padding(.horizontal, Theme.normal)
             stream
         }
-        .background(Theme.paper(Theme.accent))
-        .overlay(Theme.edge(Theme.accent))
+        .background(Theme.paper(MemoColor.gray.paper))
+        .overlay(Theme.edge())
         .onHover { isHovering = $0 }
         .animation(Theme.reveal, value: isHovering)
         .task { await model.refresh() }

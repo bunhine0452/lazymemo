@@ -14,10 +14,14 @@ swift scripts/make-icon.swift --variant "${1:-b}" >/dev/null
 echo "▸ .icns 조립"
 iconutil --convert icns build/icon/AppIcon.iconset --output Resources/AppIcon.icns
 
+echo "▸ 종이 결"
+swift scripts/make-icon.swift --texture >/dev/null
+
 echo "▸ 미리보기"
 swift scripts/make-icon.swift --sheet >/dev/null
 
 echo
 echo "✓ Resources/AppIcon.icns"
 echo "✓ Sources/LazyMemoUI/Resources/MenuBarIcon.png"
+echo "✓ Sources/LazyMemoUI/Resources/PaperGrain.png"
 echo "  미리보기: build/icon/comparison.png"

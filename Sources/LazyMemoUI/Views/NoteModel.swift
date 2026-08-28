@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import LazyMemoCore
 import Observation
@@ -17,14 +18,81 @@ final class NoteModel {
     /// 길면 앱이 죽었을 때 잃는 양이 늘어난다.
     private static let autosaveDelay: Duration = .milliseconds(600)
 
+    /// 본문이 참조하는 사진들. 글 아래에 붙는다.
+    private(set) var images: [NoteImage] = []
+
     private let store: MemoStore
+    private let attachments: AttachmentStore
     private var saveTask: Task<Void, Never>?
+    private var loadTask: Task<Void, Never>?
     private var isDirty = false
 
     init(memo: Memo, store: MemoStore) {
         self.memo = memo
         self.text = memo.body
         self.store = store
+        self.attachments = store.attachments
+        reloadImages()
+    }
+
+    struct NoteImage: Identifiable, Equatable {
+        let path: String
+        let image: NSImage
+        var id: String { path }
+    }
+
+    // MARK: 붙여넣기
+
+    /// 사진을 Vault 안의 진짜 파일로 저장하고 본문에 넣을 마크다운을 돌려준다.
+    func markdown(forPastedImage data: Data, fileExtension: String) -> String? {
+        guard let path = try? attachments.save(data, fileExtension: fileExtension) else { return nil }
+        // 앞뒤로 줄을 띄운다. 그림이 글줄 사이에 끼어 있으면 읽기 나쁘다.
+        return "\n![](\(path))\n"
+    }
+
+    func markdown(forPastedLink url: URL) -> String {
+        LinkLabel.markdown(for: url)
+    }
+
+    /// 본문에서 사진 참조를 읽어 실제 파일을 불러온다.
+    ///
+    /// 큰 사진을 원본 크기로 들고 있으면 메모 열 장에 예산(§11)이 무너지므로
+    /// 화면에 필요한 크기로 줄여서 담는다.
+    private func reloadImages() {
+        let paths = MarkdownScanner.imagePaths(in: text)
+        guard paths != images.map(\.path) else { return }
+
+        loadTask?.cancel()
+        guard !paths.isEmpty else {
+            images = []
+            return
+        }
+
+        let store = attachments
+        loadTask = Task { [weak self] in
+            var loaded: [NoteImage] = []
+            for path in paths {
+                guard !Task.isCancelled,
+                      let url = store.url(for: path),
+                      let image = NSImage(contentsOf: url)
+                else { continue }
+                loaded.append(NoteImage(path: path, image: Self.thumbnail(image)))
+            }
+            guard !Task.isCancelled else { return }
+            self?.images = loaded
+        }
+    }
+
+    private static func thumbnail(_ image: NSImage, maxWidth: CGFloat = 480) -> NSImage {
+        guard image.size.width > maxWidth else { return image }
+        let scale = maxWidth / image.size.width
+        let size = NSSize(width: maxWidth, height: (image.size.height * scale).rounded())
+
+        let thumbnail = NSImage(size: size)
+        thumbnail.lockFocus()
+        image.draw(in: NSRect(origin: .zero, size: size))
+        thumbnail.unlockFocus()
+        return thumbnail
     }
 
     // MARK: 외부 변경 반영
@@ -35,13 +103,17 @@ final class NoteModel {
     func adopt(_ updated: Memo) {
         memo = updated
         guard !isDirty else { return }
-        if text != updated.body { text = updated.body }
+        if text != updated.body {
+            text = updated.body
+            reloadImages()
+        }
     }
 
     // MARK: 편집
 
     func edited(_ newText: String) {
         isDirty = true
+        reloadImages()
         saveTask?.cancel()
         saveTask = Task { [weak self] in
             try? await Task.sleep(for: Self.autosaveDelay)

@@ -25,6 +25,9 @@ public final class MemoStore {
         self.service = try MemoService(paths: paths)
     }
 
+    /// 사진 같은 첨부가 사는 곳. 메모 파일과 같은 Vault 안이다 (D4).
+    public var attachments: AttachmentStore { AttachmentStore(paths: paths) }
+
     // MARK: 생명주기
 
     /// 기동 시 한 번. 파일을 정본으로 삼아 인덱스를 맞추고 감시를 시작한다.

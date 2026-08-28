@@ -9,8 +9,12 @@ import SwiftUI
 /// 뷰마다 미리보기용 인자를 달고 다니지 않기 위해서다.
 struct MemoTextArea: View {
     @Binding var text: String
-    var font: NSFont = .systemFont(ofSize: 14)
+    var font: NSFont = .systemFont(ofSize: Paper.bodySize)
     var insets: NSSize = NSSize(width: 14, height: 6)
+    var linePitch: CGFloat?
+    var stylesMarkdown = false
+    var onPasteImage: ((Data, String) -> String?)?
+    var onPasteLink: ((URL) -> String?)?
     var placeholder: String
     var onEdit: (String) -> Void = { _ in }
     var onCommand: (Selector) -> Bool = { _ in false }
@@ -20,15 +24,20 @@ struct MemoTextArea: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             if rendersStatically {
-                Text(text)
+                staticText
                     .font(Font(font))
-                    .lineSpacing(Theme.bodyLineSpacing)
+                    // 괘선 간격을 그대로 흉내 낸다. 미리보기와 실제 화면의
+                    // 줄 위치가 어긋나면 괘선을 맞출 수가 없다.
+                    .lineSpacing(linePitch.map { $0 - font.ascender + font.descender } ?? Theme.bodyLineSpacing)
+                    .foregroundStyle(Paper.ink)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding(.horizontal, insets.width + 5)
                     .padding(.vertical, insets.height + 1)
             } else {
                 MemoTextEditor(
-                    text: $text, font: font, insets: insets,
+                    text: $text, font: font, insets: insets, linePitch: linePitch,
+                    stylesMarkdown: stylesMarkdown,
+                    onPasteImage: onPasteImage, onPasteLink: onPasteLink,
                     onEdit: onEdit, onCommand: onCommand
                 )
             }
@@ -36,12 +45,27 @@ struct MemoTextArea: View {
             if text.isEmpty {
                 Text(placeholder)
                     .font(Font(font))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Paper.ink.opacity(0.28))
                     .padding(.horizontal, insets.width + 5)
                     .padding(.vertical, insets.height + 1)
                     .allowsHitTesting(false)
             }
         }
+    }
+}
+
+extension MemoTextArea {
+    /// 화면 밖 렌더에서도 **실제 스타일러가 만든 것**을 보여준다.
+    ///
+    /// 평범한 `Text` 로 대체하면 배치는 확인할 수 있어도 마크다운 꾸밈이
+    /// 맞는지는 알 수 없다. 같은 `MarkdownStyler` 를 태워 속성 문자열을 만든 뒤
+    /// SwiftUI 로 건네면, 미리보기가 실제 편집기와 같은 것을 그린다.
+    fileprivate var staticText: Text {
+        guard stylesMarkdown else { return Text(text) }
+
+        let storage = NSTextStorage(string: text)
+        MarkdownStyler.apply(to: storage, baseFont: font, paragraph: nil)
+        return Text(AttributedString(storage))
     }
 }
 

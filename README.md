@@ -107,7 +107,7 @@ Claude 가 메모를 지울 수 있으므로, **영구 삭제하는 도구를 �
 ## 개발
 
 ```sh
-./scripts/test.sh                 # 단위 테스트 (96개)
+./scripts/test.sh                 # 단위 테스트 (115개)
 ./scripts/verify-notes.sh         # 바탕화면 창이 실제로 뜨는지
 ./scripts/verify-mcp.sh           # MCP 대화 전체 (15항목)
 ./scripts/verify-restore.sh       # 껐다 켠 뒤 복원
@@ -145,6 +145,8 @@ Sources/
 | 삭제 | 하드 삭제 없음. 휴지통 이동 + 복원 |
 | 편집기 | `NSTextView` — 한글 IME 조합을 OS 에 맡긴다 |
 | 캘린더 | 격자가 아니라 흐름. 오늘부터 아래로 |
+| 마크다운 | 치는 대로 꾸며지되 파일에는 원문 그대로 |
+| 첨부 | Vault 안의 진짜 파일. 상대 경로로 참조 |
 | 아이콘 | 코드로 그린다. 저장소에 정체 모를 바이너리를 두지 않는다 |
 
 ## 라이선스

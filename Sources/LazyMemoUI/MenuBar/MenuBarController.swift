@@ -86,7 +86,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         if NSApp.currentEvent?.type == .rightMouseUp {
             menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.minY - 4), in: button)
         } else {
-            capture.toggle()
+            // 클릭하면 뜬다. 토글이면 "안 떴나?" 싶어 한 번 더 눌렀을 때
+            // 도로 닫혀 고장난 것처럼 보인다.
+            capture.show()
         }
     }
 
@@ -197,7 +199,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private func swatch(_ color: MemoColor) -> NSImage {
         let size = NSSize(width: 10, height: 10)
         let image = NSImage(size: size, flipped: false) { rect in
-            NSColor(color.appKit).setFill()
+            NSColor(color.tint).setFill()
             NSBezierPath(ovalIn: rect).fill()
             return true
         }

@@ -340,6 +340,57 @@ func drawTemplateMark(_ context: CGContext, size: CGFloat) {
     context.restoreGState()
 }
 
+// MARK: - 종이 결
+
+/// 종이 표면의 결. 아주 옅은 잡티와 가로 섬유로 이루어진다.
+///
+/// 매끈한 단색 면은 아무리 색을 잘 골라도 화면 위의 사각형으로 보인다.
+/// 실제 종이는 빛을 고르지 않게 되받아치고, 그 불균질함이 "물건" 이라는
+/// 신호를 만든다. 타일로 이어 붙일 것이므로 이음매가 생기지 않게 **위치에
+/// 의존하지 않는 잡음**만 쓴다.
+func renderPaperGrain(size: Int = 160, seed: UInt64 = 0x1A2B_2E3D) -> CGImage? {
+    guard let context = CGContext(
+        data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    ) else { return nil }
+
+    // 재현 가능한 난수. 같은 결이 매번 나와야 diff 가 의미를 갖는다.
+    var state = seed
+    func random() -> Double {
+        state ^= state << 13
+        state ^= state >> 7
+        state ^= state << 17
+        return Double(state % 100_000) / 100_000
+    }
+
+    // 잡티
+    for y in 0..<size {
+        for x in 0..<size {
+            let value = random()
+            guard value > 0.55 else { continue }
+            let dark = value > 0.775
+            let alpha = (value - 0.55) * 0.14
+            context.setFillColor(CGColor(gray: dark ? 0 : 1, alpha: alpha))
+            context.fill(CGRect(x: x, y: y, width: 1, height: 1))
+        }
+    }
+
+    // 가로 섬유. 종이는 결이 한 방향으로 눕는다.
+    context.setLineWidth(1)
+    for _ in 0..<(size / 4) {
+        let y = random() * Double(size)
+        let length = 6 + random() * 28
+        let x = random() * Double(size)
+        context.setStrokeColor(CGColor(gray: random() > 0.5 ? 0 : 1, alpha: 0.035))
+        context.move(to: CGPoint(x: x, y: y))
+        context.addLine(to: CGPoint(x: x + length, y: y))
+        context.strokePath()
+    }
+
+    return context.makeImage()
+}
+
 // MARK: - 출력
 
 func makeContext(size: CGFloat) -> CGContext? {
@@ -428,6 +479,15 @@ func renderComparisonSheet() -> CGImage? {
 let arguments = CommandLine.arguments
 let outputDirectory = URL(filePath: FileManager.default.currentDirectoryPath)
     .appending(path: "build/icon", directoryHint: .isDirectory)
+
+if arguments.contains("--texture") {
+    guard let grain = renderPaperGrain() else { exit(1) }
+    let url = URL(filePath: FileManager.default.currentDirectoryPath)
+        .appending(path: "Sources/LazyMemoUI/Resources/PaperGrain.png")
+    try write(grain, to: url)
+    print(url.path(percentEncoded: false))
+    exit(0)
+}
 
 if arguments.contains("--sheet") {
     guard let sheet = renderComparisonSheet() else { exit(1) }
