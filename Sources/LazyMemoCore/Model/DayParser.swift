@@ -99,23 +99,38 @@ enum DayParser {
     ) -> Result? {
         guard let day = TimeWords.first(of: TimeWords.weekdays, in: text) else { return nil }
 
-        let week = TimeWords.first(of: TimeWords.weekModifiers, in: text)
+        let week = weekShift(for: day, in: text)
         let today = calendar.component(.weekday, from: now)
         var forward = (day.value - today + 7) % 7
-        forward += (week?.value ?? 0) * 7
+        forward += week.weeks * 7
 
         guard let date = calendar.date(byAdding: .day, value: forward, to: now) else { return nil }
-        return Result(
-            date: CalendarDate(date, calendar: calendar),
-            phrases: phrases(joining: week, and: day, in: text)
-        )
+        return Result(date: CalendarDate(date, calendar: calendar), phrases: week.phrases)
+    }
+
+    /// 요일 앞에 붙어 주를 옮기는 말. `다음 주 화요일` · `next friday` · `下周一`
+    private static func weekShift(
+        for day: TimeWords.Match<Int>, in text: String
+    ) -> (weeks: Int, phrases: [String]) {
+        if let week = TimeWords.first(of: TimeWords.weekModifiers, in: text) {
+            return (week.value, phrases(joining: week, and: day, in: text))
+        }
+
+        // 혼자서는 아무 뜻도 아닌 말들 — "next friday" 의 next. 요일에 딱 붙어
+        // 있을 때만 센다.
+        let head = String(text[..<day.range.lowerBound])
+        if let prefix = TimeWords.last(of: TimeWords.weekdayPrefixes, in: head),
+           head[prefix.range.upperBound...].allSatisfy(\.isWhitespace) {
+            return (prefix.value, [prefix.text, day.text])
+        }
+
+        return (0, [day.text])
     }
 
     /// 주 표현과 요일이 `下周一` 처럼 붙어 있으면 한 조각으로 덜어낸다.
     private static func phrases(
-        joining week: TimeWords.Match<Int>?, and day: TimeWords.Match<Int>, in text: String
+        joining week: TimeWords.Match<Int>, and day: TimeWords.Match<Int>, in text: String
     ) -> [String] {
-        guard let week else { return [day.text] }
         guard week.range.overlaps(day.range) else { return [week.text, day.text] }
         let joined = min(week.range.lowerBound, day.range.lowerBound)
             ..< max(week.range.upperBound, day.range.upperBound)

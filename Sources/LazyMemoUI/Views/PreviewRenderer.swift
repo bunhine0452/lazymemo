@@ -69,13 +69,13 @@ enum PreviewRenderer {
             into: directory
         )
 
-        let stream = StreamModel(store: store)
-        await stream.refresh()
-        log("stream.days=\(stream.days.count)")
+        let calendar = CalendarModel(store: store)
+        await calendar.refresh()
+        log("calendar.days=\(calendar.byDay.count)")
         await render(
-            name: "stream",
-            size: CGSize(width: 268, height: 420),
-            content: StreamView(model: stream, onClose: {}, onSelectMemo: { _ in }),
+            name: "calendar",
+            size: CGSize(width: 300, height: 440),
+            content: CalendarView(model: calendar, onClose: {}, onSelectMemo: { _ in }),
             into: directory
         )
     }
@@ -148,6 +148,28 @@ enum PreviewRenderer {
         _ = try? await store.create(
             body: "치과 정기검진 예약하기",
             due: CalendarDate(year: 2026, month: 8, day: 20), color: .green
+        )
+
+        // 오늘 칸은 넷 이상으로 채운다 — 점 셋과 "많다" 막대, 그리고 아래 판의
+        // 여러 줄이 한 장에서 함께 확인되어야 한다.
+        let today = CalendarDate(Date(), calendar: calendar)
+        for (hour, minute, body, color) in [
+            (9, 30, "팀 회의", MemoColor.purple),
+            (13, 0, "은행 — 통장 정리", MemoColor.green),
+            (19, 0, "저녁 약속", MemoColor.pink),
+        ] {
+            _ = try? await store.create(
+                body: body,
+                at: calendar.date(from: DateComponents(
+                    year: today.year, month: today.month, day: today.day,
+                    hour: hour, minute: minute
+                )),
+                color: color
+            )
+        }
+        _ = try? await store.create(body: "분리수거", due: today, color: .gray)
+        _ = try? await store.create(
+            body: "전기요금", due: today.adding(days: 3, calendar: calendar), color: .yellow
         )
 
         return Samples(scheduled: scheduled, plain: plain)

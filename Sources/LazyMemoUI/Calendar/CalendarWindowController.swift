@@ -3,16 +3,19 @@ import LazyMemoCore
 import Observation
 import SwiftUI
 
-/// 「흐름」 창.
+/// 「달력」 창.
 ///
 /// 메모 창과 같은 규칙을 쓴다 (`DesktopLevelWindow`). 좌표는 `layout.json` 에
-/// `stream` 키로 남는다 — 메모가 아니므로 ULID 키를 쓰지 않는다.
+/// `calendar` 키로 남는다 — 메모가 아니므로 ULID 키를 쓰지 않는다.
 @MainActor
-final class StreamWindowController: NSObject, NSWindowDelegate {
-    private static let layoutKey = "stream"
-    private static let defaultSize = NSSize(width: 268, height: 420)
+final class CalendarWindowController: NSObject, NSWindowDelegate {
+    private static let layoutKey = "calendar"
+    /// 일곱 칸이 손가락으로 겨냥할 만한 크기가 되는 최소 폭에서 시작한다.
+    /// 여기서 더 좁히면 끌어다 놓기가 조준 게임이 된다.
+    private static let defaultSize = NSSize(width: 300, height: 440)
+    private static let minimumSize = NSSize(width: 272, height: 340)
 
-    private let model: StreamModel
+    private let model: CalendarModel
     private let layouts: LayoutStore
     private let store: MemoStore
     private let onSelectMemo: (ULID) -> Void
@@ -20,14 +23,14 @@ final class StreamWindowController: NSObject, NSWindowDelegate {
 
     init(store: MemoStore, layouts: LayoutStore, onSelectMemo: @escaping (ULID) -> Void) {
         self.store = store
-        self.model = StreamModel(store: store)
+        self.model = CalendarModel(store: store)
         self.layouts = layouts
         self.onSelectMemo = onSelectMemo
         super.init()
         observeStore()
     }
 
-    /// 일정은 별도 타입이 아니라 메모의 필드다 (§10). 메모가 바뀌면 흐름도 바뀐다.
+    /// 일정은 별도 타입이 아니라 메모의 필드다 (§10). 메모가 바뀌면 달력도 바뀐다.
     private func observeStore() {
         withObservationTracking {
             _ = store.memos
@@ -48,8 +51,9 @@ final class StreamWindowController: NSObject, NSWindowDelegate {
 
         let frame = resolveFrame()
         let window = DesktopLevelWindow(contentRect: frame)
+        window.minSize = Self.minimumSize
 
-        let hosting = FirstMouseHostingView(rootView: StreamView(
+        let hosting = FirstMouseHostingView(rootView: CalendarView(
             model: model,
             onClose: { [weak self] in self?.close() },
             onSelectMemo: onSelectMemo

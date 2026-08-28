@@ -17,7 +17,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let windows: NoteWindowManager
     private let spike = DesktopWindowSpike()
     private let capture: QuickCaptureController
-    private let stream: StreamWindowController
+    private let calendar: CalendarWindowController
     private let hotkey = HotkeyManager()
     private let recorder = HotkeyRecorder()
     private let settings: SettingsStore
@@ -38,7 +38,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         self.windows = windows
         self.settings = settings
         self.capture = QuickCaptureController(store: store, windows: windows)
-        self.stream = StreamWindowController(
+        self.calendar = CalendarWindowController(
             store: store, layouts: layouts,
             onSelectMemo: { [weak windows] id in windows?.reveal(id) }
         )
@@ -75,7 +75,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     func openSpike() { spike.open() }
 
-    func openStream() { stream.open() }
+    func openCalendar() { calendar.open() }
 
     /// 성능 예산 측정용 진입점 (`scripts/measure-capture.sh`).
     var captureLatency: Duration? { capture.lastLatency }
@@ -139,9 +139,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(item(title: "빈 메모 만들기", action: #selector(newMemo), key: ""))
         menu.addItem(.separator())
 
-        let streamItem = item(title: "흐름", action: #selector(toggleStream), key: "")
-        streamItem.state = stream.isOpen ? .on : .off
-        menu.addItem(streamItem)
+        let calendarItem = item(title: "달력", action: #selector(toggleCalendar), key: "")
+        calendarItem.state = calendar.isOpen ? .on : .off
+        menu.addItem(calendarItem)
         menu.addItem(.separator())
 
         addMemoList(to: menu)
@@ -312,7 +312,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
     }
 
-    @objc private func toggleStream() { stream.toggle() }
+    @objc private func toggleCalendar() { calendar.toggle() }
 
     @objc private func toggleSpike() { spike.toggle() }
 

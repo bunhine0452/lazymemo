@@ -55,7 +55,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 menuBar.openSpike()
             }
             if environment["LAZYMEMO_CALENDAR"] == "1" {
-                menuBar.openStream()
+                menuBar.openCalendar()
             }
             // `{#capture-over-apps}` — 다른 앱이 앞에 있는 상태에서 상자가
             // 실제로 화면에 오르는지 검증하기 위한 통로 (`verify-capture.sh`).

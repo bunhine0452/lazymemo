@@ -119,6 +119,17 @@ enum TimeWords {
         Word("上个星期", -1), Word("上星期", -1), Word("上周", -1), Word("上週", -1),
     ]
 
+    /// 요일 **바로 앞**에 붙어 주를 옮기는 말. `next friday` · `다음 화요일`
+    ///
+    /// "다음 주" 같은 온전한 표현과 따로 두는 이유: 이 말들은 혼자 쓰이면
+    /// 아무 뜻도 아니다. 요일에 붙어 있을 때만 본다.
+    static let weekdayPrefixes: [Word<Int>] = [
+        Word("다음", 1), Word("담", 1), Word("이번", 0), Word("지난", -1), Word("저번", -1),
+        Word("next", 1), Word("this", 0), Word("last", -1),
+        Word("来", 1), Word("來", 1), Word("今", 0), Word("先", -1),
+        Word("下", 1), Word("上", -1), Word("这", 0), Word("這", 0), Word("本", 0),
+    ]
+
     /// `다음 달` · `next month` · `来月` · `下个月` — 이번 달로부터 몇 달.
     static let monthModifiers: [Word<Int>] = [
         Word("다음 달", 1), Word("다음달", 1), Word("담달", 1),
