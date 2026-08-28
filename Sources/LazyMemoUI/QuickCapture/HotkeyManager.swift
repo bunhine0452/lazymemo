@@ -1,0 +1,95 @@
+import AppKit
+import Carbon.HIToolbox
+
+/// 전역 단축키 등록 (설계문서 §8).
+///
+/// Carbon `RegisterEventHotKey` 를 쓰는 이유는 **권한이 필요 없기 때문**이다.
+/// `CGEventTap` 은 손쉬운 사용 권한을 요구하는데, 메모 앱이 첫 실행에서
+/// 시스템 설정으로 사용자를 보내면 "게으름 타파"라는 전제가 무너진다.
+@MainActor
+final class HotkeyManager {
+    /// 기본 단축키 ⌥⌘N.
+    ///
+    /// 한국어 사용자의 손에 익은 조합을 피해서 골랐다 — ⌘Space(Spotlight),
+    /// ⌃Space·⌃⌥Space(입력 소스 전환)는 건드리면 안 된다.
+    static let defaultKeyCode = UInt32(kVK_ANSI_N)
+    static let defaultModifiers = UInt32(optionKey | cmdKey)
+
+    private static let signature = OSType(0x4C5A4D4F)   // 'LZMO'
+    private static var handlers: [UInt32: () -> Void] = [:]
+    private static var nextID: UInt32 = 1
+    private static var eventHandler: EventHandlerRef?
+
+    private var hotKeyRef: EventHotKeyRef?
+    private var identifier: UInt32?
+
+    /// - Returns: 등록에 성공했으면 `true`. 다른 앱이 같은 조합을 이미 쓰고 있으면 실패한다.
+    @discardableResult
+    func register(
+        keyCode: UInt32 = HotkeyManager.defaultKeyCode,
+        modifiers: UInt32 = HotkeyManager.defaultModifiers,
+        action: @escaping () -> Void
+    ) -> Bool {
+        unregister()
+        Self.installEventHandlerIfNeeded()
+
+        let identifier = Self.nextID
+        Self.nextID += 1
+
+        var reference: EventHotKeyRef?
+        let status = RegisterEventHotKey(
+            keyCode,
+            modifiers,
+            EventHotKeyID(signature: Self.signature, id: identifier),
+            GetEventDispatcherTarget(),
+            0,
+            &reference
+        )
+
+        guard status == noErr, let reference else { return false }
+
+        Self.handlers[identifier] = action
+        self.hotKeyRef = reference
+        self.identifier = identifier
+        return true
+    }
+
+    func unregister() {
+        if let hotKeyRef { UnregisterEventHotKey(hotKeyRef) }
+        if let identifier { Self.handlers.removeValue(forKey: identifier) }
+        hotKeyRef = nil
+        identifier = nil
+    }
+
+    /// Carbon 핸들러는 프로세스에 하나면 된다. 눌린 hotkey id 로 갈라 준다.
+    private static func installEventHandlerIfNeeded() {
+        guard eventHandler == nil else { return }
+
+        var spec = EventTypeSpec(
+            eventClass: OSType(kEventClassKeyboard),
+            eventKind: UInt32(kEventHotKeyPressed)
+        )
+
+        InstallEventHandler(
+            GetEventDispatcherTarget(),
+            { _, event, _ -> OSStatus in
+                var pressed = EventHotKeyID()
+                let status = GetEventParameter(
+                    event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
+                    nil, MemoryLayout<EventHotKeyID>.size, nil, &pressed
+                )
+                guard status == noErr else { return status }
+
+                // Carbon 이벤트는 메인 런루프에서 도착한다.
+                MainActor.assumeIsolated {
+                    HotkeyManager.handlers[pressed.id]?()
+                }
+                return noErr
+            },
+            1, &spec, nil, &eventHandler
+        )
+    }
+
+    /// 사용자에게 보여줄 표기 (⌥⌘N).
+    static var displayName: String { "⌥⌘N" }
+}

@@ -1,0 +1,22 @@
+# oculpm:begin v1
+.oculpm/index/
+.oculpm/hooks/
+.oculpm/.lock
+.oculpm/.schema-version
+.oculpm/oculpm.log
+.oculpm.backup-*/
+# oculpm:end
+
+# Swift / SPM
+.build/
+.swiftpm/
+Packages/
+*.xcodeproj
+*.xcworkspace
+
+# 빌드 산출물
+dist/
+*.app/
+
+# macOS
+.DS_Store

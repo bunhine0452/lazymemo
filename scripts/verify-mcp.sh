@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# {#mcp-server} 자동 검증 — JSON-RPC 대화를 통째로 흘려보내고 응답을 확인한다.
+#
+# 임시 Vault 를 쓰므로 실제 메모를 건드리지 않는다.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+VAULT="$(mktemp -d)/lazymemo-mcp"
+trap 'rm -rf "$VAULT"' EXIT
+
+swift build >/dev/null
+BIN="$(swift build --show-bin-path)/lazymemo-mcp"
+
+OUT="$(LAZYMEMO_VAULT="$VAULT" "$BIN" 2>/dev/null <<'JSONL'
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"verify","version":"0"}}}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"jsonrpc":"2.0","id":2,"method":"tools/list"}
+{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"create_memo","arguments":{"text":"치과 예약 — 강남역 3번 출구","at":"2026-09-01T14:00:00+09:00","tags":["병원"],"color":"blue"}}}
+{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"create_memo","arguments":{"text":"장보기 목록"}}}
+{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"list_memos","arguments":{"query":"강남역"}}}
+{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"list_memos","arguments":{"from":"2026-09-01","to":"2026-09-30"}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"list_memos","arguments":{"tag":"병원"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"create_memo","arguments":{"due":"틀린날짜"}}}
+{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"nonexistent_tool","arguments":{}}}
+{"jsonrpc":"2.0","id":10,"method":"unknown/method"}
+JSONL
+)"
+
+echo "$OUT" > "$VAULT/responses.jsonl"
+
+check() {
+    local label="$1" expr="$2"
+    if echo "$OUT" | /usr/bin/python3 -c "
+import json,sys
+lines=[json.loads(l) for l in sys.stdin if l.strip()]
+by_id={r.get('id'):r for r in lines}
+sys.exit(0 if ($expr) else 1)
+"; then
+        echo "  ✓ $label"
+    else
+        echo "  ✗ $label"
+        FAILED=1
+    fi
+}
+
+FAILED=0
+echo "▸ MCP 대화 검증"
+
+check "initialize 가 프로토콜 버전을 되돌려준다" \
+    "by_id[1]['result']['protocolVersion']=='2025-06-18'"
+check "tools/list 가 도구 6개를 노출한다" \
+    "len(by_id[2]['result']['tools'])==6"
+check "하드 삭제 도구가 없다 (D6)" \
+    "not any('purge' in t['name'] or 'permanently' in t['name'] for t in by_id[2]['result']['tools'])"
+check "create_memo 가 id 를 돌려준다" \
+    "len(json.loads(by_id[3]['result']['content'][0]['text'])[0]['id'])==26"
+check "한글 전문 검색이 만든 메모를 찾는다" \
+    "len(json.loads(by_id[5]['result']['content'][0]['text']))==1"
+check "날짜 범위 조회가 at 을 가진 메모만 돌려준다" \
+    "len(json.loads(by_id[6]['result']['content'][0]['text']))==1"
+check "태그 필터가 동작한다" \
+    "json.loads(by_id[7]['result']['content'][0]['text'])[0]['tags']==['병원']"
+check "잘못된 날짜는 isError 로 돌려준다 (프로토콜 오류 아님)" \
+    "by_id[8]['result']['isError'] is True"
+check "없는 도구도 isError 로 돌려준다" \
+    "by_id[9]['result']['isError'] is True"
+check "모르는 메서드는 JSON-RPC 오류다" \
+    "by_id[10]['error']['code']==-32601"
+check "알림에는 응답하지 않는다" \
+    "len(lines)==10"
+
+# 삭제 → 휴지통 → 복원 왕복
+MEMO_ID="$(echo "$OUT" | /usr/bin/python3 -c "
+import json,sys
+lines=[json.loads(l) for l in sys.stdin if l.strip()]
+print(json.loads([r for r in lines if r.get('id')==3][0]['result']['content'][0]['text'])[0]['id'])
+")"
+
+OUT2="$(LAZYMEMO_VAULT="$VAULT" "$BIN" 2>/dev/null <<JSONL
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"delete_memo","arguments":{"id":"$MEMO_ID"}}}
+{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_trash","arguments":{}}}
+{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"list_memos","arguments":{}}}
+{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"restore_memo","arguments":{"id":"$MEMO_ID"}}}
+{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"list_memos","arguments":{}}}
+JSONL
+)"
+
+OUT="$OUT2"
+check "delete_memo 후 휴지통에 남아 있다" \
+    "len(json.loads(by_id[3]['result']['content'][0]['text']))==1"
+check "삭제한 메모는 목록에서 빠진다" \
+    "len(json.loads(by_id[4]['result']['content'][0]['text']))==1"
+check "restore_memo 로 되돌아온다" \
+    "len(json.loads(by_id[6]['result']['content'][0]['text']))==2"
+
+# 파일이 실제로 남아 있는지 (하드 삭제가 아니었음을 파일 시스템에서 확인)
+if [ -n "$(find "$VAULT/vault" -name '*.md' | head -1)" ]; then
+    echo "  ✓ 정본 마크다운 파일이 디스크에 남아 있다"
+else
+    echo "  ✗ 마크다운 파일이 없다"
+    FAILED=1
+fi
+
+echo
+[ "$FAILED" -eq 0 ] && echo "✓ MCP 서버 검증 통과" || { echo "✗ 실패한 항목이 있습니다"; exit 1; }
