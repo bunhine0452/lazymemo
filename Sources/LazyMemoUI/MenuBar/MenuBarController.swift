@@ -17,7 +17,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let windows: NoteWindowManager
     private let spike = DesktopWindowSpike()
     private let capture: QuickCaptureController
-    private let calendar: CalendarWindowController
+    private let stream: StreamWindowController
     private let hotkey = HotkeyManager()
     private let menu = NSMenu()
 
@@ -29,7 +29,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         self.store = store
         self.windows = windows
         self.capture = QuickCaptureController(store: store, windows: windows)
-        self.calendar = CalendarWindowController(
+        self.stream = StreamWindowController(
             store: store, layouts: layouts,
             onSelectMemo: { [weak windows] id in windows?.reveal(id) }
         )
@@ -42,32 +42,43 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // 메뉴를 statusItem.menu 에 걸면 좌클릭이 메뉴에 잡혀 빠른 입력이 막힌다.
         // 좌클릭 = 빠른 입력, 우클릭 = 메뉴로 나눈다.
         hotkeyAvailable = hotkey.register { [weak self] in
-            self?.toggleCapture()
+            self?.capture.toggle()
         }
     }
 
     func openSpike() { spike.open() }
 
-    func openCalendar() { calendar.open() }
+    func openStream() { stream.open() }
 
     /// 성능 예산 측정용 진입점 (`scripts/measure-capture.sh`).
     var captureLatency: Duration? { capture.lastLatency }
 
     func showCaptureForMeasurement() {
-        guard let button = statusItem.button else { return }
-        capture.show(from: button)
+        capture.show()
     }
 
     func closeCapture() { capture.close() }
 
     private func configureButton() {
         guard let button = statusItem.button else { return }
-        button.image = NSImage(systemSymbolName: "note.text", accessibilityDescription: "lazymemo")
-        button.image?.isTemplate = true
+        button.image = Self.menuBarIcon()
         button.toolTip = "lazymemo — \(HotkeyManager.displayName) 로 빠른 입력"
         button.target = self
         button.action = #selector(statusItemClicked)
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+    }
+
+    /// 앱 마크. 3배 해상도 한 장을 18pt 로 줄여 쓴다 — 표현을 여러 개
+    /// 관리하지 않아도 되고, template 로 두면 시스템이 색과 강조를 처리한다.
+    private static func menuBarIcon() -> NSImage? {
+        guard let image = Bundle.module.image(forResource: "MenuBarIcon") else {
+            // 리소스를 못 찾아도 메뉴바가 비지 않게 한다.
+            return NSImage(systemSymbolName: "note.text", accessibilityDescription: "lazymemo")
+        }
+        image.size = NSSize(width: 18, height: 18)
+        image.isTemplate = true
+        image.accessibilityDescription = "lazymemo"
+        return image
     }
 
     @objc private func statusItemClicked() {
@@ -75,13 +86,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         if NSApp.currentEvent?.type == .rightMouseUp {
             menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.minY - 4), in: button)
         } else {
-            capture.toggle(from: button)
+            capture.toggle()
         }
-    }
-
-    private func toggleCapture() {
-        guard let button = statusItem.button else { return }
-        capture.toggle(from: button)
     }
 
     // MARK: 메뉴 — 열 때마다 다시 짓는다
@@ -99,9 +105,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(item(title: "빈 메모 만들기", action: #selector(newMemo), key: ""))
         menu.addItem(.separator())
 
-        let calendarItem = item(title: "캘린더", action: #selector(toggleCalendar), key: "")
-        calendarItem.state = calendar.isOpen ? .on : .off
-        menu.addItem(calendarItem)
+        let streamItem = item(title: "흐름", action: #selector(toggleStream), key: "")
+        streamItem.state = stream.isOpen ? .on : .off
+        menu.addItem(streamItem)
         menu.addItem(.separator())
 
         addMemoList(to: menu)
@@ -200,7 +206,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     // MARK: 동작
 
-    @objc private func openCapture() { toggleCapture() }
+    @objc private func openCapture() { capture.toggle() }
 
     @objc private func newMemo() {
         Task {
@@ -222,7 +228,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
     }
 
-    @objc private func toggleCalendar() { calendar.toggle() }
+    @objc private func toggleStream() { stream.toggle() }
 
     @objc private func toggleSpike() { spike.toggle() }
 

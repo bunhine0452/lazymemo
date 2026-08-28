@@ -46,7 +46,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 menuBar.openSpike()
             }
             if environment["LAZYMEMO_CALENDAR"] == "1" {
-                menuBar.openCalendar()
+                menuBar.openStream()
+            }
+            if let path = environment["LAZYMEMO_RENDER"], !path.isEmpty {
+                await PreviewRenderer.renderAll(
+                    into: URL(filePath: path, directoryHint: .isDirectory), store: store
+                )
+                // 저장할 것이 없는 렌더 전용 모드다. `NSApp.terminate` 는
+                // 이 자리(비동기 Task 안)에서 델리게이트를 부르지 못하고 멈춘다.
+                exit(0)
             }
             if let rounds = environment["LAZYMEMO_MEASURE"].flatMap(Int.init), rounds > 0 {
                 await Self.measureQuickCapture(rounds: rounds, menuBar: menuBar)
@@ -93,14 +101,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
               let worst = milliseconds.last
         else {
             print("측정 실패 — 표본이 없습니다")
-            NSApp.terminate(nil)
-            return
+            exit(0)
         }
 
         print(String(format: "표본 %d회  최소 %.1fms  중앙값 %.1fms  최대 %.1fms",
                      milliseconds.count, best, median, worst))
         print(median <= 150 ? "✓ 목표 150ms 이내" : "✗ 목표 150ms 초과")
-        NSApp.terminate(nil)
+        // 측정 모드도 같은 이유로 곧장 나간다.
+        exit(0)
     }
 
     /// 저장소를 못 여는 상황은 복구 경로가 없다 — 조용히 죽지 않고 이유를 보여준 뒤 종료한다.

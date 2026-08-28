@@ -29,7 +29,8 @@ let package = Package(
         .target(
             name: "LazyMemoUI",
             dependencies: ["LazyMemoCore"],
-            path: "Sources/LazyMemoUI"
+            path: "Sources/LazyMemoUI",
+            resources: [.process("Resources")]
         ),
         // 도메인·저장 계층 — AppKit 비의존. 테스트와 MCP 서버가 공유한다.
         .target(

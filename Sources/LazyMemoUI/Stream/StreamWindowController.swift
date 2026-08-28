@@ -3,31 +3,31 @@ import LazyMemoCore
 import Observation
 import SwiftUI
 
-/// 바탕화면 달력 창.
+/// 「흐름」 창.
 ///
-/// 메모 창과 같은 레벨·같은 규칙을 쓴다 (`DesktopLevelWindow`). 좌표는
-/// `layout.json` 에 `calendar` 키로 남는다 — 메모가 아니므로 ULID 키를 쓰지 않는다.
+/// 메모 창과 같은 규칙을 쓴다 (`DesktopLevelWindow`). 좌표는 `layout.json` 에
+/// `stream` 키로 남는다 — 메모가 아니므로 ULID 키를 쓰지 않는다.
 @MainActor
-final class CalendarWindowController: NSObject, NSWindowDelegate {
-    private static let layoutKey = "calendar"
-    private static let defaultSize = NSSize(width: 300, height: 300)
+final class StreamWindowController: NSObject, NSWindowDelegate {
+    private static let layoutKey = "stream"
+    private static let defaultSize = NSSize(width: 268, height: 420)
 
-    private let model: CalendarModel
+    private let model: StreamModel
     private let layouts: LayoutStore
-    private var window: DesktopLevelWindow?
-    private let onSelectMemo: (ULID) -> Void
     private let store: MemoStore
+    private let onSelectMemo: (ULID) -> Void
+    private var window: DesktopLevelWindow?
 
     init(store: MemoStore, layouts: LayoutStore, onSelectMemo: @escaping (ULID) -> Void) {
         self.store = store
-        self.model = CalendarModel(store: store)
+        self.model = StreamModel(store: store)
         self.layouts = layouts
         self.onSelectMemo = onSelectMemo
         super.init()
         observeStore()
     }
 
-    /// 일정은 별도 타입이 아니라 메모의 필드다 (§10). 메모가 바뀌면 달력도 바뀐다.
+    /// 일정은 별도 타입이 아니라 메모의 필드다 (§10). 메모가 바뀌면 흐름도 바뀐다.
     private func observeStore() {
         withObservationTracking {
             _ = store.memos
@@ -41,9 +41,7 @@ final class CalendarWindowController: NSObject, NSWindowDelegate {
 
     var isOpen: Bool { window != nil }
 
-    func toggle() {
-        isOpen ? close() : open()
-    }
+    func toggle() { isOpen ? close() : open() }
 
     func open() {
         guard window == nil else { return }
@@ -51,7 +49,7 @@ final class CalendarWindowController: NSObject, NSWindowDelegate {
         let frame = resolveFrame()
         let window = DesktopLevelWindow(contentRect: frame)
 
-        let hosting = NSHostingView(rootView: CalendarView(
+        let hosting = NSHostingView(rootView: StreamView(
             model: model,
             onClose: { [weak self] in self?.close() },
             onSelectMemo: onSelectMemo
@@ -74,7 +72,6 @@ final class CalendarWindowController: NSObject, NSWindowDelegate {
         window = nil
     }
 
-    /// 메모가 바뀌면 달력도 다시 그려야 한다 — 일정은 메모의 필드일 뿐이다.
     func refresh() {
         guard isOpen else { return }
         Task { await model.refresh() }

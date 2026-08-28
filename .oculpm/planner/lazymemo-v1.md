@@ -97,4 +97,6 @@ discussion/lazymemo-계획서 의 결론(C + E-1 + F-1 + G/H + I-1)을 실행 �
 | 2026-08-28T17:44:34+09:00 | #eventkit-readonly | claude-code | ☐→> | .oculpm/journal/20260828/Features_to_add/1743_feature_desktop-calendar-view.md | D5 대로 후순위 유지. 자체 캘린더 뷰로 v1 요구는 충족됨 |
 | 2026-08-28T17:44:39+09:00 | #cli-fallback | claude-code | ☐→> | .oculpm/journal/20260828/Features_to_add/1734_feature_mcp-server-stdio.md | F-2 후순위 유지. MCP 방향만으로 v1 LLM 요구가 충족돼 아직 필요가 없다 |
 | 2026-08-28T17:44:45+09:00 | #homebrew | claude-code | ☐→> | .oculpm/journal/20260828/Chores/1743_chore_perf-restore-verification-and-docs.md | D7 대로 사용자가 늘면. 지금은 소스 빌드 경로로 충분하다 |
+| 2026-08-28T19:10:01+09:00 | #visual-design | claude-code | x→x | .oculpm/journal/20260828/Features_to_add/1909_feature_app-icon-and-visual-language.md | 아이콘 신규 + UI 전면 재디자인. 유리를 걷어내고 종이로, 레이어 정리로 RSS 87.7MB |
+| 2026-08-28T19:38:25+09:00 | #calendar-view | claude-code | x→x | .oculpm/journal/20260828/Features_to_add/1938_feature_design-philosophy-and-ui-overhaul.md | 월 격자를 버리고 「흐름」으로 대체. 점 스트립이 조망을 맡는다 |
 <!-- oculpm:plan-log end -->

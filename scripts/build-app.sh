@@ -24,6 +24,9 @@ cp "$BIN_PATH/LazyMemo" "$APP/Contents/MacOS/LazyMemo"
 # swift build 산출물이면 리빌드나 clean 에 끊어진다 (설계문서 §9).
 cp "$BIN_PATH/lazymemo-mcp" "$APP/Contents/MacOS/lazymemo-mcp"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+# SPM 이 만든 리소스 번들(메뉴바 아이콘)도 함께 넣는다.
+cp -R "$BIN_PATH"/*.bundle "$APP/Contents/Resources/" 2>/dev/null || true
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 # ad-hoc 서명. 유료 개발자 계정 없이 로컬 실행에 필요한 전부다 (설계문서 §12).

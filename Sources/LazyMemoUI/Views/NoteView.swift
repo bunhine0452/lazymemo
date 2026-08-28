@@ -1,10 +1,13 @@
 import LazyMemoCore
 import SwiftUI
 
-/// 바탕화면에 떠 있는 메모 한 장.
+/// 바탕화면에 놓인 메모 한 장.
 ///
-/// 조작 버튼은 평소에 숨어 있다가 포인터가 올라오면 나타난다 — 메모가 열 장
-/// 떠 있어도 화면이 버튼밭이 되지 않아야 한다.
+/// **기본 상태는 글자와 종이뿐이다** (철학 4). 머리글도 아이콘 줄도 색 점도
+/// 없다. 조작은 포인터가 올 때 내용 **위에 겹쳐** 뜨고 자리를 차지하지 않는다.
+///
+/// 시간이 지난 메모는 스스로 물러난다 (철학 3, `MemoAge`). 포인터를 올리면
+/// 즉시 또렷해진다 — 읽으려는 뜻이 곧 되살리는 신호다.
 struct NoteView: View {
     @Bindable var model: NoteModel
     var onClose: () -> Void
@@ -13,156 +16,148 @@ struct NoteView: View {
     @State private var isPickingColor = false
 
     private var color: MemoColor { model.memo.color }
+    private var hasFooter: Bool { model.memo.isScheduled || !model.memo.tags.isEmpty }
+
+    /// 포인터가 올라오면 나이를 잊는다.
+    private var age: MemoAge {
+        (isHovering || isPickingColor) ? .fresh : MemoAge.of(model.memo)
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            editor
-            if model.memo.isScheduled || !model.memo.tags.isEmpty {
-                footer
+        ZStack(alignment: .topTrailing) {
+            VStack(alignment: .leading, spacing: 0) {
+                editor
+                if hasFooter { footer }
+            }
+            .opacity(age.presence)
+
+            if isHovering || isPickingColor {
+                controls
             }
         }
-        .background {
-            // 유리 위에 색을 아주 옅게 얹는다. 원색 포스트잇을 그대로 쓰면
-            // macOS 26 의 재질과 부딪혀 싸구려로 보인다.
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(color.tint.opacity(0.22))
-        }
-        .glassEffect(.regular, in: .rect(cornerRadius: 18))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(color.tint.opacity(0.35), lineWidth: 1)
-        }
+        .background(Theme.paper(color.tint, age: age))
+        .overlay(Theme.edge(color.tint, age: age))
         .onHover { isHovering = $0 }
-        .animation(.easeOut(duration: 0.15), value: isHovering)
-    }
-
-    // MARK: 머리
-
-    private var header: some View {
-        HStack(spacing: 6) {
-            colorButton
-
-            // 여백 자체가 창을 끄는 손잡이다 (isMovableByWindowBackground).
-            Spacer(minLength: 0)
-                .contentShape(.rect)
-
-            if model.memo.pinned || isHovering {
-                iconButton(
-                    model.memo.pinned ? "pin.fill" : "pin",
-                    help: model.memo.pinned ? "고정 해제" : "고정"
-                ) {
-                    Task { await model.togglePin() }
-                }
-                .foregroundStyle(model.memo.pinned ? color.tint : .secondary)
-            }
-
-            if isHovering {
-                iconButton("xmark", help: "닫기 (메모는 지워지지 않습니다)", action: onClose)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.top, 8)
-        .padding(.bottom, 2)
-        .frame(height: 28)
-    }
-
-    private var colorButton: some View {
-        Button {
-            isPickingColor.toggle()
-        } label: {
-            Circle()
-                .fill(color.tint)
-                .frame(width: 11, height: 11)
-                .overlay(Circle().strokeBorder(.white.opacity(0.5), lineWidth: 0.5))
-        }
-        .buttonStyle(.plain)
-        .help("색 바꾸기")
-        .popover(isPresented: $isPickingColor, arrowEdge: .bottom) {
-            HStack(spacing: 8) {
-                ForEach(MemoColor.allCases, id: \.self) { candidate in
-                    Button {
-                        isPickingColor = false
-                        Task { await model.setColor(candidate) }
-                    } label: {
-                        Circle()
-                            .fill(candidate.tint)
-                            .frame(width: 18, height: 18)
-                            .overlay {
-                                if candidate == color {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 9, weight: .bold))
-                                        .foregroundStyle(.black.opacity(0.6))
-                                }
-                            }
-                    }
-                    .buttonStyle(.plain)
-                    .help(candidate.label)
-                }
-            }
-            .padding(12)
-        }
-    }
-
-    private func iconButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 10, weight: .semibold))
-                .frame(width: 16, height: 16)
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(.secondary)
-        .help(help)
+        .animation(Theme.reveal, value: isHovering)
+        .animation(Theme.settle, value: age)
     }
 
     // MARK: 본문
 
     private var editor: some View {
-        ZStack(alignment: .topLeading) {
-            MemoTextEditor(text: $model.text, onEdit: model.edited)
+        MemoTextArea(
+            text: $model.text,
+            insets: NSSize(width: Theme.normal, height: Theme.normal),
+            placeholder: "…",
+            onEdit: model.edited
+        )
+    }
 
-            if model.text.isEmpty {
-                Text("여기에 적으세요")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 17)
-                    .padding(.vertical, 10)
-                    .allowsHitTesting(false)
+    // MARK: 겹쳐 뜨는 조작
+
+    private var controls: some View {
+        HStack(spacing: 1) {
+            colorButton
+
+            QuietButton(
+                symbol: model.memo.pinned ? "pin.fill" : "pin",
+                help: model.memo.pinned ? "고정 해제" : "고정",
+                isActive: model.memo.pinned
+            ) {
+                Task { await model.togglePin() }
             }
+
+            QuietButton(symbol: "xmark", help: "치우기 — 메모는 지워지지 않습니다", action: onClose)
+        }
+        .padding(3)
+        .background {
+            // 글자 위에 겹치므로 얇은 바탕이 필요하다. 없으면 아이콘이 본문에 묻힌다.
+            Capsule().fill(.regularMaterial)
+        }
+        .padding(Theme.tight)
+        .transition(.opacity)
+    }
+
+    private var colorButton: some View {
+        Button { isPickingColor.toggle() } label: {
+            Circle()
+                .fill(color.tint)
+                .frame(width: 10, height: 10)
+                .frame(width: 18, height: 18)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .help("색 바꾸기")
+        .popover(isPresented: $isPickingColor, arrowEdge: .bottom) {
+            colorPicker
         }
     }
 
-    // MARK: 꼬리
+    private var colorPicker: some View {
+        HStack(spacing: Theme.snug) {
+            ForEach(MemoColor.allCases, id: \.self) { candidate in
+                Button {
+                    isPickingColor = false
+                    Task { await model.setColor(candidate) }
+                } label: {
+                    Circle()
+                        .fill(candidate.tint)
+                        .frame(width: 17, height: 17)
+                        .overlay {
+                            Circle()
+                                .strokeBorder(
+                                    candidate == color ? Color.primary.opacity(0.55) : .clear,
+                                    lineWidth: 2
+                                )
+                                .padding(-3)
+                        }
+                }
+                .buttonStyle(.plain)
+                .help(candidate.label)
+            }
+        }
+        .padding(Theme.normal)
+    }
+
+    // MARK: 꼬리 — 날짜와 태그가 있을 때만
 
     private var footer: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Theme.tight) {
             if let schedule = scheduleLabel {
-                Label(schedule, systemImage: model.memo.at != nil ? "clock" : "calendar")
-                    .font(.caption2)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(color.tint.opacity(0.30)))
+                Label {
+                    Text(schedule).font(Theme.micro)
+                } icon: {
+                    Image(systemName: model.memo.at != nil ? "clock" : "calendar")
+                        .font(.system(size: 9))
+                }
+                .foregroundStyle(isPast ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.secondary))
             }
 
-            ForEach(model.memo.tags.prefix(3), id: \.self) { tag in
-                Text("#\(tag)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+            if !model.memo.tags.isEmpty {
+                Text(model.memo.tags.prefix(3).map { "#\($0)" }.joined(separator: " "))
+                    .font(Theme.micro)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
             }
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 12)
-        .padding(.bottom, 9)
-        .padding(.top, 2)
+        .padding(.horizontal, Theme.normal + 5)
+        .padding(.bottom, Theme.snug)
+    }
+
+    /// 지난 일정은 한 걸음 더 물러난다. 지우라고 재촉하지는 않는다 (철학 1).
+    private var isPast: Bool {
+        guard let scheduled = model.memo.scheduledDate() else { return false }
+        return scheduled < CalendarDate(Date())
     }
 
     private var scheduleLabel: String? {
         if let at = model.memo.at {
             return at.formatted(.dateTime.month().day().hour().minute())
         }
-        if let due = model.memo.due {
-            return due.description
+        if let due = model.memo.due, let start = due.startOfDay() {
+            return start.formatted(.dateTime.month().day().weekday(.abbreviated))
         }
         return nil
     }
