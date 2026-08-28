@@ -15,15 +15,15 @@ enum PreviewRenderer {
         FileHandle.standardError.write(Data("[render] \(message)\n".utf8))
     }
 
-    static func renderAll(into directory: URL, store: MemoStore) async {
+    static func renderAll(into directory: URL, store: MemoStore, previews: LinkPreviewStore) async {
         log("표본 생성")
         let samples = await makeSamples(store: store)
         log("표본 완료")
 
         // 모델을 먼저 만들고 잠깐 기다린다 — 붙인 사진을 파일에서 불러오는
         // 일이 비동기라, 만들자마자 그리면 그림이 아직 없다.
-        let scheduled = NoteModel(memo: samples.scheduled, store: store)
-        let plain = NoteModel(memo: samples.plain, store: store)
+        let scheduled = NoteModel(memo: samples.scheduled, store: store, previews: previews)
+        let plain = NoteModel(memo: samples.plain, store: store, previews: previews)
         try? await Task.sleep(for: .milliseconds(300))
 
         await render(
@@ -39,15 +39,33 @@ enum PreviewRenderer {
             into: directory
         )
 
+        // 편집기는 **진짜 텍스트 뷰를 그대로** 그린다. SwiftUI 대체 렌더는
+        // 여백에 직접 그리는 줄머리 표시(`LineMarker`)를 보여주지 못한다.
+        await renderEditor(
+            name: "editor",
+            size: CGSize(width: 300, height: 250),
+            text: samples.plain.body,
+            into: directory
+        )
+
         let capture = QuickCaptureModel(store: store)
-        capture.query = "내일 오후 3시 치과"
+        // 말풍선 꼬리가 메뉴바 아이콘을 가리키는 모습까지 확인한다.
+        capture.arrowOffset = QuickCaptureController.width - 70
+        capture.query = "내일 오후 3시 치과\n강남역 3번 출구"
         // 검색은 디바운스가 걸려 있어 결과가 채워질 때까지 잠깐 기다린다.
         try? await Task.sleep(for: .milliseconds(400))
         log("capture.query=[\(capture.query)] len=\(capture.query.count) label=\(capture.scheduleLabel ?? "-")")
         await render(
             name: "capture",
-            size: CGSize(width: QuickCaptureController.width, height: 230),
+            size: CGSize(width: QuickCaptureController.width, height: 210),
             content: QuickCaptureView(model: capture, onCommit: {}, onCancel: {}),
+            into: directory
+        )
+
+        await render(
+            name: "palette",
+            size: CGSize(width: 6 * 96 + 5 * 10, height: 112),
+            content: PaletteSheet(),
             into: directory
         )
 
@@ -60,6 +78,32 @@ enum PreviewRenderer {
             content: StreamView(model: stream, onClose: {}, onSelectMemo: { _ in }),
             into: directory
         )
+    }
+
+    /// 여섯 색을 나란히 놓고 본다.
+    ///
+    /// 색은 **바탕화면에 열 장이 흩어졌을 때 서로 구별되는가**가 전부다.
+    /// 한 장만 보면 어떤 세기든 그럴듯해 보이므로, 반드시 나란히 놓고 정한다.
+    private struct PaletteSheet: View {
+        var body: some View {
+            HStack(spacing: 10) {
+                ForEach(MemoColor.allCases, id: \.self) { color in
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(color.label)
+                            .font(Theme.body)
+                            .foregroundStyle(Paper.ink)
+                        Text("치과 예약")
+                            .font(Theme.label)
+                            .foregroundStyle(Paper.fadedInk)
+                    }
+                    .frame(width: 96, height: 112, alignment: .topLeading)
+                    .padding(.top, 12)
+                    .padding(.leading, 12)
+                    .background(Theme.paper(color.ink))
+                    .overlay(Theme.edge())
+                }
+            }
+        }
     }
 
     // MARK: 표본
@@ -127,6 +171,82 @@ enum PreviewRenderer {
               let data = bitmap.representation(using: .png, properties: [:])
         else { return Data() }
         return data
+    }
+
+    // MARK: 편집기 렌더 — 실물 그대로
+
+    /// `MemoNSTextView` 를 화면 밖에서 직접 그린다.
+    ///
+    /// `ImageRenderer` 로는 이 뷰에 닿을 수 없어(§ `MemoTextArea`) 그동안
+    /// 편집기의 실제 모습은 **한 번도 확인된 적이 없었다.** 체크상자와 글머리
+    /// 점은 우리가 여백에 직접 그리는 것이라, 자리가 어긋나도 알 길이 없다.
+    private static func renderEditor(
+        name: String, size: CGSize, text: String, into directory: URL
+    ) async {
+        log("\(name) 렌더 시작")
+
+        let margin: CGFloat = 26
+        let tile = CGSize(width: size.width + margin * 2, height: size.height + margin * 2)
+        let canvas = NSImage(size: CGSize(width: tile.width * 2, height: tile.height))
+
+        canvas.lockFocus()
+        for (index, scheme) in [ColorScheme.light, .dark].enumerated() {
+            let origin = CGPoint(x: tile.width * CGFloat(index), y: 0)
+            drawDesktop(scheme, in: NSRect(origin: origin, size: tile))
+
+            let appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
+            appearance?.performAsCurrentDrawingAppearance {
+                let textView = MemoTextEditor.makeTextView(
+                    font: .systemFont(ofSize: Paper.bodySize),
+                    insets: NSSize(width: Theme.loose, height: Theme.loose),
+                    linePitch: Paper.linePitch
+                )
+                textView.appearance = appearance
+                // 렌더에서만 바탕을 직접 칠한다. 화면에서는 종이가 뒤에 깔리지만
+                // 여기서는 뷰 하나를 통째로 떠내는 것이라 스스로 칠해야 한다.
+                textView.drawsBackground = true
+                textView.backgroundColor = Paper.surfaceNSColor
+                textView.frame = NSRect(origin: .zero, size: size)
+                textView.string = text
+                if let storage = textView.textStorage {
+                    MarkdownStyler.apply(
+                        to: storage,
+                        baseFont: .systemFont(ofSize: Paper.bodySize),
+                        paragraph: textView.defaultParagraphStyle,
+                        activeLine: nil
+                    )
+                }
+                // 스크롤 뷰 없이 세로 가변으로 두면 뷰가 제 높이를 63pt 따위로
+                // 줄여 잡고, 그 조각만 떠내 확대돼 그려진다. 카드 크기로 못박는다.
+                textView.isVerticallyResizable = false
+                if let container = textView.textContainer {
+                    container.containerSize = NSSize(width: size.width, height: size.height)
+                    textView.layoutManager?.ensureLayout(for: container)
+                }
+                textView.frame = NSRect(origin: .zero, size: size)
+                textView.layoutSubtreeIfNeeded()
+
+                guard let rep = textView.bitmapImageRepForCachingDisplay(in: textView.bounds)
+                else { return }
+                textView.cacheDisplay(in: textView.bounds, to: rep)
+                // 떠낸 비트맵은 픽셀 크기를 들고 있다. 포인트 크기로 되돌리지
+                // 않으면 화면 배율만큼 확대돼 그려진다.
+                rep.size = size
+                rep.draw(in: NSRect(
+                    origin: CGPoint(x: origin.x + margin, y: origin.y + margin), size: size
+                ))
+            }
+        }
+        canvas.unlockFocus()
+
+        guard let tiff = canvas.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              let data = bitmap.representation(using: .png, properties: [:])
+        else { log("\(name) 실패"); return }
+
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try? data.write(to: directory.appending(path: "\(name).png"))
+        log("\(name) 저장")
     }
 
     // MARK: 렌더

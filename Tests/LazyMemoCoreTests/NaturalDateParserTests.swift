@@ -2,8 +2,8 @@ import Foundation
 import Testing
 @testable import LazyMemoCore
 
-@Suite("KoreanDateParser")
-struct KoreanDateParserTests {
+@Suite("NaturalDateParser")
+struct NaturalDateParserTests {
     /// 2026년 8월 28일 금요일 오전 10시를 "지금"으로 고정한다.
     private var now: Date {
         var calendar = Calendar(identifier: .gregorian)
@@ -13,8 +13,8 @@ struct KoreanDateParserTests {
         )!
     }
 
-    private func parse(_ text: String) -> KoreanDateParser.Result? {
-        KoreanDateParser.parse(text, now: now)
+    private func parse(_ text: String) -> NaturalDateParser.Result? {
+        NaturalDateParser.parse(text, now: now)
     }
 
     // MARK: 날짜만
@@ -112,19 +112,19 @@ struct KoreanDateParserTests {
     @Test("인식한 조각을 본문에서 덜어낸다")
     func stripsRecognizedPhrases() throws {
         let result = try #require(parse("내일 오후 3시 치과 예약"))
-        #expect(KoreanDateParser.strip(result.phrases, from: "내일 오후 3시 치과 예약") == "치과 예약")
+        #expect(NaturalDateParser.strip(result.phrases, from: "내일 오후 3시 치과 예약") == "치과 예약")
     }
 
     @Test("떨어져 있는 조각도 각각 덜어낸다")
     func stripsSeparatedPhrases() throws {
         let text = "내일 치과 오후 3시"
         let result = try #require(parse(text))
-        #expect(KoreanDateParser.strip(result.phrases, from: text) == "치과")
+        #expect(NaturalDateParser.strip(result.phrases, from: text) == "치과")
     }
 
     @Test("덜어내서 빈 문자열이 되면 원문을 지킨다")
     func keepsTextWhenStrippingEmptiesIt() throws {
         let result = try #require(parse("내일"))
-        #expect(KoreanDateParser.strip(result.phrases, from: "내일") == "내일")
+        #expect(NaturalDateParser.strip(result.phrases, from: "내일") == "내일")
     }
 }

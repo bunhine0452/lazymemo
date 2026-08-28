@@ -14,19 +14,31 @@ final class QuickCaptureModel {
         didSet {
             // 날짜 인식은 로컬 문자열 처리라 즉시 한다. 타자마다 칩이 따라와야
             // 사용자가 "아, 얘가 읽고 있구나" 를 알 수 있다.
-            schedule = KoreanDateParser.parse(query)
+            schedule = NaturalDateParser.parse(query)
             scheduleSearch()
         }
     }
 
     private(set) var matches: [Memo] = []
     /// 입력에서 알아낸 일정. 없으면 그냥 메모다.
-    private(set) var schedule: KoreanDateParser.Result?
+    private(set) var schedule: NaturalDateParser.Result?
     /// 화살표로 고른 항목. `nil` 이면 Return 이 새 메모를 만든다.
     var selection: Int?
 
     /// 결과 수가 바뀌면 창 높이를 다시 잡아야 한다.
     var onLayoutChange: () -> Void = {}
+
+    /// 창 크기를 다시 잡아 달라고 부탁한다.
+    ///
+    /// 지금 이 순간 부르면 SwiftUI 갱신 도중에 창 크기를 바꾸게 되어 배치가
+    /// 다시 돈다. 한 박자 미뤄 다음 런루프에서 처리한다.
+    func requestLayout() {
+        DispatchQueue.main.async { [weak self] in self?.onLayoutChange() }
+    }
+
+    /// 말풍선 꼬리가 가리킬 자리 (상자 왼쪽 끝에서의 거리).
+    /// `nil` 이면 매달 곳이 없어 꼬리를 그리지 않는다.
+    var arrowOffset: CGFloat?
 
     private let store: MemoStore
     private var searchTask: Task<Void, Never>?
@@ -39,13 +51,35 @@ final class QuickCaptureModel {
         self.store = store
     }
 
-    func reset() {
+    /// 적은 것을 지우고 처음으로 되돌린다. **확정한 뒤에만 부른다.**
+    func clear() {
         searchTask?.cancel()
         query = ""
         matches = []
         schedule = nil
         selection = nil
     }
+
+    /// 상자를 다시 열 때. **적던 것은 그대로 둔다.**
+    ///
+    /// esc 로 닫았다고 글을 버리면, 여러 줄을 적다가 손이 미끄러진 한 번에
+    /// 전부 잃는다. 그렇다고 닫을 때 저장해 버리면 — 이 상자는 검색도 겸하므로 —
+    /// 메모를 찾으려고 친 낱말이 새 메모가 되어 쌓인다. 어느 쪽도 안 되므로
+    /// **상자가 기억한다.** 다시 열면 글이 전부 선택돼 있어 그냥 치면 덮어쓴다.
+    func prepareForShow() {
+        selection = nil
+    }
+
+    /// 붙여넣거나 끌어다 놓은 사진을 Vault 안 파일로 저장하고 마크다운을 돌려준다.
+    ///
+    /// 메모 창과 **같은 길**이다 (`NoteModel`). 빠른 입력에서 사진을 못 넣으면
+    /// "일단 던져 두는 곳" 이라는 이 상자의 성격이 반쪽이 된다.
+    func markdown(forPastedImage data: Data, fileExtension: String) -> String? {
+        guard let path = try? store.attachments.save(data, fileExtension: fileExtension)
+        else { return nil }
+        return "\n![](\(path))\n"
+    }
+
 
     /// 칩에 보여줄 글. 인식한 원문이 아니라 **해석한 결과**를 보인다 —
     /// "내일" 이라고 되쓰면 제대로 읽었는지 확인할 수 없다.
@@ -124,7 +158,7 @@ final class QuickCaptureModel {
             return .create(Draft(text: text, due: nil, at: nil))
         }
         return .create(Draft(
-            text: KoreanDateParser.strip(schedule.phrases, from: text),
+            text: NaturalDateParser.strip(schedule.phrases, from: text),
             due: schedule.due,
             at: schedule.at
         ))

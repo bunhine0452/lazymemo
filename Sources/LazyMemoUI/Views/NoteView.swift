@@ -28,6 +28,7 @@ struct NoteView: View {
             VStack(alignment: .leading, spacing: 0) {
                 editor
                 if !model.images.isEmpty { photographs }
+                if !model.links.isEmpty { linkCards }
                 if hasFooter { footer }
             }
             // 종이는 누레지지만 잉크는 그만큼 사라지지 않는다. 오래된 메모도
@@ -40,7 +41,9 @@ struct NoteView: View {
         }
         .background(Theme.paper(color.ink, age: age))
         .overlay(Theme.edge())
-        .onHover { isHovering = $0 }
+        // `.onHover` 는 키 윈도에서만 반응한다. 바탕화면의 종이는 다른 앱을
+        // 쓰는 동안에도 되살아나야 하므로 감지기를 따로 둔다.
+        .overlay { HoverSensor { isHovering = $0 } }
         .animation(Theme.reveal, value: isHovering)
         .animation(Theme.settle, value: age)
     }
@@ -57,10 +60,14 @@ struct NoteView: View {
                 model.markdown(forPastedImage: data, fileExtension: ext)
             },
             onPasteLink: { model.markdown(forPastedLink: $0) },
+            onDelete: { Task { await model.delete() } },
+            // 본문이 종이의 거의 전부다. 여기서 끌기를 창에 넘겨주지 않으면
+            // 메모를 옮길 자리가 남지 않는다.
+            movesWindow: true,
+            blursOnEscape: true,
             placeholder: "…",
             onEdit: model.edited
         )
-
     }
 
     // MARK: 겹쳐 뜨는 조작
@@ -155,6 +162,74 @@ struct NoteView: View {
         }
         .padding(.horizontal, Theme.loose)
         .padding(.bottom, Theme.snug)
+    }
+
+    // MARK: 붙인 링크
+
+    /// 링크를 카드로 펼친다.
+    ///
+    /// 본문에는 여전히 `[이름](주소)` 가 남아 있고 카드는 그 아래에 붙는다 —
+    /// 사진과 같은 규칙이다. 날 것의 주소는 사람이 읽어도 무엇인지 모르는데,
+    /// 게으른 사람에게 "이게 뭐였더라" 를 남기는 것이 이 앱의 가장 흔한 실패다.
+    private var linkCards: some View {
+        VStack(alignment: .leading, spacing: Theme.tight) {
+            ForEach(model.links) { card in
+                Button {
+                    NSWorkspace.shared.open(card.url)
+                } label: {
+                    linkCard(card)
+                }
+                .buttonStyle(.plain)
+                .help(card.url.absoluteString)
+            }
+        }
+        .padding(.horizontal, Theme.loose)
+        .padding(.bottom, Theme.snug)
+    }
+
+    private func linkCard(_ card: LinkPreviewStore.Card) -> some View {
+        HStack(spacing: Theme.snug) {
+            if let image = card.image {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 40, height: 40)
+                    .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+            } else {
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(Paper.ink.opacity(0.06))
+                    .frame(width: 40, height: 40)
+                    .overlay {
+                        Image(systemName: "link")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Paper.fadedInk)
+                    }
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(card.title)
+                    .font(Theme.label)
+                    .foregroundStyle(Paper.ink)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                Text(card.host)
+                    .font(Theme.micro)
+                    .foregroundStyle(Paper.ink.opacity(0.40))
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(Theme.tight)
+        .background {
+            RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
+                .fill(Paper.ink.opacity(0.04))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
+                .strokeBorder(Paper.ink.opacity(0.08), lineWidth: 0.75)
+        }
+        .contentShape(.rect)
     }
 
     // MARK: 꼬리 — 날짜와 태그가 있을 때만

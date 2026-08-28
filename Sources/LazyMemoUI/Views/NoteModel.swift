@@ -21,18 +21,25 @@ final class NoteModel {
     /// 본문이 참조하는 사진들. 글 아래에 붙는다.
     private(set) var images: [NoteImage] = []
 
+    /// 본문이 가리키는 링크의 카드. 설정이 꺼져 있으면 비어 있다.
+    private(set) var links: [LinkPreviewStore.Card] = []
+
     private let store: MemoStore
     private let attachments: AttachmentStore
+    private let previews: LinkPreviewStore
     private var saveTask: Task<Void, Never>?
     private var loadTask: Task<Void, Never>?
+    private var linkTask: Task<Void, Never>?
     private var isDirty = false
 
-    init(memo: Memo, store: MemoStore) {
+    init(memo: Memo, store: MemoStore, previews: LinkPreviewStore) {
         self.memo = memo
         self.text = memo.body
         self.store = store
         self.attachments = store.attachments
+        self.previews = previews
         reloadImages()
+        reloadLinks()
     }
 
     struct NoteImage: Identifiable, Equatable {
@@ -83,6 +90,34 @@ final class NoteModel {
         }
     }
 
+    /// 본문의 링크를 카드로 펼친다.
+    ///
+    /// 이미 알고 있는 것을 먼저 보이고, 모르는 것만 가져온다 — 메모를 열 때마다
+    /// 화면이 비었다가 채워지면 그것 자체가 불편이다.
+    private func reloadLinks() {
+        guard previews.isEnabled else {
+            links = []
+            return
+        }
+
+        let urls = MarkdownScanner.linkDestinations(in: text).compactMap(URL.init(string:))
+        guard urls.map(\.absoluteString) != links.map(\.url.absoluteString) else { return }
+
+        linkTask?.cancel()
+        links = urls.compactMap { previews.cached($0) }
+        guard !urls.isEmpty else { return }
+
+        linkTask = Task { [weak self] in
+            var loaded: [LinkPreviewStore.Card] = []
+            for url in urls {
+                guard !Task.isCancelled, let card = await self?.previews.fetch(url) else { continue }
+                loaded.append(card)
+            }
+            guard !Task.isCancelled, !loaded.isEmpty else { return }
+            self?.links = loaded
+        }
+    }
+
     private static func thumbnail(_ image: NSImage, maxWidth: CGFloat = 480) -> NSImage {
         guard image.size.width > maxWidth else { return image }
         let scale = maxWidth / image.size.width
@@ -106,6 +141,7 @@ final class NoteModel {
         if text != updated.body {
             text = updated.body
             reloadImages()
+            reloadLinks()
         }
     }
 
@@ -114,6 +150,7 @@ final class NoteModel {
     func edited(_ newText: String) {
         isDirty = true
         reloadImages()
+        reloadLinks()
         saveTask?.cancel()
         saveTask = Task { [weak self] in
             try? await Task.sleep(for: Self.autosaveDelay)

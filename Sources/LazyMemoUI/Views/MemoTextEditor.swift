@@ -18,24 +18,34 @@ struct MemoTextEditor: NSViewRepresentable {
     var stylesMarkdown = false
     var onPasteImage: ((Data, String) -> String?)?
     var onPasteLink: ((URL) -> String?)?
+    /// 메모 자체를 지우는 길. 오른쪽 버튼 메뉴에 붙는다.
+    var onDelete: (() -> Void)?
+    /// 편집 중이 아닐 때 본문 끌기로 창을 옮길지. 메모 창에서만 켠다 —
+    /// 본문이 창을 거의 다 덮고 있어서, 넘겨주지 않으면 옮길 자리가 없다.
+    var movesWindow = false
+    /// Esc 로 편집에서 손을 뗄지. 빠른 입력은 Esc 를 자기가 쓰므로 끈다.
+    var blursOnEscape = false
     /// 조합이 끝난 시점의 텍스트만 흘려보낸다. 자동 저장이 여기에 걸린다.
     var onEdit: (String) -> Void = { _ in }
     /// Return·Esc·화살표를 가로챈다. `true` 를 돌려주면 텍스트 뷰는 처리하지 않는다.
-    var onCommand: (Selector) -> Bool = { _ in false }
+    ///
+    /// 텍스트 뷰를 함께 넘기는 이유: 여러 줄이 되면 ↑↓ 가 글줄 이동과 목록
+    /// 이동을 겸해야 해서, 지금 커서가 첫 줄인지 끝 줄인지를 알아야 한다.
+    var onCommand: (Selector, NSTextView) -> Bool = { _, _ in false }
+    /// ⌘⏎ — 적기 끝.
+    var onCommandReturn: (() -> Void)?
+    /// 글이 차지한 높이. 빠른 입력 상자가 줄 수에 맞춰 자라는 근거다.
+    var onHeightChange: ((CGFloat) -> Void)?
 
-    func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
-        scrollView.drawsBackground = false
-        scrollView.hasVerticalScroller = true
-        scrollView.autohidesScrollers = true
-        scrollView.borderType = .noBorder
-
+    /// 편집기의 텍스트 뷰를 짓는다.
+    ///
+    /// 미리보기 렌더(`PreviewRenderer`)도 **이 함수를 쓴다.** 설정이 갈라지는
+    /// 순간 미리보기는 실제 화면과 다른 것을 그리고, 그러면 눈으로 확인하는
+    /// 일 자체가 거짓말이 된다.
+    @MainActor
+    static func makeTextView(font: NSFont, insets: NSSize, linePitch: CGFloat?) -> MemoNSTextView {
         let textView = MemoNSTextView()
-        textView.delegate = context.coordinator
-        textView.onPasteImage = onPasteImage
-        textView.onPasteLink = onPasteLink
-        textView.string = text
-
+        textView.baseFont = font
         textView.drawsBackground = false
         textView.isRichText = false
         textView.font = font
@@ -67,18 +77,45 @@ struct MemoTextEditor: NSViewRepresentable {
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
         textView.isAutomaticSpellingCorrectionEnabled = false
+        return textView
+    }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.drawsBackground = false
+        scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = true
+        scrollView.borderType = .noBorder
+
+        let textView = Self.makeTextView(font: font, insets: insets, linePitch: linePitch)
+        textView.delegate = context.coordinator
+        textView.onPasteImage = onPasteImage
+        textView.onPasteLink = onPasteLink
+        textView.onDelete = onDelete
+        textView.onCommandReturn = onCommandReturn
+        textView.movesWindowOnDrag = movesWindow
+        textView.blursOnEscape = blursOnEscape
+        textView.string = text
 
         scrollView.documentView = textView
+        textView.registerForDraggedTypes([.fileURL, .png, .tiff])
         context.coordinator.textView = textView
+        context.coordinator.onHeightChange = onHeightChange
         context.coordinator.stylesMarkdown = stylesMarkdown
         context.coordinator.baseFont = font
         context.coordinator.paragraph = textView.defaultParagraphStyle
         context.coordinator.restyle(textView)
+        // 첫 높이는 레이아웃이 끝난 다음에야 알 수 있다.
+        DispatchQueue.main.async { context.coordinator.reportHeight() }
         return scrollView
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? NSTextView else { return }
+        // 닫힘 위에 붙잡힌 값들은 갱신될 때마다 갈아 끼운다.
+        (textView as? MemoNSTextView)?.onDelete = onDelete
+        (textView as? MemoNSTextView)?.onCommandReturn = onCommandReturn
+        context.coordinator.onHeightChange = onHeightChange
         // 조합 보호 규칙은 MemoTextSync 에 있다 — 테스트가 그쪽을 지킨다.
         if MemoTextSync.apply(text, to: textView) {
             context.coordinator.restyle(textView)
@@ -93,7 +130,9 @@ struct MemoTextEditor: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         private let text: Binding<String>
         private let onEdit: (String) -> Void
-        private let onCommand: (Selector) -> Bool
+        private let onCommand: (Selector, NSTextView) -> Bool
+        var onHeightChange: ((CGFloat) -> Void)?
+        private var reportedHeight: CGFloat = -1
         weak var textView: NSTextView?
 
         var stylesMarkdown = false
@@ -135,10 +174,25 @@ struct MemoTextEditor: NSViewRepresentable {
             restyle(textView)
         }
 
+        /// 글이 차지한 높이를 알린다. 같은 값이면 알리지 않는다 —
+        /// SwiftUI 상태를 다시 흔들면 갱신이 끝없이 돈다.
+        func reportHeight() {
+            guard let onHeightChange, let textView,
+                  let layoutManager = textView.layoutManager,
+                  let container = textView.textContainer
+            else { return }
+            layoutManager.ensureLayout(for: container)
+            let height = (layoutManager.usedRect(for: container).height
+                + textView.textContainerInset.height * 2).rounded()
+            guard abs(height - reportedHeight) > 0.5 else { return }
+            reportedHeight = height
+            onHeightChange(height)
+        }
+
         init(
             text: Binding<String>,
             onEdit: @escaping (String) -> Void,
-            onCommand: @escaping (Selector) -> Bool
+            onCommand: @escaping (Selector, NSTextView) -> Bool
         ) {
             self.text = text
             self.onEdit = onEdit
@@ -151,7 +205,7 @@ struct MemoTextEditor: NSViewRepresentable {
         /// 조합을 확정하는 키다. 여기서 가로채면 마지막 글자를 잃는다.
         func textView(_ textView: NSTextView, doCommandBy selector: Selector) -> Bool {
             guard !textView.hasMarkedText() else { return false }
-            return onCommand(selector)
+            return onCommand(selector, textView)
         }
 
         func textDidChange(_ notification: Notification) {
@@ -159,6 +213,7 @@ struct MemoTextEditor: NSViewRepresentable {
             let current = textView.string
             text.wrappedValue = current
             restyle(textView)
+            reportHeight()
 
             // 조합 중인 자모는 아직 확정된 글자가 아니다. 그대로 저장하면
             // 파일에 "ㅊ" 같은 중간 상태가 남는다.

@@ -49,7 +49,7 @@ final class StreamWindowController: NSObject, NSWindowDelegate {
         let frame = resolveFrame()
         let window = DesktopLevelWindow(contentRect: frame)
 
-        let hosting = NSHostingView(rootView: StreamView(
+        let hosting = FirstMouseHostingView(rootView: StreamView(
             model: model,
             onClose: { [weak self] in self?.close() },
             onSelectMemo: onSelectMemo

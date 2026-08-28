@@ -99,4 +99,8 @@ discussion/lazymemo-계획서 의 결론(C + E-1 + F-1 + G/H + I-1)을 실행 �
 | 2026-08-28T17:44:45+09:00 | #homebrew | claude-code | ☐→> | .oculpm/journal/20260828/Chores/1743_chore_perf-restore-verification-and-docs.md | D7 대로 사용자가 늘면. 지금은 소스 빌드 경로로 충분하다 |
 | 2026-08-28T19:10:01+09:00 | #visual-design | claude-code | x→x | .oculpm/journal/20260828/Features_to_add/1909_feature_app-icon-and-visual-language.md | 아이콘 신규 + UI 전면 재디자인. 유리를 걷어내고 종이로, 레이어 정리로 RSS 87.7MB |
 | 2026-08-28T19:38:25+09:00 | #calendar-view | claude-code | x→x | .oculpm/journal/20260828/Features_to_add/1938_feature_design-philosophy-and-ui-overhaul.md | 월 격자를 버리고 「흐름」으로 대체. 점 스트립이 조망을 맡는다 |
+| 2026-08-28T21:15:46+09:00 | #note-interaction | claude-code | x→x | .oculpm/journal/20260828/Bugs/2115_bug_desktop-note-interaction-comfort.md | 본문 끌기로 창 이동·첫 클릭 수용·키 잡은 동안 앞으로 나오는 두 번째 창 자리. 조작 규칙을 DESIGN §7.1 로 고정 |
+| 2026-08-28T21:44:43+09:00 | #visual-design | claude-code | x→x | .oculpm/journal/20260828/Features_to_add/2144_feature_note-editor-markers-and-paper-color.md | 줄머리 표시를 여백에 그리고 체크상자를 누를 수 있게. 종이 색은 밝기를 맞춰 섞어 여섯 색이 구별됨. 편집기 실물 렌더 경로 신설 |
+| 2026-08-28T22:21:24+09:00 | #menubar-popover | claude-code | x→x | .oculpm/journal/20260828/Features_to_add/2221_feature_multiline-capture-bubble-and-settings.md | 아이콘 밑 말풍선으로 되돌림. Return=다음 줄 / ⌘⏎=확정 / esc 는 초안을 들고 있는다. 사진·링크 카드 추가 |
+| 2026-08-28T22:21:31+09:00 | #global-hotkey | claude-code | x→x | .oculpm/journal/20260828/Features_to_add/2221_feature_multiline-capture-bubble-and-settings.md | 단축키를 설정에서 바꿀 수 있게 — 눌러서 녹음, 선점 시 쓰던 것 복구. settings.json 신설 |
 <!-- oculpm:plan-log end -->

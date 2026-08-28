@@ -25,7 +25,7 @@ struct StreamView: View {
         }
         .background(Theme.paper(MemoColor.gray.ink, dotted: false))
         .overlay(Theme.edge())
-        .onHover { isHovering = $0 }
+        .overlay { HoverSensor { isHovering = $0 } }
         .animation(Theme.reveal, value: isHovering)
         .task { await model.refresh() }
     }
@@ -198,14 +198,9 @@ struct StreamView: View {
 
     private func daySection(_ day: StreamModel.Day) -> some View {
         VStack(alignment: .leading, spacing: 3) {
+            // 빈 날에 "비어 있습니다" 라고 적지 않는다. 그것은 채우라는
+            // 말이고, 이 앱은 완성을 요구하지 않는다 (철학 1). 날짜만 조용히 선다.
             dayLabel(day)
-
-            if day.memos.isEmpty {
-                Text("오늘은 비어 있습니다")
-                    .font(Theme.micro)
-                    .foregroundStyle(.tertiary)
-                    .padding(.leading, 2)
-            }
 
             ForEach(day.memos) { memo in
                 memoRow(memo, isPast: day.date < model.today)

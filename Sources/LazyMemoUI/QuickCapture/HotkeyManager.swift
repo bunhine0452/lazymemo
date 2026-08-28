@@ -8,12 +8,8 @@ import Carbon.HIToolbox
 /// 시스템 설정으로 사용자를 보내면 "게으름 타파"라는 전제가 무너진다.
 @MainActor
 final class HotkeyManager {
-    /// 기본 단축키 ⌥⌘N.
-    ///
-    /// 한국어 사용자의 손에 익은 조합을 피해서 골랐다 — ⌘Space(Spotlight),
-    /// ⌃Space·⌃⌥Space(입력 소스 전환)는 건드리면 안 된다.
-    static let defaultKeyCode = UInt32(kVK_ANSI_N)
-    static let defaultModifiers = UInt32(optionKey | cmdKey)
+    /// 지금 걸려 있는 조합. 메뉴 표기와 안내 문구가 이것을 읽는다.
+    private(set) var current: Hotkey = .standard
 
     private static let signature = OSType(0x4C5A4D4F)   // 'LZMO'
     private static var handlers: [UInt32: () -> Void] = [:]
@@ -25,11 +21,8 @@ final class HotkeyManager {
 
     /// - Returns: 등록에 성공했으면 `true`. 다른 앱이 같은 조합을 이미 쓰고 있으면 실패한다.
     @discardableResult
-    func register(
-        keyCode: UInt32 = HotkeyManager.defaultKeyCode,
-        modifiers: UInt32 = HotkeyManager.defaultModifiers,
-        action: @escaping () -> Void
-    ) -> Bool {
+    func register(_ hotkey: Hotkey = .standard, action: @escaping () -> Void) -> Bool {
+        guard hotkey.isUsable else { return false }
         unregister()
         Self.installEventHandlerIfNeeded()
 
@@ -38,8 +31,8 @@ final class HotkeyManager {
 
         var reference: EventHotKeyRef?
         let status = RegisterEventHotKey(
-            keyCode,
-            modifiers,
+            hotkey.keyCode,
+            hotkey.modifiers,
             EventHotKeyID(signature: Self.signature, id: identifier),
             GetEventDispatcherTarget(),
             0,
@@ -51,6 +44,7 @@ final class HotkeyManager {
         Self.handlers[identifier] = action
         self.hotKeyRef = reference
         self.identifier = identifier
+        self.current = hotkey
         return true
     }
 
@@ -90,6 +84,4 @@ final class HotkeyManager {
         )
     }
 
-    /// 사용자에게 보여줄 표기 (⌥⌘N).
-    static var displayName: String { "⌥⌘N" }
 }

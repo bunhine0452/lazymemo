@@ -16,10 +16,12 @@ final class NoteWindowManager {
     private var controllers: [ULID: NoteWindowController] = [:]
     private let store: MemoStore
     private let layouts: LayoutStore
+    private let previews: LinkPreviewStore
 
-    init(store: MemoStore, layouts: LayoutStore) {
+    init(store: MemoStore, layouts: LayoutStore, previews: LinkPreviewStore) {
         self.store = store
         self.layouts = layouts
+        self.previews = previews
     }
 
     // MARK: 동기화
@@ -83,6 +85,7 @@ final class NoteWindowManager {
         let controller = NoteWindowController(
             memo: memo,
             store: store,
+            previews: previews,
             frame: frame,
             onFrameChange: { [weak self] id, frame in
                 self?.recordFrame(frame, for: id)
@@ -96,6 +99,15 @@ final class NoteWindowManager {
         layouts.setHidden(false, for: memo.id)
         controller.show(activating: activating)
         return controller
+    }
+
+    /// 방금 적힌 메모를 바탕화면에 내려놓는다.
+    ///
+    /// **포커스를 뺏지 않는다.** 빠른 입력으로 한 줄 적은 사람은 하던 일로
+    /// 돌아가는 중이지, 새 창을 받으러 온 것이 아니다. 대신 종이가 잠깐
+    /// 앞으로 나왔다 내려앉아 "적혔다" 를 눈으로 알려준다.
+    func announce(_ memo: Memo) {
+        open(memo, activating: false).announce()
     }
 
     func reveal(_ id: ULID, activating: Bool = true) {

@@ -19,15 +19,24 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let capture: QuickCaptureController
     private let stream: StreamWindowController
     private let hotkey = HotkeyManager()
+    private let recorder = HotkeyRecorder()
+    private let settings: SettingsStore
     private let menu = NSMenu()
 
     /// 단축키 등록에 실패했는지 — 다른 앱이 같은 조합을 선점한 경우다.
     private var hotkeyAvailable = false
 
-    init(paths: AppPaths, store: MemoStore, windows: NoteWindowManager, layouts: LayoutStore) {
+    init(
+        paths: AppPaths,
+        store: MemoStore,
+        windows: NoteWindowManager,
+        layouts: LayoutStore,
+        settings: SettingsStore
+    ) {
         self.paths = paths
         self.store = store
         self.windows = windows
+        self.settings = settings
         self.capture = QuickCaptureController(store: store, windows: windows)
         self.stream = StreamWindowController(
             store: store, layouts: layouts,
@@ -39,11 +48,29 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         configureButton()
         menu.delegate = self
 
+        // 말풍선은 아이콘 밑에 매달린다. 아이콘 자리는 여기만 알고 있고,
+        // 메뉴바가 붐비면 숨겨져 자리가 없을 수도 있다.
+        capture.anchorProvider = { [weak self] in self?.statusItemFrame() }
+
         // 메뉴를 statusItem.menu 에 걸면 좌클릭이 메뉴에 잡혀 빠른 입력이 막힌다.
         // 좌클릭 = 빠른 입력, 우클릭 = 메뉴로 나눈다.
-        hotkeyAvailable = hotkey.register { [weak self] in
+        hotkeyAvailable = hotkey.register(storedHotkey()) { [weak self] in
             self?.capture.toggle()
         }
+    }
+
+    /// 설정에 남은 조합. 없으면 기본값.
+    private func storedHotkey() -> Hotkey {
+        let saved = settings.current
+        guard let keyCode = saved.hotkeyKeyCode, let modifiers = saved.hotkeyModifiers
+        else { return .standard }
+        return Hotkey(keyCode: keyCode, modifiers: modifiers)
+    }
+
+    /// 메뉴바 아이콘의 화면 좌표. 아이콘이 숨겨져 있으면 `nil`.
+    private func statusItemFrame() -> NSRect? {
+        guard let button = statusItem.button, let window = button.window else { return nil }
+        return window.convertToScreen(button.convert(button.bounds, to: nil))
     }
 
     func openSpike() { spike.open() }
@@ -57,12 +84,18 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         capture.show()
     }
 
-    func closeCapture() { capture.close() }
+    func closeCapture() { capture.close(returningFocus: false) }
+
+    /// `verify-capture.sh` 가 읽는 진단 문자열.
+    var captureDiagnostics: String { capture.diagnostics }
+
+    /// 표준 편집 단축키(⌘A)가 글 쓰는 곳까지 닿는지.
+    var selectAllReach: String { capture.selectAllReach() }
 
     private func configureButton() {
         guard let button = statusItem.button else { return }
         button.image = Self.menuBarIcon()
-        button.toolTip = "lazymemo — \(HotkeyManager.displayName) 로 빠른 입력"
+        button.toolTip = "lazymemo — \(hotkey.current.displayName) 로 빠른 입력"
         button.target = self
         button.action = #selector(statusItemClicked)
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -86,9 +119,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         if NSApp.currentEvent?.type == .rightMouseUp {
             menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.minY - 4), in: button)
         } else {
-            // 클릭하면 뜬다. 토글이면 "안 떴나?" 싶어 한 번 더 눌렀을 때
-            // 도로 닫혀 고장난 것처럼 보인다.
-            capture.show()
+            // 누르면 뜨고 다시 누르면 꺼진다. 처음엔 "토글이면 안 떴나 싶어
+            // 한 번 더 눌렀을 때 도로 닫힌다" 는 걱정으로 열기만 했는데,
+            // 실제로 써 보니 **닫을 길이 없는 쪽이 훨씬 답답했다.**
+            capture.toggle()
         }
     }
 
@@ -98,11 +132,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
 
         let quick = item(title: "빠른 입력", action: #selector(openCapture), key: "")
-        quick.keyEquivalent = "n"
-        quick.keyEquivalentModifierMask = [.option, .command]
         menu.addItem(quick)
         if !hotkeyAvailable {
-            menu.addItem(disabled("⚠︎ \(HotkeyManager.displayName) 을 다른 앱이 쓰고 있습니다"))
+            menu.addItem(disabled("⚠︎ \(hotkey.current.displayName) 을 다른 앱이 쓰고 있습니다"))
         }
         menu.addItem(item(title: "빈 메모 만들기", action: #selector(newMemo), key: ""))
         menu.addItem(.separator())
@@ -116,6 +148,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         addTrashSection(to: menu)
 
         menu.addItem(.separator())
+        menu.addItem(settingsItem())
         menu.addItem(item(title: "메모 폴더 열기", action: #selector(openVault), key: ""))
         menu.addItem(spikeItem())
         menu.addItem(.separator())
@@ -161,6 +194,27 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         submenu.addItem(disabled("30일 뒤 자동으로 지워집니다"))
         parent.submenu = submenu
         menu.addItem(parent)
+    }
+
+    /// 설정. 항목이 몇 개뿐이라 창을 따로 짓지 않는다 — 창을 여는 것 자체가
+    /// 조작 한 번이고, 이 앱은 그 한 번을 아끼는 앱이다.
+    private func settingsItem() -> NSMenuItem {
+        let parent = NSMenuItem(title: "설정", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+
+        let shortcut = item(title: "단축키 바꾸기…", action: #selector(changeHotkey), key: "")
+        shortcut.subtitle = "지금은 \(hotkey.current.displayName)"
+        submenu.addItem(shortcut)
+
+        submenu.addItem(.separator())
+        let embed = item(title: "링크를 카드로 펼치기", action: #selector(toggleLinkEmbedding), key: "")
+        embed.state = settings.current.embedsLinks ?? true ? .on : .off
+        // 네트워크를 쓰는 유일한 기능이다. 켜져 있다는 사실이 보여야 한다 (§9.3).
+        embed.subtitle = "제목과 그림을 가져오려고 그 주소에 접속합니다"
+        submenu.addItem(embed)
+
+        parent.submenu = submenu
+        return parent
     }
 
     private func spikeItem() -> NSMenuItem {
@@ -209,6 +263,34 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     // MARK: 동작
 
     @objc private func openCapture() { capture.toggle() }
+
+    @objc private func changeHotkey() {
+        recorder.begin(current: hotkey.current) { [weak self] candidate in
+            guard let self else { return false }
+            let registered = self.hotkey.register(candidate) { [weak self] in
+                self?.capture.toggle()
+            }
+            guard registered else {
+                // 실패했으면 쓰던 것을 도로 걸어 둔다. 바꾸려다 아예 못 쓰게
+                // 되는 것이 가장 나쁘다.
+                self.hotkeyAvailable = self.hotkey.register(self.storedHotkey()) { [weak self] in
+                    self?.capture.toggle()
+                }
+                return false
+            }
+            self.hotkeyAvailable = true
+            self.settings.update {
+                $0.hotkeyKeyCode = candidate.keyCode
+                $0.hotkeyModifiers = candidate.modifiers
+            }
+            self.configureButton()
+            return true
+        }
+    }
+
+    @objc private func toggleLinkEmbedding() {
+        settings.update { $0.embedsLinks = !($0.embedsLinks ?? true) }
+    }
 
     @objc private func newMemo() {
         Task {

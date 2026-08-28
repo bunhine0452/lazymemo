@@ -15,9 +15,14 @@ struct MemoTextArea: View {
     var stylesMarkdown = false
     var onPasteImage: ((Data, String) -> String?)?
     var onPasteLink: ((URL) -> String?)?
+    var onDelete: (() -> Void)?
+    var movesWindow = false
+    var blursOnEscape = false
     var placeholder: String
     var onEdit: (String) -> Void = { _ in }
-    var onCommand: (Selector) -> Bool = { _ in false }
+    var onCommand: (Selector, NSTextView) -> Bool = { _, _ in false }
+    var onCommandReturn: (() -> Void)?
+    var onHeightChange: ((CGFloat) -> Void)?
 
     @Environment(\.rendersStatically) private var rendersStatically
 
@@ -38,7 +43,9 @@ struct MemoTextArea: View {
                     text: $text, font: font, insets: insets, linePitch: linePitch,
                     stylesMarkdown: stylesMarkdown,
                     onPasteImage: onPasteImage, onPasteLink: onPasteLink,
-                    onEdit: onEdit, onCommand: onCommand
+                    onDelete: onDelete, movesWindow: movesWindow, blursOnEscape: blursOnEscape,
+                    onEdit: onEdit, onCommand: onCommand,
+                    onCommandReturn: onCommandReturn, onHeightChange: onHeightChange
                 )
             }
 
@@ -63,8 +70,17 @@ extension MemoTextArea {
     fileprivate var staticText: Text {
         guard stylesMarkdown else { return Text(text) }
 
+        let paragraph = NSMutableParagraphStyle()
+        if let pitch = linePitch {
+            paragraph.minimumLineHeight = pitch
+            paragraph.maximumLineHeight = pitch
+        }
+
         let storage = NSTextStorage(string: text)
-        MarkdownStyler.apply(to: storage, baseFont: font, paragraph: nil, activeLine: nil)
+        MarkdownStyler.apply(to: storage, baseFont: font, paragraph: paragraph, activeLine: nil)
+        // 여백에 직접 그리는 줄머리 표시는 SwiftUI `Text` 가 그리지 못한다.
+        // 미리보기에서만 같은 뜻의 글리프로 바꿔 끼운다.
+        MarkdownStyler.substituteMarkersForPreview(in: storage, baseFont: font)
         return Text(AttributedString(storage))
     }
 }

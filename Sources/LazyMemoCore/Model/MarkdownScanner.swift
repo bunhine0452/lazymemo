@@ -174,6 +174,18 @@ public enum MarkdownScanner {
         return result
     }
 
+    /// 본문에 들어 있는 링크 주소를 순서대로, 중복 없이 모은다.
+    ///
+    /// 같은 주소를 두 번 적었다고 카드가 두 장 붙으면 종이가 시끄러워진다.
+    public static func linkDestinations(in text: String) -> [String] {
+        var seen: Set<String> = []
+        return spans(in: text).compactMap {
+            guard case .link(let destination) = $0.kind else { return nil }
+            guard destination.lowercased().hasPrefix("http") else { return nil }
+            return seen.insert(destination).inserted ? destination : nil
+        }
+    }
+
     /// 본문에 들어 있는 이미지 경로를 순서대로 모은다.
     public static func imagePaths(in text: String) -> [String] {
         spans(in: text).compactMap {

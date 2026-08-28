@@ -15,18 +15,20 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
     init(
         memo: Memo,
         store: MemoStore,
+        previews: LinkPreviewStore,
         frame: CGRect,
         onFrameChange: @escaping (ULID, CGRect) -> Void,
         onCloseRequest: @escaping (ULID) -> Void
     ) {
         self.id = memo.id
-        self.model = NoteModel(memo: memo, store: store)
+        self.model = NoteModel(memo: memo, store: store, previews: previews)
         self.window = DesktopLevelWindow(contentRect: frame)
         self.onFrameChange = onFrameChange
         self.onCloseRequest = onCloseRequest
         super.init()
 
-        let hosting = NSHostingView(rootView: NoteView(model: model, onClose: { [id] in
+        // 겹쳐 뜨는 조작 버튼도 첫 클릭에 눌려야 한다 (`FirstMouseHostingView`).
+        let hosting = FirstMouseHostingView(rootView: NoteView(model: model, onClose: { [id] in
             onCloseRequest(id)
         }))
         // 창 크기는 layout.json 이 정본이다. 뷰가 끌고 가게 두지 않는다.
@@ -48,7 +50,14 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
     }
 
     func hide() {
+        window.cancelSettling()
         window.orderOut(nil)
+    }
+
+    /// 방금 적힌 메모 — 포커스를 뺏지 않고 잠깐 보였다 내려앉는다.
+    func announce() {
+        show(activating: false)
+        window.riseBriefly()
     }
 
     /// 파일이 밖에서 바뀌었을 때 창 내용을 맞춘다.
@@ -59,6 +68,7 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
     /// 창을 없애기 전에 반드시 부른다 — 저장 버튼이 없으므로 여기가 마지막 기회다.
     func teardown() async {
         await model.flush()
+        window.cancelSettling()
         window.delegate = nil
         window.orderOut(nil)
     }

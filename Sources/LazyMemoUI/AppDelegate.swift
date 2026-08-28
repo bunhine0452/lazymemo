@@ -17,6 +17,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         // Info.plist 의 LSUIElement 와 짝을 이루며, `swift run` 처럼 번들 없이
         // 실행할 때는 이쪽만이 유일한 근거가 된다.
         NSApp.setActivationPolicy(.accessory)
+        // 메뉴 막대에 보이지 않지만, 이것이 없으면 ⌘A·⌘Z·⌘C 가 전부 죽는다.
+        StandardMenu.install()
 
         let store: MemoStore
         do {
@@ -28,8 +30,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let layouts = LayoutStore(location: paths.layout)
-        let windows = NoteWindowManager(store: store, layouts: layouts)
-        let menuBar = MenuBarController(paths: paths, store: store, windows: windows, layouts: layouts)
+        let settings = SettingsStore(location: paths.settings)
+        let previews = LinkPreviewStore(
+            cacheDirectory: paths.support.appending(path: "links", directoryHint: .isDirectory),
+            settings: settings
+        )
+        let windows = NoteWindowManager(store: store, layouts: layouts, previews: previews)
+        let menuBar = MenuBarController(
+            paths: paths, store: store, windows: windows, layouts: layouts, settings: settings
+        )
 
         self.store = store
         self.layouts = layouts
@@ -48,9 +57,22 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             if environment["LAZYMEMO_CALENDAR"] == "1" {
                 menuBar.openStream()
             }
+            // `{#capture-over-apps}` — 다른 앱이 앞에 있는 상태에서 상자가
+            // 실제로 화면에 오르는지 검증하기 위한 통로 (`verify-capture.sh`).
+            // 초를 주면 그만큼 기다렸다 연다 — 그 사이 검증 스크립트가 다른
+            // 앱을 앞으로 세운다.
+            if let delay = environment["LAZYMEMO_CAPTURE"].flatMap(Double.init), delay >= 0 {
+                try? await Task.sleep(for: .milliseconds(Int(delay * 1000)))
+                menuBar.showCaptureForMeasurement()
+                Self.log("직후  \(menuBar.captureDiagnostics)")
+                try? await Task.sleep(for: .seconds(1))
+                Self.log("1초 뒤 \(menuBar.captureDiagnostics)")
+                Self.log("⌘A     \(menuBar.selectAllReach)")
+            }
             if let path = environment["LAZYMEMO_RENDER"], !path.isEmpty {
                 await PreviewRenderer.renderAll(
-                    into: URL(filePath: path, directoryHint: .isDirectory), store: store
+                    into: URL(filePath: path, directoryHint: .isDirectory),
+                    store: store, previews: previews
                 )
                 // 저장할 것이 없는 렌더 전용 모드다. `NSApp.terminate` 는
                 // 이 자리(비동기 Task 안)에서 델리게이트를 부르지 못하고 멈춘다.
@@ -109,6 +131,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         print(median <= 150 ? "✓ 목표 150ms 이내" : "✗ 목표 150ms 초과")
         // 측정 모드도 같은 이유로 곧장 나간다.
         exit(0)
+    }
+
+    /// 파이프로 넘길 때 stdout 은 통째로 버퍼링돼 죽을 때까지 안 나온다.
+    private static func log(_ message: String) {
+        FileHandle.standardError.write(Data("[capture] \(message)\n".utf8))
     }
 
     /// 저장소를 못 여는 상황은 복구 경로가 없다 — 조용히 죽지 않고 이유를 보여준 뒤 종료한다.

@@ -46,4 +46,13 @@ public struct CalendarDate: Sendable, Hashable, Comparable, CustomStringConverti
     public func startOfDay(calendar: Calendar = .current) -> Date? {
         calendar.date(from: DateComponents(year: year, month: month, day: day))
     }
+
+    /// 며칠 뒤(앞)의 날. 달과 해를 넘기는 계산은 `Calendar` 에 맡긴다 —
+    /// 31일에 하루를 더하는 일은 손으로 하면 반드시 틀린다.
+    public func adding(days: Int, calendar: Calendar = .current) -> CalendarDate {
+        guard let start = startOfDay(calendar: calendar),
+              let moved = calendar.date(byAdding: .day, value: days, to: start)
+        else { return self }
+        return CalendarDate(moved, calendar: calendar)
+    }
 }

@@ -111,9 +111,32 @@ struct PaperSurface: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    /// 종이에 스민 색의 세기. 아주 옅다 — 이 값을 올리면 곧바로 촌스러워진다.
+    /// 종이에 스민 색의 세기. 나이가 들수록 옅어진다 (철학 3).
     private var bleed: Double {
-        (colorScheme == .dark ? 0.10 : 0.07) * (0.35 + 0.65 * age.presence)
+        (colorScheme == .dark ? 0.26 : 0.19) * (0.4 + 0.6 * age.presence)
+    }
+
+    /// 잉크를 **종이 색**으로 바꾼다.
+    ///
+    /// 잉크를 그대로 섞으면 색마다 종이 밝기가 달라진다 — 파랑·보라는 어두워져
+    /// 회색으로 죽고 노랑만 색으로 읽힌다. 여섯 색을 나란히 렌더해 보니 실제로
+    /// 그랬다(`palette.png`): 빛 모드에서 전부 같은 흰 종이였다. 색이 신원을
+    /// 말하려면 **밝기를 먼저 맞추고** 섞어야 한다.
+    ///
+    /// 채도는 곱해서 올리되 상한을 둔다. 원래 채도가 낮은 무채는 낮은 채로
+    /// 남아야 하고 — 무채가 색을 띠면 그건 무채가 아니다 — 진한 색은 상한에서
+    /// 멈춰야 문구점 형광 메모지로 넘어가지 않는다.
+    private func papered(_ color: Color) -> NSColor? {
+        guard let rgb = NSColor(color).usingColorSpace(.sRGB) else { return nil }
+        var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
+        rgb.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+
+        return NSColor(
+            hue: hue,
+            saturation: min(saturation * 1.5, colorScheme == .dark ? 0.40 : 0.46),
+            brightness: colorScheme == .dark ? 0.46 : 0.95,
+            alpha: 1
+        ).usingColorSpace(.sRGB)
     }
 
     private var surface: Color {
@@ -126,8 +149,8 @@ struct PaperSurface: View {
                 base = Paper.surfaceNSColor.usingColorSpace(.sRGB) ?? .white
             }
 
-        guard let ink = NSColor(tint).usingColorSpace(.sRGB),
-              let mixed = base.blended(withFraction: bleed, of: ink)
+        guard let paperTint = papered(tint),
+              let mixed = base.blended(withFraction: bleed, of: paperTint)
         else { return Color(nsColor: base) }
         return Color(nsColor: mixed)
     }
@@ -137,7 +160,7 @@ struct PaperSurface: View {
             .fill(surface)
             .overlay {
                 if dotted {
-                    DotGrid(color: tint.opacity(colorScheme == .dark ? 0.22 : 0.20))
+                    DotGrid(color: tint.opacity(colorScheme == .dark ? 0.30 : 0.28))
                 }
             }
             .overlay {
