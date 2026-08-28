@@ -38,7 +38,7 @@ struct NoteView: View {
                 controls
             }
         }
-        .background(Theme.paper(color.paper, age: age))
+        .background(Theme.paper(color.ink, age: age))
         .overlay(Theme.edge())
         .onHover { isHovering = $0 }
         .animation(Theme.reveal, value: isHovering)
@@ -50,7 +50,7 @@ struct NoteView: View {
     private var editor: some View {
         MemoTextArea(
             text: $model.text,
-            insets: NSSize(width: Theme.normal, height: Theme.normal),
+            insets: NSSize(width: Theme.loose, height: Theme.loose),
             linePitch: Paper.linePitch,
             stylesMarkdown: true,
             onPasteImage: { data, ext in
@@ -60,9 +60,7 @@ struct NoteView: View {
             placeholder: "…",
             onEdit: model.edited
         )
-        .background(alignment: .top) {
-            RuledLines(topInset: Theme.normal)
-        }
+
     }
 
     // MARK: 겹쳐 뜨는 조작
@@ -84,7 +82,7 @@ struct NoteView: View {
         .padding(3)
         .background {
             // 글자 위에 겹치므로 얇은 바탕이 필요하다. 없으면 아이콘이 본문에 묻힌다.
-            Capsule().fill(color.paper).shadow(color: .black.opacity(0.18), radius: 3, y: 1)
+            Capsule().fill(Paper.surface).shadow(color: .black.opacity(0.14), radius: 3, y: 1)
         }
         .padding(Theme.tight)
         .transition(.opacity)
@@ -155,7 +153,7 @@ struct NoteView: View {
                     .shadow(color: .black.opacity(0.22), radius: 3, y: 1)
             }
         }
-        .padding(.horizontal, Theme.normal)
+        .padding(.horizontal, Theme.loose)
         .padding(.bottom, Theme.snug)
     }
 
@@ -182,8 +180,8 @@ struct NoteView: View {
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, Theme.normal + 5)
-        .padding(.bottom, Theme.snug)
+        .padding(.horizontal, Theme.loose + 5)
+        .padding(.bottom, Theme.normal)
     }
 
     /// 지난 일정은 한 걸음 더 물러난다. 지우라고 재촉하지는 않는다 (철학 1).

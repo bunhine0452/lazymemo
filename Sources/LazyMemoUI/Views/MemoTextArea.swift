@@ -64,7 +64,7 @@ extension MemoTextArea {
         guard stylesMarkdown else { return Text(text) }
 
         let storage = NSTextStorage(string: text)
-        MarkdownStyler.apply(to: storage, baseFont: font, paragraph: nil)
+        MarkdownStyler.apply(to: storage, baseFont: font, paragraph: nil, activeLine: nil)
         return Text(AttributedString(storage))
     }
 }

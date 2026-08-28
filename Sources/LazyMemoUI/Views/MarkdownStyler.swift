@@ -11,10 +11,17 @@ import LazyMemoCore
 /// 마커(`**`, `#`, `[]()`)는 지우지 않고 **흐리게 눌러 둔다.** 지우면 커서가
 /// 어디 있는지 알 수 없어지고, 되돌리기도 어긋난다.
 enum MarkdownStyler {
+    private typealias Span = MarkdownScanner.Span
+
+    /// 눈에 보이지 않을 만큼 작은 글꼴. 글자를 지우지 않고 감추는 방법이다.
+    private static let hiddenSize: CGFloat = 0.01
+
+    /// - Parameter activeLine: 커서가 놓인 줄. 그 줄에서만 기호를 보여준다.
     static func apply(
         to storage: NSTextStorage,
         baseFont: NSFont,
-        paragraph: NSParagraphStyle?
+        paragraph: NSParagraphStyle?,
+        activeLine: NSRange? = nil
     ) {
         let text = storage.string
         let full = NSRange(location: 0, length: (text as NSString).length)
@@ -37,6 +44,43 @@ enum MarkdownStyler {
         for span in spans where span.kind == .syntax {
             style(span, in: storage, baseFont: baseFont, text: text)
         }
+
+        // 기호는 **커서가 놓인 줄에서만** 보인다.
+        //
+        // 이것이 "치는 대로 꾸며진다" 를 완성한다. `## 제목` 이 그냥 큰 글씨로
+        // 보이고, `[이름](주소)` 가 이름만 남는다. 글자를 지우는 것이 아니라
+        // 보이지 않을 만큼 작게 만들 뿐이라 파일은 그대로다 — 그 줄로 커서를
+        // 옮기면 기호가 되돌아와 고칠 수 있다.
+        for span in spans where shouldHide(span, activeLine: activeLine) {
+            hide(span.range, in: storage)
+        }
+
+        // 체크박스의 `- ` 도 감춘다. `[ ]` 만 남으면 그 자체가 체크상자로 읽히는데,
+        // 앞에 붙임표가 있으면 다시 마크다운 원문으로 보인다.
+        for span in spans {
+            guard case .checkbox = span.kind, isOffActiveLine(span.range, activeLine) else { continue }
+            let bracket = (text as NSString).range(of: "[", options: [], range: span.range).location
+            guard bracket != NSNotFound, bracket > span.range.location else { continue }
+            hide(NSRange(location: span.range.location, length: bracket - span.range.location), in: storage)
+        }
+    }
+
+    private static func isOffActiveLine(_ range: NSRange, _ activeLine: NSRange?) -> Bool {
+        guard let activeLine else { return true }
+        return NSIntersectionRange(range, activeLine).length == 0
+    }
+
+    private static func shouldHide(_ span: Span, activeLine: NSRange?) -> Bool {
+        switch span.kind {
+        case .syntax, .image: break
+        default: return false
+        }
+        return isOffActiveLine(span.range, activeLine)
+    }
+
+    private static func hide(_ range: NSRange, in storage: NSTextStorage) {
+        guard range.location >= 0, range.location + range.length <= storage.length else { return }
+        storage.addAttribute(.font, value: NSFont.systemFont(ofSize: hiddenSize), range: range)
     }
 
     static func baseAttributes(_ font: NSFont, _ paragraph: NSParagraphStyle?) -> [NSAttributedString.Key: Any] {
@@ -98,7 +142,20 @@ enum MarkdownStyler {
             addTrait(.italic, to: storage, range: range, baseFont: baseFont)
 
         case .checkbox(let done):
-            storage.addAttribute(.foregroundColor, value: Paper.inkNSColor.withAlphaComponent(0.45), range: range)
+            storage.addAttribute(.foregroundColor, value: Paper.inkNSColor.withAlphaComponent(0.42), range: range)
+            // `[ ]` `[x]` 는 고정폭으로 두면 그 자체가 체크상자로 읽힌다.
+            if let bracket = (text as NSString).range(
+                of: "[", options: [], range: range
+            ).location as Int?, bracket != NSNotFound {
+                let box = NSRange(location: bracket, length: 3)
+                if box.location + box.length <= storage.length {
+                    storage.addAttribute(
+                        .font,
+                        value: NSFont.monospacedSystemFont(ofSize: baseFont.pointSize, weight: .regular),
+                        range: box
+                    )
+                }
+            }
             guard done else { return }
             // 끝낸 일은 줄을 긋고 물러난다. 지우라고 하지 않는다 (철학 1).
             let line = (text as NSString).lineRange(for: range)

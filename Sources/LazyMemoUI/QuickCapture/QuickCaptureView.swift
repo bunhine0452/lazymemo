@@ -38,7 +38,7 @@ struct QuickCaptureView: View {
             hint
         }
         .frame(width: QuickCaptureController.width)
-        .background(Theme.paper(MemoColor.yellow.paper, radius: Theme.panelRadius))
+        .background(Theme.paper(MemoColor.gray.ink, radius: Theme.panelRadius, dotted: false))
         .overlay(Theme.edge(radius: Theme.panelRadius))
         .animation(Theme.reveal, value: model.matches.count)
         .animation(Theme.reveal, value: model.selection)

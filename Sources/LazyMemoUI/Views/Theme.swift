@@ -45,8 +45,8 @@ enum Theme {
 
     /// **종이는 각져 있다.** 둥글릴수록 UI 카드로 보인다. 재단된 종이의
     /// 모서리가 아주 살짝 무뎌진 정도만 준다.
-    static let cardRadius: CGFloat = 3
-    static let panelRadius: CGFloat = 4
+    static let cardRadius: CGFloat = 5
+    static let panelRadius: CGFloat = 8
     static let controlRadius: CGFloat = 7
     static let borderWidth: CGFloat = 1.5
 
@@ -91,70 +91,88 @@ enum Theme {
 
 // MARK: - 종이
 
-/// 메모가 놓이는 면 — **화면 위의 사각형이 아니라 종이 한 장.**
+/// 메모가 놓이는 면 — **좋은 노트의 한 장.**
 ///
-/// 매끈한 단색 면은 색을 아무리 잘 골라도 UI 로 보인다. 실제 종이가 물건으로
-/// 보이는 이유는 네 가지다. 여기서 그 넷을 다 흉내 낸다.
+/// 앞선 두 판을 버리고 여기 왔다. 매끈한 단색 카드는 화면 위의 사각형으로
+/// 보였고, 진한 노랑 바탕에 파란 괘선은 옛 메모 앱의 인상이라 촌스러웠다.
 ///
-/// 1. **온 면이 색이다.** 접착 메모지는 가장자리만 노란 것이 아니다.
-/// 2. **표면이 고르지 않다.** 잡티와 섬유가 빛을 불규칙하게 되받아친다 (`PaperGrain.png`).
-/// 3. **위쪽이 다르다.** 접착제가 붙은 띠가 미묘하게 짙게 비친다.
-/// 4. **아래가 들린다.** 바닥에 닿는 쪽에 그늘이 진다.
+/// 지금 기준은 셋이다.
 ///
-/// 그리고 **시간이 지나면 누레진다** (`MemoAge`) — 투명도를 낮추는 것보다
-/// 종이다운 늙음이다.
+/// 1. **종이는 거의 미색이다.** 색은 그 위에 스며 있을 뿐, 종이를 잡아먹지 않는다.
+/// 2. **줄이 아니라 점이다.** 가로 괘선은 학습장·리갈패드를 부른다. 도트
+///    그리드는 지금 문구류의 언어이고, 글을 줄에 맞출 의무도 지우지 않는다.
+/// 3. **표면이 아주 조금 고르지 않다.** 알아채지 못할 만큼의 결이 종이를 물건으로 만든다.
 struct PaperSurface: View {
     let tint: Color
     var age: MemoAge = .fresh
     var radius: CGFloat = Theme.cardRadius
+    /// 도트 그리드를 깔지. 빠른 입력처럼 한 줄짜리 자리에서는 끈다.
+    var dotted = true
 
     @Environment(\.colorScheme) private var colorScheme
 
-    /// 어두운 방의 종이는 덜 밝다. 색을 바꾸지 않고 밝기만 낮춘다 —
-    /// 다크 모드라고 종이가 검어지지는 않는다.
-    private var dimming: Double {
-        colorScheme == .dark ? 0.88 : 1.0
+    /// 종이에 스민 색의 세기. 아주 옅다 — 이 값을 올리면 곧바로 촌스러워진다.
+    private var bleed: Double {
+        (colorScheme == .dark ? 0.10 : 0.07) * (0.35 + 0.65 * age.presence)
     }
 
     private var surface: Color {
-        guard let base = NSColor(tint).usingColorSpace(.sRGB),
-              let aged = NSColor(Paper.aged).usingColorSpace(.sRGB)
-        else { return tint }
+        // 동적 색을 sRGB 로 바꾸는 순간 "지금 그리는 외관" 으로 굳는다.
+        // SwiftUI 환경의 colorScheme 과 그것이 다를 수 있으므로(화면 밖 렌더가
+        // 그렇다) 반드시 해당 외관 **안에서** 해석해야 한다.
+        var base = NSColor.white
+        NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua)?
+            .performAsCurrentDrawingAppearance {
+                base = Paper.surfaceNSColor.usingColorSpace(.sRGB) ?? .white
+            }
 
-        // 나이가 들수록 마닐라색 쪽으로 간다.
-        let yellowing = (1 - age.presence) * 0.75
-        let mixed = base.blended(withFraction: yellowing, of: aged) ?? base
-
-        guard dimming < 1,
-              let dimmed = mixed.blended(withFraction: 1 - dimming, of: .black)
-        else { return Color(nsColor: mixed) }
-        return Color(nsColor: dimmed)
+        guard let ink = NSColor(tint).usingColorSpace(.sRGB),
+              let mixed = base.blended(withFraction: bleed, of: ink)
+        else { return Color(nsColor: base) }
+        return Color(nsColor: mixed)
     }
 
     var body: some View {
         RoundedRectangle(cornerRadius: radius, style: .continuous)
             .fill(surface)
             .overlay {
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            stops: [
-                                // 접착 띠 — 위쪽이 살짝 짙다.
-                                .init(color: .black.opacity(0.055), location: 0),
-                                .init(color: .black.opacity(0.012), location: 0.06),
-                                .init(color: .clear, location: 0.16),
-                                .init(color: .clear, location: 0.86),
-                                // 바닥에 닿는 그늘.
-                                .init(color: .black.opacity(0.06), location: 1),
-                            ],
-                            startPoint: .top, endPoint: .bottom
-                        )
-                    )
+                if dotted {
+                    DotGrid(color: tint.opacity(colorScheme == .dark ? 0.22 : 0.20))
+                }
             }
             .overlay {
                 PaperGrain()
                     .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             }
+    }
+}
+
+/// 도트 그리드. `Canvas` 한 번으로 다 그린다.
+struct DotGrid: View {
+    var color: Color
+    var pitch: CGFloat = Paper.dotPitch
+    var inset: CGFloat = Theme.loose
+
+    var body: some View {
+        Canvas { context, size in
+            let diameter: CGFloat = 1.4
+            var y = inset + pitch
+            while y < size.height - inset * 0.4 {
+                var x = inset
+                while x < size.width - inset * 0.4 {
+                    context.fill(
+                        Path(ellipseIn: CGRect(
+                            x: x - diameter / 2, y: y - diameter / 2,
+                            width: diameter, height: diameter
+                        )),
+                        with: .color(color)
+                    )
+                    x += pitch
+                }
+                y += pitch
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
 
@@ -169,47 +187,25 @@ struct PaperGrain: View {
         if let image = Self.image {
             image
                 .resizable(resizingMode: .tile)
-                // 결은 알아채지 못할 만큼만. 눈에 띄면 잡티가 아니라 잡음이 된다.
-                .opacity(0.30)
+                // 알아채지 못할 만큼만. 눈에 띄면 잡티가 아니라 잡음이 된다.
+                .opacity(0.16)
                 .allowsHitTesting(false)
         }
     }
 }
 
-/// 괘선. 글줄이 그 위에 앉는다.
-///
-/// `Canvas` 로 한 번에 그린다. `Rectangle` 을 줄 수만큼 쌓으면 창마다 레이어가
-/// 그만큼 늘어 예산(§11)을 먹는다.
-struct RuledLines: View {
-    var topInset: CGFloat
-    var pitch: CGFloat = Paper.linePitch
-    var color: Color = Paper.rule
-
-    var body: some View {
-        Canvas { context, size in
-            // 글줄의 밑선이 괘선 위에 앉도록 맞춘다.
-            var y = topInset + pitch - 9
-            while y < size.height {
-                context.fill(
-                    Path(CGRect(x: 0, y: y, width: size.width, height: 0.7)),
-                    with: .color(color)
-                )
-                y += pitch
-            }
-        }
-        .allowsHitTesting(false)
-    }
-}
-
 extension Theme {
-    static func paper(_ color: Color, age: MemoAge = .fresh, radius: CGFloat = cardRadius) -> some View {
-        PaperSurface(tint: color, age: age, radius: radius)
+    static func paper(
+        _ color: Color, age: MemoAge = .fresh,
+        radius: CGFloat = cardRadius, dotted: Bool = true
+    ) -> some View {
+        PaperSurface(tint: color, age: age, radius: radius, dotted: dotted)
     }
 
-    /// 종이의 잘린 가장자리. 색 테두리가 아니라 **종이 두께**를 흉내 낸다.
+    /// 종이의 잘린 가장자리. 눈에 띄는 테두리가 아니라 형태를 잡아 주는 실선.
     static func edge(radius: CGFloat = cardRadius) -> some View {
         RoundedRectangle(cornerRadius: radius, style: .continuous)
-            .strokeBorder(.black.opacity(0.10), lineWidth: 0.75)
+            .strokeBorder(Paper.ink.opacity(0.10), lineWidth: 0.75)
     }
 }
 

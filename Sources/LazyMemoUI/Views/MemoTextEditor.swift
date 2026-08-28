@@ -100,6 +100,9 @@ struct MemoTextEditor: NSViewRepresentable {
         var baseFont: NSFont = .systemFont(ofSize: Paper.bodySize)
         var paragraph: NSParagraphStyle?
 
+        private var isRestyling = false
+        private var activeLine: NSRange?
+
         /// 마크다운 꾸밈을 다시 입힌다.
         ///
         /// **조합 중에는 하지 않는다.** 속성을 통째로 다시 까는 동안 조합
@@ -110,8 +113,26 @@ struct MemoTextEditor: NSViewRepresentable {
             else { return }
 
             let selection = textView.selectedRange()
-            MarkdownStyler.apply(to: storage, baseFont: baseFont, paragraph: paragraph)
+            activeLine = (textView.string as NSString).lineRange(for: selection)
+
+            isRestyling = true
+            MarkdownStyler.apply(
+                to: storage, baseFont: baseFont, paragraph: paragraph, activeLine: activeLine
+            )
             textView.setSelectedRange(selection)
+            isRestyling = false
+        }
+
+        /// 커서가 다른 줄로 가면 기호를 감추고, 온 줄에서는 되살린다.
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard !isRestyling, stylesMarkdown,
+                  let textView = notification.object as? NSTextView,
+                  !textView.hasMarkedText()
+            else { return }
+
+            let line = (textView.string as NSString).lineRange(for: textView.selectedRange())
+            guard line != activeLine else { return }
+            restyle(textView)
         }
 
         init(
