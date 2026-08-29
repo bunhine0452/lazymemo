@@ -13,6 +13,8 @@ struct MemoTextArea: View {
     var insets: NSSize = NSSize(width: 14, height: 6)
     var linePitch: CGFloat?
     var stylesMarkdown = false
+    /// 꾸밈은 끄되 사진 참조만 감출지 (`MemoTextEditor`).
+    var hidesImageReferences = false
     var onPasteImage: ((Data, String) -> String?)?
     var onPasteLink: ((URL) -> String?)?
     var onDelete: (() -> Void)?
@@ -41,7 +43,7 @@ struct MemoTextArea: View {
             } else {
                 MemoTextEditor(
                     text: $text, font: font, insets: insets, linePitch: linePitch,
-                    stylesMarkdown: stylesMarkdown,
+                    stylesMarkdown: stylesMarkdown, hidesImageReferences: hidesImageReferences,
                     onPasteImage: onPasteImage, onPasteLink: onPasteLink,
                     onDelete: onDelete, movesWindow: movesWindow, blursOnEscape: blursOnEscape,
                     onEdit: onEdit, onCommand: onCommand,
@@ -68,7 +70,7 @@ extension MemoTextArea {
     /// 맞는지는 알 수 없다. 같은 `MarkdownStyler` 를 태워 속성 문자열을 만든 뒤
     /// SwiftUI 로 건네면, 미리보기가 실제 편집기와 같은 것을 그린다.
     fileprivate var staticText: Text {
-        guard stylesMarkdown else { return Text(text) }
+        guard stylesMarkdown || hidesImageReferences else { return Text(text) }
 
         let paragraph = NSMutableParagraphStyle()
         if let pitch = linePitch {
@@ -77,6 +79,13 @@ extension MemoTextArea {
         }
 
         let storage = NSTextStorage(string: text)
+        guard stylesMarkdown else {
+            // 빠른 입력 — 사진 경로만 감춘 채로 보여야 미리보기가 거짓말을 안 한다.
+            MarkdownStyler.hideImageReferences(
+                to: storage, baseFont: font, paragraph: paragraph, activeLine: nil
+            )
+            return Text(AttributedString(storage))
+        }
         MarkdownStyler.apply(to: storage, baseFont: font, paragraph: paragraph, activeLine: nil)
         // 여백에 직접 그리는 줄머리 표시는 SwiftUI `Text` 가 그리지 못한다.
         // 미리보기에서만 같은 뜻의 글리프로 바꿔 끼운다.

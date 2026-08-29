@@ -19,7 +19,7 @@ final class NoteModel {
     private static let autosaveDelay: Duration = .milliseconds(600)
 
     /// 본문이 참조하는 사진들. 글 아래에 붙는다.
-    private(set) var images: [NoteImage] = []
+    private(set) var images: [AttachedImage] = []
 
     /// 본문이 가리키는 링크의 카드. 설정이 꺼져 있으면 비어 있다.
     private(set) var links: [LinkPreviewStore.Card] = []
@@ -42,12 +42,6 @@ final class NoteModel {
         reloadLinks()
     }
 
-    struct NoteImage: Identifiable, Equatable {
-        let path: String
-        let image: NSImage
-        var id: String { path }
-    }
-
     // MARK: 붙여넣기
 
     /// 사진을 Vault 안의 진짜 파일로 저장하고 본문에 넣을 마크다운을 돌려준다.
@@ -59,6 +53,15 @@ final class NoteModel {
 
     func markdown(forPastedLink url: URL) -> String {
         LinkLabel.markdown(for: url)
+    }
+
+    /// 붙여 둔 사진의 원본 파일. 펼쳐 볼 때만 읽는다.
+    ///
+    /// 화면에 들고 있는 것은 480px 로 줄인 그림이라(§11) 원본 크기로 보려면
+    /// 다시 읽어야 한다. 열 장을 원본으로 들고 있으면 메모리 예산이 무너지므로
+    /// **보겠다는 뜻을 밝힌 그 순간에만** 읽는 편이 맞다.
+    func originalURL(for attachment: AttachedImage) -> URL? {
+        attachments.url(for: attachment.path)
     }
 
     /// 본문에서 사진 참조를 읽어 실제 파일을 불러온다.
@@ -77,14 +80,7 @@ final class NoteModel {
 
         let store = attachments
         loadTask = Task { [weak self] in
-            var loaded: [NoteImage] = []
-            for path in paths {
-                guard !Task.isCancelled,
-                      let url = store.url(for: path),
-                      let image = NSImage(contentsOf: url)
-                else { continue }
-                loaded.append(NoteImage(path: path, image: Self.thumbnail(image)))
-            }
+            let loaded = AttachedImages.load(paths, from: store)
             guard !Task.isCancelled else { return }
             self?.images = loaded
         }
@@ -116,18 +112,6 @@ final class NoteModel {
             guard !Task.isCancelled, !loaded.isEmpty else { return }
             self?.links = loaded
         }
-    }
-
-    private static func thumbnail(_ image: NSImage, maxWidth: CGFloat = 480) -> NSImage {
-        guard image.size.width > maxWidth else { return image }
-        let scale = maxWidth / image.size.width
-        let size = NSSize(width: maxWidth, height: (image.size.height * scale).rounded())
-
-        let thumbnail = NSImage(size: size)
-        thumbnail.lockFocus()
-        image.draw(in: NSRect(origin: .zero, size: size))
-        thumbnail.unlockFocus()
-        return thumbnail
     }
 
     // MARK: 외부 변경 반영
@@ -188,10 +172,6 @@ final class NoteModel {
 
     func togglePin() async {
         memo = (try? await store.update(memo.id, pinned: !memo.pinned)) ?? memo
-    }
-
-    func clearSchedule() async {
-        memo = (try? await store.update(memo.id, due: .some(nil), at: .some(nil))) ?? memo
     }
 
     func delete() async {

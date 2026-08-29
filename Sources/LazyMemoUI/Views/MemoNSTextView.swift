@@ -53,10 +53,22 @@ final class MemoNSTextView: NSTextView {
         (.tiff, "tiff"),
     ]
 
+    /// 붙여넣기가 읽는 붙임판. 시험만 자기 것을 끼운다 — 사람이 쓰던
+    /// 클립보드를 시험이 헤집지 않게.
+    var pasteboard: NSPasteboard = .general
+
+    /// 끌어다 놓을 수 있는 것. 붙여넣기가 받는 형식과 **같아야 한다** —
+    /// ⌘V 로는 들어오는데 끌어다 놓으면 안 되는 사진이 생기면, 사용자에게는
+    /// 그냥 "될 때도 있고 안 될 때도 있는" 것이 된다.
+    static let draggedTypes: [NSPasteboard.PasteboardType] =
+        [.fileURL] + imageTypes.map(\.0)
+
     /// 지금 이 메모에 글을 쓰고 있는 중인가. 모든 갈림길의 기준이다.
     private var isEditing: Bool { window?.firstResponder === self }
 
     /// ⌘⏎ 는 표준 선택자가 없어 `doCommandBy` 로 오지 않는다. 직접 집는다.
+    ///
+    /// 표준 편집 단축키도 여기서 직접 받는다 — 까닭은 `editingActions` 에 있다.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if let onCommandReturn,
            event.modifierFlags.contains(.command),
@@ -64,7 +76,74 @@ final class MemoNSTextView: NSTextView {
             onCommandReturn()
             return true
         }
+        if isEditing, let action = Self.editingAction(for: event), perform(action) {
+            return true
+        }
         return super.performKeyEquivalent(with: event)
+    }
+
+    /// 알아낸 편집 동작을 **우리 자신에게 곧바로** 시킨다.
+    ///
+    /// 여기가 두 번째 구멍이었다. 메인 메뉴를 건너뛰어 놓고도 `NSApp.sendAction(_:to:nil)`
+    /// 로 보내고 있었는데, 그 함수는 대상을 **키 윈도의 응답 체인**에서 찾는다.
+    /// 빠른 입력 상자는 `.nonactivatingPanel` 이라 앱이 활성이 아니면 키 윈도가
+    /// 아예 없고(`NSApp.keyWindow == nil`), 그러면 첫 응답자가 바로 이 뷰인데도
+    /// 대상을 못 찾아 **아무 일도 일어나지 않는다.** 글자는 쳐지는데 ⌘V 만 죽는
+    /// 것이 정확히 이것이다 — 빠른 입력에서 사진이 안 붙던 까닭.
+    ///
+    /// 대상을 찾을 이유가 없다. 지금 글을 받고 있는 것이 우리이므로 우리가 한다.
+    /// 되돌리기만 우리 것이 아니라 `undoManager` 에게 넘긴다.
+    private func perform(_ action: Selector) -> Bool {
+        switch action {
+        case #selector(NSText.paste(_:)): paste(nil)
+        case #selector(NSTextView.pasteAsPlainText(_:)): pasteAsPlainText(nil)
+        case #selector(NSText.copy(_:)): copy(nil)
+        case #selector(NSText.cut(_:)): cut(nil)
+        case #selector(NSText.selectAll(_:)): selectAll(nil)
+        case Selector(("undo:")):
+            guard let undoManager, undoManager.canUndo else { return false }
+            undoManager.undo()
+        case Selector(("redo:")):
+            guard let undoManager, undoManager.canRedo else { return false }
+            undoManager.redo()
+        default: return false
+        }
+        return true
+    }
+
+    /// ⌘V·⌘C·⌘X·⌘A·⌘Z 를 **메인 메뉴에 기대지 않고** 여기서 받는다.
+    ///
+    /// macOS 는 표준 편집 단축키를 메인 메뉴를 통해서만 응답 체인에 흘려보내고
+    /// (`StandardMenu`), 메인 메뉴의 단축키는 **앱이 활성일 때만** 산다.
+    /// 그런데 빠른 입력 상자는 `.nonactivatingPanel` 이다 — 앱을 앞으로
+    /// 끌어내지 않고 키 입력만 받는 창이라, 활성화가 늦거나 거절되면
+    /// **글자는 쳐지는데 ⌘V 만 죽는다.** 실제로 그렇게 나타났다.
+    ///
+    /// 창의 `performKeyEquivalent` 는 메인 메뉴보다 **먼저** 불리므로, 여기서
+    /// 집으면 앱이 활성이든 아니든 같은 일이 일어난다. 메모 창도 같은 길을
+    /// 타므로 두 곳의 동작이 갈리지 않는다.
+    ///
+    /// 여기서 알아낸 동작은 `perform(_:)` 이 **직접** 수행한다 — 응답 체인에
+    /// 되던지면 키 윈도가 없는 그 상황에서 다시 길을 잃기 때문이다.
+    private static func editingAction(for event: NSEvent) -> Selector? {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard flags.contains(.command), !flags.contains(.control), !flags.contains(.function)
+        else { return nil }
+        guard let key = event.charactersIgnoringModifiers?.lowercased() else { return nil }
+
+        let shifted = flags.contains(.shift)
+        let optioned = flags.contains(.option)
+
+        switch key {
+        case "v":
+            // ⌥⇧⌘V — 서식 없이 붙여넣기. 마크다운이 정본이라 이쪽도 살려 둔다.
+            return (shifted && optioned) ? #selector(NSTextView.pasteAsPlainText(_:)) : #selector(NSText.paste(_:))
+        case "c" where !shifted && !optioned: return #selector(NSText.copy(_:))
+        case "x" where !shifted && !optioned: return #selector(NSText.cut(_:))
+        case "a" where !shifted && !optioned: return #selector(NSText.selectAll(_:))
+        case "z" where !optioned: return shifted ? Selector(("redo:")) : Selector(("undo:"))
+        default: return nil
+        }
     }
 
     // MARK: 끌어놓기
@@ -93,12 +172,12 @@ final class MemoNSTextView: NSTextView {
     }
 
     override func paste(_ sender: Any?) {
-        if pasteHandled(NSPasteboard.general) { return }
+        if pasteHandled(pasteboard) { return }
         super.paste(sender)
     }
 
     override func pasteAsPlainText(_ sender: Any?) {
-        if pasteHandled(NSPasteboard.general) { return }
+        if pasteHandled(pasteboard) { return }
         super.pasteAsPlainText(sender)
     }
 
@@ -121,7 +200,7 @@ final class MemoNSTextView: NSTextView {
 
     // MARK: 사진
 
-    private func imageMarkdown(from pasteboard: NSPasteboard) -> String? {
+    func imageMarkdown(from pasteboard: NSPasteboard) -> String? {
         guard let onPasteImage else { return nil }
 
         // 파인더에서 끌어온 이미지 파일이 먼저다. 원본 그대로 옮길 수 있다.

@@ -30,15 +30,17 @@ enum DayParser {
     private static func explicitDate(
         _ text: String, now: Date, calendar: Calendar
     ) -> Result? {
+        guard TimeWords.hasDigit(text) else { return nil }
         let thisYear = calendar.component(.year, from: now)
 
-        if let match = text.firstMatch(of: /\b(\d{4})-(\d{1,2})-(\d{1,2})\b/),
+        if text.contains("-"),
+           let match = text.firstMatch(of: /\b(\d{4})-(\d{1,2})-(\d{1,2})\b/),
            let year = Int(match.1), let month = Int(match.2), let day = Int(match.3) {
             return made(year: year, month: month, day: day, phrase: String(match.0))
         }
 
         // 한국어·일본어·중국어가 같은 꼴을 쓴다: (해) 달 날.
-        if let match = text.firstMatch(
+        if TimeWords.hasAny(of: "월月", in: text), let match = text.firstMatch(
             of: /(?:(\d{4})\s*[년年]\s*)?(\d{1,2})\s*[월月]\s*(\d{1,2})\s*[일日号號]/
         ), let month = Int(match.2), let day = Int(match.3) {
             return made(
@@ -46,6 +48,11 @@ enum DayParser {
                 month: month, day: day, phrase: String(match.0)
             )
         }
+
+        // 달 이름이 아예 없으면 아래 두 정규식은 꺼낼 값어치가 없다 — 낱말이
+        // 스물넷씩 늘어선 정규식이라 짜는 데만 0.4ms 씩 든다.
+        guard TimeWords.hasLatinLetter(text), TimeWords.mentions(monthHeads, in: text)
+        else { return nil }
 
         // 영어 달 이름. 긴 이름을 먼저 적어야 짧은 쪽에서 잘리지 않는다.
         if let match = text.firstMatch(
@@ -171,26 +178,38 @@ enum DayParser {
     ///
     /// 달 → 주 → 날 순으로 본다. "1주일 뒤" 에서 날(`일`)이 먼저 걸리면 안 된다.
     private static func counted(_ text: String, now: Date, calendar: Calendar) -> Result? {
-        if let found = number(in: text, /(\d{1,2})\s*(?:개월|달|ヶ月|か月|个月|個月)\s*(?:뒤|후|後|后|이후|以後|以后)/)
+        // 세는 표현에는 반드시 "뒤·후·後·后" 나 "in ... later" 가 붙는다.
+        // 그 표식이 없으면 정규식을 꺼낼 일도 없다.
+        let counts = TimeWords.hasAny(of: "뒤후後后", in: text)
+            || TimeWords.mentions(["있다가", "지나서"], in: text)
+        let english = TimeWords.hasLatinLetter(text)
+            && TimeWords.mentions(["in ", "later", "from now"], in: text)
+        guard counts || english else { return nil }
+
+        if TimeWords.mentions(["개월", "달", "ヶ月", "か月", "个月", "個月", "month"], in: text),
+           let found = number(in: text, /(\d{1,2})\s*(?:개월|달|ヶ月|か月|个月|個月)\s*(?:뒤|후|後|后|이후|以後|以后)/)
             ?? number(in: text, /(?i)\bin\s+(\d{1,2})\s+months?\b/) {
             return shifted(.month, by: found, now: now, calendar: calendar)
         }
 
-        if let found = number(in: text, /(\d{1,2})\s*(?:주일|주|週間|週|周)\s*(?:뒤|후|後|后|이후|以後|以后)/)
+        if TimeWords.hasAny(of: "주週周", in: text) || TimeWords.mentions(["week"], in: text),
+           let found = number(in: text, /(\d{1,2})\s*(?:주일|주|週間|週|周)\s*(?:뒤|후|後|后|이후|以後|以后)/)
             ?? number(in: text, /(?i)\bin\s+(\d{1,2})\s+weeks?\b/) {
             return shifted(.weekOfYear, by: found, now: now, calendar: calendar)
         }
 
-        if let found = number(in: text, /(\d{1,3})\s*[일日天]\s*(?:뒤|후|後|后|이후|以後|以后)/)
+        if TimeWords.hasAny(of: "일日天", in: text) || TimeWords.mentions(["day"], in: text),
+           let found = number(in: text, /(\d{1,3})\s*[일日天]\s*(?:뒤|후|後|后|이후|以後|以后)/)
             ?? number(in: text, /(?i)\bin\s+(\d{1,3})\s+days?\b/)
             ?? number(in: text, /(?i)\b(\d{1,3})\s+days?\s+(?:later|from now)\b/) {
             return shifted(.day, by: found, now: now, calendar: calendar)
         }
 
         // 숫자로 적지 않는 한국어 날수 — "이틀 뒤".
-        if let match = text.firstMatch(
+        if TimeWords.first(of: TimeWords.nativeDayCounts, in: text) != nil,
+           let match = text.firstMatch(
             of: /(하루|이틀|사흘|나흘|닷새|엿새|이레|여드레|아흐레|열흘)\s*(?:뒤|후|있다가|지나서)/
-        ), let entry = TimeWords.nativeDayCounts.first(where: { $0.text == String(match.1) }) {
+           ), let entry = TimeWords.nativeDayCounts.first(where: { $0.text == String(match.1) }) {
             return shifted(
                 .day, by: (entry.value, String(match.0)), now: now, calendar: calendar
             )

@@ -103,6 +103,27 @@ final class DesktopLevelWindow: NSWindow {
         }
     }
 
+    /// **놓을 때까지** 앞에 서 있는다.
+    ///
+    /// `riseBriefly` 와 다른 점은 스스로 내려앉지 않는다는 것이다. 달력이 놓을
+    /// 날을 기다리는 동안(설계문서 §7.2) 창이 시간이 지났다고 브라우저 뒤로
+    /// 내려가면 조준하던 자리가 그대로 사라진다 — 겨누는 시간은 사람마다 다르다.
+    func rise() {
+        settleTask?.cancel()
+        settleTask = nil
+        level = Self.focusedLevel
+        orderFront(nil)
+    }
+
+    /// 일이 끝났다 — 다시 바탕으로 내려앉는다.
+    /// 손이 아직 창 안에 있으면(키를 잡고 있으면) 건드리지 않는다.
+    func settle() {
+        settleTask?.cancel()
+        settleTask = nil
+        guard !isKeyWindow else { return }
+        level = Self.desktopLevel
+    }
+
     /// 창을 치우기 전에 타이머를 끊는다.
     func cancelSettling() {
         settleTask?.cancel()

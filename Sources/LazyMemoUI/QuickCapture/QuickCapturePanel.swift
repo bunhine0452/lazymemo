@@ -67,20 +67,29 @@ final class QuickCapturePanel: NSPanel {
     // 치우는 일은 컨트롤러가 맡는다 — 앱이 비활성화될 때, 그리고 상자 바깥을
     // 눌렀을 때. 앱이 끝내 활성화되지 못하는 경우까지 덮으려면 둘 다 필요하다.
 
-    /// 메뉴바 아이콘 밑에 매단다.
+    /// 메뉴바 아이콘 밑에 매단다. **크기와 자리를 한 번에 정한다.**
     ///
-    /// - Parameter anchor: 아이콘의 화면 좌표. `nil` 이면 매달 곳이 없다.
+    /// 크기를 먼저 바꾸고 자리를 옮기면 안 된다 — `setContentSize` 는 창의
+    /// 왼쪽 **아래** 모서리를 붙잡으므로, 상자가 커지는 순간 위쪽으로 자라
+    /// 메뉴바를 파고들었다가 되돌아온다. 사람 눈에는 상자가 위로 튀어 오르며
+    /// 윗줄이 잘리는 것으로 보인다. 한 번의 `setFrame` 이면 그 중간 상태가
+    /// 아예 존재하지 않는다.
+    ///
+    /// - Parameters:
+    ///   - anchor: 아이콘의 화면 좌표. `nil` 이면 매달 곳이 없다.
+    ///   - contentHeight: 내용이 요구하는 높이. `nil` 이면 지금 크기를 지킨다.
     /// - Returns: 말풍선 왼쪽 끝에서 꼬리까지의 거리. 매달지 못했으면 `nil`.
     @discardableResult
-    func moveToCaptureAnchor(below anchor: NSRect?) -> CGFloat? {
+    func moveToCaptureAnchor(below anchor: NSRect?, contentHeight: CGFloat? = nil) -> CGFloat? {
+        let size = frameSize(forContentHeight: contentHeight)
+
         guard let anchor, anchor.width > 0 else {
-            moveToFallbackAnchor()
+            moveToFallbackAnchor(size: size)
             return nil
         }
 
         let screen = Self.screen(containing: anchor) ?? Self.activeScreen()
         let visible = screen.visibleFrame
-        let size = frame.size
 
         // 아이콘 한가운데에 맞추되 화면 밖으로 나가지 않게 민다. 가장자리
         // 아이콘에서도 상자 전체가 보여야 하므로 꼬리만 아이콘을 따라간다.
@@ -96,20 +105,35 @@ final class QuickCapturePanel: NSPanel {
             visible.maxY - size.height
         ).rounded()
 
-        setFrameOrigin(NSPoint(x: x, y: y))
+        setFrame(NSRect(origin: NSPoint(x: x, y: y), size: size), display: true)
         return (anchor.midX - x).rounded()
     }
 
     /// 아이콘을 못 찾았을 때 — 마우스가 있는 화면의 위쪽에 가로 중앙으로.
-    private func moveToFallbackAnchor() {
+    private func moveToFallbackAnchor(size: NSSize) {
         let screen = Self.activeScreen()
         let visible = screen.visibleFrame
-        let size = frame.size
 
-        setFrameOrigin(NSPoint(
+        let origin = NSPoint(
             x: (visible.midX - size.width / 2).rounded(),
             y: (visible.minY + visible.height * Self.verticalAnchor - size.height).rounded()
-        ))
+        )
+        setFrame(NSRect(origin: origin, size: size), display: true)
+    }
+
+    /// 내용 높이를 창 테두리까지 포함한 크기로 바꾼다.
+    private func frameSize(forContentHeight contentHeight: CGFloat?) -> NSSize {
+        guard let contentHeight else { return frame.size }
+        let content = NSRect(
+            origin: .zero, size: NSSize(width: contentWidth, height: contentHeight)
+        )
+        return frameRect(forContentRect: content).size
+    }
+
+    /// 지금 내용이 차지하는 가로. borderless 라 창 가로와 같지만, 창틀이
+    /// 생기는 날에도 계산이 어긋나지 않도록 창에 물어본다.
+    private var contentWidth: CGFloat {
+        contentRect(forFrameRect: frame).width
     }
 
     private static func screen(containing rect: NSRect) -> NSScreen? {

@@ -35,9 +35,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             cacheDirectory: paths.support.appending(path: "links", directoryHint: .isDirectory),
             settings: settings
         )
-        let windows = NoteWindowManager(store: store, layouts: layouts, previews: previews)
+        let appearance = PaperAppearance(settings: settings)
+        let windows = NoteWindowManager(
+            store: store, layouts: layouts, previews: previews, appearance: appearance
+        )
         let menuBar = MenuBarController(
-            paths: paths, store: store, windows: windows, layouts: layouts, settings: settings
+            paths: paths, store: store, windows: windows, layouts: layouts,
+            settings: settings, appearance: appearance
         )
 
         self.store = store
@@ -49,6 +53,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             // 파일이 정본이므로 화면은 스캔 결과를 따른다 (§4).
             await store.start()
             windows.start()
+            // 일정은 달력에서만 보이므로(§7.2) 달력의 열림 여부도 복원 대상이다.
+            menuBar.restoreCalendar()
 
             let environment = ProcessInfo.processInfo.environment
             if environment["LAZYMEMO_SPIKE"] == "1" {
@@ -68,6 +74,20 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 try? await Task.sleep(for: .seconds(1))
                 Self.log("1초 뒤 \(menuBar.captureDiagnostics)")
                 Self.log("⌘A     \(menuBar.selectAllReach)")
+            }
+            // `{#capture-outside-click}` — 상자 바깥을 누르면 치워지는지.
+            if environment["LAZYMEMO_DISMISS"] == "1" {
+                Self.log("바깥클릭 \(await menuBar.captureDismissReach())")
+                exit(0)
+            }
+            // `{#capture-delete}` — 빠른 입력에서 ⌘⌫ 가 메모를 지우는지.
+            if environment["LAZYMEMO_DELETE"] == "1" {
+                Self.log("목록지우기 \(await menuBar.captureDeleteReach())")
+                exit(0)
+            }
+            if environment["LAZYMEMO_MENU"] == "1" {
+                Self.log("메뉴\n\(menuBar.menuDiagnostics)")
+                exit(0)
             }
             if let path = environment["LAZYMEMO_RENDER"], !path.isEmpty {
                 await PreviewRenderer.renderAll(

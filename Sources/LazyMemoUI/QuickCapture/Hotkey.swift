@@ -37,6 +37,28 @@ struct Hotkey: Equatable, Sendable {
         return text + Self.keyName(keyCode)
     }
 
+    /// 메뉴 항목 오른쪽에 조합을 적기 위한 값.
+    ///
+    /// 전역 등록은 Carbon 이 이미 하고 있으므로 이것은 **표기 전용**이다.
+    /// 상태 항목 메뉴는 메인 메뉴에 걸리지 않아 열려 있는 동안에만 살아 있고,
+    /// 그동안 같은 키를 누르는 것은 어차피 같은 일을 한다.
+    ///
+    /// 이름이 한 글자가 아닌 키(⏎·esc·F1…)는 `nil` 이다 — 메뉴가 기대하는
+    /// 문자 표현이 따로 있어, 어설프게 넣으면 엉뚱한 기호가 찍힌다.
+    var menuKeyEquivalent: (key: String, modifiers: NSEvent.ModifierFlags)? {
+        let name = Self.keyName(keyCode)
+        guard name.count == 1, let scalar = name.unicodeScalars.first,
+              CharacterSet.alphanumerics.contains(scalar)
+        else { return nil }
+
+        var flags: NSEvent.ModifierFlags = []
+        if modifiers & UInt32(controlKey) != 0 { flags.insert(.control) }
+        if modifiers & UInt32(optionKey) != 0 { flags.insert(.option) }
+        if modifiers & UInt32(shiftKey) != 0 { flags.insert(.shift) }
+        if modifiers & UInt32(cmdKey) != 0 { flags.insert(.command) }
+        return (name.lowercased(), flags)
+    }
+
     /// AppKit 이벤트의 보조키를 Carbon 것으로 옮긴다. 등록은 Carbon 이 하고
     /// 입력은 AppKit 으로 받으므로 이 변환이 반드시 한 번 필요하다.
     static func carbonModifiers(from flags: NSEvent.ModifierFlags) -> UInt32 {

@@ -4,8 +4,9 @@ import Observation
 
 /// 메모 목록과 바탕화면 창을 맞춰 두는 곳 (D2, 설계문서 §7).
 ///
-/// 규칙 하나: **메모는 기본적으로 바탕화면에 있다.** 사용자가 창을 닫으면
-/// `layout.json` 에 숨김으로 기록되고, 그때만 사라진다. 닫기는 삭제가 아니다.
+/// 규칙 하나: **날짜 없는 메모는 바탕화면에 있고, 날짜 붙은 것은 달력이 맡는다**
+/// (§7.2). 사용자가 창을 닫으면 `layout.json` 에 숨김으로 기록되고, 그때만
+/// 사라진다. 닫기는 삭제가 아니다.
 @MainActor
 final class NoteWindowManager {
     /// 한 번에 띄우는 창의 상한. 메모가 수백 장일 때 화면과 메모리를
@@ -14,14 +15,27 @@ final class NoteWindowManager {
     static let maximumVisibleWindows = 24
 
     private var controllers: [ULID: NoteWindowController] = [:]
+    /// 지난번에 본 각 메모의 자리 — 일정이었는가 아닌가.
+    /// 자리가 바뀐 것을 알아채는 유일한 근거다 (`handover`).
+    private var wasScheduled: [ULID: Bool] = [:]
+
+    /// 종이에서 달력으로 건너가려 할 때 부르는 통로. 창 관리자는 달력 창을
+    /// 알지 못하므로 바깥(`MenuBarController`)이 이어 준다.
+    var onCalendarRequest: (ULID) -> Void = { _ in }
+
     private let store: MemoStore
     private let layouts: LayoutStore
     private let previews: LinkPreviewStore
+    private let appearance: PaperAppearance
 
-    init(store: MemoStore, layouts: LayoutStore, previews: LinkPreviewStore) {
+    init(
+        store: MemoStore, layouts: LayoutStore, previews: LinkPreviewStore,
+        appearance: PaperAppearance
+    ) {
         self.store = store
         self.layouts = layouts
         self.previews = previews
+        self.appearance = appearance
     }
 
     // MARK: 동기화
@@ -44,6 +58,7 @@ final class NoteWindowManager {
     }
 
     func sync() {
+        let returned = applyHandovers()
         let visible = plannedVisibleMemos()
         let wanted = Set(visible.map(\.id))
 
@@ -58,17 +73,82 @@ final class NoteWindowManager {
             } else {
                 open(memo, activating: false)
             }
+            // 달력에서 내려온 종이는 **나왔다는 것을 스스로 말한다.** 바탕화면
+            // 레벨의 창은 브라우저 뒤에 나므로, 그냥 두면 「종이로」를 누른
+            // 사람에게는 아무 일도 일어나지 않은 것으로 보인다 (§7.1 의 셋째 규칙).
+            if returned.contains(memo.id) { controllers[memo.id]?.announce() }
         }
 
         layouts.prune(keeping: Set(store.memos.map(\.id)))
     }
 
-    /// 숨기지 않은 메모 중 상한만큼. 목록은 이미 고정·최근순으로 정렬돼 있다.
+    /// **자리가 바뀐 메모를 따라 종이를 옮긴다** (설계문서 §7.2).
+    ///
+    /// §7.2 는 메모가 태어나는 순간에만 적용되고 있었다. 날짜를 나중에 붙이거나
+    /// 떼는 길이 어디에도 없었고, 있었다 해도 `layout.json` 의 기록이 규칙을
+    /// 이기므로(사람이 정한 것이 이긴다) 한 번 종이가 된 메모는 일정이 되어도
+    /// 종이로 남았다 — 자리를 나눠 놓고 **옮길 수 없게** 해 둔 셈이다.
+    ///
+    /// 그래서 자리가 바뀌는 순간에만 그 기록을 다시 쓴다. 달력의 「종이로」,
+    /// 종이의 「달력에 놓기」, 그리고 MCP 로 Claude 가 날짜를 붙이는 것까지
+    /// 전부 이 한 곳을 지난다 — 세 길에 각각 적으면 하나는 반드시 어긋난다.
+    /// - Returns: 달력에서 종이로 **내려온** 메모들. 나왔다는 것을 보여줘야 한다.
+    private func applyHandovers() -> Set<ULID> {
+        var next: [ULID: Bool] = [:]
+        var returned: Set<ULID> = []
+        for memo in store.memos {
+            let now = memo.isScheduled
+            if let hidden = Self.handover(was: wasScheduled[memo.id], now: now) {
+                layouts.setHidden(hidden, for: memo.id)
+                if !hidden { returned.insert(memo.id) }
+            }
+            next[memo.id] = now
+        }
+        wasScheduled = next
+        return returned
+    }
+
+    /// 자리가 바뀌었을 때 `layout.json` 에 새로 적을 `hidden` 값. 없으면 `nil`.
+    ///
+    /// 날짜를 얻으면 달력이 맡으므로 종이는 물러나고(`hidden = true`), 날짜를
+    /// 떼면 다시 눈에 밟혀야 하므로 돌아온다(`hidden = false`). 처음 본 메모는
+    /// 바뀐 것이 아니다 — 기동 직후 모든 일정이 한꺼번에 숨김으로 기록되면
+    /// 사람이 꺼내 둔 일정(§7.2 의 예외)이 통째로 사라진다.
+    nonisolated static func handover(was: Bool?, now: Bool) -> Bool? {
+        guard let was, was != now else { return nil }
+        return now
+    }
+
+    /// 종이로 있어야 할 메모 중 상한만큼. 목록은 이미 고정·최근순으로 정렬돼 있다.
     private func plannedVisibleMemos() -> [Memo] {
         store.memos
-            .filter { layouts.layout(for: $0.id)?.hidden != true }
+            .filter { staysOnDesktop($0) }
             .prefix(Self.maximumVisibleWindows)
             .map { $0 }
+    }
+
+    private func staysOnDesktop(_ memo: Memo) -> Bool {
+        Self.staysOnDesktop(isScheduled: memo.isScheduled, layout: layouts.layout(for: memo.id))
+    }
+
+    /// 이 메모가 바탕화면에 종이로 내려앉는가 (설계문서 §7.2).
+    ///
+    /// **날짜가 붙은 것은 달력이 맡는다.** 언제 볼지 이미 정해진 일을 지금
+    /// 눈앞에 쌓아 둘 이유가 없다 — 그 날이 오면 달력이 꺼내 준다(§14.2 —
+    /// 시간이 유일한 구조). 종이가 되는 것은 **언제 볼지 아직 정해지지 않은
+    /// 것**뿐이고, 그런 것이야말로 눈에 밟혀야 잊히지 않는다.
+    ///
+    /// 이 갈림길을 여기 한 곳에 두는 이유: 메모가 태어나는 길이 셋이다
+    /// (달력의 「이 날에 적기」, 빠른 입력, MCP). 만드는 자리마다 "종이를
+    /// 낼까 말까" 를 적으면 셋 중 하나가 반드시 어긋나고, 실제로 어긋나
+    /// 있었다 — 달력에서 일정을 적었는데 바탕화면에 종이가 한 장 생겼다.
+    ///
+    /// **사람이 한 번 정한 것은 언제나 이긴다.** `layout.json` 에 기록이
+    /// 있다는 것은 그 메모를 연 적이 있거나 치운 적이 있다는 뜻이므로, 이
+    /// 규칙은 아무도 정한 적 없는 메모에만 말한다.
+    nonisolated static func staysOnDesktop(isScheduled: Bool, layout: WindowLayout?) -> Bool {
+        if let layout { return !layout.hidden }
+        return !isScheduled
     }
 
     // MARK: 창 열고 닫기
@@ -86,12 +166,16 @@ final class NoteWindowManager {
             memo: memo,
             store: store,
             previews: previews,
+            appearance: appearance,
             frame: frame,
             onFrameChange: { [weak self] id, frame in
                 self?.recordFrame(frame, for: id)
             },
             onCloseRequest: { [weak self] id in
                 self?.hide(id)
+            },
+            onCalendarRequest: { [weak self] id in
+                self?.onCalendarRequest(id)
             }
         )
         controllers[memo.id] = controller

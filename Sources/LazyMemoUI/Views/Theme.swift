@@ -16,8 +16,9 @@ import SwiftUI
 /// ## 2. 시간이 유일한 구조다
 ///
 /// 게으른 사람은 폴더도 태그도 유지하지 않는다. 유일하게 받아들이는 구조는
-/// "언제"뿐이다. 그래서 캘린더는 격자가 아니라 **흐름**이고, 빠른 입력은
-/// 한국어 날짜 표현을 스스로 읽는다. 사용자가 형식을 배우게 하지 않는다.
+/// "언제"뿐이다. 그래서 달력은 보는 물건이 아니라 **만지는 물건**이고 —
+/// 집어서 다른 날에 놓고, 한 번 눌러 미룬다 — 빠른 입력은 시간을 가리키는
+/// 말을 스스로 읽는다. 사용자가 형식을 배우게 하지 않는다.
 ///
 /// ## 3. 오래된 것은 스스로 물러난다
 ///
@@ -33,7 +34,7 @@ import SwiftUI
 ///
 /// ## 재질은 하나 — 종이
 ///
-/// 유리(`glassEffect`)를 쓰지 않는다. 메모에서, 흐름에서, 빠른 입력에서
+/// 유리(`glassEffect`)를 쓰지 않는다. 메모에서, 달력에서, 빠른 입력에서
 /// 차례로 시도했다가 모두 되돌렸다. **반투명한 면 위의 글은 씻겨 나간다.**
 /// 바탕화면 사진이 무엇이든 글은 읽혀야 하는데, 유리는 그 통제권을 배경에
 /// 넘긴다. 빠른 입력처럼 "지금 치고 있는 글자" 가 있는 곳에서는 더더욱 그렇다.
@@ -76,7 +77,37 @@ enum Theme {
     /// 앱 마크의 판 색. 아이콘과 UI 가 같은 파랑을 쓴다.
     static let accent = Color(red: 0.44, green: 0.41, blue: 0.72)
     /// 아이콘의 흘러내리는 획 색. 오늘·지금을 가리킬 때만 쓴다.
+    /// **면을 칠하는 색이다** — 글자에 쓰면 안 된다 (아래 `highlightInk`).
     static let highlight = Color(red: 0.99, green: 0.76, blue: 0.31)
+
+    /// 같은 호박색을 **글자로 쓸 때.**
+    ///
+    /// 밝은 호박색은 미색 종이 위에서 읽히지 않는다 — 대비 1.5:1 로, 날짜
+    /// 칩의 글씨가 "있는 줄은 알겠는데 안 읽히는" 상태였다. 앱이 대신 읽어
+    /// 준 날짜는 **확인하라고 보여주는 것**이라 안 읽히면 아무 일도 안 한
+    /// 것과 같다.
+    ///
+    /// 그래서 빛 모드에서는 같은 색을 잉크 쪽으로 가라앉힌다(5.2:1). 어두운
+    /// 모드에서는 원래 호박색이 이미 또렷하므로(9.9:1) 그대로 쓴다.
+    static let highlightInkNSColor = NSColor(name: nil) { appearance in
+        appearance.isDark
+            ? NSColor(srgbRed: 0.99, green: 0.76, blue: 0.31, alpha: 1)
+            : NSColor(srgbRed: 0.56, green: 0.37, blue: 0.05, alpha: 1)
+    }
+    static var highlightInk: Color { Color(nsColor: highlightInkNSColor) }
+
+    /// 호박색 칩의 바탕. 글자가 가라앉은 만큼 바탕도 또렷해져야 칩이
+    /// "붙은 딱지" 로 읽힌다. 세기를 외관마다 따로 잡는다.
+    static let highlightWashNSColor = NSColor(name: nil) { appearance in
+        appearance.isDark
+            ? NSColor(srgbRed: 0.99, green: 0.76, blue: 0.31, alpha: 0.18)
+            : NSColor(srgbRed: 0.97, green: 0.72, blue: 0.24, alpha: 0.38)
+    }
+    static var highlightWash: Color { Color(nsColor: highlightWashNSColor) }
+
+    /// 지우기. 종이 위에서 튀지 않을 만큼 죽인 붉은색 — 경고등이 아니라
+    /// "다른 종류의 버튼" 이라는 표시다.
+    static let danger = Color(red: 0.76, green: 0.36, blue: 0.34)
 
     /// 한국 달력 관행 — 일요일 빨강, 토요일 파랑.
     static let sunday = Color(red: 0.85, green: 0.35, blue: 0.35)
@@ -239,7 +270,19 @@ struct QuietButton: View {
     let symbol: String
     let help: String
     var isActive: Bool = false
+    /// 되돌아오지 않는 쪽으로 가는 버튼. 색이 다른 것 자체가 안전장치다.
+    ///
+    /// 세기를 포인터에 맡기지 않는다 — 바탕화면 창은 키를 잡고 있지 않을 때가
+    /// 많고, 그때 SwiftUI 의 `.onHover` 는 발화하지 않는다 (설계문서 §7.1).
+    /// 눌러야 알 수 있는 경고는 경고가 아니다.
+    var isDestructive: Bool = false
     let action: () -> Void
+
+    private var tint: AnyShapeStyle {
+        if isDestructive { return AnyShapeStyle(Theme.danger) }
+        if isActive { return AnyShapeStyle(Theme.accent) }
+        return AnyShapeStyle(.secondary)
+    }
 
     var body: some View {
         Button(action: action) {
@@ -248,7 +291,7 @@ struct QuietButton: View {
                 .frame(width: 18, height: 18)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(isActive ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(.secondary))
+        .foregroundStyle(tint)
         .help(help)
     }
 }

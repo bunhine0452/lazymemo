@@ -18,9 +18,11 @@ import SwiftUI
 final class QuickCaptureController {
     /// 말풍선 너비. 메뉴바 아이콘에 매다는 것이라 화면 한가운데 띄울 때보다 좁다.
     static let width: CGFloat = 440
+    /// 빈 상자도 이만큼은 된다. 한 줄짜리 상자가 쪽지처럼 얇아 보이지 않게.
+    private static let minimumHeight: CGFloat = 96
 
     private let panel: QuickCapturePanel
-    private let hosting: NSHostingView<QuickCaptureView>
+    private let hosting: CaptureHostingView
     private let model: QuickCaptureModel
     private let store: MemoStore
     private let windows: NoteWindowManager
@@ -29,11 +31,20 @@ final class QuickCaptureController {
     /// `MenuBarController` 만 알고, 아이콘은 숨겨질 수도 있다.
     var anchorProvider: () -> NSRect? = { nil }
 
+    /// 방금 적은 것이 일정이었다고 달력에 알린다.
+    ///
+    /// 달력 창을 여기서 직접 들고 있지 않는 이유는 `anchorProvider` 와 같다 —
+    /// 창을 누가 소유하는지는 `MenuBarController` 만 안다.
+    var onScheduled: (CalendarDate) -> Void = { _ in }
+
     /// 마지막 표시에 걸린 시간. 성능 예산 검증용이다.
     private(set) var lastLatency: Duration?
 
     /// 상자가 열려 있는 동안만 사는 바깥 클릭 감시자.
-    private var outsideClickMonitor: Any?
+    ///
+    /// **바깥은 두 종류다** — 다른 앱, 그리고 이 앱의 다른 창(바탕화면 메모).
+    /// 감시하는 길이 서로 달라서 둘을 나란히 건다.
+    private var outsideClickMonitors: [Any] = []
 
     init(store: MemoStore, windows: NoteWindowManager) {
         self.store = store
@@ -45,10 +56,12 @@ final class QuickCaptureController {
 
         var commit: () -> Void = {}
         var cancel: () -> Void = {}
-        self.hosting = NSHostingView(rootView: QuickCaptureView(
+        self.hosting = CaptureHostingView(rootView: QuickCaptureView(
             model: model,
             onCommit: { commit() },
-            onCancel: { cancel() }
+            onCancel: { cancel() },
+            // 목록의 점이 찬 점인지 빈 점인지는 창을 들고 있는 쪽만 안다.
+            isOnDesktop: { [weak windows] id in windows?.isVisible(id) ?? false }
         ))
         // 높이는 줄 수와 결과 수에 따라 달라진다. 뷰가 창 크기를 정하게 두되 가로는 고정한다.
         hosting.sizingOptions = [.intrinsicContentSize]
@@ -57,14 +70,34 @@ final class QuickCaptureController {
         commit = { [weak self] in self?.commit() }
         cancel = { [weak self] in self?.close() }
 
-        // 줄이 늘거나 결과가 바뀌면 창 높이가 따라가야 한다.
-        model.onLayoutChange = { [weak self] in self?.resize() }
+        // 줄이 늘거나, 결과가 바뀌거나, 날짜 칩이 뜨면 창이 따라가야 한다.
+        // **뷰가 실제로 다시 그려진 그 자리에서** 알려 온다 — 모델 쪽에서
+        // "이쯤이면 커졌겠지" 하고 부르던 길만 두었을 때 날짜 칩이 빠졌다.
+        hosting.onContentHeightChange = { [weak self] _ in self?.resize() }
 
         // loadView 와 첫 레이아웃을 지금 치른다 — 이것이 프리워밍의 실체다.
         hosting.layoutSubtreeIfNeeded()
     }
 
     var isOpen: Bool { panel.isVisible }
+
+    /// 시험이 상자 속을 들여다보는 창구.
+    ///
+    /// 붙여넣기가 **실제 상자까지 닿는지**는 창과 텍스트 뷰가 다 선 채로만
+    /// 확인할 수 있다 — ⌘V 가 죽던 자리가 바로 그 사이였다.
+    var editorForTesting: MemoNSTextView? {
+        panel.contentView?.firstTextView as? MemoNSTextView
+    }
+
+    /// 글 상자에 커서를 세운다. 표준 편집 단축키는 편집 중일 때만 산다.
+    func focusForTesting() {
+        focusEditor()
+    }
+
+    /// 지금 상자가 들고 있는 것.
+    var draftForTesting: String { model.query }
+    /// 지금 상자에 붙어 있는 사진.
+    var imagesForTesting: [AttachedImage] { model.images }
 
     /// 표준 편집 단축키가 실제로 글 쓰는 곳까지 닿는지 확인한다.
     ///
@@ -96,6 +129,7 @@ final class QuickCaptureController {
     }
 
     func toggle() {
+        CaptureTrace.log("toggle isOpen=\(isOpen) visible=\(panel.isVisible) 활성Space=\(panel.isOnActiveSpace) 앱활성=\(NSApp.isActive)")
         isOpen ? close() : show()
     }
 
@@ -104,7 +138,6 @@ final class QuickCaptureController {
 
         model.prepareForShow()
         resize()
-        model.arrowOffset = panel.moveToCaptureAnchor(below: anchorProvider())
 
         // 상주 앱(.accessory)은 스스로 활성화해야 키 입력을 받는다.
         // 창을 올리기 **전에** 활성화해야 첫 글자를 놓치지 않는다.
@@ -114,28 +147,174 @@ final class QuickCaptureController {
         watchForOutsideClicks()
 
         lastLatency = ContinuousClock.now - started
+        CaptureTrace.log("show 뒤 visible=\(panel.isVisible) key=\(panel.isKeyWindow) 활성Space=\(panel.isOnActiveSpace) 앱활성=\(NSApp.isActive) frame=\(NSStringFromRect(panel.frame)) 앵커=\(anchorProvider().map(NSStringFromRect) ?? "없음")")
     }
 
     /// 상자 바깥을 누르면 치운다.
     ///
     /// 앱이 끝내 활성화되지 못하면 `didResignActiveNotification` 이 오지 않아
-    /// 상자가 남는다. 전역 클릭 감시가 그 구멍을 메운다 — 권한이 필요 없는
-    /// 종류(`addGlobalMonitorForEvents`)라 "설정으로 보내지 않는다" 원칙도 지킨다.
+    /// 상자가 남는다. 클릭 감시가 그 구멍을 메운다 — 권한이 필요 없는
+    /// 종류라 "설정으로 보내지 않는다" 원칙도 지킨다.
+    ///
+    /// **감시는 둘이어야 한다.** `addGlobalMonitorForEvents` 는 **다른 앱으로
+    /// 가는** 클릭만 본다. 그런데 이 앱의 바깥에는 바탕화면 메모 창들이 있다 —
+    /// 메모를 고치다 단축키로 상자를 열고 도로 메모를 누르면, 그 클릭은 우리
+    /// 앱이 받으므로 전역 감시에 잡히지 않고 **상자가 그대로 남았다.**
+    /// 앱 안쪽을 보는 지역 감시가 그 절반을 맡는다.
     private func watchForOutsideClicks() {
-        guard outsideClickMonitor == nil else { return }
-        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
-            matching: [.leftMouseDown, .rightMouseDown]
-        ) { [weak self] _ in
+        guard outsideClickMonitors.isEmpty else { return }
+        let clicks: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown]
+
+        // 다른 앱 — 바탕화면, 브라우저, 무엇이든.
+        let elsewhere = NSEvent.addGlobalMonitorForEvents(matching: clicks, handler: { [weak self] event in
             MainActor.assumeIsolated {
-                guard let self, self.isOpen else { return }
+                guard let self, self.dismisses(event) else { return }
                 self.close(returningFocus: false)
             }
-        }
+        })
+
+        // 우리 앱의 다른 창 — 메모 창, 달력, 설정.
+        // 이벤트는 그대로 흘려보낸다. 상자를 치우는 것과 메모에 커서를 놓는
+        // 것은 한 번의 클릭으로 같이 일어나야 한다.
+        let ours = NSEvent.addLocalMonitorForEvents(matching: clicks, handler: { [weak self] event -> NSEvent? in
+            MainActor.assumeIsolated {
+                guard let self, self.dismisses(event) else { return }
+                self.close(returningFocus: false)
+            }
+            return event
+        })
+
+        outsideClickMonitors = [elsewhere, ours].compactMap { $0 }
+    }
+
+    /// 이 클릭이 상자를 치워야 하는 클릭인가.
+    private func dismisses(_ event: NSEvent) -> Bool {
+        guard isOpen else { return false }
+        return Self.dismissesCapture(
+            insidePanel: event.window === panel,
+            at: Self.screenPoint(of: event),
+            anchor: anchorProvider()
+        )
+    }
+
+    /// 클릭한 자리를 화면 좌표로. 다른 앱으로 간 클릭은 창이 없으므로
+    /// `locationInWindow` 가 이미 화면 좌표다.
+    private static func screenPoint(of event: NSEvent) -> NSPoint {
+        guard let window = event.window else { return event.locationInWindow }
+        return window.convertPoint(toScreen: event.locationInWindow)
+    }
+
+    /// 치울지 말지의 판단만 떼어 둔 것 — 창 없이도 검증할 수 있게.
+    ///
+    /// - Parameters:
+    ///   - insidePanel: 클릭이 상자 자신에게 갔는가.
+    ///   - point: 클릭한 화면 좌표.
+    ///   - anchor: 메뉴바 아이콘 자리. 아이콘은 **스스로 토글한다** — 여기서
+    ///     먼저 닫아 버리면 이어지는 클릭이 도로 열어 깜빡이기만 한다.
+    static func dismissesCapture(insidePanel: Bool, at point: NSPoint, anchor: NSRect?) -> Bool {
+        if insidePanel { return false }
+        if let anchor, anchor.contains(point) { return false }
+        return true
     }
 
     private func stopWatchingOutsideClicks() {
-        if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
-        outsideClickMonitor = nil
+        outsideClickMonitors.forEach(NSEvent.removeMonitor)
+        outsideClickMonitors.removeAll()
+    }
+
+    /// 바깥 클릭이 상자를 치우고 안쪽 클릭은 놔두는지 확인한다
+    /// (`verify-capture-dismiss.sh`).
+    ///
+    /// 클릭을 프로그램으로 만들어 내려면 손쉬운 사용 권한이 필요하다. 그래서
+    /// **우리 앱의 이벤트 큐에 가짜 클릭을 직접 넣는다** — 지역 감시가 보는
+    /// 자리는 사람이 누른 것과 같다. 바탕화면 메모 창 역할은 화면 밖에 세운
+    /// 임시 창이 대신한다.
+    func dismissReach() async -> String {
+        let standIn = NSWindow(
+            contentRect: NSRect(x: -3000, y: -3000, width: 200, height: 140),
+            styleMask: [.borderless], backing: .buffered, defer: false
+        )
+        standIn.orderFront(nil)
+        defer { standIn.orderOut(nil) }
+
+        show()
+        // 감시가 둘 다 걸렸는지 — 하나라도 nil 이면 그쪽 바깥은 안 닫힌다.
+        let watching = outsideClickMonitors.count
+        let opened = isOpen
+        await postClick(toWindow: panel.windowNumber)
+        let afterInside = isOpen
+        await postClick(toWindow: standIn.windowNumber)
+        let afterOutside = isOpen
+        close()
+
+        return "감시=\(watching) 열림=\(opened) 안쪽클릭뒤열림=\(afterInside) 바깥클릭뒤열림=\(afterOutside)"
+    }
+
+    /// ⌘⌫ 가 **고른 줄까지** 닿는지 (`verify-capture-delete.sh`).
+    ///
+    /// 키가 어디로 가는지는 화면에 나타나지 않는다 — 메모 대신 글자가 지워져도
+    /// 그림은 똑같고, 렌더로도 잡히지 않는다. 그래서 가짜 키를 눌러 보고
+    /// **메모가 휴지통으로 갔는지, 적던 글은 그대로인지** 둘 다 본다.
+    ///
+    /// 글은 반드시 모델을 거쳐 넣는다. 텍스트 뷰에 직접 꽂으면 다시 그릴 때
+    /// 모델의 글이 되밀려(`MemoTextSync`) 우리가 넣은 글이 사라지고, 그것이
+    /// "⌘⌫ 가 글자를 지웠다" 로 잘못 읽힌다 — 처음 이 진단을 붙였을 때 실제로
+    /// 그렇게 나왔다.
+    ///
+    /// 확인용 메모 한 장은 휴지통에 남는다. 30일 뒤 저절로 지워진다 (D6).
+    func deleteReach() async -> String {
+        guard let target = try? await store.create(body: "지우기 확인용") else {
+            return "메모 못 만듦"
+        }
+        show()
+
+        // 찾아 놓고 지운다. 이 낱말은 방금 만든 메모에 걸리고, 글이 있는
+        // 채로 눌러야 "메모 대신 글자를 지웠다" 를 잡아낼 수 있다.
+        let typed = "지우기"
+        model.query = typed
+        try? await Task.sleep(for: .milliseconds(400))
+
+        guard model.listed.first?.id == target.id else {
+            close(returningFocus: false)
+            return "목록에 안 올라옴 찾은수=\(model.listed.count)"
+        }
+        model.selection = 0
+
+        guard let textView = panel.contentView?.firstTextView else {
+            close(returningFocus: false)
+            return "텍스트 뷰 없음"
+        }
+
+        guard let event = NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
+            windowNumber: panel.windowNumber, context: nil,
+            characters: "\u{7f}", charactersIgnoringModifiers: "\u{7f}",
+            isARepeat: false, keyCode: 51
+        ) else {
+            close(returningFocus: false)
+            return "이벤트 생성 실패"
+        }
+
+        textView.keyDown(with: event)
+        // 지우기는 파일을 옮기는 일이라 비동기다. 옮겨질 때까지만 기다린다.
+        try? await Task.sleep(for: .milliseconds(300))
+
+        let moved = store.trash.contains { $0.id == target.id }
+        let kept = model.query == typed && textView.string == typed
+        let undoable = model.lastDeleted?.id == target.id
+        close(returningFocus: false)
+
+        return "지움=\(moved) 글유지=\(kept) 되돌릴수있음=\(undoable)"
+    }
+
+    private func postClick(toWindow number: Int) async {
+        guard let event = NSEvent.mouseEvent(
+            with: .leftMouseDown, location: NSPoint(x: 10, y: 10), modifierFlags: [],
+            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: number,
+            context: nil, eventNumber: 0, clickCount: 1, pressure: 1
+        ) else { return }
+        NSApp.postEvent(event, atStart: true)
+        try? await Task.sleep(for: .milliseconds(150))
     }
 
     /// 상자를 치운다. **적던 것은 상자가 기억한다** (`prepareForShow`).
@@ -145,18 +324,38 @@ final class QuickCaptureController {
     ///   보이는 창이 하나도 없는 채로 앱이 활성 상태로 남는다. 그 다음 타자는
     ///   허공으로 간다. 메모를 열어 보여줄 때만 예외다.
     func close(returningFocus: Bool = true) {
+        CaptureTrace.log("close 돌려줌=\(returningFocus) visible=\(panel.isVisible)")
         stopWatchingOutsideClicks()
         panel.orderOut(nil)
         if returningFocus, NSApp.isActive { NSApp.deactivate() }
     }
 
-    /// 검색 결과가 늘고 줄 때, 글이 여러 줄이 될 때 창 높이를 따라가게 한다.
+    /// 검색 결과가 늘고 줄 때, 글이 여러 줄이 될 때, 날짜 칩이 뜰 때
+    /// 창을 내용에 맞춘다.
+    ///
+    /// 크기와 자리를 **한 번에** 넘긴다. 나눠 하면 상자가 위로 자랐다가
+    /// 제자리로 돌아오는 중간 상태가 화면에 나온다 (`moveToCaptureAnchor`).
     func resize() {
-        let fitting = hosting.fittingSize
-        let height = max(fitting.height, 96)
-        panel.setContentSize(NSSize(width: Self.width, height: height))
-        // 아래로 자라면 아이콘에서 멀어진다. 위쪽 모서리를 붙잡아 둔다.
-        model.arrowOffset = panel.moveToCaptureAnchor(below: anchorProvider())
+        let height = max(hosting.fittingSize.height, Self.minimumHeight)
+        model.arrowOffset = panel.moveToCaptureAnchor(
+            below: anchorProvider(), contentHeight: height
+        )
+    }
+
+    /// 상자가 지금 어떤 자리에 어떤 크기로 서 있는지. 테스트가 읽는다.
+    var placement: (frame: NSRect, contentHeight: CGFloat) {
+        (panel.frame, hosting.fittingSize.height)
+    }
+
+    /// 사람이 친 것처럼 글을 넣고, 화면 갱신을 기다리지 않고 배치까지 마친다.
+    ///
+    /// 날짜 칩은 **타자와 함께** 뜬다. 검색이 돌아오기를 기다린 뒤에 재면
+    /// 사용자가 실제로 보는 그 순간을 놓치므로, 시험은 여기로 들어온다.
+    func typeForTesting(_ text: String) {
+        model.query = text
+        // 창을 여기서 다시 재지 **않는다.** 뷰가 스스로 알려 오는 길
+        // (`CaptureHostingView`)이 살아 있는지가 이 시험의 요점이다.
+        hosting.layoutSubtreeIfNeeded()
     }
 
     /// 커서가 서 있어야 "표시됐다"고 할 수 있다 (§8).
@@ -193,7 +392,7 @@ final class QuickCaptureController {
                 guard let memo = try? await store.create(
                     body: draft.text, due: draft.due, at: draft.at
                 ) else { return }
-                windows.announce(memo)
+                announce(memo)
             }
 
         case .open(let id):
@@ -205,5 +404,55 @@ final class QuickCaptureController {
         case .nothing:
             close()
         }
+    }
+
+    /// 적은 것이 어디에 놓였는지 **그 물건이 직접 나와서** 말한다.
+    ///
+    /// 확인을 이렇게 주는 이유는 §8 에 이미 적혀 있다 — 활성화해 버리면
+    /// 보이지 않는 창으로 입력이 넘어가고, 아무 표시도 안 하면 "적히긴
+    /// 한 건가" 가 남는다. 잠깐 보였다 내려앉는 것이 둘 다 피하는 길이다.
+    ///
+    /// 달라진 것은 **나오는 물건이 둘이라는 것**이다. 날짜가 없으면 종이가,
+    /// 날짜가 있으면 달력이 나온다 (§7.2). 일정을 적었는데 종이가 나오면
+    /// 그것은 거짓말이다 — 그 메모는 종이로 남지 않기 때문이다.
+    private func announce(_ memo: Memo) {
+        guard let day = Schedule(memo).day() else {
+            windows.announce(memo)
+            return
+        }
+        onScheduled(day)
+    }
+}
+
+/// 빠른 입력의 SwiftUI 계층을 담는 뷰.
+///
+/// 하는 일은 하나 — **다시 그려진 높이를 창에 알린다.**
+///
+/// 예전에는 모델이 "이제 커졌을 것" 이라고 짐작해 창 크기를 다시 잡았다.
+/// 짐작에서 빠진 변화가 하나라도 있으면 창이 내용보다 작은 채로 남는데,
+/// 날짜 칩이 정확히 그랬다: 칩은 곧바로 떴지만 창은 검색이 끝나는 120ms
+/// 뒤에야 따라와, 그동안 상자가 내용에 밀려 위로 삐져나오고 윗줄이 잘렸다.
+///
+/// 짐작을 걷어내고 **실제로 잰 높이**만 쓴다. 여기서 알리는 것은 SwiftUI 가
+/// 배치를 끝낸 직후라, 창은 같은 화면 갱신 안에서 크기를 맞춘다.
+final class CaptureHostingView: NSHostingView<QuickCaptureView> {
+    var onContentHeightChange: (CGFloat) -> Void = { _ in }
+
+    private var reportedHeight: CGFloat = 0
+    /// 알림 → 창 크기 변경 → 다시 배치 → 알림 … 으로 돌지 않게 잠근다.
+    private var isReporting = false
+
+    override func layout() {
+        super.layout()
+        guard !isReporting else { return }
+
+        let height = fittingSize.height
+        // 0.5pt 미만은 반올림 잡음이다. 그것까지 쫓으면 창이 떨린다.
+        guard abs(height - reportedHeight) > 0.5 else { return }
+        reportedHeight = height
+
+        isReporting = true
+        onContentHeightChange(height)
+        isReporting = false
     }
 }

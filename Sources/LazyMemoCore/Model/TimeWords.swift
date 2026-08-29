@@ -199,8 +199,14 @@ enum TimeWords {
     private static func best<Value>(
         of table: [Word<Value>], in text: String, fromEnd: Bool
     ) -> Match<Value>? {
+        // 표의 낱말마다 본문을 훑으면 타자 한 번에 표 전체를 읽게 된다. 첫 글자가
+        // 본문에 아예 없으면 찾아볼 것도 없다 — 한글 메모에서 영어 낱말 수십 개를
+        // 건너뛰는 데 이 한 줄이면 된다. (표의 라틴 낱말은 모두 소문자로 적는다.)
+        let letters = Set(text.lowercased())
+
         var winner: Match<Value>?
         for word in table {
+            guard let head = word.text.first, letters.contains(head) else { continue }
             guard let range = range(of: word.text, in: text, fromEnd: fromEnd) else { continue }
             let found = Match(value: word.value, text: String(text[range]), range: range)
             guard let current = winner else {
@@ -223,6 +229,30 @@ enum TimeWords {
             return lhs.range.lowerBound < rhs.range.lowerBound
         }
         return lhs.text.count > rhs.text.count
+    }
+
+    /// 이 글자들 중 하나라도 본문에 있는가.
+    ///
+    /// **정규식을 돌리기 전에 묻는다.** 정규식 리터럴은 쓸 때마다 새로 짜여서
+    /// 한 번에 0.1ms 씩 든다. 타자마다 도는 길에 열 개를 그냥 늘어놓으면 손이
+    /// 느껴질 만큼 쌓인다. 글자 하나 훑기는 그 백분의 일도 안 든다.
+    static func hasAny(of characters: String, in text: String) -> Bool {
+        text.contains { characters.contains($0) }
+    }
+
+    /// 이 말들 중 하나라도 본문에 있는가 (대소문자 가리지 않는다).
+    static func mentions(_ words: [String], in text: String) -> Bool {
+        words.contains { text.range(of: $0, options: .caseInsensitive) != nil }
+    }
+
+    /// 영어 표현을 볼 필요가 있는가.
+    static func hasLatinLetter(_ text: String) -> Bool {
+        text.contains { $0.isASCII && $0.isLetter }
+    }
+
+    /// 숫자가 하나라도 있는가. 숫자가 없으면 시각도 못 박힌 날짜도 없다.
+    static func hasDigit(_ text: String) -> Bool {
+        text.contains(where: \.isNumber)
     }
 
     /// 낱말 하나를 본문에서 찾는다.
@@ -271,7 +301,7 @@ extension TimeWords.DayPart {
     /// 숫자 없이 때만 적었을 때 쓰는 대표 시각. "내일 저녁 약속" 은 19시다.
     ///
     /// **짐작이 들어가는 유일한 자리다.** 그래도 짐작하는 쪽을 골랐다 — "내일 저녁"
-    /// 을 날짜만 붙은 메모로 두면 흐름에서 아침 일과 뒤섞이고, 사용자는 정확한
+    /// 을 날짜만 붙은 메모로 두면 달력에서 아침 일과 뒤섞이고, 사용자는 정확한
     /// 시각을 적을 생각이 애초에 없었다. 칩에 해석 결과가 그대로 보이므로
     /// 어긋나면 바로 눈에 띈다.
     var defaultHour: Int {

@@ -19,7 +19,9 @@ final class CalendarModel {
         let id: ULID
         /// 옮기기 **전**의 자리. 되돌리기는 이것을 그대로 되쓴다.
         let from: Schedule
-        let to: CalendarDate
+        /// 내려앉은 날. `nil` 이면 달력에서 내려온 것이다 — 날짜를 뗐으므로
+        /// 그 메모는 바탕화면의 종이로 돌아간다 (설계문서 §7.2).
+        let to: CalendarDate?
     }
 
     /// 되돌리기 줄이 머무는 시간. 이보다 길면 화면에 눌어붙고, 짧으면 놓친다.
@@ -31,6 +33,12 @@ final class CalendarModel {
     /// 아래 판이 펼쳐 보이는 날. 처음에는 오늘이다.
     private(set) var selected: CalendarDate
     private(set) var lastMove: Move?
+    /// 종이에서 건너와 **놓을 날을 기다리는** 메모 (설계문서 §7.2).
+    ///
+    /// 날짜를 글자로 치게 하지 않는다. 달력 위에서 날짜를 가리키는 방법은
+    /// 이미 하나 있고(끌어다 놓기), 그것과 같은 낱말을 쓴다 — 다른 점은
+    /// 집어 든 자리가 달력 밖이라는 것뿐이다.
+    private(set) var holding: Memo?
     /// 마지막으로 실패한 조작. 조용히 삼키지 않는다.
     private(set) var failure: String?
 
@@ -124,6 +132,34 @@ final class CalendarModel {
         select(date)
     }
 
+    /// 종이에서 건너온 메모를 받아 든다. 놓을 날은 사용자가 가리킨다.
+    func hold(_ memo: Memo) {
+        holding = memo
+        failure = nil
+    }
+
+    /// 놓기를 그만둔다. 들고 있던 것은 그대로 종이로 남는다.
+    func cancelHold() { holding = nil }
+
+    /// 들고 있던 것을 그 날에 놓는다 — 종이에서 달력으로 건너오는 마지막 한 걸음.
+    func place(on date: CalendarDate) async {
+        guard let memo = holding else { return }
+        holding = nil
+        await move(memo, to: date)
+    }
+
+    /// 날짜를 뗀다 — 일정이 다시 그냥 메모가 되어 바탕화면의 종이로 돌아간다.
+    ///
+    /// 「미루기」의 짝이다. 미루기가 *언제*를 고치는 것이라면 이것은 *어디*를
+    /// 고친다. 언제 할지 모르겠다고 판명된 일을 달력에 남겨 두면 그 날이 와서
+    /// 지나가고, 그 다음부터 달력은 지나간 일로 채워진다.
+    func detach(_ memo: Memo) async {
+        let before = Schedule(memo)
+        guard !before.isEmpty else { return }
+        await write(Schedule(), to: memo.id, verb: "종이로 보내기")
+        remember(Move(id: memo.id, from: before, to: nil))
+    }
+
     /// 하루 미룬다 — 게으른 사람이 달력에 가장 자주 하는 일.
     func postpone(_ memo: Memo) async {
         let before = Schedule(memo)
@@ -147,6 +183,14 @@ final class CalendarModel {
                 body: draft.body, due: draft.schedule.due, at: draft.schedule.at
             )
             failure = nil
+            // 적은 줄이 고른 날에 떨어지지 않을 수 있다 — "내일 3시" 라고
+            // 쳤으면 적은 쪽이 이긴다 (`QuickSchedule`). 그러면 방금 적은 것이
+            // 보이지 않는 날에 놓이므로, 옮기기와 마찬가지로 **간 곳을 펼쳐
+            // 보여준다.** 종이가 나지 않는 이상(§7.2) 여기 말고는 확인할 자리가
+            // 없다.
+            if let landing = draft.schedule.day(calendar: calendar), landing != selected {
+                select(landing)
+            }
             await refresh()
         } catch {
             failure = "적기 실패: \(error)"
@@ -169,14 +213,14 @@ final class CalendarModel {
 
     // MARK: 내부
 
-    private func write(_ schedule: Schedule, to id: ULID) async {
+    private func write(_ schedule: Schedule, to id: ULID, verb: String = "옮기기") async {
         do {
             // 자리를 통째로 쓴다. 한쪽만 건드리면 한 메모가 두 날에 선다.
             _ = try await store.update(id, due: .some(schedule.due), at: .some(schedule.at))
             failure = nil
             await refresh()
         } catch {
-            failure = "옮기기 실패: \(error)"
+            failure = "\(verb) 실패: \(error)"
         }
     }
 

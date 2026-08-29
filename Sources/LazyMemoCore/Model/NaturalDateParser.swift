@@ -24,11 +24,21 @@ public enum NaturalDateParser {
         /// 하나로 합친 문자열이 아니라 조각 배열인 이유: "내일 치과 오후 3시"
         /// 처럼 날짜와 시각이 떨어져 있을 수 있다.
         public var phrases: [String]
+        /// 글이 **어느 날인지를 직접 말했는가.**
+        ///
+        /// `새벽 2시` 처럼 시각만 적은 글에서도 날은 정해지지만(다음에 오는
+        /// 그 시각), 그건 우리가 고른 날이지 사용자가 말한 날이 아니다.
+        /// 달력에서 날을 골라 놓고 적는 자리(`QuickSchedule`)는 이 둘을
+        /// 갈라야 한다 — 고른 날을 무시하면 안 되기 때문이다.
+        public var namesDay: Bool
 
-        public init(due: CalendarDate? = nil, at: Date? = nil, phrases: [String]) {
+        public init(
+            due: CalendarDate? = nil, at: Date? = nil, phrases: [String], namesDay: Bool = true
+        ) {
             self.due = due
             self.at = at
             self.phrases = phrases
+            self.namesDay = namesDay
         }
     }
 
@@ -64,7 +74,9 @@ public enum NaturalDateParser {
             return Result(at: soon.date, phrases: soon.phrases)
         }
 
-        guard let day = DayParser.parse(text, now: now, calendar: calendar) else { return nil }
+        guard let day = DayParser.parse(text, now: now, calendar: calendar) else {
+            return nextOccurrence(in: text, now: now, calendar: calendar)
+        }
         guard let time = TimeParser.parse(text) else {
             return Result(due: day.date, phrases: day.phrases)
         }
@@ -78,5 +90,32 @@ public enum NaturalDateParser {
         }
 
         return Result(at: moment, phrases: day.phrases + time.phrases)
+    }
+
+    /// 날짜 낱말이 없어도 **때를 말로 밝힌 시각**이면 다음에 오는 그 시각이다.
+    ///
+    /// `새벽 2시 기상` · `아침 회의` · `저녁 7시 약속` 을 그냥 넘기고 있었다.
+    /// 이 앱이 시각을 읽지 않으면 그 메모는 달력에도 없고 아무 때에도 떠오르지
+    /// 않는데, 사람이 "새벽 2시" 라고 적었다면 그건 명백히 일정이다.
+    ///
+    /// 그러면서도 맨 `3시에 전화` 는 여전히 넘긴다. 갈림길은 "어느 날인가" 가
+    /// 아니라 **오전인가 오후인가** 다 — `새벽`·`저녁`·`pm`·`15:` 는 글이
+    /// 직접 말했고(`TimeParser.Result.isExplicit`), 맨 `3시` 는 우리가
+    /// 관행으로 고른 값이다. 짐작 위에 또 짐작을 얹지 않는다.
+    ///
+    /// 지난 시각이면 내일로 넘긴다. 오늘 아침 8시는 이미 지나갔으므로
+    /// "아침 회의" 를 오후 3시에 적었다면 그것은 내일 아침을 뜻한다.
+    private static func nextOccurrence(
+        in text: String, now: Date, calendar: Calendar
+    ) -> Result? {
+        guard let time = TimeParser.parse(text), time.isExplicit else { return nil }
+        guard let today = calendar.date(
+            bySettingHour: time.hour, minute: time.minute, second: 0, of: now
+        ) else { return nil }
+
+        let moment = today > now
+            ? today
+            : calendar.date(byAdding: .day, value: 1, to: today) ?? today
+        return Result(at: moment, phrases: time.phrases, namesDay: false)
     }
 }

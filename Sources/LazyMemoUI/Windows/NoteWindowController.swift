@@ -16,9 +16,11 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
         memo: Memo,
         store: MemoStore,
         previews: LinkPreviewStore,
+        appearance: PaperAppearance,
         frame: CGRect,
         onFrameChange: @escaping (ULID, CGRect) -> Void,
-        onCloseRequest: @escaping (ULID) -> Void
+        onCloseRequest: @escaping (ULID) -> Void,
+        onCalendarRequest: @escaping (ULID) -> Void = { _ in }
     ) {
         self.id = memo.id
         self.model = NoteModel(memo: memo, store: store, previews: previews)
@@ -28,9 +30,12 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
         super.init()
 
         // 겹쳐 뜨는 조작 버튼도 첫 클릭에 눌려야 한다 (`FirstMouseHostingView`).
-        let hosting = FirstMouseHostingView(rootView: NoteView(model: model, onClose: { [id] in
-            onCloseRequest(id)
-        }))
+        let hosting = FirstMouseHostingView(rootView: NoteView(
+            model: model,
+            onClose: { [id] in onCloseRequest(id) },
+            onCalendar: { [id] in onCalendarRequest(id) },
+            appearance: appearance
+        ))
         // 창 크기는 layout.json 이 정본이다. 뷰가 끌고 가게 두지 않는다.
         hosting.sizingOptions = []
 

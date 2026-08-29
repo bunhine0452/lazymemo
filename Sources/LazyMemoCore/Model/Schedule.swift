@@ -101,23 +101,22 @@ public enum QuickSchedule {
             return Draft(schedule: Schedule(due: day), body: "")
         }
 
-        // ① 사용자가 날짜를 직접 말했다 — 그대로 따른다.
         if let parsed = NaturalDateParser.parse(trimmed, now: now, calendar: calendar) {
-            return Draft(
-                schedule: Schedule(due: parsed.due, at: parsed.at),
-                body: NaturalDateParser.strip(parsed.phrases, from: trimmed)
-            )
-        }
+            let body = NaturalDateParser.strip(parsed.phrases, from: trimmed)
 
-        // ② 시각만 말했다 ("오후 3시 치과") — 파서는 날짜가 있어야 무는 물건이라
-        //    "오늘" 을 앞에 붙여 시각을 얻고, 그 시:분을 고른 날에 옮겨 심는다.
-        if let parsed = NaturalDateParser.parse("오늘 " + trimmed, now: now, calendar: calendar),
-           parsed.at != nil {
-            return Draft(
-                schedule: Schedule(at: parsed.at).moved(to: day, calendar: calendar),
-                // 붙였던 "오늘" 은 원문에 없으므로 덜어낼 때 그냥 지나간다.
-                body: NaturalDateParser.strip(parsed.phrases, from: trimmed)
-            )
+            // ① 사용자가 날짜를 직접 말했다 — 그대로 따른다.
+            if parsed.namesDay {
+                return Draft(schedule: Schedule(due: parsed.due, at: parsed.at), body: body)
+            }
+
+            // ② 시각만 말했다 ("오후 3시 치과"). 파서는 다음에 오는 그 시각으로
+            //    읽지만, 여기서는 사용자가 **날을 이미 골라 놓았다.** 시:분만
+            //    떼어 고른 날에 옮겨 심는다.
+            if let at = parsed.at {
+                return Draft(
+                    schedule: Schedule(at: at).moved(to: day, calendar: calendar), body: body
+                )
+            }
         }
 
         // ③ 아무 말도 없다 — 고른 날의 마감이다.

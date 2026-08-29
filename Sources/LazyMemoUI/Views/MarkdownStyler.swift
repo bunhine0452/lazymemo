@@ -69,6 +69,35 @@ enum MarkdownStyler {
         }
     }
 
+    /// 사진 참조(`![](…)`)만 감춘다. **꾸밈은 입히지 않는다.**
+    ///
+    /// 빠른 입력은 마크다운 꾸밈을 켜지 않는다 — 한 줄 적고 마는 자리에서
+    /// 치는 동안 글자가 움직이면 방해가 되기 때문이다. 그런데 사진을 붙이면
+    /// 40자짜리 경로가 19pt 로 말풍선을 가득 채워, **붙여넣기가 성공한 화면이
+    /// 오히려 고장 난 것처럼 보였다.**
+    ///
+    /// 붙었다는 것은 조각(`PhotoChip`)이 이미 말한다. 그러니 경로는 감추기만
+    /// 하면 된다. 여기서도 글자는 지우지 않는다 (D4) — 커서를 그 줄로 옮기면
+    /// 도로 보여 고칠 수 있는 것까지 메모 창과 같다.
+    static func hideImageReferences(
+        to storage: NSTextStorage,
+        baseFont: NSFont,
+        paragraph: NSParagraphStyle?,
+        activeLine: NSRange? = nil
+    ) {
+        let text = storage.string
+        let full = NSRange(location: 0, length: (text as NSString).length)
+
+        storage.beginEditing()
+        defer { storage.endEditing() }
+
+        storage.setAttributes(baseAttributes(baseFont, paragraph), range: full)
+        for span in MarkdownScanner.spans(in: text) {
+            guard case .image = span.kind, isOffActiveLine(span.range, activeLine) else { continue }
+            hide(span.range, in: storage)
+        }
+    }
+
     // MARK: 줄머리 표시
 
     private static func lineMarker(for kind: Span.Kind) -> LineMarker? {

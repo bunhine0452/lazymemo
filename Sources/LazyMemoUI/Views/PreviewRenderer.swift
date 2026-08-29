@@ -29,7 +29,36 @@ enum PreviewRenderer {
         await render(
             name: "note",
             size: CGSize(width: 268, height: 200),
-            content: NoteView(model: scheduled, onClose: {}),
+            // 겹쳐 뜨는 조작 줄까지 펴서 낸다 — 지우기(붉은 휴지통)와
+            // 치우기(×)가 서로 구별되는지는 나란히 놓고 봐야만 알 수 있다.
+            content: NoteView(model: scheduled, onClose: {}, staged: true),
+            into: directory
+        )
+        // **기본 창 크기 그대로**(§7 의 260×200) 한 장 더 낸다. 사진과 링크가
+        // 붙은 메모는 큰 창에서는 멀쩡해 보이는데, 실제로 새로 만든 메모는
+        // 이 크기다 — 여기서 안 보이면 사용자에게는 "붙여넣기가 안 되는" 것이다.
+        await render(
+            name: "note-default",
+            size: CGSize(width: 260, height: 200),
+            content: NoteView(model: plain, onClose: {}),
+            into: directory
+        )
+        // 반쯤 비치는 종이 (§14.5 의 예외). "반투명한 면 위의 글은 씻겨
+        // 나간다" 는 경고가 실제로 어디까지 사실인지는 보고 정해야 한다.
+        let sheer = PaperAppearance(settings: SettingsStore(location: sheerSettingsLocation()))
+        sheer.set(0.5)
+        await render(
+            name: "note-sheer",
+            size: CGSize(width: 268, height: 200),
+            content: NoteView(model: scheduled, onClose: {}, appearance: sheer),
+            into: directory
+        )
+        // 날짜 없는 종이의 조작 줄. 새로 생긴 「달력에 놓기」(＋ 가 붙은 달력)는
+        // 여기서만 보인다 — `note.png` 의 메모는 이미 일정이라 다른 표시가 뜬다.
+        await render(
+            name: "note-undated",
+            size: CGSize(width: 268, height: 160),
+            content: NoteView(model: plain, onClose: {}, staged: true),
             into: directory
         )
         await render(
@@ -52,6 +81,11 @@ enum PreviewRenderer {
         // 말풍선 꼬리가 메뉴바 아이콘을 가리키는 모습까지 확인한다.
         capture.arrowOffset = QuickCaptureController.width - 70
         capture.query = "내일 오후 3시 치과\n강남역 3번 출구"
+        // 붙인 사진이 조각으로 보이는지 — 이것이 없어서 "붙여넣기가 안 된다"
+        // 로 보였다.
+        if let pasted = capture.markdown(forPastedImage: samplePhoto(), fileExtension: "png") {
+            capture.query += pasted
+        }
         // 검색은 디바운스가 걸려 있어 결과가 채워질 때까지 잠깐 기다린다.
         try? await Task.sleep(for: .milliseconds(400))
         log("capture.query=[\(capture.query)] len=\(capture.query.count) label=\(capture.scheduleLabel ?? "-")")
@@ -62,6 +96,31 @@ enum PreviewRenderer {
             into: directory
         )
 
+        // 빈 상자 — 열면 요즘 메모가 바로 아래 놓인다. 적으러 열었을 때
+        // 목록이 글 자리를 밀어내지 않는지는 그려 봐야 안다.
+        let browsing = QuickCaptureModel(store: store)
+        browsing.arrowOffset = QuickCaptureController.width - 70
+        // 지우는 길까지 같은 장에 담는다. 줄 끝의 휴지통은 포인터가 있어야
+        // 붉어지므로 둘째 줄에 연출해 얹고, 되돌리기 줄은 **실제로 한 장
+        // 지워서** 띄운다 — 흉내가 아니므로 그림이 곧 검증이 된다.
+        let discarded = try? await store.create(body: "지난주 영수증 정리")
+        browsing.prepareForShow()
+        if let discarded { await browsing.delete(discarded) }
+        browsing.selection = 0
+        log("capture-recent.listed=\(browsing.listed.count) 지운것=\(browsing.lastDeleted?.title ?? "-")")
+        await render(
+            name: "capture-recent",
+            size: CGSize(width: QuickCaptureController.width, height: 300),
+            content: QuickCaptureView(
+                model: browsing, onCommit: {}, onCancel: {},
+                // 찬 점과 빈 점이 나란히 보이게 — 한 종류만 그리면
+                // 둘이 구별되는지를 알 수 없다.
+                isOnDesktop: { _ in Bool.random() },
+                stagedTrashRow: 1
+            ),
+            into: directory
+        )
+
         await render(
             name: "palette",
             size: CGSize(width: 6 * 96 + 5 * 10, height: 112),
@@ -69,14 +128,211 @@ enum PreviewRenderer {
             into: directory
         )
 
+        let calendarSize = CGSize(width: 300, height: 440)
         let calendar = CalendarModel(store: store)
         await calendar.refresh()
         log("calendar.days=\(calendar.byDay.count)")
         await render(
             name: "calendar",
-            size: CGSize(width: 300, height: 440),
+            size: calendarSize,
             content: CalendarView(model: calendar, onClose: {}, onSelectMemo: { _ in }),
             into: directory
+        )
+
+        // 판형이 둘이다 (설계문서 §10.8). 넓은 창은 배치가 통째로 다르므로
+        // 세로 판형 한 장만 봐서는 확인되지 않는다 — 접힌 자리가 세로로 섰는지,
+        // 격자가 남는 높이를 쓰는지, 오른쪽 면의 제목이 제 폭을 갖는지.
+        await render(
+            name: "calendar-wide",
+            size: CGSize(width: 620, height: 360),
+            content: CalendarView(model: calendar, onClose: {}, onSelectMemo: { _ in }),
+            into: directory
+        )
+        // 세로로 크게 늘린 창. 주 높이가 창을 따라 자라는지 — 앞선 판이
+        // 36pt 에 못 박혀 창 위쪽의 작은 표로 남던 자리다.
+        await render(
+            name: "calendar-large",
+            size: CGSize(width: 340, height: 620),
+            content: CalendarView(model: calendar, onClose: {}, onSelectMemo: { _ in }),
+            into: directory
+        )
+
+        await renderMenuList(into: directory, memos: Array(store.memos.prefix(4)))
+
+        // 조작하는 중의 모습. **이 화면에서 새로 만든 것이 전부 여기에 있다** —
+        // 집어 든 조각, 놓을 자리, 겹쳐 뜬 「미루기」, 옮긴 뒤의 되돌리기 줄.
+        // 포인터가 없는 렌더에서는 연출해 주지 않으면 하나도 나타나지 않는다.
+        await renderCalendarInUse(model: calendar, size: calendarSize, into: directory)
+
+        // 종이에서 건너와 **놓을 날을 기다리는** 모습 (설계문서 §7.2). 이 상태는
+        // 포인터가 달력 위에 있어야만 나타나므로 연출하지 않으면 확인할 길이 없다.
+        await render(
+            name: "calendar-placing",
+            size: calendarSize,
+            content: CalendarView(
+                model: calendar,
+                onClose: {},
+                onSelectMemo: { _ in },
+                staged: CalendarView.Staged(
+                    carrying: samples.plain,
+                    carryPoint: CGPoint(x: 150, y: 150),
+                    target: calendar.grid.days[safe: 16]?.date,
+                    holding: samples.plain
+                )
+            ),
+            into: directory
+        )
+    }
+
+    /// 「달력」을 **조작하는 중**으로 만들어 그린다.
+    ///
+    /// 옮기기는 흉내 내지 않고 실제로 시킨다. 그래야 되돌리기 줄에 적히는
+    /// 날짜가 진짜 계산 결과가 되고, 그림이 곧 검증이 된다.
+    private static func renderCalendarInUse(
+        model: CalendarModel, size: CGSize, into directory: URL
+    ) async {
+        let target = CalendarDate(Date(), calendar: .current).adding(days: 3)
+        // 사전의 순회 순서는 실행마다 달라진다. 렌더끼리 견주려면 같은 표본이
+        // 같은 그림을 내야 하므로 id 로 정렬해 고른다.
+        guard let moved = model.byDay.values.flatMap({ $0 })
+            .filter({ $0.scheduledDate() != target })
+            .min(by: { $0.id < $1.id })
+        else { return }
+
+        await model.move(moved, to: target)
+        let listed = model.selectedMemos
+        guard let pointed = listed.first, let dragged = listed.last, listed.count > 1 else { return }
+
+        await render(
+            name: "calendar-in-use",
+            size: size,
+            content: CalendarView(
+                model: model,
+                onClose: {},
+                onSelectMemo: { _ in },
+                staged: CalendarView.Staged(
+                    hoveredRow: pointed.id,
+                    carrying: dragged,
+                    // 셋째 주 언저리 — 조각과 놓을 자리가 한 눈에 함께 들어온다.
+                    carryPoint: CGPoint(x: 172, y: 166),
+                    // 격자 안의 칸을 골라야 고리가 실제로 그려진다. 날짜를 계산해
+                    // 넣으면 달이 넘어간 순간 격자 밖으로 나가 아무것도 안 보인다.
+                    target: model.grid.days[safe: 17]?.date
+                )
+            ),
+            into: directory
+        )
+    }
+
+    /// 렌더 전용 설정 파일 자리. 실제 설정을 건드리지 않는다.
+    private static func sheerSettingsLocation() -> URL {
+        FileManager.default.temporaryDirectory
+            .appending(path: "lazymemo-render-settings.json", directoryHint: .notDirectory)
+    }
+
+    /// 메뉴바 목록을 그린다.
+    ///
+    /// `NSMenu` 는 시스템이 띄우는 창이라 `ImageRenderer` 로도 화면 캡처로도
+    /// 잡히지 않는다. 그래서 줄(`MemoRow`)만 실제 뷰 그대로 떠내 메뉴처럼
+    /// 생긴 판 위에 얹는다 — 자리와 세기가 어긋나면 여기서 드러난다.
+    ///
+    /// 둘째 줄은 포인터가 올라온 상태로, 셋째 줄은 휴지통 위에 올라온 상태로
+    /// 연출한다. 그러지 않으면 이 목록에서 새로 생긴 것이 그림에 하나도
+    /// 나타나지 않는다.
+    private static func renderMenuList(into directory: URL, memos: [Memo]) async {
+        guard !memos.isEmpty else { log("menu 표본 없음"); return }
+        log("menu 렌더 시작")
+
+        let inset: CGFloat = 6
+        let headerHeight: CGFloat = 22
+        let panel = CGSize(
+            width: MemoRowGeometry.width + inset * 2,
+            height: headerHeight + MemoRowGeometry.height * CGFloat(memos.count) + inset * 2
+        )
+        let margin: CGFloat = 26
+        let tile = CGSize(width: panel.width + margin * 2, height: panel.height + margin * 2)
+        let canvas = NSImage(size: CGSize(width: tile.width * 2, height: tile.height))
+        let now = Date()
+
+        canvas.lockFocus()
+        for (index, scheme) in [ColorScheme.light, .dark].enumerated() {
+            let origin = CGPoint(x: tile.width * CGFloat(index), y: 0)
+            drawDesktop(scheme, in: NSRect(origin: origin, size: tile))
+
+            NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)?
+                .performAsCurrentDrawingAppearance {
+                    let frame = NSRect(
+                        origin: CGPoint(x: origin.x + margin, y: origin.y + margin), size: panel
+                    )
+                    drawMenuPanel(in: frame)
+                    drawMenuHeader(
+                        "메모 \(memos.count)장",
+                        in: NSRect(
+                            x: frame.minX + inset + 13, y: frame.maxY - inset - headerHeight,
+                            width: frame.width, height: headerHeight
+                        )
+                    )
+
+                    for (order, memo) in memos.enumerated() {
+                        let row = MemoRow(
+                            title: memo.title,
+                            time: MemoTimeLabel.text(for: memo, now: now),
+                            color: memo.color,
+                            // 찬 점과 빈 점이 한 그림에 함께 있어야 구별이 확인된다.
+                            onDesktop: order != 2,
+                            onOpen: {}, onDelete: {}
+                        )
+                        row.staged = (highlighted: order == 1 || order == 2, overTrash: order == 2)
+                        row.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
+
+                        // `cacheDisplay` 로 떠내지 않고 **직접 그린다.** 비트맵을
+                        // 거치면 뒷바탕이 흰색으로 깔려, 다크 모드에서 흰 판에
+                        // 흰 글자를 그린 꼴이 된다 (한 번 그렇게 나왔다).
+                        NSGraphicsContext.saveGraphicsState()
+                        let move = NSAffineTransform()
+                        move.translateX(
+                            by: frame.minX + inset,
+                            yBy: frame.maxY - inset - headerHeight
+                                - MemoRowGeometry.height * CGFloat(order + 1)
+                        )
+                        move.concat()
+                        row.draw(row.bounds)
+                        NSGraphicsContext.restoreGraphicsState()
+                    }
+                }
+        }
+        canvas.unlockFocus()
+
+        guard let tiff = canvas.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              let data = bitmap.representation(using: .png, properties: [:])
+        else { log("menu 실패"); return }
+
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try? data.write(to: directory.appending(path: "menu.png"))
+        log("menu 저장")
+    }
+
+    /// 메뉴가 놓이는 판. 시스템이 그리는 것과 똑같을 필요는 없고,
+    /// 줄의 글자와 세기를 판단할 수 있을 만큼이면 된다.
+    private static func drawMenuPanel(in frame: NSRect) {
+        let path = NSBezierPath(roundedRect: frame, xRadius: 10, yRadius: 10)
+        NSColor.windowBackgroundColor.withAlphaComponent(0.97).setFill()
+        path.fill()
+        NSColor.separatorColor.setStroke()
+        path.lineWidth = 0.75
+        path.stroke()
+    }
+
+    private static func drawMenuHeader(_ text: String, in rect: NSRect) {
+        let font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
+        let height = ceil(font.ascender - font.descender)
+        (text as NSString).draw(
+            in: NSRect(
+                x: rect.minX, y: rect.midY - height / 2 + font.descender / 2,
+                width: rect.width, height: height
+            ),
+            withAttributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor]
         )
     }
 

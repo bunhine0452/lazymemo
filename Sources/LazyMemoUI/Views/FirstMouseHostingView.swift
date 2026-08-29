@@ -9,7 +9,7 @@ import SwiftUI
 /// 메모지는 종이가 아니라 대화상자다.
 ///
 /// 텍스트 뷰는 자기 몫을 스스로 열지만(`MemoNSTextView`), 겹쳐 뜨는 조작
-/// 버튼과 「흐름」의 화살표는 SwiftUI 가 이 뷰 안에서 직접 처리하므로
+/// 버튼과 「달력」의 화살표는 SwiftUI 가 이 뷰 안에서 직접 처리하므로
 /// 여기서 열어 주어야 한다.
 final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }

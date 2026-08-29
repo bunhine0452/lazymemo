@@ -17,14 +17,24 @@ public struct Settings: Codable, Sendable, Equatable {
     /// 확인하고 되돌릴 수 있게 한다.
     public var embedsLinks: Bool?
 
+    /// 바탕화면 종이가 얼마나 진한가. `nil` 이면 불투명한 종이.
+    ///
+    /// 재질은 하나(§14.5)라는 원칙과 부딪히는 유일한 설정이다. 유리를 쓰지
+    /// 않기로 한 이유는 "반투명한 면 위의 글은 씻겨 나간다" 였고 그 판단은
+    /// 지금도 옳지만, **바탕화면을 덮는다**는 불편은 그것과 다른 종류의
+    /// 불편이다. 그래서 고를 수 있게 두되 기본은 불투명한 종이로 남긴다.
+    public var paperOpacity: Double?
+
     public init(
         hotkeyKeyCode: UInt32? = nil,
         hotkeyModifiers: UInt32? = nil,
-        embedsLinks: Bool? = nil
+        embedsLinks: Bool? = nil,
+        paperOpacity: Double? = nil
     ) {
         self.hotkeyKeyCode = hotkeyKeyCode
         self.hotkeyModifiers = hotkeyModifiers
         self.embedsLinks = embedsLinks
+        self.paperOpacity = paperOpacity
     }
 
     public static let `default` = Settings()

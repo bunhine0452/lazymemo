@@ -76,6 +76,7 @@ final class HotkeyManager {
 
                 // Carbon 이벤트는 메인 런루프에서 도착한다.
                 MainActor.assumeIsolated {
+                    CaptureTrace.log("단축키 이벤트 도착 id=\(pressed.id) 핸들러=\(HotkeyManager.handlers[pressed.id] != nil)")
                     HotkeyManager.handlers[pressed.id]?()
                 }
                 return noErr

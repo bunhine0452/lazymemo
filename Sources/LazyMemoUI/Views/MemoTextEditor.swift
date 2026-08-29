@@ -16,6 +16,9 @@ struct MemoTextEditor: NSViewRepresentable {
     /// 마크다운을 친 자리에서 바로 꾸밀지. 빠른 입력처럼 한 줄 적고 마는
     /// 자리에서는 끈다 — 치는 동안 글자가 계속 움직이면 오히려 방해가 된다.
     var stylesMarkdown = false
+    /// 꾸밈은 끄되 **사진 참조만** 감출지. 빠른 입력이 이것만 켠다 —
+    /// 붙인 사진은 조각으로 보이므로 경로 글자는 자리만 차지한다.
+    var hidesImageReferences = false
     var onPasteImage: ((Data, String) -> String?)?
     var onPasteLink: ((URL) -> String?)?
     /// 메모 자체를 지우는 길. 오른쪽 버튼 메뉴에 붙는다.
@@ -98,10 +101,11 @@ struct MemoTextEditor: NSViewRepresentable {
         textView.string = text
 
         scrollView.documentView = textView
-        textView.registerForDraggedTypes([.fileURL, .png, .tiff])
+        textView.registerForDraggedTypes(MemoNSTextView.draggedTypes)
         context.coordinator.textView = textView
         context.coordinator.onHeightChange = onHeightChange
         context.coordinator.stylesMarkdown = stylesMarkdown
+        context.coordinator.hidesImageReferences = hidesImageReferences
         context.coordinator.baseFont = font
         context.coordinator.paragraph = textView.defaultParagraphStyle
         context.coordinator.restyle(textView)
@@ -136,18 +140,19 @@ struct MemoTextEditor: NSViewRepresentable {
         weak var textView: NSTextView?
 
         var stylesMarkdown = false
+        var hidesImageReferences = false
         var baseFont: NSFont = .systemFont(ofSize: Paper.bodySize)
         var paragraph: NSParagraphStyle?
 
         private var isRestyling = false
         private var activeLine: NSRange?
 
-        /// 마크다운 꾸밈을 다시 입힌다.
+        /// 꾸밈을 다시 입힌다. 빠른 입력은 **사진 참조 감추기만** 한다.
         ///
         /// **조합 중에는 하지 않는다.** 속성을 통째로 다시 까는 동안 조합
         /// 밑줄이 지워져 한글 입력이 어디까지 됐는지 알 수 없게 된다.
         func restyle(_ textView: NSTextView) {
-            guard stylesMarkdown, !textView.hasMarkedText(),
+            guard stylesMarkdown || hidesImageReferences, !textView.hasMarkedText(),
                   let storage = textView.textStorage
             else { return }
 
@@ -155,16 +160,22 @@ struct MemoTextEditor: NSViewRepresentable {
             activeLine = (textView.string as NSString).lineRange(for: selection)
 
             isRestyling = true
-            MarkdownStyler.apply(
-                to: storage, baseFont: baseFont, paragraph: paragraph, activeLine: activeLine
-            )
+            if stylesMarkdown {
+                MarkdownStyler.apply(
+                    to: storage, baseFont: baseFont, paragraph: paragraph, activeLine: activeLine
+                )
+            } else {
+                MarkdownStyler.hideImageReferences(
+                    to: storage, baseFont: baseFont, paragraph: paragraph, activeLine: activeLine
+                )
+            }
             textView.setSelectedRange(selection)
             isRestyling = false
         }
 
         /// 커서가 다른 줄로 가면 기호를 감추고, 온 줄에서는 되살린다.
         func textViewDidChangeSelection(_ notification: Notification) {
-            guard !isRestyling, stylesMarkdown,
+            guard !isRestyling, stylesMarkdown || hidesImageReferences,
                   let textView = notification.object as? NSTextView,
                   !textView.hasMarkedText()
             else { return }
