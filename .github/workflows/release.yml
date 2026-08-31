@@ -33,7 +33,7 @@ jobs:
     # `secrets` 는 step 의 `if` 에서 못 읽는다 (허용 컨텍스트에 없다 — 여기에
     # 직접 쓰면 워크플로가 통째로 파싱에 실패한다). 한 번 env 로 받아서 본다.
     env:
-      TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+      TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
 
     steps:
       # 릴리스 노트가 «지난 태그 이후» 를 세므로 얕게 받으면 셀 것이 없다.
@@ -133,17 +133,25 @@ jobs:
       # cask 의 sha256 은 **틀려도 만든 사람 기계에서는 아무 일도 안 일어난다.**
       # 받는 사람에게만 터지는 값이라 손으로 옮기지 않는다.
       #
-      # 다른 저장소에 쓰므로 기본 토큰으로는 안 되고, 탭에 쓰기 권한이 있는
-      # PAT 를 `TAP_TOKEN` 시크릿으로 넣어야 한다. 없으면 조용히 건너뛰고
-      # 요약에 무엇을 손으로 해야 하는지 적는다 — 릴리스 자체는 이미 나갔다.
+      # 다른 저장소에 쓰므로 기본 토큰으로는 안 된다.
+      #
+      # **개인 토큰(PAT)이 아니라 배포 키를 쓴다.** PAT 는 그 사람이 가진 모든
+      # 저장소에 닿지만, 배포 키는 **탭 하나**에만 쓰기가 된다. 이 워크플로가
+      # 할 일이 딱 그것뿐이라 더 넓은 열쇠를 CI 에 둘 이유가 없다 — 새는 순간
+      # 잃는 것의 크기가 다르고, 거두는 것도 이 키 하나만 지우면 된다.
       - name: 홈브루 탭 갱신
-        if: ${{ env.TAP_TOKEN != '' }}
+        if: ${{ env.TAP_DEPLOY_KEY != '' }}
         env:
           VERSION: ${{ steps.v.outputs.version }}
           SHA: ${{ steps.pkg.outputs.sha }}
         run: |
+          mkdir -p ~/.ssh
+          # 파일로 내릴 때만 잠깐 존재한다. 러너는 실행이 끝나면 통째로 사라진다.
+          printf '%s\n' "$TAP_DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
           git clone --depth 1 \
-            "https://x-access-token:${TAP_TOKEN}@github.com/${{ github.repository_owner }}/homebrew-lazymemo.git" /tmp/tap
+            "git@github.com:${{ github.repository_owner }}/homebrew-lazymemo.git" /tmp/tap
           cd /tmp/tap
           sed -i '' -E "s|^  version \".*\"|  version \"${VERSION}\"|" Casks/lazymemo.rb
           sed -i '' -E "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" Casks/lazymemo.rb
@@ -160,7 +168,7 @@ jobs:
       # 적힌 sha256 이 어긋나 있다. 릴리스는 이미 나갔지만 실행은 빨갛게 둔다.
       # 초록인데 설치가 안 되는 것이 가장 나쁘다.
       - name: 탭을 못 갱신했다
-        if: ${{ env.TAP_TOKEN == '' }}
+        if: ${{ env.TAP_DEPLOY_KEY == '' }}
         env:
           VERSION: ${{ steps.v.outputs.version }}
           SHA: ${{ steps.pkg.outputs.sha }}
@@ -168,7 +176,7 @@ jobs:
           {
             echo "### 릴리스는 나갔지만 홈브루 탭이 그것을 모릅니다"
             echo
-            echo "\`TAP_TOKEN\` 시크릿이 없어 갱신을 건너뛰었습니다."
+            echo "\`TAP_DEPLOY_KEY\` 시크릿이 없어 갱신을 건너뛰었습니다."
             echo "**지금 \`brew install --cask lazymemo\` 는 checksum mismatch 로 실패합니다.**"
             echo "\`bunhine0452/homebrew-lazymemo\` 의 \`Casks/lazymemo.rb\` 를 이렇게 고치세요."
             echo
@@ -177,8 +185,8 @@ jobs:
             echo "  sha256 \"${SHA}\""
             echo '```'
             echo
-            echo "다음부터 자동으로 하려면 탭에 쓰기 권한이 있는 PAT 를"
-            echo "\`TAP_TOKEN\` 시크릿으로 넣으세요."
+            echo "다음부터 자동으로 하려면 탭의 쓰기 배포 키를"
+            echo "\`TAP_DEPLOY_KEY\` 시크릿으로 넣으세요."
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::error::탭이 갱신되지 않아 cask 의 sha256 이 어긋나 있습니다 (요약 참고)"
           exit 1
