@@ -1,0 +1,50 @@
+# site/ 를 GitHub Pages 로 내보낸다.
+#
+# 정적 파일 그대로다 — 빌드 단계도, 프레임워크도, 바깥으로 나가는 요청도 없다.
+# 앱이 «기본 상태에서 네트워크를 쓰지 않는다» 고 약속했으니 그 앱을 소개하는
+# 페이지가 추적기를 달고 있으면 그 약속이 그 자리에서 깨진다 (설계문서 §9.3).
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 밀린 것이 여럿이면 마지막 것만 낸다. 페이지는 «지금 상태» 하나뿐이다.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 바깥으로 나가는 것이 없는지
+        run: |
+          # 이 페이지의 약속을 시험으로 지킨다 — 웹폰트 하나가 조용히 들어오면
+          # 「추적기도 웹폰트도 없다」 는 문장이 거짓말이 된다.
+          if grep -nE 'https?://(fonts|cdn|www\.google|unpkg|jsdelivr)' site/index.html; then
+            echo "::error::바깥 자원을 부르고 있습니다"
+            exit 1
+          fi
+          echo "외부 요청 없음 ✓"
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

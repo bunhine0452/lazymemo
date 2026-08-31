@@ -1,0 +1,146 @@
+# 태그를 밀면 그것이 곧 배포다 (설계문서 §12).
+#
+#   git tag -a v0.2.0 -m "..." && git push origin v0.2.0
+#
+# 손으로 하던 것 — 시험 · 번들 조립 · zip · 릴리스 · cask 의 sha256 갱신 —
+# 은 사람이 한 번만 빠뜨려도 «내려받은 것이 안 열린다» 로 끝난다. 특히
+# sha256 은 틀려도 만든 사람 기계에서는 아무 일도 안 일어나고, 받는 사람에게만
+# 터진다. 그래서 사람의 손을 태그 하나로 줄인다.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  # 같은 태그로 다시 낼 때 (자산만 새로 올린다).
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "다시 낼 태그 (예: v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # 이 앱은 플랫폼 목표가 macOS 26 이라 그보다 낮은 러너에서는 **컴파일 자체가 안 된다.**
+    runs-on: macos-26
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 무엇으로 짓는지 적어 둔다
+        run: |
+          sw_vers
+          swift --version
+
+      - name: 판 정하기
+        id: v
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          PLIST=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)
+          # 태그와 번들이 다른 판이면 여기서 멈춘다. 이것이 어긋난 채 나가면
+          # 사용자가 받은 앱의 «정보» 와 릴리스 이름이 서로 다른 말을 한다.
+          if [ "$TAG" != "v$PLIST" ]; then
+            echo "::error::태그($TAG)와 Info.plist($PLIST)가 다른 판입니다"
+            exit 1
+          fi
+          SWIFT=$(sed -n 's/.*version = "\(.*\)".*/\1/p' Sources/LazyMemoCore/Version.swift)
+          if [ "$SWIFT" != "$PLIST" ]; then
+            echo "::error::Version.swift($SWIFT)와 Info.plist($PLIST)가 다릅니다"
+            exit 1
+          fi
+          echo "tag=$TAG"          >> "$GITHUB_OUTPUT"
+          echo "version=$PLIST"    >> "$GITHUB_OUTPUT"
+
+      # **빨간 것은 내보내지 않는다.** 배포는 시험을 건너뛰기 가장 좋은 자리다.
+      - name: 시험
+        run: ./scripts/test.sh
+
+      - name: 묶기
+        id: pkg
+        run: |
+          ./scripts/package-release.sh
+          ZIP="dist/lazymemo-${{ steps.v.outputs.version }}.zip"
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+          echo "sha=$(shasum -a 256 "$ZIP" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: 릴리스 노트 짓기
+        id: notes
+        run: |
+          PREV=$(git describe --tags --abbrev=0 "${{ steps.v.outputs.tag }}^" 2>/dev/null || true)
+          {
+            cat .github/release-header.md
+            echo
+            echo "## 바뀐 것"
+            echo
+            if [ -n "$PREV" ]; then
+              git log --no-merges --pretty='- %s' "$PREV..${{ steps.v.outputs.tag }}"
+              echo
+              echo "[$PREV → ${{ steps.v.outputs.tag }}](https://github.com/${{ github.repository }}/compare/$PREV...${{ steps.v.outputs.tag }})"
+            else
+              echo "- 첫 판"
+            fi
+          } > /tmp/notes.md
+          # 헤더의 자리표시자를 이번 판으로 바꾼다.
+          sed -i '' "s/{{VERSION}}/${{ steps.v.outputs.version }}/g" /tmp/notes.md
+
+      - name: 내보내기
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.v.outputs.tag }}"
+          # 이미 있는 판을 다시 낼 때는 노트를 건드리지 않고 자산만 갈아 끼운다 —
+          # 손으로 다듬어 둔 글을 기계가 덮어쓰면 안 된다.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${{ steps.pkg.outputs.zip }}" --clobber
+          else
+            gh release create "$TAG" "${{ steps.pkg.outputs.zip }}" \
+              --title "lazymemo ${{ steps.v.outputs.version }}" \
+              --notes-file /tmp/notes.md
+          fi
+
+      # cask 의 sha256 은 **틀려도 만든 사람 기계에서는 아무 일도 안 일어난다.**
+      # 받는 사람에게만 터지는 값이라 손으로 옮기지 않는다.
+      #
+      # 다른 저장소에 쓰므로 기본 토큰으로는 안 되고, 탭에 쓰기 권한이 있는
+      # PAT 를 `TAP_TOKEN` 시크릿으로 넣어야 한다. 없으면 조용히 건너뛰고
+      # 요약에 무엇을 손으로 해야 하는지 적는다 — 릴리스 자체는 이미 나갔다.
+      - name: 홈브루 탭 갱신
+        if: ${{ secrets.TAP_TOKEN != '' }}
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          VERSION: ${{ steps.v.outputs.version }}
+          SHA: ${{ steps.pkg.outputs.sha }}
+        run: |
+          git clone --depth 1 \
+            "https://x-access-token:${TAP_TOKEN}@github.com/${{ github.repository_owner }}/homebrew-lazymemo.git" /tmp/tap
+          cd /tmp/tap
+          sed -i '' -E "s|^  version \".*\"|  version \"${VERSION}\"|" Casks/lazymemo.rb
+          sed -i '' -E "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" Casks/lazymemo.rb
+          if git diff --quiet; then
+            echo "탭이 이미 ${VERSION} 입니다"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "cask: lazymemo ${VERSION}"
+          git push
+
+      - name: 안 된 것 적어 두기
+        if: ${{ secrets.TAP_TOKEN == '' }}
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+          SHA: ${{ steps.pkg.outputs.sha }}
+        run: |
+          {
+            echo "### 홈브루 탭은 손으로 갱신해야 합니다"
+            echo
+            echo "\`TAP_TOKEN\` 시크릿이 없어 건너뛰었습니다."
+            echo "\`bunhine0452/homebrew-lazymemo\` 의 \`Casks/lazymemo.rb\` 에서:"
+            echo
+            echo '```ruby'
+            echo "  version \"${VERSION}\""
+            echo "  sha256 \"${SHA}\""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

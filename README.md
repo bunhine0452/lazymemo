@@ -1,6 +1,8 @@
 # lazymemo
 
 > macOS 바탕화면에 상주하는 메모 + 캘린더. **사용자는 게으르다**를 전제로 설계했다.
+>
+> [소개 페이지](https://bunhine0452.github.io/lazymemo/) · [릴리스](https://github.com/bunhine0452/lazymemo/releases/latest)
 
 앱을 "열어서" 쓰지 않는다. 메모는 항상 바탕화면에 떠 있고, 새 메모는 `⌥⌘N` 한 번으로 시작되며, **저장 버튼이 없다.** 정리는 Claude 가 대신한다.
 
@@ -14,18 +16,25 @@
   xcode-select --install
   ```
 
-## 빌드와 실행
+## 설치
+
+```sh
+brew tap bunhine0452/lazymemo
+brew install --cask lazymemo
+```
+
+또는 **소스에서** — 이쪽이 1차 배포 경로다.
 
 ```sh
 ./scripts/build-app.sh     # dist/LazyMemo.app 생성 + 심볼 스트립 + ad-hoc 서명
 open dist/LazyMemo.app
 ```
 
-release 번들은 **2.5MB** 다. `swift build` 가 내놓는 실행 파일의 절반 이상은
+**이 앱은 아직 공증받지 않았다.** 내려받은 앱에는 `com.apple.quarantine` 이 붙고, macOS 15 부터는 우클릭-열기 우회가 사라져 딱지가 붙은 미공증 앱은 「손상되었습니다」로 끝난다. 그래서 cask 가 설치 뒤 그 딱지를 떼어 낸다 — **미봉책이고, Developer ID 를 받는 즉시 사라진다** ([설계문서 §12.2](docs/DESIGN.md)). 믿을 수 없다면 소스에서 빌드하는 쪽이 맞다: 그렇게 만든 앱에는 애초에 딱지가 붙지 않는다.
+
+release 번들은 **2.6MB**, 내려받는 zip 은 **1.2MB** 다. `swift build` 가 내놓는 실행 파일의 절반 이상은
 디버거가 읽는 심볼 이름표라, 서명 직전에 `strip` 으로 턴다. dSYM 은 `.build`
 에 남아 크래시 로그 심볼화는 그대로 된다.
-
-로컬에서 빌드한 앱에는 `com.apple.quarantine` 이 붙지 않아 Gatekeeper 경고 없이 바로 열린다. 이것이 소스 빌드를 1차 배포 경로로 삼은 이유다 ([설계문서 §12](docs/DESIGN.md)).
 
 개발 중 반복 실행은 번들 조립 없이도 된다.
 
@@ -149,6 +158,7 @@ ImageIO 가 내보내는 PNG 는 압축이 얕아, 픽셀을 한 점도 건드�
 ./scripts/measure-capture.sh      # 빠른 입력 지연
 ./scripts/render-ui.sh            # UI 를 PNG 로 렌더
 ./scripts/make-icon.sh            # 아이콘 다시 그리기
+./scripts/package-release.sh      # 배포용 zip + sha256 (cask 가 쓰는 값)
 ./scripts/clean.sh                # 빌드 캐시 회수 (--all 이면 .build 통째로)
 ```
 

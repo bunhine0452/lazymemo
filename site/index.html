@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lazymemo — 바탕화면에 상주하는 메모 + 캘린더</title>
+<meta name="description" content="macOS 바탕화면에 상주하는 메모와 캘린더. 사용자는 게으르다를 전제로 설계했다. 메모는 당신 컴퓨터의 마크다운 파일이다.">
+<meta property="og:title" content="lazymemo">
+<meta property="og:description" content="앱을 «열어서» 쓰지 않는다. 저장 버튼이 없다. 메모는 당신 컴퓨터의 마크다운 파일이다.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232E4261'/><rect x='8' y='11' width='16' height='2.2' rx='1.1' fill='%23FDC24F'/><path d='M8 18h13.5' stroke='%23FDC24F' stroke-width='2' stroke-linecap='round' opacity='.62'/></svg>">
+<style>
+:root {
+  --paper: #faf7f2;
+  --paper-warm: #f7f2e6;
+  --ink: #29261f;
+  --ink-soft: rgba(41, 38, 31, .62);
+  --ink-faint: rgba(41, 38, 31, .34);
+  --rule: rgba(41, 38, 31, .12);
+  --accent: #2e4261;
+  --highlight: #fdc24f;
+  --dot: rgba(41, 38, 31, .16);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #232220;
+    --paper-warm: #2b2823;
+    --ink: #e6e2da;
+    --ink-soft: rgba(230, 226, 218, .60);
+    --ink-faint: rgba(230, 226, 218, .32);
+    --rule: rgba(230, 226, 218, .14);
+    --accent: #99b8e6;
+    --dot: rgba(230, 226, 218, .13);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  /* 종이의 도트 그리드. 앱이 쓰는 것과 같은 23pt 간격이다. */
+  background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+  background-size: 23px 23px;
+  color: var(--ink);
+  font: 16px/1.75 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+        "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+  letter-spacing: -.005em;
+}
+
+.wrap { max-width: 760px; margin: 0 auto; padding: 0 24px; }
+
+/* ── 머리 ─────────────────────────────── */
+
+header { padding: 88px 0 56px; }
+
+.mark {
+  width: 60px; height: 60px; border-radius: 13px;
+  background: var(--accent);
+  display: flex; flex-direction: column; justify-content: center;
+  gap: 7px; padding: 0 13px; margin-bottom: 28px;
+}
+.mark i { display: block; height: 3px; border-radius: 2px; background: var(--highlight); }
+.mark i:last-child { width: 62%; opacity: .55; }
+
+h1 { font-size: 38px; line-height: 1.2; margin: 0 0 14px; letter-spacing: -.03em; font-weight: 700; }
+
+.lede { font-size: 19px; line-height: 1.65; margin: 0 0 8px; max-width: 30em; }
+.lede strong { font-weight: 700; }
+
+.sub { color: var(--ink-soft); margin: 0 0 34px; max-width: 32em; }
+
+/* ── 설치 ─────────────────────────────── */
+
+.install { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin-bottom: 14px; }
+@media (max-width: 620px) { .install { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--paper-warm);
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  padding: 18px 20px 20px;
+}
+.card h3 { margin: 0 0 4px; font-size: 13px; font-weight: 700; letter-spacing: .01em; }
+.card p { margin: 0 0 12px; font-size: 13px; color: var(--ink-soft); line-height: 1.55; }
+
+pre, code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; }
+pre {
+  margin: 0; padding: 12px 14px; overflow-x: auto;
+  background: rgba(127, 127, 127, .10);
+  border-radius: 4px; font-size: 12.5px; line-height: 1.7;
+}
+pre .c { color: var(--ink-faint); }
+
+.note { font-size: 13px; color: var(--ink-faint); margin: 0 0 64px; line-height: 1.6; }
+
+/* ── 본문 ─────────────────────────────── */
+
+section { padding: 8px 0 56px; }
+h2 {
+  font-size: 13px; font-weight: 700; letter-spacing: .06em;
+  color: var(--ink-faint); margin: 0 0 20px; text-transform: uppercase;
+}
+h2 + p { margin-top: 0; }
+p { margin: 0 0 16px; max-width: 34em; }
+p:last-child { margin-bottom: 0; }
+
+.four { display: grid; gap: 26px 34px; grid-template-columns: 1fr 1fr; margin: 0; padding: 0; list-style: none; }
+@media (max-width: 620px) { .four { grid-template-columns: 1fr; } }
+.four h3 { margin: 0 0 5px; font-size: 15px; font-weight: 700; }
+.four p { margin: 0; font-size: 14.5px; color: var(--ink-soft); line-height: 1.65; }
+
+figure { margin: 0 0 34px; }
+figure img {
+  display: block; width: 100%; height: auto;
+  border-radius: 5px; border: 1px solid var(--rule);
+}
+figcaption { margin-top: 10px; font-size: 13px; color: var(--ink-faint); line-height: 1.6; }
+
+.shots { padding-bottom: 24px; }
+
+/* 접힌 자리 — 앱의 두 층을 가르는 것과 같은 표시 */
+.crease { height: 1px; border: 0; margin: 0 0 56px;
+  background: linear-gradient(to right, transparent, var(--rule) 12%, var(--rule) 88%, transparent); }
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { text-decoration-thickness: 2px; }
+
+kbd {
+  font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  border: 1px solid var(--rule); border-bottom-width: 2px;
+  border-radius: 4px; padding: 3px 6px; white-space: nowrap;
+}
+
+footer {
+  padding: 40px 0 72px; border-top: 1px solid var(--rule);
+  font-size: 13.5px; color: var(--ink-faint); line-height: 1.9;
+}
+footer a { color: inherit; }
+footer .links { margin-bottom: 10px; }
+footer .links a { margin-right: 18px; color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <div class="mark" aria-hidden="true"><i></i><i></i></div>
+  <h1>lazymemo</h1>
+  <p class="lede">macOS 바탕화면에 상주하는 메모 + 캘린더.<br><strong>사용자는 게으르다</strong>를 전제로 설계했다.</p>
+  <p class="sub">앱을 «열어서» 쓰지 않는다. 메모는 항상 바탕화면에 떠 있고,
+     새 메모는 <kbd>⌥⌘N</kbd> 한 번으로 시작되며, <strong>저장 버튼이 없다.</strong></p>
+
+  <div class="install">
+    <div class="card">
+      <h3>Homebrew</h3>
+      <p>한 줄로 설치한다.</p>
+<pre><span class="c"># macOS 26 (Tahoe) 이상</span>
+brew tap bunhine0452/lazymemo
+brew install --cask lazymemo</pre>
+    </div>
+    <div class="card">
+      <h3>소스에서 빌드</h3>
+      <p>Xcode 없이 빌드된다. 이쪽이 1차 배포 경로다.</p>
+<pre>git clone https://github.com/\
+bunhine0452/lazymemo.git
+cd lazymemo
+./scripts/build-app.sh</pre>
+    </div>
+  </div>
+  <p class="note">이 앱은 아직 <strong>공증받지 않았다.</strong> 그래서 cask 는 설치 뒤 검역 딱지를 떼어 낸다 —
+    미봉책이고, Developer ID 를 받는 즉시 사라진다. 믿을 수 없다면 소스에서 직접 빌드하는 쪽이 맞다.
+    그렇게 만든 앱에는 애초에 딱지가 붙지 않는다.</p>
+</header>
+
+<hr class="crease">
+
+<main class="wrap">
+
+<section>
+  <h2>왜 이렇게 생겼나</h2>
+  <ul class="four">
+    <li>
+      <h3>완성을 요구하지 않는다</h3>
+      <p>쓰다 만 것, 제목 없는 것, 날짜 없는 것이 정상 상태다. 빈칸도, 채우라는 표시도, 저장 버튼도 없다.</p>
+    </li>
+    <li>
+      <h3>시간이 유일한 구조다</h3>
+      <p>폴더도 태그도 유지하지 않는다. 그래서 달력이 <strong>만지는 물건</strong>이다 — 일정을 집어 다른 날에 놓고,
+         한 번 눌러 미룬다. <code>내일 3시 치과</code> 라고 적으면 앱이 알아서 날짜를 읽는다.</p>
+    </li>
+    <li>
+      <h3>오래된 것은 스스로 물러난다</h3>
+      <p>다 체크한 목록과 지난 일정은 조용히 바탕화면에서 빠진다. <strong>지운 것이 아니다</strong> —
+         메뉴가 «치워 둔 N장» 이라고 적어 둔다.</p>
+    </li>
+    <li>
+      <h3>앱은 자기를 드러내지 않는다</h3>
+      <p>기본 상태의 메모는 글자와 종이뿐이다. 머리글도 아이콘 줄도 없고,
+         조작은 포인터가 올 때 내용 위에 겹쳐 뜬다.</p>
+    </li>
+  </ul>
+</section>
+
+<section class="shots">
+  <h2>화면</h2>
+
+  <figure>
+    <img src="img/note.png" alt="바탕화면에 놓인 메모 한 장. 왼쪽은 밝은 모드, 오른쪽은 어두운 모드." loading="lazy">
+    <figcaption>종이 한 장. 포인터가 올 때만 조작이 겹쳐 뜨고, 첫 줄도 마지막 줄도 덮지 않는다.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="img/capture.png" alt="메뉴바 아이콘 아래 말풍선으로 뜬 빠른 입력 상자와 최근 메모 목록." loading="lazy">
+    <figcaption><kbd>⌥⌘N</kbd> 빠른 입력. 한 상자가 적기와 찾기와 날짜 읽기를 겸한다 —
+      열면 요즘 메모가 이미 아래에 놓여 있다.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="img/calendar.png" alt="달 격자와 그 날의 일정 목록으로 이루어진 달력 창." loading="lazy">
+    <figcaption>달력에는 부품이 없다. 오늘은 손으로 그린 동그라미, 붐비는 날은 숫자 아래 번진 잉크,
+      달 이동은 화살표가 아니라 이웃 달의 이름이다.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="img/menu.png" alt="메뉴바 목록의 메모 줄들. 골라진 줄이 그 메모의 종이색으로 깔려 있다." loading="lazy">
+    <figcaption>목록의 줄도 종이의 낱말을 쓴다 — 찬 점은 바탕화면에 나와 있는 것, 빈 점은 치워 둔 것.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>메모는 파일이다</h2>
+  <p><strong>lazymemo 를 지워도 메모는 남는다.</strong> 정본은 당신 컴퓨터의 마크다운 파일이고,
+     Finder 로 열어도 텍스트 에디터로 고쳐도 된다.</p>
+<pre>~/Documents/lazymemo/
+  notes/2026/08/01K3ZQ….md   <span class="c">← 정본</span>
+  .trash/                     <span class="c">← 삭제한 메모 (30일 보존)</span></pre>
+  <p style="margin-top:16px">이 폴더를 iCloud Drive 안으로 옮기면 동기화가 된다. 별도 백엔드가 없고,
+     옮기면 앱이 따라간다 (메뉴 → 설정).</p>
+</section>
+
+<section>
+  <h2>Claude 연동 (선택)</h2>
+  <p>lazymemo 는 MCP 서버를 함께 빌드한다. 등록하면 Claude Desktop 에서
+     «다음 주 화요일 오후 2시에 치과 예약 잡아줘» 라고 말할 수 있다.</p>
+  <p><strong>API 키가 필요 없다.</strong> lazymemo 가 Claude 를 호출하는 것이 아니라
+     Claude 가 lazymemo 를 호출하는 방향이라, 토큰 비용은 당신의 Claude 구독이 부담한다.</p>
+  <p>Claude 가 메모를 지울 수 있으므로 <strong>영구 삭제하는 도구를 아예 만들지 않았다.</strong>
+     이건 규칙이 아니라 배선이다 — MCP 서버가 호출할 수 있는 코드에 하드 삭제 함수 자체가 없다.</p>
+</section>
+
+<section>
+  <h2>프라이버시</h2>
+  <p>메모 본문이 컴퓨터 밖으로 나가는 경로는 위의 MCP 연동뿐이고, 그건 직접 등록해야 켜진다.</p>
+  <p>네트워크를 쓰는 곳이 하나 더 있다 — <strong>링크를 카드로 펼치기.</strong> 본문에 붙인 주소의 제목과
+     그림을 가져오려고 그 주소에 접속한다. 나가는 것은 주소 하나뿐이고 메모 본문은 아니지만,
+     어느 사이트를 붙였는지는 그 사이트가 알게 된다. 설정에서 끌 수 있고,
+     끄면 이 앱은 아무 데도 접속하지 않는다.</p>
+  <p class="note" style="margin:0">이 페이지도 같은 규칙을 지킨다 — 바깥으로 나가는 요청이 하나도 없다.
+     추적기도, 웹폰트도, 분석 스크립트도 없다.</p>
+</section>
+
+</main>
+
+<footer class="wrap">
+  <div class="links">
+    <a href="https://github.com/bunhine0452/lazymemo">GitHub</a>
+    <a href="https://github.com/bunhine0452/lazymemo/blob/main/docs/DESIGN.md">설계문서</a>
+    <a href="https://github.com/bunhine0452/lazymemo/releases/latest">릴리스</a>
+  </div>
+  MIT © 2026 Kim Hyunbin · macOS 26 (Tahoe) 이상 · 번들 2.6MB
+</footer>
+
+</body>
+</html>
