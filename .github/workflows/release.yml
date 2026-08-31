@@ -26,8 +26,16 @@ jobs:
     # 이 앱은 플랫폼 목표가 macOS 26 이라 그보다 낮은 러너에서는 **컴파일 자체가 안 된다.**
     runs-on: macos-26
 
+    # `secrets` 는 step 의 `if` 에서 못 읽는다 (허용 컨텍스트에 없다 — 여기에
+    # 직접 쓰면 워크플로가 통째로 파싱에 실패한다). 한 번 env 로 받아서 본다.
+    env:
+      TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+
     steps:
+      # 릴리스 노트가 «지난 태그 이후» 를 세므로 얕게 받으면 셀 것이 없다.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: 무엇으로 짓는지 적어 둔다
         run: |
@@ -107,9 +115,8 @@ jobs:
       # PAT 를 `TAP_TOKEN` 시크릿으로 넣어야 한다. 없으면 조용히 건너뛰고
       # 요약에 무엇을 손으로 해야 하는지 적는다 — 릴리스 자체는 이미 나갔다.
       - name: 홈브루 탭 갱신
-        if: ${{ secrets.TAP_TOKEN != '' }}
+        if: ${{ env.TAP_TOKEN != '' }}
         env:
-          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
           VERSION: ${{ steps.v.outputs.version }}
           SHA: ${{ steps.pkg.outputs.sha }}
         run: |
@@ -128,7 +135,7 @@ jobs:
           git push
 
       - name: 안 된 것 적어 두기
-        if: ${{ secrets.TAP_TOKEN == '' }}
+        if: ${{ env.TAP_TOKEN == '' }}
         env:
           VERSION: ${{ steps.v.outputs.version }}
           SHA: ${{ steps.pkg.outputs.sha }}
