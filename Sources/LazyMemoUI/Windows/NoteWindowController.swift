@@ -46,6 +46,9 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
 
     var frame: CGRect { window.frame }
 
+    /// 지웠지만 아직 되돌릴 수 있는 종이 (D6). 이 동안에는 창을 거두지 않는다.
+    var isMourning: Bool { model.justDeleted != nil }
+
     func show(activating: Bool = false) {
         window.orderFront(nil)
         if activating {

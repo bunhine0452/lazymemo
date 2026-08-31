@@ -74,4 +74,77 @@ public struct AttachmentStore: Sendable {
             !referenced.contains("\(Self.directoryName)/\(entry.lastPathComponent)")
         }
     }
+
+    // MARK: 치우기 (D6)
+
+    /// 휴지통으로 간 첨부가 사는 곳.
+    ///
+    /// 메모와 **같은 규칙**이다 — 지우는 것이 아니라 옮기는 것이고, 보존
+    /// 기간이 지나야 사라진다. 사진은 다시 만들 수 없는 것이라 더 그렇다.
+    public var trashDirectory: URL {
+        paths.trash.appending(path: Self.directoryName, directoryHint: .isDirectory)
+    }
+
+    /// 어디서도 참조하지 않는 첨부를 휴지통으로 옮긴다.
+    ///
+    /// `orphans(referencedBy:)` 는 오래 구현만 되어 있고 **앱 어디서도 부르지
+    /// 않았다.** 그래서 붙였다 지운 사진, 빠른 입력에 붙여 놓고 확정하지 않은
+    /// 사진이 Vault 에 영원히 쌓였다.
+    ///
+    /// - Parameters:
+    ///   - bodies: 참조로 치는 본문. **휴지통에 있는 메모의 본문도 넣어야
+    ///     한다** — 안 그러면 지운 메모를 되돌렸을 때 사진만 사라진다.
+    ///   - notTouchedSince: 이보다 최근에 손댄 파일은 건드리지 않는다. 빠른
+    ///     입력에 사진을 붙이면 **파일이 먼저 생기고** 본문은 아직 어느 메모에도
+    ///     없다. 그 사이를 쓸면 사용자가 방금 붙인 사진이 눈앞에서 사라진다.
+    /// - Returns: 옮긴 파일 수.
+    @discardableResult
+    public func discardOrphans(referencedBy bodies: [String], notTouchedSince: Date) throws -> Int {
+        let stale = try orphans(referencedBy: bodies)
+            .filter { modifiedAt($0) < notTouchedSince }
+        guard !stale.isEmpty else { return 0 }
+
+        try fileManager.createDirectory(at: trashDirectory, withIntermediateDirectories: true)
+        var moved = 0
+        for file in stale {
+            let destination = trashDirectory
+                .appending(path: file.lastPathComponent, directoryHint: .notDirectory)
+            try? fileManager.removeItem(at: destination)
+            guard (try? fileManager.moveItem(at: file, to: destination)) != nil else { continue }
+            // 옮긴 시각을 새로 찍는다. 이것이 메모의 `deleted:` 에 해당하는
+            // 자리라 — 안 찍으면 2년 전에 붙인 사진이 치워지자마자 보존
+            // 기간이 지난 것으로 읽혀 그 자리에서 지워진다.
+            try? fileManager.setAttributes(
+                [.modificationDate: Date()],
+                ofItemAtPath: destination.path(percentEncoded: false)
+            )
+            moved += 1
+        }
+        return moved
+    }
+
+    /// 휴지통의 첨부 중 보존 기간이 지난 것을 지운다.
+    ///
+    /// **첨부에 대한 하드 삭제는 여기뿐이고, 앱만 부른다** — 메모와 같은
+    /// 배선이다 (D6). MCP 도구 표면에는 이 함수로 가는 길이 없다.
+    @discardableResult
+    public func purgeTrashed(
+        retention: TimeInterval = MemoVault.trashRetention, now: Date = Date()
+    ) throws -> Int {
+        guard let entries = try? fileManager.contentsOfDirectory(
+            at: trashDirectory, includingPropertiesForKeys: nil
+        ) else { return 0 }
+
+        var purged = 0
+        for entry in entries where now.timeIntervalSince(modifiedAt(entry)) > retention {
+            guard (try? fileManager.removeItem(at: entry)) != nil else { continue }
+            purged += 1
+        }
+        return purged
+    }
+
+    private func modifiedAt(_ url: URL) -> Date {
+        (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
+            ?? Date()
+    }
 }

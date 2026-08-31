@@ -186,6 +186,17 @@ public enum MarkdownScanner {
         }
     }
 
+    /// 본문의 체크상자를 **줄 차례대로** 모은다. 값은 체크됐는지 여부다.
+    ///
+    /// 다 끝난 목록이 스스로 물러나는 규칙(`Tidy`)이 이것을 읽는다. 화면이
+    /// 아니라 여기서 세는 이유는 그 규칙이 화면 없이 서야 하기 때문이다.
+    public static func checkboxes(in text: String) -> [Bool] {
+        spans(in: text).compactMap {
+            if case .checkbox(let done) = $0.kind { return done }
+            return nil
+        }
+    }
+
     /// 본문에 들어 있는 이미지 경로를 순서대로 모은다.
     public static func imagePaths(in text: String) -> [String] {
         spans(in: text).compactMap {

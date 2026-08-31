@@ -10,6 +10,9 @@ struct AttachedImage: Identifiable, Equatable {
     let path: String
     let image: NSImage
     var id: String { path }
+
+    /// 소리로 읽을 이름. 경로 전체는 읽어 봐야 알 수 없다.
+    var name: String { (path as NSString).lastPathComponent }
 }
 
 enum AttachedImages {
@@ -89,6 +92,9 @@ struct PhotoStrip: View {
                 .popover(isPresented: $isHovering, arrowEdge: .trailing) {
                     FullSizePhoto(image: original ?? attachment.image)
                 }
+                // 그림에는 읽을 글자가 없다. 무엇이 붙어 있는지는 파일 이름이
+                // 유일한 단서라 그것을 소리로 적는다.
+                .accessibilityLabel(Text("붙인 사진, \(attachment.name)"))
         }
         .frame(height: min(stripHeight, maxHeight))
     }
@@ -168,6 +174,7 @@ struct PhotoChip: View {
             .popover(isPresented: $isHovering, arrowEdge: .top) {
                 FullSizePhoto(image: original ?? attachment.image)
             }
+            .accessibilityLabel(Text("붙인 사진, \(attachment.name)"))
     }
 }
 

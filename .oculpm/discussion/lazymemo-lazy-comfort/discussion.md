@@ -2,9 +2,9 @@
 oculpm_discussion: v1
 id: lazymemo-lazy-comfort
 title: "게으른 사람의 앱인가 — 철학 감사와 다음 기능"
-status: open
+status: resolved
 created: 2026-08-28
-updated: 2026-08-28
+updated: 2026-08-31
 owner: claude-code
 ---
 
@@ -103,13 +103,26 @@ lazymemo 의 전제는 **"사용자는 게으르다"** 이고, 그 전제에서 
 | 2026-08-28T22:06:00+09:00 | claude-code | {#opt-f} 는 비용 대비 효과가 가장 크다. 온보딩 화면을 새로 만들지 않고 메모 한 장으로 끝나므로 철학과도 충돌하지 않음 |
 | 2026-08-28T22:06:30+09:00 | claude-code | {#opt-c} 와 {#opt-d} 의 공유 확장은 권한·번들 구조 때문에 v1 범위 밖으로 보인다. 서비스 메뉴만 먼저 떼어내는 편이 낫다 |
 | 2026-08-28T22:07:00+09:00 | claude-code | {#opt-g} 는 품질 위험이 커서 보류 권고. 틀린 자동 분류는 "정리를 대신 해준다" 가 아니라 "치워야 할 것을 하나 더 만든다" 가 된다 |
+| 2026-08-31T13:05:00+09:00 | claude-code | {#opt-a}·{#opt-b}·{#opt-f} 구현 완료 — plan lazymemo-comfort-v2 가 이어받아 끝냈다. 남은 셋은 그 계획 밖으로 이월 |
 <!-- oculpm:discussion-log end -->
+
+## 결론
+
+**채택: {#opt-a} + {#opt-b} + {#opt-f}.** 셋이 한 묶음이라는 것이 이 토의의 결론이었다 — 치우는 것만 있으면 잊히고 떠오르는 것만 있으면 쌓인다. 셋을 실행 단위로 쪼갠 것이 plan `lazymemo-comfort-v2` 이고, 그 계획이 2026-08-31 에 끝나면서 여기서 물은 것에 답이 다 나왔다.
+
+- {#opt-a} → `Tidy` 규칙 + 메뉴의 「치워 둔 N장 · 도로 꺼내기」 (`{#auto-tidy}`)
+- {#opt-b} → `DayClock`·`DueClock` — 앱에 시계가 생겼다. 놓친 것을 따로 모으지 않고 **꺼낸 종이가 그대로 남는 것**으로 모양이 바뀌었다 (`{#surface-at-time}`)
+- {#opt-f} → 첫 실행에 바탕화면 종이 한 장 (`WelcomeNote`)
+
+**보류: {#opt-g}** (규칙 기반 자동 묶기). 한국어 형태소 없이 규칙만으로는 틀린 묶음이 나오고, 틀린 자동 분류는 "정리를 대신 해준다" 가 아니라 "치워야 할 것을 하나 더 만든다" 가 된다. 이 자리는 MCP 로 Claude 가 맡는다.
+
+**이월: {#opt-c}·{#opt-d}·{#opt-e}.** 이 토의 밖의 일이라 아래에 남겨 둔다 — 셋 다 권한·번들 구조를 먼저 정해야 한다.
 
 ## 다음 단계
 
-- [ ] {#opt-f} 첫 실행 안내 메모 한 장 — 가장 싸고 확실한 것부터 {#next-welcome-note}
-- [ ] {#opt-a} 끝난 것 자동 치우기 규칙 확정 (무엇을, 며칠 뒤, 되돌리는 길은 어디에) {#next-auto-tidy}
-- [ ] {#opt-b} 시각이 적힌 메모가 그 시각에 떠오르게 하기 + 놓친 것 모으기 {#next-surface-at-time}
+- [x] {#opt-f} 첫 실행 안내 메모 한 장 — 가장 싸고 확실한 것부터 {#next-welcome-note}
+- [x] {#opt-a} 끝난 것 자동 치우기 규칙 확정 (무엇을, 며칠 뒤, 되돌리는 길은 어디에) {#next-auto-tidy}
+- [x] {#opt-b} 시각이 적힌 메모가 그 시각에 떠오르게 하기 + 놓친 것 모으기 {#next-surface-at-time}
 - [ ] {#opt-d} 서비스 메뉴 "lazymemo 에 적기" 와 창 전체 끌어놓기 {#next-services}
 - [ ] {#opt-e} 「흐름」 안 검색 줄 {#next-search-in-stream}
 - [ ] {#opt-c} 받아쓰기 — 권한을 언제 묻는지 정한 뒤에 {#next-dictation}

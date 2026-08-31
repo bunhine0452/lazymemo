@@ -63,6 +63,34 @@ struct CalendarInkTests {
             < InkBleed.radius(cell: cell, spread: InkBleed.spread(count: 4)))
     }
 
+    /// 한 건과 네 건이 나란히 놓였을 때 **다른 날로 보이는가.**
+    ///
+    /// 앞선 값에서는 지름이 30%, 세기가 25% 밖에 차이 나지 않아 두 칸이 같아
+    /// 보였다. 그러면 얼룩은 "이 날은 붐빈다" 를 말하지 못한 채 종이에 묻은
+    /// 자국 — 인쇄 얼룩 — 으로만 남는다. 얼룩은 세지 않는 대신 한눈에 갈려야
+    /// 하고, 그 둘 중 하나라도 놓치면 표시가 아니라 잡티다.
+    @Test("한 건과 네 건이 한눈에 갈린다 — 폭도 대비도")
+    func oneAndFourReadDifferently() {
+        let cell = CGSize(width: 38, height: 36)
+        let one = InkBleed.spread(count: 1)
+        let four = InkBleed.spread(count: 4)
+
+        let widths = (InkBleed.radius(cell: cell, spread: four),
+                      InkBleed.radius(cell: cell, spread: one))
+        #expect(widths.0 >= widths.1 * InkBleed.legibleSpan)
+
+        let inks = (InkBleed.alpha(spread: four, order: 0),
+                    InkBleed.alpha(spread: one, order: 0))
+        #expect(inks.0 >= inks.1 * InkBleed.legibleSpan)
+    }
+
+    @Test("한 건짜리 얼룩은 칸을 물들이지 않는다")
+    func oneStainStaysFaint() {
+        // 한 건은 슬쩍 밴 자국이어야 한다. 여기가 진하면 빈 날과 한 건의
+        // 차이가 사라지는 것이 아니라, 달 전체가 얼룩덜룩해진다.
+        #expect(InkBleed.alpha(spread: InkBleed.spread(count: 1), order: 0) < 0.6)
+    }
+
     @Test("뒤에 겹치는 색일수록 옅다")
     func laterInksAreFainter() {
         let spread = InkBleed.spread(count: 3)

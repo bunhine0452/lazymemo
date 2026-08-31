@@ -9,7 +9,20 @@ import AppKit
 /// 앞으로 올라선다. 이것이 없으면 "메모 열기" 가 거짓말이 된다 — 바탕화면
 /// 레벨의 창은 브라우저 뒤에 있어서, 열어도 사용자 눈에는 아무 일도 일어나지
 /// 않고 키보드 포커스만 보이지 않는 곳으로 넘어간다.
-final class DesktopLevelWindow: NSWindow {
+/// **왜 `NSWindow` 가 아니라 `NSPanel` 인가 — 알트탭에 뜨지 않기 위해서다.**
+///
+/// `LSUIElement` 와 `.accessory` 는 앱을 **⌘Tab(앱 전환기)** 에서 지우고,
+/// `.ignoresCycle` 은 ⌘` 창 순환에서 지운다. 그 셋은 이미 걸려 있었다.
+/// 그런데 AltTab 같은 **창 단위 전환기**는 앱 목록이 아니라 접근성 API 로
+/// 창을 훑고, `NSWindow` 는 역할이 `AXStandardWindow` 다 — 메모가 열 장이면
+/// 전환기에 열 칸이 생긴다. 바탕화면에 눕혀 둔 쪽지가 브라우저·에디터와
+/// 나란히 서는 것은 이 앱이 하려는 말과 정반대다.
+///
+/// `NSPanel` 은 역할이 `AXFloatingWindow` 라 그 목록에서 빠진다. 대신
+/// **`hidesOnDeactivate` 를 반드시 꺼야 한다** — 패널의 기본값은 켜짐이고,
+/// 그대로 두면 다른 앱을 쓰는 순간 메모가 통째로 화면에서 사라진다. 이 앱에서
+/// 그것은 곧 앱이 없어지는 것이다 (`QuickCapturePanel` 이 같은 함정을 겪었다).
+final class DesktopLevelWindow: NSPanel {
     /// 바탕화면 아이콘 바로 위. Finder 아이콘을 가리지만 일반 앱 창에는 덮인다.
     static let desktopLevel = NSWindow.Level(
         rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1
@@ -40,6 +53,12 @@ final class DesktopLevelWindow: NSWindow {
         // 앱 전환을 오염시키지 않아야 한다.
         collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
 
+        // **패널의 기본값은 켜짐이다.** 끄지 않으면 다른 앱을 쓰는 순간 메모가
+        // 통째로 사라진다 — 바탕화면 메모는 앱이 비활성인 동안이 삶의 대부분이다.
+        hidesOnDeactivate = false
+        // 이 앱에는 「창」 메뉴가 없지만, 종이는 목록에 오를 물건이 아니다.
+        isExcludedFromWindowsMenu = true
+
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
@@ -62,6 +81,35 @@ final class DesktopLevelWindow: NSWindow {
     // 주의: `contentView` 로 NSHostingView 를 붙일 때는 `sizingOptions = []` 로
     // 끄고 **붙인 뒤에** setFrame 을 불러야 한다. 기본값이면 SwiftUI 뷰의
     // 이상적 크기가 창 크기를 덮어써 layout.json 복원이 조용히 깨진다.
+
+    /// 이 창이 **바깥에 자기를 뭐라고 소개하는지** (`verify-notes.sh`).
+    ///
+    /// 화면으로는 확인할 수 없다. 표준 창이든 떠 있는 창이든 그림은 똑같고,
+    /// 다른 점은 **다른 앱이 이 창을 목록에 넣느냐**뿐이라 렌더에도 캡처에도
+    /// 안 잡힌다. 누군가 `NSPanel` 을 `NSWindow` 로 되돌리면 알트탭에 메모가
+    /// 도로 줄줄이 서는데, 그것을 알아채는 데 며칠이 걸린다 (§14.9).
+    static var roleDiagnostics: String {
+        let probe = DesktopLevelWindow(
+            contentRect: NSRect(x: -3000, y: -3000, width: 200, height: 140)
+        )
+        defer { probe.orderOut(nil) }
+        let subrole = probe.accessibilitySubrole()?.rawValue ?? "없음"
+        return "subrole=\(subrole) 표준창=\(subrole == "AXStandardWindow") "
+            + "순환제외=\(probe.collectionBehavior.contains(.ignoresCycle)) "
+            + "비활성숨김=\(probe.hidesOnDeactivate)"
+    }
+
+    /// 이 창이 무엇인지 **바깥에 정확히 밝힌다.**
+    ///
+    /// 테두리 없는 패널의 기본값은 `AXDialog` 인데, 그것은 사실이 아니다 —
+    /// 대화상자는 사람이 답해야 넘어가는 물건이고 이 종이는 바탕화면에 눕혀 둔
+    /// 쪽지다. 그리고 창 단위 전환기(AltTab 류)는 표준 창과 **대화상자를 함께**
+    /// 목록에 넣으므로, 잘못 소개하는 것만으로 메모 열 장이 알트탭에 줄줄이 선다.
+    ///
+    /// `AXFloatingWindow` 가 이 창의 실제 성격이고, 보조 기술에도 그 편이 옳다.
+    override func accessibilitySubrole() -> NSAccessibility.Subrole? {
+        .floatingWindow
+    }
 
     /// borderless 창은 기본적으로 키 윈도가 되지 못한다.
     /// 메모 안에서 글을 써야 하므로(§8) 명시적으로 연다.

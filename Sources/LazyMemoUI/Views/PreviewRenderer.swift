@@ -61,12 +61,41 @@ enum PreviewRenderer {
             content: NoteView(model: plain, onClose: {}, staged: true),
             into: directory
         )
+        // **첫 줄이 긴 종이.** 겹쳐 뜨는 조작이 제목을 덮는지는 짧은 제목으로는
+        // 드러나지 않는다 — `note.png` 의 「치과 예약」은 네 글자라 캡슐 밑에
+        // 닿지 않는다. 기본 창(260pt)에서 제목이 줄을 채우는 이 경우가
+        // 사람이 실제로 겪는 쪽이다 (`{#controls-overlap}`).
+        let longTitled = NoteModel(
+            memo: Memo(body: "은행 가서 통장 재발급 받기\n신분증이랑 도장 챙길 것"),
+            store: store, previews: previews
+        )
+        await render(
+            name: "note-long-title",
+            size: CGSize(width: 260, height: 200),
+            content: NoteView(model: longTitled, onClose: {}, staged: true),
+            into: directory
+        )
         await render(
             name: "note-plain",
             size: CGSize(width: 300, height: 430),
             content: NoteView(model: plain, onClose: {}),
             into: directory
         )
+        // **방금 지운 종이** (`{#note-inline-undo}`). 흉내가 아니라 정말로 한
+        // 장 지워서 그린다 — 그러면 그림이 곧 검증이 된다. 예전에는 여기서
+        // 창이 소리 없이 사라져 화면에 흔적이 한 줄도 안 남았다.
+        if let doomed = try? await store.create(body: "잘못 적은 메모") {
+            let mourning = NoteModel(memo: doomed, store: store, previews: previews)
+            await mourning.delete()
+            await render(
+                name: "note-deleted",
+                size: CGSize(width: 260, height: 200),
+                content: NoteView(model: mourning, onClose: {}),
+                into: directory
+            )
+            await mourning.restoreDeleted()
+            try? await store.delete(doomed.id)
+        }
 
         // 편집기는 **진짜 텍스트 뷰를 그대로** 그린다. SwiftUI 대체 렌더는
         // 여백에 직접 그리는 줄머리 표시(`LineMarker`)를 보여주지 못한다.

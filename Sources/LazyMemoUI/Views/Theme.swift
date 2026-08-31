@@ -74,8 +74,22 @@ enum Theme {
 
     // MARK: 색
 
-    /// 앱 마크의 판 색. 아이콘과 UI 가 같은 파랑을 쓴다.
-    static let accent = Color(red: 0.44, green: 0.41, blue: 0.72)
+    /// 앱 마크의 판 색. 아이콘과 UI 가 같은 딥 슬레이트 네이비를 쓴다.
+    /// **면을 칠하는 색이다** — 글자에 쓰면 안 된다 (아래 `accentInk`).
+    static let accent = Color(red: 0.18, green: 0.26, blue: 0.38)
+
+    /// 같은 네이비를 **글자로 쓸 때.**
+    ///
+    /// 호박색에서 한 번 겪은 일이다 (아래 `highlightInk`) — 면에 맞게 고른 색을
+    /// 글자에 그대로 쓰면 한쪽 외관에서 읽히지 않는다. 딥 네이비는 미색 종이
+    /// 위에서 또렷하지만(11:1) 숯색 종이 위에서는 **바탕에 잠긴다**(1.6:1).
+    /// 「되돌리기」가 안 읽히면 그 줄은 있으나 마나다.
+    static let accentInkNSColor = NSColor(name: nil) { appearance in
+        appearance.isDark
+            ? NSColor(srgbRed: 0.60, green: 0.72, blue: 0.90, alpha: 1)
+            : NSColor(srgbRed: 0.18, green: 0.26, blue: 0.38, alpha: 1)
+    }
+    static var accentInk: Color { Color(nsColor: accentInkNSColor) }
     /// 아이콘의 흘러내리는 획 색. 오늘·지금을 가리킬 때만 쓴다.
     /// **면을 칠하는 색이다** — 글자에 쓰면 안 된다 (아래 `highlightInk`).
     static let highlight = Color(red: 0.99, green: 0.76, blue: 0.31)
@@ -107,11 +121,36 @@ enum Theme {
 
     /// 지우기. 종이 위에서 튀지 않을 만큼 죽인 붉은색 — 경고등이 아니라
     /// "다른 종류의 버튼" 이라는 표시다.
+    ///
+    /// **원판을 칠하는 색이다.** 그 위에는 흰 글리프가 올라가므로 두 외관에서
+    /// 같은 값을 쓴다 — 밝히면 흰 글리프가 도리어 안 보인다.
     static let danger = Color(red: 0.76, green: 0.36, blue: 0.34)
 
+    /// 같은 붉은색을 **종이 위의 글자·그림으로 쓸 때.**
+    static let dangerInkNSColor = NSColor(name: nil) { appearance in
+        appearance.isDark
+            ? NSColor(srgbRed: 0.94, green: 0.58, blue: 0.54, alpha: 1)
+            : NSColor(srgbRed: 0.76, green: 0.36, blue: 0.34, alpha: 1)
+    }
+    static var dangerInk: Color { Color(nsColor: dangerInkNSColor) }
+
     /// 한국 달력 관행 — 일요일 빨강, 토요일 파랑.
-    static let sunday = Color(red: 0.85, green: 0.35, blue: 0.35)
-    static let saturday = Color(red: 0.35, green: 0.50, blue: 0.82)
+    ///
+    /// 숯색 종이 위에서는 둘 다 밝은 쪽으로 올린다. 빛 모드의 값을 그대로 쓰면
+    /// 주말 숫자만 평일보다 흐려서, 관행을 지키려던 색이 도리어 그 이틀을
+    /// 가장 안 읽히는 칸으로 만든다.
+    static let sundayNSColor = NSColor(name: nil) { appearance in
+        appearance.isDark
+            ? NSColor(srgbRed: 0.94, green: 0.52, blue: 0.50, alpha: 1)
+            : NSColor(srgbRed: 0.85, green: 0.35, blue: 0.35, alpha: 1)
+    }
+    static let saturdayNSColor = NSColor(name: nil) { appearance in
+        appearance.isDark
+            ? NSColor(srgbRed: 0.52, green: 0.68, blue: 0.96, alpha: 1)
+            : NSColor(srgbRed: 0.35, green: 0.50, blue: 0.82, alpha: 1)
+    }
+    static var sunday: Color { Color(nsColor: sundayNSColor) }
+    static var saturday: Color { Color(nsColor: saturdayNSColor) }
 
     // MARK: 움직임
 
@@ -142,48 +181,12 @@ struct PaperSurface: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    /// 종이에 스민 색의 세기. 나이가 들수록 옅어진다 (철학 3).
-    private var bleed: Double {
-        (colorScheme == .dark ? 0.26 : 0.19) * (0.4 + 0.6 * age.presence)
-    }
+    private var isDark: Bool { colorScheme == .dark }
 
-    /// 잉크를 **종이 색**으로 바꾼다.
-    ///
-    /// 잉크를 그대로 섞으면 색마다 종이 밝기가 달라진다 — 파랑·보라는 어두워져
-    /// 회색으로 죽고 노랑만 색으로 읽힌다. 여섯 색을 나란히 렌더해 보니 실제로
-    /// 그랬다(`palette.png`): 빛 모드에서 전부 같은 흰 종이였다. 색이 신원을
-    /// 말하려면 **밝기를 먼저 맞추고** 섞어야 한다.
-    ///
-    /// 채도는 곱해서 올리되 상한을 둔다. 원래 채도가 낮은 무채는 낮은 채로
-    /// 남아야 하고 — 무채가 색을 띠면 그건 무채가 아니다 — 진한 색은 상한에서
-    /// 멈춰야 문구점 형광 메모지로 넘어가지 않는다.
-    private func papered(_ color: Color) -> NSColor? {
-        guard let rgb = NSColor(color).usingColorSpace(.sRGB) else { return nil }
-        var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
-        rgb.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
-
-        return NSColor(
-            hue: hue,
-            saturation: min(saturation * 1.5, colorScheme == .dark ? 0.40 : 0.46),
-            brightness: colorScheme == .dark ? 0.46 : 0.95,
-            alpha: 1
-        ).usingColorSpace(.sRGB)
-    }
-
+    /// 종이 한 장의 색. 잉크를 종이로 눕히고 스미는 몫까지 `PaperTint` 가 잰다 —
+    /// 그 값들은 여섯 장을 나란히 놓고 재야 옳은지 알 수 있어서 뷰 밖에 있다.
     private var surface: Color {
-        // 동적 색을 sRGB 로 바꾸는 순간 "지금 그리는 외관" 으로 굳는다.
-        // SwiftUI 환경의 colorScheme 과 그것이 다를 수 있으므로(화면 밖 렌더가
-        // 그렇다) 반드시 해당 외관 **안에서** 해석해야 한다.
-        var base = NSColor.white
-        NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua)?
-            .performAsCurrentDrawingAppearance {
-                base = Paper.surfaceNSColor.usingColorSpace(.sRGB) ?? .white
-            }
-
-        guard let paperTint = papered(tint),
-              let mixed = base.blended(withFraction: bleed, of: paperTint)
-        else { return Color(nsColor: base) }
-        return Color(nsColor: mixed)
+        Color(nsColor: PaperTint.surface(ink: tint, dark: isDark, presence: age.presence))
     }
 
     var body: some View {
@@ -191,7 +194,7 @@ struct PaperSurface: View {
             .fill(surface)
             .overlay {
                 if dotted {
-                    DotGrid(color: tint.opacity(colorScheme == .dark ? 0.30 : 0.28))
+                    DotGrid(color: tint.opacity(isDark ? 0.30 : 0.28))
                 }
             }
             .overlay {
@@ -263,6 +266,37 @@ extension Theme {
     }
 }
 
+// MARK: - 소리 내어 읽기
+
+/// 그림 하나뿐인 버튼이 **이름을 갖게 한다.**
+///
+/// 이 앱의 조작은 대부분 그림 한 개다 (철학 4 — 앱은 자기를 드러내지 않는다).
+/// 눈으로 보는 사람에게는 그것이 조용함이지만, VoiceOver 를 쓰는 사람에게는
+/// 「trash」·「xmark」·「pin」이라는 **영어 기호 이름**이 읽힌다. 조용한 화면이
+/// 거기서는 알아들을 수 없는 화면이 된다.
+///
+/// 새 낱말을 만들지 않는다. 이미 붙여 둔 도움말이 곧 이름이다 — 「지우기 —
+/// 메뉴의 되돌리기로 살릴 수 있습니다」에서 앞이 이름, 「—」 뒤가 힌트다.
+/// 그래야 눈으로 읽는 말과 귀로 듣는 말이 어긋나지 않는다.
+enum SpokenHelp {
+    static func split(_ help: String) -> (name: String, hint: String) {
+        let parts = help.components(separatedBy: " — ")
+        guard let name = parts.first, parts.count > 1 else { return (help, "") }
+        return (name, parts.dropFirst().joined(separator: " — "))
+    }
+}
+
+extension View {
+    /// 도움말을 그대로 VoiceOver 의 이름과 힌트로 쓴다.
+    func spoken(_ help: String) -> some View {
+        let said = SpokenHelp.split(help)
+        return self
+            .help(help)
+            .accessibilityLabel(Text(said.name))
+            .accessibilityHint(Text(said.hint))
+    }
+}
+
 // MARK: - 조작
 
 /// 포인터가 올라올 때만 나타나는 조작 버튼 (철학 4).
@@ -279,8 +313,8 @@ struct QuietButton: View {
     let action: () -> Void
 
     private var tint: AnyShapeStyle {
-        if isDestructive { return AnyShapeStyle(Theme.danger) }
-        if isActive { return AnyShapeStyle(Theme.accent) }
+        if isDestructive { return AnyShapeStyle(Theme.dangerInk) }
+        if isActive { return AnyShapeStyle(Theme.accentInk) }
         return AnyShapeStyle(.secondary)
     }
 
@@ -288,10 +322,14 @@ struct QuietButton: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 10, weight: .semibold))
-                .frame(width: 18, height: 18)
+                // 조작이 첫 줄을 덮지 않는다는 약속은 이 숫자 위에 서 있다
+                // (`NoteControlLayout`) — 여기서 키우면 그쪽 시험이 잡는다.
+                .frame(width: NoteControlLayout.button, height: NoteControlLayout.button)
         }
         .buttonStyle(.plain)
         .foregroundStyle(tint)
-        .help(help)
+        // 그림 하나뿐인 버튼이라 이름을 따로 준다 — 안 그러면 VoiceOver 가
+        // 「trash」라고 읽는다 (`SpokenHelp`).
+        .spoken(help)
     }
 }

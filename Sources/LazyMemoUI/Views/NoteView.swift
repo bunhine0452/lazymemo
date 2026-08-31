@@ -35,8 +35,12 @@ struct NoteView: View {
     private var showsControls: Bool { staged || isHovering || isPickingColor }
 
     /// 포인터가 올라오면 나이를 잊는다.
+    ///
+    /// 기준 시각을 모델에서 받는다 — `Date()` 를 여기서 부르면 값이 바뀌어도
+    /// 뷰가 다시 그려질 이유가 없어, **하루가 지나도 어제의 나이가 그대로**
+    /// 화면에 남는다 (`NoteModel.asOf`).
     private var age: MemoAge {
-        showsControls ? .fresh : MemoAge.of(model.memo)
+        showsControls ? .fresh : MemoAge.of(model.memo, now: model.asOf)
     }
 
     /// 지금 이 종이의 진하기. **포인터가 오면 언제나 원래대로 진해진다** —
@@ -52,15 +56,21 @@ struct NoteView: View {
                 editor
                 if !model.images.isEmpty { photographs }
                 if !model.links.isEmpty { linkCards }
+                if model.isUnsaved { unsavedMark }
                 if hasFooter { footer }
             }
             // 종이는 누레지지만 잉크는 그만큼 사라지지 않는다. 오래된 메모도
             // 읽을 수는 있어야 한다 — 물러나는 것과 안 보이는 것은 다르다.
             .opacity(0.72 + 0.28 * age.presence)
 
-            if showsControls {
-                controls
+            if showsControls, model.justDeleted == nil {
+                // 치우기는 모서리에 남고, 나머지는 종이 아래로 내려간다.
+                closeControl
+                paperControls
             }
+
+            // 방금 지웠으면 그 자리에 되돌리는 줄이 덮인다 (D6).
+            if let deleted = model.justDeleted { deletedVeil(deleted) }
         }
         .background {
             Theme.paper(color.ink, age: age)
@@ -77,6 +87,8 @@ struct NoteView: View {
         .overlay { HoverSensor { isHovering = $0 } }
         .opacity(paperOpacity)
         .animation(Theme.reveal, value: isHovering)
+        .animation(Theme.reveal, value: model.isUnsaved)
+        .animation(Theme.reveal, value: model.justDeleted?.id)
         .animation(Theme.settle, value: age)
         .animation(Theme.settle, value: paperOpacity)
     }
@@ -105,10 +117,40 @@ struct NoteView: View {
 
     // MARK: 겹쳐 뜨는 조작
 
-    private var controls: some View {
-        HStack(spacing: 1) {
-            // 지우기는 **가장 먼 왼쪽**에 두고 색으로 갈라 놓는다. 닫기(×)를
-            // 향해 모서리로 뻗는 손이 지나가지 않는 자리이며, 붉은 휴지통과
+    // 조작 줄은 **두 모서리로 나뉜다.**
+    //
+    // 한 줄에 다섯을 담으면 캡슐이 106pt 가 되는데, 기본 종이는 260pt 이고
+    // 글이 놓이는 폭은 220pt 다. 그것이 첫 줄 위에 뜨니 **제목의 절반이
+    // 덮였다** — 그런데 캡슐을 부르는 손짓(포인터 올리기)이 곧 읽으려는
+    // 손짓이다. 읽으려고 다가가면 읽을 것이 가려지는, 스스로를 무는 조작이었다.
+    //
+    // 첫 줄은 이 앱에서 가장 비싼 한 줄이다 — 메뉴 목록도, 빠른 입력도,
+    // 달력도 그 줄을 제목으로 쓴다. 그래서 첫 줄을 비우는 쪽을 골랐다.
+    //
+    // 치우기(×)만 오른쪽 위에 남긴다. 창을 닫으러 가는 손은 오른쪽 위 모서리로
+    // 가고, 그 습관을 이 앱만 다르게 만들 이유가 없다. 혼자 남으면 24pt 라
+    // 첫 줄의 끝자락만 스친다.
+    //
+    // 나머지 넷은 종이 아래로 내린다. 마지막 줄은 제목이 아니고, 꼬리(날짜·태그)는
+    // 왼쪽에 붙으므로 오른쪽 아래는 대개 비어 있다. 덤으로 **지우기와 치우기가
+    // 종이의 높이만큼 멀어졌다** — §6 이 원하던 갈라 놓기가 더 세졌다.
+
+    /// 오른쪽 위 — 치우기 하나.
+    private var closeControl: some View {
+        QuietButton(symbol: "xmark", help: "치우기 — 메모는 지워지지 않습니다", action: onClose)
+            .padding(NoteControlLayout.capsulePadding)
+            .background {
+                Capsule().fill(Paper.surface).shadow(color: .black.opacity(0.14), radius: 3, y: 1)
+            }
+            .padding(NoteControlLayout.closeInset)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .transition(.opacity)
+    }
+
+    /// 오른쪽 아래 — 종이를 다루는 나머지.
+    private var paperControls: some View {
+        HStack(spacing: NoteControlLayout.spacing) {
+            // 지우기는 **가장 먼 왼쪽**에 두고 색으로 갈라 놓는다. 붉은 휴지통과
             // 회색 ×는 반쯤 보고도 구별된다 (설계문서 §6).
             QuietButton(symbol: "trash", help: "지우기 — 메뉴의 되돌리기로 살릴 수 있습니다", isDestructive: true) {
                 Task { await model.delete() }
@@ -142,15 +184,14 @@ struct NoteView: View {
                     : "달력에 놓기 — 날을 고르면 이 종이는 달력이 맡습니다",
                 action: onCalendar
             )
-
-            QuietButton(symbol: "xmark", help: "치우기 — 메모는 지워지지 않습니다", action: onClose)
         }
-        .padding(3)
+        .padding(NoteControlLayout.capsulePadding)
         .background {
             // 글자 위에 겹치므로 얇은 바탕이 필요하다. 없으면 아이콘이 본문에 묻힌다.
             Capsule().fill(Paper.surface).shadow(color: .black.opacity(0.14), radius: 3, y: 1)
         }
-        .padding(Theme.tight)
+        .padding(NoteControlLayout.paperInset)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         .transition(.opacity)
     }
 
@@ -163,7 +204,7 @@ struct NoteView: View {
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .help("색 바꾸기")
+        .spoken("색 바꾸기 — 지금은 \(color.label)")
         .popover(isPresented: $isPickingColor, arrowEdge: .bottom) {
             colorPicker
         }
@@ -189,7 +230,7 @@ struct NoteView: View {
                         }
                 }
                 .buttonStyle(.plain)
-                .help(candidate.label)
+                .spoken(candidate.label)
             }
         }
         .padding(Theme.normal)
@@ -237,6 +278,8 @@ struct NoteView: View {
                 }
                 .buttonStyle(.plain)
                 .help(card.url.absoluteString)
+                .accessibilityLabel(Text("\(card.title), \(card.host)"))
+                .accessibilityHint(Text("링크 열기"))
             }
         }
         .padding(.horizontal, Theme.loose)
@@ -288,6 +331,68 @@ struct NoteView: View {
         .contentShape(.rect)
     }
 
+    // MARK: 방금 지운 종이
+
+    /// 지운 자리에 그대로 남는 되돌리기 (D6) — **창이 소리 없이 사라지지 않는다.**
+    ///
+    /// 지우는 길이 셋인데(종이·메뉴 목록·빠른 입력) 되돌리는 줄이 그 자리에
+    /// 생기는 것은 둘뿐이었다. 종이의 휴지통만 창이 사라지고 화면에 흔적이
+    /// 하나도 안 남아서, 잘못 눌렀다는 것을 아는 그 순간에 되돌릴 길이 메뉴
+    /// 안에만 있었다 — 상자를 닫고 아이콘을 눌러 찾아 들어가야 하는 길이다.
+    ///
+    /// 8초 뒤에는 스스로 물러난다. 그 뒤로도 되돌릴 수는 있다 — 메뉴가 5분
+    /// 동안 들고 있고, 휴지통은 30일이다 (`MenuBarController`).
+    private func deletedVeil(_ deleted: Memo) -> some View {
+        VStack(spacing: Theme.tight) {
+            Text("「\(deleted.title)」 지웠습니다")
+                .font(Theme.label)
+                .foregroundStyle(Paper.fadedInk)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+
+            Button("되돌리기") {
+                Task { await model.restoreDeleted() }
+            }
+            .buttonStyle(.plain)
+            .font(Theme.label)
+            .foregroundStyle(Theme.accentInk)
+            .spoken("되돌리기 — 방금 지운 이 메모를 되살립니다")
+        }
+        .padding(Theme.normal)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // 지운 종이는 글이 아니라 이 한 줄만 든다. 아래에 본문이 비쳐
+        // 보이면 "안 지워졌나" 가 된다.
+        .background { Theme.paper(color.ink, dotted: false) }
+        .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+        .transition(.opacity)
+    }
+
+    // MARK: 아직 안 적힌 종이
+
+    /// 저장이 안 됐다는 것을 **종이가 스스로 말한다.**
+    ///
+    /// 이 앱에는 저장 버튼이 없으므로 "적혔겠지" 가 기본 믿음이다. 그런데 안
+    /// 적힌 글도 화면에는 그대로 있어서 적힌 것과 **똑같이 보이고**, 그 상태로
+    /// 창을 닫으면 그대로 잃는다.
+    ///
+    /// 조용한 화면(철학 4)에 여는 예외다. 이건 앱이 자기를 드러내는 것이
+    /// 아니라 사용자의 글을 지키는 일이고, 포인터가 오기를 기다릴 수도 없다 —
+    /// 겹쳐 뜨는 조작과 달리 **보러 오지 않아도 보여야 하는** 종류다.
+    private var unsavedMark: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 8))
+            Text("아직 안 적혔습니다")
+                .font(Theme.micro)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(Theme.dangerInk)
+        .padding(.horizontal, Theme.loose + 5)
+        .padding(.bottom, hasFooter ? Theme.hairline : Theme.normal)
+        .help("파일에 쓰지 못했습니다 — 글이 사라지지 않게 다른 곳에 옮겨 두세요")
+        .transition(.opacity)
+    }
+
     // MARK: 꼬리 — 날짜와 태그가 있을 때만
 
     private var footer: some View {
@@ -307,7 +412,7 @@ struct NoteView: View {
                     .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .help("달력에서 보기")
+                .spoken("달력에서 보기 — 이 일정이 달력의 어디에 있는지 펼칩니다")
             }
 
             if !model.memo.tags.isEmpty {

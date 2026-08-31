@@ -38,19 +38,66 @@ public struct AppPaths: Sendable, Equatable {
     /// 테스트·검증용 위치 재지정. 실제 메모를 건드리지 않고 앱을 띄울 수 있다.
     public static let vaultEnvironmentKey = "LAZYMEMO_VAULT"
 
+    /// 자리를 정한 결과. **못 찾은 폴더를 함께 들고 온다.**
+    ///
+    /// 옮겨 둔 폴더가 없어졌을 때(외장 디스크를 빼 두었거나 사용자가 지웠거나)
+    /// 조용히 기본 자리로 돌아가면 앱은 빈 폴더를 하나 새로 만들고, 사용자가
+    /// 보는 것은 **메모가 전부 사라진 화면**이다. 그래서 되돌아왔다는 사실을
+    /// 들고 나가 메뉴가 적게 한다 (`MenuBarController`).
+    public struct Resolution: Sendable, Equatable {
+        public let paths: AppPaths
+        /// 설정에 적혀 있었지만 찾지 못한 폴더. 없으면 `nil`.
+        public let missingVault: URL?
+    }
+
     /// 기본 위치 — Vault 는 `~/Documents/lazymemo`, 파생물은 Application Support.
     public static func standard(
         environment: [String: String] = ProcessInfo.processInfo.environment,
         fileManager: FileManager = .default
     ) -> AppPaths {
+        resolve(environment: environment, fileManager: fileManager).paths
+    }
+
+    /// 설정에 적힌 메모 폴더까지 살펴 자리를 정한다 (설계문서 §5.1).
+    ///
+    /// **파생물 자리는 옮기지 않는다.** 옮기는 것은 정본뿐이라, 설정 파일은
+    /// 언제나 같은 곳(Application Support)에서 읽힌다 — 그렇지 않으면 폴더를
+    /// 알아야 설정을 읽고 설정을 읽어야 폴더를 아는 고리가 생긴다.
+    public static func resolve(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        fileManager: FileManager = .default
+    ) -> Resolution {
         if let override = environment[vaultEnvironmentKey], !override.isEmpty {
             let root = URL(filePath: override, directoryHint: .isDirectory)
-            return AppPaths(
-                vault: root.appending(path: "vault", directoryHint: .isDirectory),
-                support: root.appending(path: "support", directoryHint: .isDirectory)
+            return Resolution(
+                paths: AppPaths(
+                    vault: root.appending(path: "vault", directoryHint: .isDirectory),
+                    support: root.appending(path: "support", directoryHint: .isDirectory)
+                ),
+                missingVault: nil
             )
         }
-        return standardHomeLocations(fileManager: fileManager)
+
+        let home = standardHomeLocations(fileManager: fileManager)
+        guard let stored = Settings.storedVaultPath(inSupport: home.support) else {
+            return Resolution(paths: home, missingVault: nil)
+        }
+
+        let moved = URL(filePath: stored, directoryHint: .isDirectory)
+        guard isDirectory(moved, fileManager: fileManager) else {
+            return Resolution(paths: home, missingVault: moved)
+        }
+        return Resolution(
+            paths: AppPaths(vault: moved, support: home.support), missingVault: nil
+        )
+    }
+
+    static func isDirectory(_ url: URL, fileManager: FileManager = .default) -> Bool {
+        var directory: ObjCBool = false
+        let exists = fileManager.fileExists(
+            atPath: url.path(percentEncoded: false), isDirectory: &directory
+        )
+        return exists && directory.boolValue
     }
 
     private static func standardHomeLocations(fileManager: FileManager) -> AppPaths {

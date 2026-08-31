@@ -25,19 +25,55 @@ public struct Settings: Codable, Sendable, Equatable {
     /// 불편이다. 그래서 고를 수 있게 두되 기본은 불투명한 종이로 남긴다.
     public var paperOpacity: Double?
 
+    /// 메모 폴더를 기본 자리에서 옮겼다면 그 자리 (설계문서 §5.1).
+    ///
+    /// **정본만 옮긴다.** 파생물(`index.sqlite`·`layout.json`·이 파일)은 언제나
+    /// Application Support 에 남는다 — 지워도 되는 것과 지우면 안 되는 것이
+    /// 같은 폴더에 섞이면 "통째로 지워도 Vault 만 있으면 복원된다"(D4)가 깨진다.
+    ///
+    /// 값이 `nil` 이면 `~/Documents/lazymemo`. 적힌 폴더가 없어졌으면 앱은
+    /// 기본 자리로 돌아가고 메뉴가 그 사실을 적는다 — 조용히 빈 폴더를 만들면
+    /// 사용자는 메모가 전부 사라진 것으로 본다.
+    public var vaultPath: String?
+
+    /// 첫 장(안내 종이)을 이미 놓았는가.
+    ///
+    /// 이것 하나가 "처음 켠 것" 의 유일한 근거다. 안내를 두 번 놓으면 그건
+    /// 안내가 아니라 치울 거리이므로, 종이를 만들기 **전에** 적는다.
+    public var greeted: Bool?
+
     public init(
         hotkeyKeyCode: UInt32? = nil,
         hotkeyModifiers: UInt32? = nil,
         embedsLinks: Bool? = nil,
-        paperOpacity: Double? = nil
+        paperOpacity: Double? = nil,
+        vaultPath: String? = nil,
+        greeted: Bool? = nil
     ) {
         self.hotkeyKeyCode = hotkeyKeyCode
         self.hotkeyModifiers = hotkeyModifiers
         self.embedsLinks = embedsLinks
         self.paperOpacity = paperOpacity
+        self.vaultPath = vaultPath
+        self.greeted = greeted
     }
 
     public static let `default` = Settings()
+
+    /// 앱이 뜨기 **전에** 이 한 값만 읽는다 (`AppPaths.resolve`).
+    ///
+    /// 저장소를 열려면 폴더를 알아야 하고, 폴더를 알려면 설정을 읽어야 한다.
+    /// 그 고리를 여기서 끊는다 — 파생물 자리(Application Support)는 설정과
+    /// 무관하게 언제나 같은 곳이므로 설정 파일은 늘 찾을 수 있다.
+    public static func storedVaultPath(inSupport support: URL) -> String? {
+        let location = support.appending(path: "settings.json", directoryHint: .notDirectory)
+        guard let data = try? Data(contentsOf: location),
+              let settings = try? JSONDecoder().decode(Settings.self, from: data),
+              let path = settings.vaultPath,
+              !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return nil }
+        return path
+    }
 }
 
 /// `settings.json` 을 읽고 쓴다.

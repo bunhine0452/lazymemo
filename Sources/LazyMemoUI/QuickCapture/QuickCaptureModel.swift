@@ -22,14 +22,58 @@ final class QuickCaptureModel {
             // 사용자가 "아, 얘가 읽고 있구나" 를 알 수 있다.
             schedule = NaturalDateParser.parse(query)
             reloadImages()
+            // 낱말이 바뀌면 목록은 다른 물건이다. 넓혀 둔 것은 그때 것이라
+            // 도로 접는다 — 지운 뒤의 다시 짓기(`refreshListing`)는 같은
+            // 목록이므로 접지 않는다.
+            isExpanded = false
             scheduleSearch()
         }
     }
 
-    /// 상자 아래에 놓인 메모. 빈 상자에서는 요즘 것, 치면 찾은 것이다.
-    private(set) var listed: [Memo] = []
+    /// 찾아 둔 것 전부. 화면에 놓이는 것은 이 중 앞에서 몇 장뿐이다 (`listed`).
+    ///
+    /// **화면 길이와 아는 길이를 갈라 놓는다.** 예전에는 다섯 장만 들고 왔고,
+    /// 그래서 "여섯 번째가 있는지" 를 앱 자신도 몰랐다 — 목록은 조용히 잘렸고
+    /// 화면에는 잘렸다는 말이 한 줄도 없었다. 스무 장 너머는 이 상자에서만
+    /// 만날 수 있는데, 여기서 잘리면 그 메모들은 어디에도 없는 것이 된다.
+    private(set) var pool: [Memo] = []
     /// 지금 놓인 것이 어느 쪽인지. 화살표가 무엇을 훑는지 사람에게 말해 준다.
     private(set) var listing: Listing = .recent
+    /// 목록을 넓혀 두었는가. **누르거나, 끝에서 ↓ 를 한 번 더 누르면** 넓어진다.
+    private(set) var isExpanded = false
+
+    /// 상자 아래에 놓인 메모. 빈 상자에서는 요즘 것, 치면 찾은 것이다.
+    var listed: [Memo] { Array(pool.prefix(visibleLimit)) }
+
+    private var visibleLimit: Int { isExpanded ? Self.expandedLimit : Self.compactLimit }
+
+    /// 목록 아래 한 줄이 말할 것. 없으면 다 보이고 있다는 뜻이다.
+    enum Overflow: Equatable {
+        /// 아직 안 보인 것이 이만큼. 누르면 넓어진다.
+        case more(Int)
+        /// 넓힐 만큼 넓혔는데도 남았다 — 낱말로 좁히는 편이 빠르다.
+        case tooMany(Int)
+    }
+
+    /// 지금 화면에 못 담은 것.
+    ///
+    /// **세어 두고 적는다.** 목록이 그냥 끊겨 있으면 사람은 그것을 "이게
+    /// 전부" 로 읽고, 아홉 번째 메모는 있는 줄도 모르는 채 다시 적힌다.
+    var overflow: Overflow? {
+        let hidden = pool.count - listed.count
+        guard hidden > 0 else { return nil }
+        // 넓혀도 남는다면 목록을 더 늘리는 것은 답이 아니다 — 스무 줄을
+        // 훑는 것보다 한 글자 더 치는 편이 짧다.
+        return isExpanded ? .tooMany(hidden) : .more(hidden)
+    }
+
+    /// 목록을 넓힌다. 되돌리는 길은 두지 않는다 — 상자를 닫으면 도로 짧아지고,
+    /// 넓어진 것을 다시 좁히려고 누르는 사람은 없다.
+    func expand() {
+        guard !isExpanded, overflow != nil else { return }
+        isExpanded = true
+    }
+
     /// 지금 적은 글에 붙은 사진.
     ///
     /// **이것이 없어서 "사진 붙여넣기가 안 된다" 로 보였다.** 붙은 사진은
@@ -38,10 +82,32 @@ final class QuickCaptureModel {
     private(set) var images: [AttachedImage] = []
     /// 입력에서 알아낸 일정. 없으면 그냥 메모다.
     private(set) var schedule: NaturalDateParser.Result?
-    /// 화살표로 고른 항목. `nil` 이면 Return 이 새 메모를 만든다.
-    var selection: Int?
+    /// 화살표로 고른 메모. **자리가 아니라 그 메모 자체를 들고 있는다.**
+    ///
+    /// 자리만 기억하던 때에는 목록이 갈리는 순간 고른 것이 조용히 바뀌었다 —
+    /// "은행" 을 골라 둔 채로 `치과` 를 치면 세 번째 자리가 없어지면서 선택이
+    /// 첫 줄로 미끄러졌고, 그러면 ⌘⏎ 는 **고른 적 없는 메모**를 연다. 목록은
+    /// 타자마다 다시 지어지므로 자리는 근거가 될 수 없다.
+    private(set) var selectedID: ULID?
+    /// 포인터가 얹힌 줄. **키가 무엇을 할지는 바꾸지 않는다.**
+    ///
+    /// 예전에는 손이 스치기만 해도 이것이 곧 선택이었다. 그래서 세 줄 적다가
+    /// 마우스가 목록 위를 한 번 지나가면 ⌘⏎ 가 「적기 끝」에서 「남의 메모
+    /// 열기」로 바뀌었고 — 적던 글은 저장되지 않았다 — ⌘⌫ 는 가리키기만 한
+    /// 메모를 휴지통으로 보냈다. 손은 무엇을 누를 수 있는지만 비추고,
+    /// 무엇을 할지는 키보드가 정한다.
+    var pointed: ULID?
     /// 여기서 방금 지운 것. 되돌리는 줄이 상자 안에 떠 있는 동안만 값이 있다 (D6).
     private(set) var lastDeleted: Memo?
+
+    /// 고른 것이 지금 목록의 몇 번째인가. 없으면 `nil` 이고, 그때 ⌘⏎ 는 새 메모를 만든다.
+    ///
+    /// 값을 넣는 쪽도 열어 둔다 — 줄을 **직접 누른** 것은 화살표로 고른 것과
+    /// 같은 뜻이기 때문이다. 스치는 것만이 선택이 아니다.
+    var selection: Int? {
+        get { selectedID.flatMap { id in listed.firstIndex { $0.id == id } } }
+        set { selectedID = newValue.flatMap { listed[safe: $0]?.id } }
+    }
 
     /// 목록에 놓인 것의 출처.
     enum Listing {
@@ -70,10 +136,15 @@ final class QuickCaptureModel {
 
     /// 타자마다 인덱스를 때리지 않는다. 사람이 한 글자 더 치는 시간보다 짧게 둔다.
     private static let searchDelay: Duration = .milliseconds(120)
-    private static let matchLimit = 5
-    /// 빈 상자에 얹는 요즘 메모의 수. 메뉴 목록(8장)보다 적게 둔다 —
-    /// 여기는 적는 자리가 먼저고, 목록이 길면 적을 자리가 화면 밖으로 밀린다.
-    private static let recentLimit = 5
+    /// 인덱스에서 들고 오는 수. **화면에 놓는 수와 다르다** — 몇 장이
+    /// 걸렸는지 알아야 "외 N장 더" 를 적을 수 있고, 스무 장 너머로 가는
+    /// 길도 여기서 열린다. 200줄을 세어 오는 값은 인덱스에서 거의 공짜다.
+    static let searchCeiling = 200
+    /// 처음 보이는 줄 수. 메뉴 목록(8장)보다 적게 둔다 — 여기는 적는 자리가
+    /// 먼저고, 목록이 길면 적을 자리가 화면 밖으로 밀린다.
+    static let compactLimit = 5
+    /// 넓혔을 때의 줄 수. 이보다 길면 상자가 화면을 덮는다.
+    static let expandedLimit = 20
 
     init(store: MemoStore) {
         self.store = store
@@ -84,7 +155,9 @@ final class QuickCaptureModel {
         searchTask?.cancel()
         query = ""
         schedule = nil
-        selection = nil
+        isExpanded = false
+        selectedID = nil
+        pointed = nil
         images = []
         lastDeleted = nil
         showRecent()
@@ -110,7 +183,10 @@ final class QuickCaptureModel {
     /// 메모를 찾으려고 친 낱말이 새 메모가 되어 쌓인다. 어느 쪽도 안 되므로
     /// **상자가 기억한다.** 다시 열면 글이 전부 선택돼 있어 그냥 치면 덮어쓴다.
     func prepareForShow() {
-        selection = nil
+        selectedID = nil
+        pointed = nil
+        // 다시 연 상자는 짧은 목록으로 시작한다. 넓혀 둔 것은 그때 찾던 것이다.
+        isExpanded = false
         // 지난번에 지운 것을 되돌리는 줄은 남기지 않는다. 다시 연 사람이 보는
         // 것은 지금 하려는 일이지 아까 한 일이 아니다 — 그때의 되돌리기는
         // 메뉴가 5분 동안 들고 있다 (`MenuBarController`).
@@ -123,19 +199,28 @@ final class QuickCaptureModel {
     }
 
     /// 빈 상자가 들고 있는 것 — 고정한 것이 먼저, 그 다음 최근에 손댄 순
-    /// (`MemoStore.memos` 의 차례를 그대로 쓴다).
+    /// (`MemoStore.active` 의 차례를 그대로 쓴다).
     private func showRecent() {
         listing = .recent
-        listed = Array(store.memos.prefix(Self.recentLimit))
-        clampSelection()
+        // **치워 둔 것은 여기 오지 않는다** (`Tidy`). 다섯 자리뿐인 목록이
+        // 다 끝난 장보기로 차면 그건 「요즘」이 아니다. 찾으면 나오고,
+        // 열면 도로 꺼내진다.
+        pool = store.active
+        dropSelectionIfGone()
     }
 
-    private func clampSelection() {
-        guard let selection else { return }
-        if listed.isEmpty {
-            self.selection = nil
-        } else if selection >= listed.count {
-            self.selection = listed.count - 1
+    /// 목록이 다시 지어졌다. 고른 것이 그 안에 없으면 **놓는다.**
+    ///
+    /// 자리를 맞춰 밀어 넣던 옛 방식이 곧 결함이었다 — 세 번째 자리가
+    /// 없어지면 선택이 첫 줄로 미끄러졌고, 그때부터 ⌘⏎ 는 고른 적 없는
+    /// 메모를 연다. 들고만 있고 화면에 없는 선택도 같은 종류의 거짓말이라
+    /// (지웠다가 낱말을 도로 지우면 되살아난다), 목록에 없으면 놓아 버린다.
+    private func dropSelectionIfGone() {
+        if let selectedID, !listed.contains(where: { $0.id == selectedID }) {
+            self.selectedID = nil
+        }
+        if let pointed, !listed.contains(where: { $0.id == pointed }) {
+            self.pointed = nil
         }
     }
 
@@ -182,11 +267,11 @@ final class QuickCaptureModel {
     /// 친 글로 걸러 낸다. 디바운스 밖에서도 부른다 — 지운 직후처럼 기다릴
     /// 이유가 없을 때다.
     private func find(_ text: String) async {
-        let found = await store.search(text, limit: Self.matchLimit)
+        let found = await store.search(text, limit: Self.searchCeiling)
         guard !Task.isCancelled else { return }
         listing = .found
-        listed = found
-        clampSelection()
+        pool = found
+        dropSelectionIfGone()
     }
 
     /// 목록을 지금 상태로 다시 짓는다. **한 박자도 늦으면 안 된다** — 지운
@@ -215,9 +300,20 @@ final class QuickCaptureModel {
     /// 않는데, 지울 때마다 닫히면 단축키를 다시 눌러 같은 낱말을 또 쳐야 한다.
     /// 휴지통 이동뿐이고(D6), 되돌리는 줄이 상자 안에 바로 생긴다.
     func delete(_ memo: Memo) async {
+        // 지우기 **전에** 자리를 적어 둔다. 지운 뒤에는 그 줄이 없다.
+        let slot = listed.firstIndex { $0.id == memo.id }
+        let wasSelected = selectedID == memo.id
         guard (try? await store.delete(memo.id)) != nil else { return }
         lastDeleted = memo
         await refreshListing()
+
+        // 고르지 않은 줄을 지운 것이면 고른 것은 그대로 있다 — 자리가 아니라
+        // 메모를 들고 있으므로 위의 줄이 하나 빠져도 따라 밀리지 않는다.
+        guard wasSelected else { return }
+        // 고른 줄을 지웠으면 **다음 줄이 그 자리로 올라온다.** ⌘⌫ 를 연달아
+        // 누르면 위에서부터 훑으며 치워진다 (§8). 마지막 한 장이었으면
+        // 아무것도 골라지지 않는다 — ⌘⏎ 가 빈 것을 열면 안 된다.
+        selectedID = slot.flatMap { listed[safe: $0]?.id }
     }
 
     /// 고른 줄을 지운다 (⌘⌫). 지운 메모를 돌려준다 — 고른 것이 없으면 `nil`
@@ -244,11 +340,19 @@ final class QuickCaptureModel {
         guard !listed.isEmpty else { return }
         switch selection {
         case nil:
-            selection = delta > 0 ? 0 : listed.count - 1
+            selectedID = delta > 0 ? listed.first?.id : listed.last?.id
         case let current?:
+            // **끝에서 한 번 더 내리면 목록이 넓어진다.** 손을 옮겨 「외 N장
+            // 더」를 누르러 가지 않아도 되게, 이미 하고 있던 손짓을 그대로
+            // 한 번 더 쓴다 — 마지막 줄에서 ↓ 는 어차피 할 일이 없었다.
+            if delta > 0, current == listed.count - 1, !isExpanded, overflow != nil {
+                expand()
+                selectedID = listed[safe: current + 1]?.id ?? selectedID
+                return
+            }
             let next = current + delta
             // 위로 벗어나면 "선택 없음"(= 새 메모)으로 되돌아간다.
-            selection = (next < 0 || next >= listed.count) ? nil : next
+            selectedID = listed[safe: next]?.id
         }
     }
 

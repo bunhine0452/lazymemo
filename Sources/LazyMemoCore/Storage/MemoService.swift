@@ -128,6 +128,9 @@ public actor MemoService {
         if let color { memo.color = color }
         if let pinned { memo.pinned = pinned }
         memo.updated = now.truncatingSubsecond
+        // 손댄 것은 다시 산 것이다. 치워 둔 메모를 고쳤는데 여전히 목록에
+        // 없으면, 사람은 자기가 고친 글이 어디로 갔는지 알 길이 없다.
+        memo.tidied = nil
 
         return try await persist(memo)
     }
@@ -147,6 +150,55 @@ public actor MemoService {
             result.memo, relativePath: result.relativePath, modifiedAt: result.modifiedAt
         )
         return result.memo
+    }
+
+    // MARK: 스스로 물러나기 (`Tidy`)
+
+    /// 규칙에 걸리는 메모를 전부 치운다. **파일에 `tidied:` 를 적을 뿐이다** —
+    /// 옮기지도, 지우지도 않는다.
+    ///
+    /// `updated` 는 건드리지 않는다. 치우는 것은 사람이 손댄 일이 아니므로,
+    /// 여기서 시각을 새로 찍으면 목록의 차례가 통째로 뒤집히고 "다 체크한 지
+    /// 사흘" 이라는 셈도 그 자리에서 초기화된다.
+    ///
+    /// - Returns: 새로 치운 메모들.
+    @discardableResult
+    public func tidyFinished(now: Date = Date()) async throws -> [Memo] {
+        var tidied: [Memo] = []
+        for memo in try await vault.loadAll().map(\.memo) {
+            guard Tidy.reason(for: memo, now: now) != nil else { continue }
+            var moved = memo
+            moved.tidied = now.truncatingSubsecond
+            tidied.append(try await persist(moved))
+        }
+        return tidied
+    }
+
+    /// 치워 둔 것을 도로 꺼낸다.
+    ///
+    /// **`updated` 를 지금으로 찍는다.** 안 그러면 규칙이 다음 날 도로 치운다 —
+    /// 사람이 꺼낸 것을 앱이 밤사이에 되돌리면 그건 고장으로 보인다. 그리고
+    /// 방금 꺼낸 것은 실제로 지금 관심 있는 메모라, 목록 맨 위가 제자리다.
+    @discardableResult
+    public func untidy(_ id: ULID, now: Date = Date()) async throws -> Memo {
+        var memo = try await vault.load(id)
+        guard memo.tidied != nil else { return memo }
+        memo.tidied = nil
+        memo.updated = now.truncatingSubsecond
+        return try await persist(memo)
+    }
+
+    /// 치워 둔 것을 전부 도로 꺼낸다 (`{#tidy-visible-undo}`).
+    @discardableResult
+    public func untidyAll(now: Date = Date()) async throws -> [Memo] {
+        var restored: [Memo] = []
+        for memo in try await vault.loadAll().map(\.memo) where memo.tidied != nil {
+            var back = memo
+            back.tidied = nil
+            back.updated = now.truncatingSubsecond
+            restored.append(try await persist(back))
+        }
+        return restored
     }
 
     /// 보존 기간이 지난 휴지통 정리. **앱만 부른다** — MCP 도구로 노출되지 않는다.

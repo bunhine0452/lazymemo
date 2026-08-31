@@ -10,12 +10,15 @@ struct Hotkey: Equatable, Sendable {
     let keyCode: UInt32
     let modifiers: UInt32
 
-    /// 기본 조합 ⌥⌘N.
-    ///
-    /// 한국어 사용자의 손에 익은 조합을 피해서 골랐다 — ⌘Space(Spotlight),
-    /// ⌃Space·⌃⌥Space(입력 소스 전환)는 건드리면 안 된다.
+    /// 기본 조합 ⌥⌘N (빠른 입력 상자 열기).
     static let standard = Hotkey(
         keyCode: UInt32(kVK_ANSI_N),
+        modifiers: UInt32(optionKey | cmdKey)
+    )
+
+    /// 클립보드 원키 즉시 캡처 ⌥⌘V.
+    static let paste = Hotkey(
+        keyCode: UInt32(kVK_ANSI_V),
         modifiers: UInt32(optionKey | cmdKey)
     )
 

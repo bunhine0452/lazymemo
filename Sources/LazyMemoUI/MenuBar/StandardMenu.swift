@@ -9,6 +9,7 @@ import AppKit
 ///
 /// 사용자가 "커맨드+A 가 안 먹는다" 고 겪은 것이 이것이다. 글을 쓰는 앱에서
 /// 전체 선택과 되돌리기가 안 되는 것은 다른 어떤 편안함으로도 못 갚는다.
+@MainActor
 enum StandardMenu {
     static func install() {
         let main = NSMenu()

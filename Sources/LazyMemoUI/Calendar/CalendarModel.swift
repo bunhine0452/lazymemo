@@ -33,6 +33,12 @@ final class CalendarModel {
     /// 아래 판이 펼쳐 보이는 날. 처음에는 오늘이다.
     private(set) var selected: CalendarDate
     private(set) var lastMove: Move?
+    /// 방금 여기서 지운 일정. 되돌리는 줄이 바닥에 떠 있는 동안만 값이 있다 (D6).
+    ///
+    /// 달력 줄에는 「미루기」와 「종이로」는 있는데 지우는 길만 없었다. 그래서
+    /// 필요 없어진 일정을 치우려면 날짜를 떼어 종이로 내려보낸 뒤 그 종이를
+    /// 찾아 지워야 했다 — 조작 셋이고, 그 사이 바탕화면에 종이가 한 장 난다.
+    private(set) var lastDeleted: Memo?
     /// 종이에서 건너와 **놓을 날을 기다리는** 메모 (설계문서 §7.2).
     ///
     /// 날짜를 글자로 치게 하지 않는다. 달력 위에서 날짜를 가리키는 방법은
@@ -42,7 +48,13 @@ final class CalendarModel {
     /// 마지막으로 실패한 조작. 조용히 삼키지 않는다.
     private(set) var failure: String?
 
-    let today: CalendarDate
+    /// 오늘. **`let` 이었다.**
+    ///
+    /// 창을 만들 때 한 번 잡고 앱이 꺼질 때까지 그대로였는데, 이 앱은 바탕화면에
+    /// 상주하므로 며칠씩 안 꺼진다. 자정이 지나면 동그라미가 어제 칸에 남고,
+    /// 「오늘」 버튼이 어제로 가고, 「미루기」가 어제를 기준으로 세어 **오늘로
+    /// 미뤘다.** 이제 `DayClock` 이 넘겨 준다.
+    private(set) var today: CalendarDate
 
     private let store: MemoStore
     private let calendar: Calendar
@@ -121,6 +133,23 @@ final class CalendarModel {
         Task { await refresh() }
     }
 
+    /// 하루가 바뀌었다 (`DayClock`).
+    ///
+    /// 고른 날이 **어제의 오늘**이었으면 함께 넘어간다 — 창을 열어 둔 채로
+    /// 자정을 넘긴 사람에게 어제가 펼쳐져 있으면 그것부터가 거짓말이다.
+    /// 일부러 다른 날을 골라 둔 사람은 건드리지 않는다: 사람이 정한 것이 이긴다.
+    func dayChanged(to newToday: CalendarDate) {
+        guard newToday != today else { return }
+        let wasOnToday = selected == today
+        today = newToday
+        // 지난 일정을 미루면 어디로 가는지도 오늘을 기준으로 다시 셈해진다.
+        if wasOnToday {
+            goToday()
+        } else {
+            Task { await refresh() }
+        }
+    }
+
     // MARK: 동사
 
     /// 다른 날로 옮긴다 — 끌어다 놓기의 착지점.
@@ -158,6 +187,33 @@ final class CalendarModel {
         guard !before.isEmpty else { return }
         await write(Schedule(), to: memo.id, verb: "종이로 보내기")
         remember(Move(id: memo.id, from: before, to: nil))
+    }
+
+    /// 이 일정을 지운다. 휴지통 이동뿐이고(D6) 되돌리는 줄이 바로 아래에 생긴다.
+    ///
+    /// **날짜를 떼는 것과 다른 일이다.** 「종이로」는 언제 할지 모르겠다는
+    /// 뜻이고 이것은 안 하겠다는 뜻이다. 그 둘을 한 버튼에 묶으면 달력에서
+    /// 없애는 유일한 길이 바탕화면에 종이를 한 장 내는 길이 된다.
+    func delete(_ memo: Memo) async {
+        do {
+            try await store.delete(memo.id)
+            failure = nil
+            lastMove = nil
+            lastDeleted = memo
+            forget { $0.lastDeleted = nil }
+            await refresh()
+        } catch {
+            failure = "지우기 실패: \(error)"
+        }
+    }
+
+    /// 방금 지운 것을 되살린다.
+    func restoreDeleted() async {
+        guard let memo = lastDeleted else { return }
+        lastDeleted = nil
+        undoTask?.cancel()
+        try? await store.restore(memo.id)
+        await refresh()
     }
 
     /// 하루 미룬다 — 게으른 사람이 달력에 가장 자주 하는 일.
@@ -208,6 +264,7 @@ final class CalendarModel {
 
     func dismissUndo() {
         lastMove = nil
+        lastDeleted = nil
         undoTask?.cancel()
     }
 
@@ -226,11 +283,19 @@ final class CalendarModel {
 
     private func remember(_ move: Move) {
         lastMove = move
+        // 바닥의 한 줄은 하나뿐이다. 방금 한 일이 둘이면 사람은 어느 것을
+        // 되돌리는지 모른다 — 마지막 것만 남긴다.
+        lastDeleted = nil
+        forget { $0.lastMove = nil }
+    }
+
+    /// 되돌리는 줄을 시간이 지나면 스스로 물리게 한다.
+    private func forget(_ clear: @escaping (CalendarModel) -> Void) {
         undoTask?.cancel()
         undoTask = Task { [weak self] in
             try? await Task.sleep(for: Self.undoWindow)
-            guard !Task.isCancelled else { return }
-            self?.lastMove = nil
+            guard !Task.isCancelled, let self else { return }
+            clear(self)
         }
     }
 }

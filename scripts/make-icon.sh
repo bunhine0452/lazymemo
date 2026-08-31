@@ -20,6 +20,14 @@ swift scripts/make-icon.swift --texture >/dev/null
 echo "▸ 미리보기"
 swift scripts/make-icon.swift --sheet >/dev/null
 
+# ImageIO 가 내보내는 PNG 는 압축이 얕다. 픽셀은 그대로 두고 다시 조이면
+# 아이콘만 40% 넘게 준다 — 번들에 들어가는 그림이라 그만큼 앱이 가벼워진다.
+echo "▸ 무손실 재압축"
+./scripts/shrink-png.py \
+    Resources/AppIcon.icns \
+    Sources/LazyMemoUI/Resources/PaperGrain.png \
+    Sources/LazyMemoUI/Resources/MenuBarIcon.png
+
 echo
 echo "✓ Resources/AppIcon.icns"
 echo "✓ Sources/LazyMemoUI/Resources/MenuBarIcon.png"

@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 import LazyMemoCore
@@ -117,5 +118,68 @@ struct MemoTimeLabelTests {
     func keepsPastSchedule() {
         let yesterday = today.adding(days: -1, calendar: calendar)
         #expect(MemoTimeLabel.text(for: memo(due: yesterday), now: now, calendar: calendar) == "어제")
+    }
+}
+
+/// 메뉴 목록의 골라진 줄은 **그 메모의 종이색**으로 깔린다 (`{#menu-highlight}`).
+///
+/// 시스템 파랑(`selectedContentBackgroundColor`)을 쓰던 자리다. 그 색은 이
+/// 목록만 다른 앱에서 잘라 온 부품처럼 보이게 했고, 무엇보다 같은 메모를 두
+/// 곳에서 다르게 그렸다 — 빠른 입력에서는 그 메모의 종이색이 옅게 깔린다.
+/// 그림을 봐서는 "파란색이네" 까지밖에 말할 수 없어 여기서 잰다.
+@MainActor
+@Suite("메뉴 줄 — 강조는 종이색이다")
+struct MemoRowHighlightTests {
+    @Test("강조 색은 그 메모의 색에서 나온다")
+    func highlightComesFromTheMemoColor() {
+        for color in MemoColor.allCases {
+            let fill = MemoRow.highlightFill(color).usingColorSpace(.sRGB)!
+            let ink = NSColor(color.tint).usingColorSpace(.sRGB)!
+            #expect(abs(fill.redComponent - ink.redComponent) < 0.001)
+            #expect(abs(fill.greenComponent - ink.greenComponent) < 0.001)
+            #expect(abs(fill.blueComponent - ink.blueComponent) < 0.001)
+        }
+    }
+
+    @Test("색마다 다른 강조다 — 여덟 줄이 같은 파랑으로 덮이지 않는다")
+    func everyColorHighlightsDifferently() {
+        let fills = MemoColor.allCases.map { MemoRow.highlightFill($0) }
+        for (index, one) in fills.enumerated() {
+            for other in fills[(index + 1)...] {
+                #expect(one != other)
+            }
+        }
+    }
+
+    @Test("바탕은 옅게 깔린다 — 글자를 덮지 않는다")
+    func highlightIsAWashNotAFill() {
+        let fill = MemoRow.highlightFill(.blue)
+        #expect(fill.alphaComponent > 0.1)
+        #expect(fill.alphaComponent < 0.35)
+    }
+}
+
+/// 그림 하나뿐인 버튼이 소리로는 무엇이 되는가 (`{#swiftui-a11y}`).
+@Suite("소리 내어 읽기")
+struct SpokenHelpTests {
+    @Test("도움말의 앞머리가 이름이고 「—」 뒤가 힌트다")
+    func splitsHelpIntoNameAndHint() {
+        let said = SpokenHelp.split("지우기 — 메뉴의 되돌리기로 살릴 수 있습니다")
+        #expect(said.name == "지우기")
+        #expect(said.hint == "메뉴의 되돌리기로 살릴 수 있습니다")
+    }
+
+    @Test("한 낱말짜리 도움말은 그대로 이름이 된다")
+    func keepsShortHelpAsIs() {
+        let said = SpokenHelp.split("고정")
+        #expect(said.name == "고정")
+        #expect(said.hint.isEmpty)
+    }
+
+    @Test("「—」 가 여럿이면 첫 것만 가른다")
+    func splitsOnlyAtTheFirstDash() {
+        let said = SpokenHelp.split("치우기 — 메모는 지워지지 않습니다 — 메뉴에서 다시 엽니다")
+        #expect(said.name == "치우기")
+        #expect(said.hint == "메모는 지워지지 않습니다 — 메뉴에서 다시 엽니다")
     }
 }

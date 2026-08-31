@@ -89,6 +89,29 @@ struct CapturePasteTests {
         #expect(controller.draftForTesting.contains("![](\(AttachmentStore.directoryName)/"))
     }
 
+    /// 위 시험은 텍스트 뷰가 ⌘V 를 **잘 처리하는지**만 잰다. 그런데 사용자가
+    /// 겪은 두 번째 판은 처리가 아니라 **배달**이었다 — `NSApp.sendEvent` 는
+    /// ⌘ 조합을 키 윈도의 `performKeyEquivalent` 에만 흘려보내는데, 이 상자는
+    /// `.nonactivatingPanel` 이라 키 윈도가 아닌 채로 서 있는 순간이 있다.
+    /// 그때 텍스트 뷰의 처리는 **불릴 기회조차 없다.** 평범한 글자는 창으로
+    /// 곧장 가므로 "글자는 쳐지는데 사진만 안 붙는다" 로 보였다.
+    ///
+    /// 그래서 상자가 열려 있는 동안 ⌘ 조합을 글 상자로 데려오는 길을 따로
+    /// 두었고(`QuickCaptureController.handles`), 여기서 그 길을 잰다.
+    @Test("⌘V 가 글 상자까지 배달된다 — 키 윈도가 없어도")
+    func routesCommandKeysToTheEditor() throws {
+        let controller = try makeController()
+        let editor = try #require(controller.editorForTesting)
+        editor.pasteboard = makePasteboard(named: "lazymemo.test.route")
+        controller.focusForTesting()
+
+        #expect(NSApp.keyWindow == nil)
+
+        let event = try #require(commandV())
+        #expect(controller.handles(event))
+        #expect(controller.draftForTesting.contains("![](\(AttachmentStore.directoryName)/"))
+    }
+
     @Test("붙인 사진은 조각으로 보인다 — 마크다운 글자만으로는 붙은 줄 모른다")
     func showsTheChip() throws {
         let controller = try makeController()

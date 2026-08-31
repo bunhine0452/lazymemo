@@ -3,12 +3,17 @@ import LazyMemoCore
 
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let paths = AppPaths.standard()
+    /// 메모 폴더가 어디인지 — 설정에 적힌 자리까지 살펴 정한다 (§5.1).
+    /// 옮겨 둔 폴더를 못 찾았으면 그 사실도 함께 들고 온다.
+    private let location = AppPaths.resolve()
+    private var paths: AppPaths { location.paths }
 
     private var store: MemoStore?
     private var layouts: LayoutStore?
     private var windows: NoteWindowManager?
     private var menuBar: MenuBarController?
+    private let clock = DayClock()
+    private var dueClock: DueClock?
 
     public override init() { super.init() }
 
@@ -41,7 +46,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         let menuBar = MenuBarController(
             paths: paths, store: store, windows: windows, layouts: layouts,
-            settings: settings, appearance: appearance
+            settings: settings, appearance: appearance,
+            missingVault: location.missingVault
         )
 
         self.store = store
@@ -49,10 +55,36 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         self.windows = windows
         self.menuBar = menuBar
 
+        // 하루가 바뀌면 앱이 스스로 하는 일들 (`DayClock`).
+        //
+        // 이 앱은 바탕화면에 상주하므로 몇 주씩 안 꺼진다. 이것이 없던 동안
+        // 달력의 오늘은 켠 날에 멈춰 있었고, 「미루기」는 그 날을 기준으로
+        // 셈했고, 휴지통의 30일은 영영 오지 않았다.
+        // 적힌 시각이 오면 그 종이가 나온다 (§7.2 — "그 날이 오면 달력이 꺼내 준다").
+        let dueClock = DueClock(store: store)
+        dueClock.onDue = { [weak windows] id in windows?.surface(id) }
+        self.dueClock = dueClock
+
+        clock.onNewDay = { [weak store, weak windows, weak menuBar, weak dueClock] day in
+            menuBar?.dayChanged(to: day)
+            windows?.dayChanged()
+            // 어제 꺼내 놓은 종이는 도로 달력에 맡긴다. 어제의 일정이 오늘도
+            // 바탕화면에 서 있으면 그것부터가 낡은 종이다 (철학 3).
+            windows?.clearSurfaced()
+            dueClock?.dayChanged()
+            Task { await store?.tidy() }
+        }
+        clock.start()
+
         Task {
             // 파일이 정본이므로 화면은 스캔 결과를 따른다 (§4).
             await store.start()
+            // 처음 켠 사람에게는 안내서 대신 **메모 한 장**을 놓는다.
+            // 창을 세우기 전에 놓아야 그 종이도 함께 바탕화면에 오른다.
+            await WelcomeNote.place(in: store, settings: settings)
             windows.start()
+            // 메모를 다 읽은 **뒤에** 건다 — 빈 목록에 걸면 울릴 것이 없다.
+            dueClock.start()
             // 일정은 달력에서만 보이므로(§7.2) 달력의 열림 여부도 복원 대상이다.
             menuBar.restoreCalendar()
 
@@ -80,9 +112,19 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 Self.log("바깥클릭 \(await menuBar.captureDismissReach())")
                 exit(0)
             }
+            // 빠른 입력에서 ⌘V 가 사진을 넣는지 (`verify-capture-paste.sh`).
+            if environment["LAZYMEMO_PASTE"] == "1" {
+                Self.log("붙여넣기 \(await menuBar.capturePasteReach())")
+                exit(0)
+            }
             // `{#capture-delete}` — 빠른 입력에서 ⌘⌫ 가 메모를 지우는지.
             if environment["LAZYMEMO_DELETE"] == "1" {
                 Self.log("목록지우기 \(await menuBar.captureDeleteReach())")
+                exit(0)
+            }
+            // 바탕화면 종이가 창 전환기에 서지 않는지 (`verify-notes.sh`).
+            if environment["LAZYMEMO_WINDOWROLE"] == "1" {
+                Self.log("창역할 \(DesktopLevelWindow.roleDiagnostics)")
                 exit(0)
             }
             if environment["LAZYMEMO_MENU"] == "1" {
@@ -107,6 +149,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 저장 버튼이 없는 앱이라(§8) 종료가 곧 마지막 저장 지점이다.
     /// 비동기 flush 를 기다리기 위해 종료를 한 박자 미룬다.
     public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        clock.stop()
+        dueClock?.stop()
         guard let windows else { return .terminateNow }
         Task {
             await windows.flushAll()

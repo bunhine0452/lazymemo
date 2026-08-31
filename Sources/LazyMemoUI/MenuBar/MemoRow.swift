@@ -160,8 +160,12 @@ final class MemoRow: NSView {
     /// 포인터가 없을 때의 휴지통 세기. 있는 줄만 알 만큼.
     private static let restingTrash: CGFloat = 0.24
 
+    /// 골라진 줄의 바탕 세기. 빠른 입력의 골라진 줄과 **같은 값**이다.
+    private static let highlightWash: CGFloat = 0.20
+
     private let titleText: String
     private let timeText: String
+    private let color: MemoColor
     private let dotColor: NSColor
     private let onDesktop: Bool
     private let geometry: MemoRowGeometry
@@ -185,6 +189,7 @@ final class MemoRow: NSView {
     ) {
         self.titleText = title
         self.timeText = time
+        self.color = color
         self.dotColor = NSColor(color.tint)
         self.onDesktop = onDesktop
         self.onOpen = onOpen
@@ -211,14 +216,14 @@ final class MemoRow: NSView {
         let highlighted = isHighlighted
         if let staged { isOverTrash = staged.overTrash }
         if highlighted {
-            NSColor.selectedContentBackgroundColor.setFill()
+            Self.highlightFill(color).setFill()
             NSBezierPath(roundedRect: bounds.insetBy(dx: 5, dy: 1), xRadius: 5, yRadius: 5).fill()
         }
 
-        let primary = highlighted ? NSColor.selectedMenuItemTextColor : NSColor.labelColor
-        let secondary = highlighted
-            ? NSColor.selectedMenuItemTextColor.withAlphaComponent(0.72)
-            : NSColor.secondaryLabelColor
+        // **글자 색은 강조와 함께 뒤집히지 않는다.** 종이색 바탕은 옅어서
+        // 잉크가 그대로 읽히고, 뒤집으면 여덟 줄 중 한 줄만 다른 재질이 된다.
+        let primary = NSColor.labelColor
+        let secondary = NSColor.secondaryLabelColor
 
         drawDot()
         draw(titleText, in: geometry.title, font: Self.titleFont, color: primary, alignment: .left)
@@ -226,6 +231,20 @@ final class MemoRow: NSView {
             draw(timeText, in: geometry.time, font: Self.timeFont, color: secondary, alignment: .right)
         }
         drawTrash(highlighted: highlighted, primary: primary)
+    }
+
+    /// 골라진 줄의 바탕 — **그 메모의 종이색이다.**
+    ///
+    /// 시스템 파랑(`selectedContentBackgroundColor`)을 썼었다. 그것은 이 목록만
+    /// 다른 앱에서 잘라 온 부품처럼 보이게 했고, 무엇보다 같은 메모를 두 곳에서
+    /// 다르게 그렸다 — 빠른 입력의 골라진 줄은 그 메모의 종이색이 옅게 깔린다
+    /// (§14.10 — 두 곳에서 같은 메모를 다르게 그리면 사람은 그것을 두 개의
+    /// 목록으로 배운다). 여기서도 같은 낱말을 쓴다.
+    ///
+    /// 뷰 밖에서 계산할 수 있게 열어 둔다: 색이 시스템 강조색으로 되돌아간
+    /// 것은 그림을 봐서는 "파란색이네" 까지밖에 말할 수 없다 (`MemoRowTests`).
+    static func highlightFill(_ color: MemoColor) -> NSColor {
+        NSColor(color.tint).withAlphaComponent(highlightWash)
     }
 
     /// 찬 점은 바탕화면에 나와 있는 종이, 빈 점은 치워 둔 종이.

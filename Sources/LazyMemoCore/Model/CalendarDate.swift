@@ -47,6 +47,15 @@ public struct CalendarDate: Sendable, Hashable, Comparable, CustomStringConverti
         calendar.date(from: DateComponents(year: year, month: month, day: day))
     }
 
+    /// 다음 자정. 하루가 바뀌는 순간에 깨야 하는 것들이 이 시각을 쓴다.
+    ///
+    /// **더하기 24시간이 아니다.** 서머타임이 있는 지역에서는 하루가 23시간
+    /// 이거나 25시간이라, 24시간을 더하면 자정을 놓치거나 한 시간 일찍 깬다.
+    /// `Calendar` 에게 "다음 날의 시작" 을 묻는 것이 유일하게 맞는 길이다.
+    public static func nextMidnight(after now: Date, calendar: Calendar = .current) -> Date? {
+        calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))
+    }
+
     /// 며칠 뒤(앞)의 날. 달과 해를 넘기는 계산은 `Calendar` 에 맡긴다 —
     /// 31일에 하루를 더하는 일은 손으로 하면 반드시 틀린다.
     public func adding(days: Int, calendar: Calendar = .current) -> CalendarDate {

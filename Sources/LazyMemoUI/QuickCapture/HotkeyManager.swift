@@ -13,27 +13,22 @@ final class HotkeyManager {
 
     private static let signature = OSType(0x4C5A4D4F)   // 'LZMO'
     private static var handlers: [UInt32: () -> Void] = [:]
-    private static var nextID: UInt32 = 1
     private static var eventHandler: EventHandlerRef?
 
-    private var hotKeyRef: EventHotKeyRef?
-    private var identifier: UInt32?
+    private var registeredRefs: [UInt32: EventHotKeyRef] = [:]
 
     /// - Returns: 등록에 성공했으면 `true`. 다른 앱이 같은 조합을 이미 쓰고 있으면 실패한다.
     @discardableResult
-    func register(_ hotkey: Hotkey = .standard, action: @escaping () -> Void) -> Bool {
+    func register(id: UInt32 = 1, _ hotkey: Hotkey = .standard, action: @escaping () -> Void) -> Bool {
         guard hotkey.isUsable else { return false }
-        unregister()
+        unregister(id: id)
         Self.installEventHandlerIfNeeded()
-
-        let identifier = Self.nextID
-        Self.nextID += 1
 
         var reference: EventHotKeyRef?
         let status = RegisterEventHotKey(
             hotkey.keyCode,
             hotkey.modifiers,
-            EventHotKeyID(signature: Self.signature, id: identifier),
+            EventHotKeyID(signature: Self.signature, id: id),
             GetEventDispatcherTarget(),
             0,
             &reference
@@ -41,18 +36,27 @@ final class HotkeyManager {
 
         guard status == noErr, let reference else { return false }
 
-        Self.handlers[identifier] = action
-        self.hotKeyRef = reference
-        self.identifier = identifier
-        self.current = hotkey
+        Self.handlers[id] = action
+        self.registeredRefs[id] = reference
+        if id == 1 {
+            self.current = hotkey
+        }
         return true
     }
 
-    func unregister() {
-        if let hotKeyRef { UnregisterEventHotKey(hotKeyRef) }
-        if let identifier { Self.handlers.removeValue(forKey: identifier) }
-        hotKeyRef = nil
-        identifier = nil
+    func unregister(id: UInt32 = 1) {
+        if let ref = registeredRefs.removeValue(forKey: id) {
+            UnregisterEventHotKey(ref)
+        }
+        Self.handlers.removeValue(forKey: id)
+    }
+
+    func unregisterAll() {
+        for (_, ref) in registeredRefs {
+            UnregisterEventHotKey(ref)
+        }
+        registeredRefs.removeAll()
+        Self.handlers.removeAll()
     }
 
     /// Carbon 핸들러는 프로세스에 하나면 된다. 눌린 hotkey id 로 갈라 준다.

@@ -46,6 +46,25 @@ final class QuickCaptureController {
     /// 감시하는 길이 서로 달라서 둘을 나란히 건다.
     private var outsideClickMonitors: [Any] = []
 
+    /// 상자가 열려 있는 동안만 사는 ⌘ 조합 감시자.
+    ///
+    /// **⌘V 가 죽는 마지막 구멍이 여기였다.** `NSApp.sendEvent` 는 ⌘ 조합을
+    /// **키 윈도**의 `performKeyEquivalent` 에만 흘려보낸다. 그런데 이 상자는
+    /// `.nonactivatingPanel` 이고 `NSApp.activate()` 는 비동기라 — 게다가
+    /// macOS 가 활성화를 거절하기도 한다 — 상자가 키 윈도가 아닌 채로 서
+    /// 있는 순간이 실제로 있다. 그때 `NSApp.keyWindow` 는 nil 이므로 그
+    /// 호출이 **아예 일어나지 않고**, 텍스트 뷰가 ⌘V 를 아무리 잘 처리해도
+    /// 이벤트가 거기까지 오지 않는다.
+    ///
+    /// 평범한 글자는 `event.window` 로 곧장 가므로 멀쩡히 들어간다. 그래서
+    /// 사용자에게는 정확히 **"글자는 쳐지는데 사진만 안 붙는다"** 로 보였다
+    /// (`verify-capture-paste.sh` 가 그 두 가지를 나란히 잰다).
+    ///
+    /// 지역 감시는 `NSApp.sendEvent` **앞에** 서므로 키 윈도 여부와 무관하게
+    /// 같은 길이 된다. 우리가 처리한 이벤트는 삼키므로 상자가 키일 때도
+    /// 두 번 붙지 않는다.
+    private var editingKeyMonitor: Any?
+
     init(store: MemoStore, windows: NoteWindowManager) {
         self.store = store
         self.windows = windows
@@ -185,6 +204,32 @@ final class QuickCaptureController {
         })
 
         outsideClickMonitors = [elsewhere, ours].compactMap { $0 }
+
+        editingKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) {
+            [weak self] event -> NSEvent? in
+            let handled = MainActor.assumeIsolated {
+                guard let self, self.isOpen else { return false }
+                return self.handles(event)
+            }
+            // 우리가 처리했으면 삼킨다 — 상자가 키일 때 창까지 흘러가면 두 번 붙는다.
+            return handled ? nil : event
+        }
+    }
+
+    /// 이 ⌘ 조합을 상자의 글 상자가 맡아야 하는가. 맡았으면 `true`.
+    ///
+    /// 상자 밖으로는 손대지 않는다 — 메모 창이 키일 때의 ⌘C 까지 여기서
+    /// 가로채면, 고치는 곳은 하나인데 영향은 앱 전체로 번진다.
+    ///
+    /// 비공개가 아닌 이유는 `handle(command:in:)` 과 같다 — **키가 어디로
+    /// 가는지는 화면에 안 보인다.** 시험이 직접 부른다.
+    func handles(_ event: NSEvent) -> Bool {
+        guard event.modifierFlags.contains(.command),
+              event.window == nil || event.window === panel,
+              let editor = panel.contentView?.firstTextView as? MemoNSTextView,
+              panel.firstResponder === editor
+        else { return false }
+        return editor.performKeyEquivalent(with: event)
     }
 
     /// 이 클릭이 상자를 치워야 하는 클릭인가.
@@ -220,6 +265,8 @@ final class QuickCaptureController {
     private func stopWatchingOutsideClicks() {
         outsideClickMonitors.forEach(NSEvent.removeMonitor)
         outsideClickMonitors.removeAll()
+        if let editingKeyMonitor { NSEvent.removeMonitor(editingKeyMonitor) }
+        editingKeyMonitor = nil
     }
 
     /// 바깥 클릭이 상자를 치우고 안쪽 클릭은 놔두는지 확인한다
@@ -305,6 +352,79 @@ final class QuickCaptureController {
         close(returningFocus: false)
 
         return "지움=\(moved) 글유지=\(kept) 되돌릴수있음=\(undoable)"
+    }
+
+    /// ⌘V 가 **사람이 누른 것과 같은 길로** 글 상자까지 닿는지
+    /// (`verify-capture-paste.sh`).
+    ///
+    /// 시험(`CapturePasteTests`)은 텍스트 뷰의 `performKeyEquivalent` 를 직접
+    /// 부른다. 그 함수가 하는 일은 지키지만 **키가 거기까지 오는지**는 재지
+    /// 못한다 — 사람이 누른 ⌘V 는 앱 → 창 → 뷰 계층을 타고 내려오므로 그
+    /// 사이 어디가 끊겨도 시험은 초록이고 화면에서는 아무 일도 안 난다.
+    /// "아직도 사진이 안 붙는다" 가 그 자리에 살고 있었다.
+    ///
+    /// **두 번 잰다.** 상자가 키 윈도일 때와 아닐 때다. 아닐 때가 결함이
+    /// 살던 세상인데, 활성화는 비동기라 그냥 재면 어느 쪽이 걸릴지 그때그때
+    /// 다르다 — 그래서 한 번은 앱을 일부러 비활성으로 만들어 놓고 잰다.
+    func pasteReach() async -> String {
+        let types = NSPasteboard.general.types?.map(\.rawValue).joined(separator: " ") ?? "없음"
+        let withoutKey = await pasteRound(deactivating: true)
+        let withKey = await pasteRound(deactivating: false)
+        return "붙임판=[\(types)] 키윈도없이{\(withoutKey)} 키윈도로{\(withKey)}"
+    }
+
+    /// 한 번의 ⌘V. `deactivating` 이면 앱을 비활성으로 만들어 키 윈도를 없앤다.
+    private func pasteRound(deactivating: Bool) async -> String {
+        model.clear()
+        show()
+        // 활성화는 비동기다. 자리 잡을 틈을 준다.
+        try? await Task.sleep(for: .milliseconds(600))
+        if deactivating {
+            NSApp.deactivate()
+            try? await Task.sleep(for: .milliseconds(400))
+        }
+
+        guard let textView = panel.contentView?.firstTextView as? MemoNSTextView else {
+            close(returningFocus: false)
+            return "텍스트 뷰 없음"
+        }
+        let focused = panel.firstResponder === textView
+        let key = panel.isKeyWindow
+
+        // 먼저 **맨 글자**를 보낸다. 글자는 들어가는데 ⌘V 만 죽는 것인지,
+        // 아니면 키가 통째로 안 오는 것인지 — 사용자가 보는 증상이 갈리는
+        // 자리가 여기다.
+        if let plain = NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+            windowNumber: panel.windowNumber, context: nil,
+            characters: "ㄱ", charactersIgnoringModifiers: "ㄱ", isARepeat: false, keyCode: 4
+        ) {
+            NSApp.sendEvent(plain)
+        }
+        try? await Task.sleep(for: .milliseconds(120))
+        let typed = !model.query.isEmpty
+
+        guard let event = NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
+            windowNumber: panel.windowNumber, context: nil,
+            characters: "v", charactersIgnoringModifiers: "v", isARepeat: false, keyCode: 9
+        ) else {
+            close(returningFocus: false)
+            return "이벤트 생성 실패"
+        }
+
+        NSApp.sendEvent(event)
+        // 파일을 쓰고 그 결과가 모델까지 오는 데 한 박자 걸린다.
+        try? await Task.sleep(for: .milliseconds(250))
+
+        let references = MarkdownScanner.imagePaths(in: model.query)
+        let onDisk = !references.isEmpty && references
+            .compactMap { store.attachments.url(for: $0) }
+            .allSatisfy { FileManager.default.fileExists(atPath: $0.path(percentEncoded: false)) }
+
+        close(returningFocus: false)
+        return "커서=\(focused) 키윈도=\(key) 글자=\(typed) "
+            + "넣음=\(references.count) 조각=\(model.images.count) 파일=\(onDisk)"
     }
 
     private func postClick(toWindow number: Int) async {

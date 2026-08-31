@@ -77,8 +77,13 @@ enum InkBleed {
 
     /// 얼룩의 반지름. 칸의 짧은 변을 기준으로 잡아 5주 달과 6주 달에서
     /// 같은 비율로 보이게 한다.
+    ///
+    /// **폭이 좁았다.** 한 건과 네 건의 지름 차이가 30% 뿐이라 나란히 놓아도
+    /// 같은 크기로 보였고, 그러면 얼룩은 "이 날은 붐빈다" 를 말하지 못한 채
+    /// 그냥 종이에 묻은 자국 — 인쇄 얼룩 — 이 된다. 한 건은 더 작게, 붐비는
+    /// 날은 더 크게 벌린다 (`legibleSpan`).
     static func radius(cell: CGSize, spread: Double) -> CGFloat {
-        min(cell.width, cell.height) * CGFloat(0.14 + 0.12 * spread)
+        min(cell.width, cell.height) * CGFloat(0.11 + 0.22 * spread)
     }
 
     /// 얼룩 한복판의 세기. 가장자리로 가며 사라지므로 눈에 닿는 색은 이보다
@@ -86,9 +91,17 @@ enum InkBleed {
     ///
     /// 뒤에 겹치는 색일수록 조금씩 옅다. 종이를 더 먹으면 그것은 얼룩이
     /// 아니라 칠이다.
+    ///
+    /// **대비도 폭과 같은 이유로 벌린다.** 한 건은 슬쩍 밴 자국, 네 건은
+    /// 종이가 젖을 만큼 — 한눈에 갈리는 것이 이 표시의 전부다.
     static func alpha(spread: Double, order: Int) -> Double {
-        (0.46 + 0.30 * spread) * pow(0.86, Double(order))
+        (0.30 + 0.58 * spread) * pow(0.86, Double(order))
     }
+
+    /// 한 건과 네 건이 이만큼은 갈려야 한다. 폭과 대비 양쪽에 같은 잣대를
+    /// 대고 시험이 못 박는다 (`CalendarInkTests`) — 화면에서는 "좀 진한가"
+    /// 까지밖에 말할 수 없는 종류의 값이다.
+    static let legibleSpan = 1.4
 }
 
 // MARK: - 마름

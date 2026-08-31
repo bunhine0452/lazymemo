@@ -38,3 +38,25 @@ trap 'kill "$APP_PID" 2>/dev/null || true; rm -rf "$VAULT"' EXIT
 echo "▸ 임시 Vault: $VAULT"
 # 메모 2장 + 캘린더 1개
 swift "$ROOT/scripts/verify-window.swift" "$APP_PID" --expect 3
+
+# 종이가 **창 전환기에 서지 않는지.** 화면으로는 확인할 수 없다 — 표준 창이든
+# 떠 있는 창이든 그림은 똑같고, 다른 점은 AltTab 같은 창 단위 전환기가 이 창을
+# 목록에 넣느냐뿐이다. 앱에게 직접 물어본다.
+ROLE="$(LAZYMEMO_VAULT="$VAULT" LAZYMEMO_WINDOWROLE=1 "$BIN" 2>&1 | sed -n 's/^\[capture\] 창역할 //p')"
+echo "▸ $ROLE"
+
+# AXStandardWindow 는 물론이고 AXDialog 도 안 된다 — 창 전환기는 둘 다 목록에
+# 넣는다. 떠 있는 창이라고 밝혀야 빠진다.
+case "$ROLE" in
+    *"subrole=AXFloatingWindow"*"비활성숨김=false"*)
+        echo "✓ 종이는 떠 있는 창이라 창 전환기에 서지 않고, 다른 앱을 써도 사라지지 않습니다"
+        ;;
+    *"비활성숨김=true"*)
+        echo "✗ 다른 앱을 쓰는 동안 메모가 화면에서 사라집니다 (hidesOnDeactivate)"
+        exit 1
+        ;;
+    *)
+        echo "✗ 종이가 창 전환기에 설 역할입니다 — 알트탭에 메모가 줄줄이 섭니다: $ROLE"
+        exit 1
+        ;;
+esac

@@ -63,6 +63,7 @@ public enum MemoFile {
             pinned: frontmatter.bool("pinned") ?? false,
             body: body,
             deleted: frontmatter.string("deleted").flatMap(Timestamp.date(from:)),
+            tidied: frontmatter.string("tidied").flatMap(Timestamp.date(from:)),
             preserved: frontmatter.excluding(Memo.knownKeys)
         )
     }
@@ -89,6 +90,9 @@ public enum MemoFile {
         lines.append(Frontmatter.line(key: "pinned", scalar: memo.pinned ? "true" : "false"))
         if let deleted = memo.deleted {
             lines.append(Frontmatter.line(key: "deleted", scalar: Timestamp.string(from: deleted, timeZone: timeZone)))
+        }
+        if let tidied = memo.tidied {
+            lines.append(Frontmatter.line(key: "tidied", scalar: Timestamp.string(from: tidied, timeZone: timeZone)))
         }
 
         // 모르는 필드는 원문 그대로. 이해하지 못한 것을 다시 쓰려 하지 않는다.

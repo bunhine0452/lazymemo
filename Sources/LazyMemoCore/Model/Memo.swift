@@ -28,12 +28,20 @@ public struct Memo: Sendable, Equatable, Identifiable {
     /// 인덱스가 아니라 파일에 두는 이유는 인덱스를 지워도 살아남아야 하기 때문이다.
     public var deleted: Date?
 
+    /// 스스로 물러난 때 (`Tidy`). 채워져 있으면 바탕화면과 목록에서 빠진다 —
+    /// **지운 것이 아니다.** 파일에도, 검색에도, 달력에도 그대로 있다.
+    ///
+    /// `layout.json` 이 아니라 파일에 두는 이유는 `deleted` 와 같다. 파생물에
+    /// 두면 Application Support 를 지우는 것만으로 몇 달치 끝난 메모가 한꺼번에
+    /// 바탕화면으로 되살아난다 — 복원이 아니라 사고다.
+    public var tidied: Date?
+
     /// 앱이 모르는 frontmatter 필드. 읽은 그대로 되쓴다.
     public var preserved: [Frontmatter.Entry]
 
     /// 앱이 해석하는 키 — 나머지는 전부 `preserved` 로 간다.
     public static let knownKeys: Set<String> = [
-        "id", "created", "updated", "due", "at", "tags", "color", "pinned", "deleted",
+        "id", "created", "updated", "due", "at", "tags", "color", "pinned", "deleted", "tidied",
     ]
 
     public init(
@@ -47,6 +55,7 @@ public struct Memo: Sendable, Equatable, Identifiable {
         pinned: Bool = false,
         body: String = "",
         deleted: Date? = nil,
+        tidied: Date? = nil,
         preserved: [Frontmatter.Entry] = []
     ) {
         self.id = id
@@ -61,6 +70,7 @@ public struct Memo: Sendable, Equatable, Identifiable {
         self.pinned = pinned
         self.body = body
         self.deleted = deleted
+        self.tidied = tidied
         self.preserved = preserved
     }
 

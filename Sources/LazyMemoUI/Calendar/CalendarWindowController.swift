@@ -148,6 +148,15 @@ final class CalendarWindowController: NSObject, NSWindowDelegate {
         Task { await model.refresh() }
     }
 
+    /// 하루가 바뀌었다 (`DayClock`).
+    ///
+    /// **창이 닫혀 있어도 모델에는 알린다.** 모델은 창보다 오래 살아서(앱과
+    /// 같이 산다) 여기서 건너뛰면 며칠 뒤에 연 달력이 그 며칠 전의 오늘을
+    /// 들고 나온다.
+    func dayChanged(to day: CalendarDate) {
+        model.dayChanged(to: day)
+    }
+
     private func resolveFrame() -> CGRect {
         let screens = NSScreen.screens.map(\.visibleFrame)
         let fallback = NSScreen.main?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1440, height: 900)

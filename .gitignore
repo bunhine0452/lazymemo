@@ -21,3 +21,6 @@ build/
 
 # macOS
 .DS_Store
+
+# 세션 스크래치가 새어 들어온 자리 (렌더 임시 출력)
+private/

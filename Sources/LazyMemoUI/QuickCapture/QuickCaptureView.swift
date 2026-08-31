@@ -38,8 +38,11 @@ struct QuickCaptureView: View {
     private static let maximumEditorHeight: CGFloat = 150
     private static let arrowSize = CGSize(width: 20, height: 9)
 
+    /// 키보드로 고른 메모. **포인터가 얹힌 줄은 여기 오지 않는다** — 아래
+    /// 힌트 줄이 말하는 「열기」와 「⌘⌫ 지우기」가 곧 지금 키가 할 일이라,
+    /// 손이 스쳤다는 이유로 바뀌면 그 줄은 거짓말이 된다.
     private var selectedMemo: Memo? {
-        model.selection.flatMap { model.listed.indices.contains($0) ? model.listed[$0] : nil }
+        model.selectedID.flatMap { id in model.listed.first { $0.id == id } }
     }
 
     // 글머리에 있던 **보라색 점은 걷어냈다.**
@@ -57,9 +60,11 @@ struct QuickCaptureView: View {
         }
         .frame(width: QuickCaptureController.width)
         .animation(Theme.reveal, value: model.listed.count)
-        .animation(Theme.reveal, value: model.selection)
+        .animation(Theme.reveal, value: model.selectedID)
+        .animation(Theme.reveal, value: model.pointed)
         .animation(Theme.reveal, value: model.scheduleLabel)
         .animation(Theme.reveal, value: model.lastDeleted?.id)
+        .animation(Theme.reveal, value: model.isExpanded)
     }
 
     private var bubble: some View {
@@ -164,18 +169,76 @@ struct QuickCaptureView: View {
 
     // MARK: 검색 결과
 
-    /// 놓인 메모들. 누르면 열리고, 포인터가 얹히면 화살표로 고른 것과
-    /// 같은 자리가 밝아진다 — 손과 키보드가 같은 것을 가리켜야 한다.
+    /// 놓인 메모들. 누르면 열리고, 포인터가 얹히면 그 줄이 살짝 떠오른다.
+    ///
+    /// **손이 얹힌 것과 키보드로 고른 것을 갈라 놓는다.** 예전에는 스치기만
+    /// 해도 그것이 곧 선택이어서, 세 줄 적다가 마우스가 목록을 한 번
+    /// 지나가면 ⌘⏎ 가 「적기 끝」에서 「남의 메모 열기」로 바뀌었다 — 적던
+    /// 글은 저장되지 않은 채. 손은 **무엇을 누를 수 있는지**만 비추고,
+    /// 키가 무엇을 할지는 화살표와 클릭만 정한다.
     private var results: some View {
         VStack(spacing: 0) {
             ForEach(Array(model.listed.enumerated()), id: \.element.id) { index, memo in
-                row(memo, index: index, isSelected: model.selection == index)
-                    .onHover { inside in
-                        if inside { model.selection = index }
-                    }
+                row(
+                    memo, index: index,
+                    isSelected: model.selectedID == memo.id,
+                    isPointed: pointedID == memo.id
+                )
+                .onHover { inside in
+                    if inside { model.pointed = memo.id }
+                    else if model.pointed == memo.id { model.pointed = nil }
+                }
             }
+
+            if let overflow = model.overflow { overflowLine(overflow) }
         }
         .padding(.vertical, Theme.tight)
+    }
+
+    /// 목록의 마지막 줄 — **끊긴 자리에 끊겼다고 적는다.**
+    ///
+    /// 다섯 줄에서 그냥 잘려 있으면 사람은 그것을 "이게 전부" 로 읽는다.
+    /// 그래서 아홉 번째 메모는 있는 줄도 모르는 채 다시 적히고, 스무 장이
+    /// 넘어가면 이 앱은 조용히 반쯤만 있는 앱이 된다.
+    ///
+    /// 넓히는 손짓이 둘이다 — 이 줄을 누르거나, 마지막 줄에서 ↓ 를 한 번 더.
+    /// 손이 어디에 있든 이미 하던 동작이 그대로 이어진다.
+    @ViewBuilder
+    private func overflowLine(_ overflow: QuickCaptureModel.Overflow) -> some View {
+        switch overflow {
+        case .more(let count):
+            Button { model.expand() } label: {
+                HStack(spacing: Theme.tight) {
+                    Text("… 외 \(count)장 더")
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 8, weight: .semibold))
+                    Spacer(minLength: 0)
+                }
+                .font(Theme.micro)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, Theme.loose)
+                .padding(.vertical, Theme.tight)
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .spoken("외 \(count)장 더 — 눌러서 목록을 넓힙니다")
+
+        case .tooMany(let count):
+            // 넓힐 만큼 넓혔다. 여기서 더 늘리는 것은 답이 아니라서
+            // **길을 바꿔 말한다** — 스무 줄을 훑는 것보다 한 글자 더 치는 편이 짧다.
+            Text("… \(count)장 더 있습니다 — 낱말을 더 적으면 좁혀집니다")
+                .font(Theme.micro)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+                .padding(.horizontal, Theme.loose)
+                .padding(.vertical, Theme.tight)
+        }
+    }
+
+    /// 지금 포인터가 얹힌 줄. 화면 밖 렌더에서는 연출값이 대신한다 (§14.9).
+    private var pointedID: ULID? {
+        guard let stagedTrashRow else { return model.pointed }
+        return model.listed[safe: stagedTrashRow]?.id
     }
 
     /// 한 줄에 셋 — 종이 색 점, 제목, 시간 한 조각.
@@ -184,7 +247,7 @@ struct QuickCaptureView: View {
     /// 그리면 사람은 그것을 두 개의 목록으로 배운다. 찬 점은 바탕화면에 나와
     /// 있는 종이, 빈 점은 치워 둔 것 — 누르기 전에 "새로 뜬다" 인지 "앞으로
     /// 나온다" 인지 알 수 있다.
-    private func row(_ memo: Memo, index: Int, isSelected: Bool) -> some View {
+    private func row(_ memo: Memo, index: Int, isSelected: Bool, isPointed: Bool) -> some View {
         HStack(spacing: Theme.snug) {
             // 여는 자리와 지우는 자리를 **한 뷰에 겹치지 않는다.** 겹치면
             // 누르기 하나를 놓고 둘이 다투고, 어느 쪽이 이기는지가 상황마다
@@ -203,21 +266,31 @@ struct QuickCaptureView: View {
                     .foregroundStyle(.secondary)
             }
             .contentShape(.rect)
+            // 줄을 **직접 누른 것**은 고른 것이다 — 스치는 것과 다르다.
             .onTapGesture {
                 model.selection = index
                 onCommit()
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(Text("\(memo.title), \(MemoTimeLabel.text(for: memo))"))
+            .accessibilityHint(Text("열기"))
 
-            CaptureRowTrash(isLit: isSelected, staged: stagedTrashRow == index) {
+            RowTrash(isLit: isSelected || isPointed, staged: stagedTrashRow == index) {
                 Task { await model.delete(memo) }
             }
         }
         .padding(.horizontal, Theme.loose)
         .padding(.vertical, Theme.tight)
+        // 두 상태를 **다른 세기로** 그린다. 같은 자국으로 그리면 손이 스친 줄이
+        // 골라진 줄처럼 보이고, 그러면 화면이 ⌘⏎ 에 대해 거짓말을 한다.
         .background {
             if isSelected {
                 RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
                     .fill(memo.color.tint.opacity(0.20))
+                    .padding(.horizontal, Theme.snug)
+            } else if isPointed {
+                RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
+                    .fill(Paper.ink.opacity(0.05))
                     .padding(.horizontal, Theme.snug)
             }
         }
@@ -250,7 +323,8 @@ struct QuickCaptureView: View {
                 Task { await model.restoreLastDeleted() }
             }
             .buttonStyle(.plain)
-            .foregroundStyle(Theme.accent)
+            .foregroundStyle(Theme.accentInk)
+            .spoken("되돌리기 — 방금 지운 메모를 되살립니다")
         }
         .font(Theme.micro)
         .foregroundStyle(.secondary)
@@ -338,45 +412,6 @@ struct QuickCaptureView: View {
     private func isCursorAtEnd(_ textView: NSTextView) -> Bool {
         let selection = textView.selectedRange()
         return selection.location + selection.length >= (textView.string as NSString).length
-    }
-}
-
-/// 목록 줄의 휴지통.
-///
-/// **아주 숨기지는 않는다** — 메뉴 목록과 같은 규칙이다 (`MemoRow`). 포인터가
-/// 온 줄에서만 나타나게 하면 화면은 깨끗해지지만, 있는 줄을 모르는 조작은
-/// 없는 것과 같다. 골라진 줄에서 또렷해지고(포인터가 얹혀도 그 줄이 골라진다),
-/// 휴지통 위에 오면 붉은 원이 깔린다 — 누르기 **전에** 다른 종류의 버튼임을
-/// 말한다.
-private struct CaptureRowTrash: View {
-    /// 이 줄이 골라져 있는가. 손과 키보드가 같은 밝기를 본다.
-    let isLit: Bool
-    /// 화면 밖 렌더에서 포인터를 흉내 낸다 (§14.9).
-    var staged = false
-    let action: () -> Void
-
-    @State private var isOver = false
-
-    /// 평상시 세기. 있는 줄을 알 만큼만 (메뉴 목록의 24% 와 같은 뜻).
-    private static let resting: Double = 0.28
-
-    private var over: Bool { staged || isOver }
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: "trash")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(over ? AnyShapeStyle(.white) : AnyShapeStyle(Theme.danger))
-                .opacity(over ? 1 : (isLit ? 0.85 : Self.resting))
-                .frame(width: 20, height: 20)
-                .background {
-                    if over { Circle().fill(Theme.danger) }
-                }
-        }
-        .buttonStyle(.plain)
-        .help("지우기 — 바로 아래 줄에서 되돌릴 수 있습니다")
-        .onHover { isOver = $0 }
-        .animation(Theme.reveal, value: over)
     }
 }
 

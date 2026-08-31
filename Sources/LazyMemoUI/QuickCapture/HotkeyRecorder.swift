@@ -118,7 +118,7 @@ private struct HotkeyRecorderView: View {
 
             Text(model.current.displayName)
                 .font(.system(size: 26, weight: .light, design: .rounded))
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(Theme.accentInk)
                 .padding(.horizontal, Theme.normal)
                 .padding(.vertical, Theme.tight)
                 .background(

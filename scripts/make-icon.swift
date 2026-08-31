@@ -12,29 +12,31 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
-// MARK: - 팔레트
+// // MARK: - 팔레트 (Pro macOS Stationery)
 
 enum Palette {
-    /// 배경 그라디언트 — 밤의 책상.
-    static let backgroundTop = CGColor(red: 0.44, green: 0.41, blue: 0.72, alpha: 1)
-    static let backgroundBottom = CGColor(red: 0.13, green: 0.11, blue: 0.26, alpha: 1)
+    /// 묵직하고 차분한 슬레이트 네이비 데스크 베이스플레이트
+    static let backgroundTop = CGColor(red: 0.16, green: 0.19, blue: 0.26, alpha: 1)
+    static let backgroundBottom = CGColor(red: 0.09, green: 0.11, blue: 0.15, alpha: 1)
 
-    /// 획 그라디언트 — 크림에서 호박색으로.
-    static let strokeTop = CGColor(red: 0.98, green: 0.96, blue: 0.91, alpha: 1)
-    static let strokeBottom = CGColor(red: 0.99, green: 0.78, blue: 0.35, alpha: 1)
+    /// 300g 고급 웜 코튼 페이퍼
+    static let paperTop = CGColor(red: 0.995, green: 0.99, blue: 0.975, alpha: 1)
+    static let paperBottom = CGColor(red: 0.94, green: 0.92, blue: 0.88, alpha: 1)
+    static let paperEdge = CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.85)
 
-    static let paperTop = CGColor(red: 1.0, green: 0.99, blue: 0.965, alpha: 1)
-    static let paperBottom = CGColor(red: 0.96, green: 0.935, blue: 0.885, alpha: 1)
-    static let ink = CGColor(red: 0.17, green: 0.16, blue: 0.29, alpha: 1)
-    static let amber = CGColor(red: 0.99, green: 0.76, blue: 0.31, alpha: 1)
+    /// 딥 프러시안 만년필 잉크 & 웜 앰버 하이라이트
+    static let deepInk = CGColor(red: 0.11, green: 0.15, blue: 0.22, alpha: 1)
+    static let amberInk = CGColor(red: 0.88, green: 0.54, blue: 0.18, alpha: 1)
+    static let subtleDot = CGColor(red: 0.11, green: 0.15, blue: 0.22, alpha: 0.12)
+
+    /// 브라스 / 코퍼 클립 악센트
+    static let brassTop = CGColor(red: 0.82, green: 0.64, blue: 0.38, alpha: 1)
+    static let brassBottom = CGColor(red: 0.62, green: 0.44, blue: 0.22, alpha: 1)
 }
 
 // MARK: - 도형
 
 /// 애플식 연속 곡률 모서리에 가까운 초타원.
-///
-/// `CGPath(roundedRect:)` 의 원형 모서리는 시스템 아이콘 옆에 두면 미묘하게
-/// 어색하다. n=5 초타원이 눈에 띄게 가깝다.
 func squirclePath(in rect: CGRect, exponent: Double = 5) -> CGPath {
     let path = CGMutablePath()
     let halfWidth = rect.width / 2
@@ -55,9 +57,6 @@ func squirclePath(in rect: CGRect, exponent: Double = 5) -> CGPath {
 }
 
 /// 종이 카드. `fold` 를 주면 오른쪽 아래 모서리가 접힌다.
-///
-/// 아랫변을 늘어뜨리는 안은 버렸다 — 둥근 사각형의 아래가 처지면 사람은
-/// 그것을 말풍선으로 읽는다. 종이는 종이답게 반듯해야 한다.
 func notePath(in rect: CGRect, cornerRadius radius: CGFloat, fold: CGFloat = 0) -> CGPath {
     let path = CGMutablePath()
 
@@ -84,31 +83,27 @@ func notePath(in rect: CGRect, cornerRadius radius: CGFloat, fold: CGFloat = 0) 
     return path
 }
 
-/// 접힌 모서리에 드러나는 종이 뒷면.
+/// 접힌 모서리에 드러나는 종이 뒷면 및 그림자.
 func foldPath(in rect: CGRect, fold: CGFloat) -> CGPath {
     let path = CGMutablePath()
     path.move(to: CGPoint(x: rect.maxX, y: rect.maxY - fold))
     path.addLine(to: CGPoint(x: rect.maxX - fold, y: rect.maxY))
-    path.addLine(to: CGPoint(x: rect.maxX - fold, y: rect.maxY - fold))
+    path.addLine(to: CGPoint(x: rect.maxX - fold + 4, y: rect.maxY - fold + 4))
     path.closeSubpath()
     return path
 }
 
-/// 첫 줄 — 반듯하게 쓴 글.
+/// 첫 줄 — 반듯하게 쓴 만년필 글줄.
 func firstLinePath(in card: CGRect) -> CGPath {
     let path = CGMutablePath()
-    let inset = card.width * 0.18
-    let y = card.minY + card.height * 0.38
-    path.move(to: CGPoint(x: card.minX + inset, y: y))
-    path.addLine(to: CGPoint(x: card.maxX - inset, y: y))
+    let insetX = card.width * 0.16
+    let y = card.minY + card.height * 0.36
+    path.move(to: CGPoint(x: card.minX + insetX, y: y))
+    path.addLine(to: CGPoint(x: card.maxX - insetX, y: y))
     return path
 }
 
-/// 굵기가 변하는 획. 3차 베지에 중심선을 따라가며 법선 방향으로
-/// 폭을 보간해 채울 도형을 만든다.
-///
-/// CoreGraphics 의 stroke 는 굵기가 일정해서 이 표현을 못 한다. 끝이
-/// 가늘어지는 획이 이 아이콘의 서명이라 직접 만들 값어치가 있다.
+/// 굵기가 변하는 테이퍼드 획.
 func taperedStroke(
     from start: CGPoint, to end: CGPoint,
     control1: CGPoint, control2: CGPoint,
@@ -135,7 +130,6 @@ func taperedStroke(
         let t = CGFloat(step) / CGFloat(samples)
         let center = point(t)
         let unit = normal(t)
-        // 끝으로 갈수록 빠르게 가늘어져야 "흐지부지"로 읽힌다.
         let half = (startWidth + (endWidth - startWidth) * pow(t, 0.75)) / 2
         upper.append(CGPoint(x: center.x + unit.dx * half, y: center.y + unit.dy * half))
         lower.append(CGPoint(x: center.x - unit.dx * half, y: center.y - unit.dy * half))
@@ -149,48 +143,32 @@ func taperedStroke(
     return path
 }
 
-/// 획 시작의 둥근 마무리. 본체와 같은 패스에 넣으면 감김 방향이 상쇄돼
-/// 이가 빠진 자국이 생기므로 따로 칠한다.
 func strokeCap(at point: CGPoint, width: CGFloat) -> CGPath {
     CGPath(ellipseIn: CGRect(
         x: point.x - width / 2, y: point.y - width / 2, width: width, height: width
     ), transform: nil)
 }
 
-/// 둘째 줄 — 쓰다 말고 흘러내린다.
-///
-/// **아이콘의 요지가 여기 있다.** 게으름을 그릇의 모양이 아니라 글씨의
-/// 태도로 표현한다. 다 적지 않아도 남는다는 것이 이 앱의 약속이다.
-///
-/// 굵기가 일정하면 갈고리(✓)나 물결(~)로 읽힌다. 끝으로 갈수록 가늘어져야
-/// "꺾였다"가 아니라 "흐지부지 됐다"가 된다.
 func trailingLineStart(in card: CGRect) -> CGPoint {
-    CGPoint(x: card.minX + card.width * 0.18, y: card.minY + card.height * 0.585)
+    CGPoint(x: card.minX + card.width * 0.16, y: card.minY + card.height * 0.56)
 }
 
 func trailingLinePath(in card: CGRect, weight: CGFloat) -> CGPath {
     let start = trailingLineStart(in: card)
-
-    // 직선 구간을 길게 두고 하강을 얕게 잡아야 장식 스와시가 아니라
-    // "쓰다 만 글줄"로 읽힌다.
-    // 꼬리를 너무 길고 가늘게 빼면 32px 에서 사라진다. 작은 크기에서도
-    // "짧고 기운 둘째 줄"로는 남도록 길이와 끝 굵기를 잡았다.
     return taperedStroke(
         from: start,
-        to: CGPoint(x: start.x + card.width * 0.50, y: start.y + card.height * 0.135),
-        control1: CGPoint(x: start.x + card.width * 0.38, y: start.y),
-        control2: CGPoint(x: start.x + card.width * 0.42, y: start.y + card.height * 0.075),
-        startWidth: weight, endWidth: weight * 0.14
+        to: CGPoint(x: start.x + card.width * 0.54, y: start.y + card.height * 0.14),
+        control1: CGPoint(x: start.x + card.width * 0.40, y: start.y),
+        control2: CGPoint(x: start.x + card.width * 0.46, y: start.y + card.height * 0.08),
+        startWidth: weight, endWidth: weight * 0.12
     )
 }
 
-/// 메뉴바처럼 작은 자리에서는 곡선이 뭉갠다. 기울어진 짧은 직선이
-/// 같은 뜻을 전하면서 픽셀에서 살아남는다.
 func trailingLineSimplified(in card: CGRect) -> CGPath {
     let path = CGMutablePath()
     let inset = card.width * 0.18
     let left = card.minX + inset
-    let y = card.minY + card.height * 0.60
+    let y = card.minY + card.height * 0.58
 
     path.move(to: CGPoint(x: left, y: y))
     path.addLine(to: CGPoint(x: left + card.width * 0.46, y: y + card.height * 0.13))
@@ -199,7 +177,6 @@ func trailingLineSimplified(in card: CGRect) -> CGPath {
 
 // MARK: - 그리기
 
-/// 위에서 아래로 흐르는 선형 그라디언트를 현재 클립 안에 채운다.
 func fillVerticalGradient(_ context: CGContext, in rect: CGRect, from top: CGColor, to bottom: CGColor) {
     let space = CGColorSpaceCreateDeviceRGB()
     guard let gradient = CGGradient(
@@ -214,99 +191,173 @@ func fillVerticalGradient(_ context: CGContext, in rect: CGRect, from top: CGCol
 }
 
 enum Variant: String {
-    /// 살짝 기울어진 종이.
     case tilted = "a"
-    /// 정면으로 놓인 종이.
     case upright = "b"
 }
 
-/// 1024 좌표계에서 그리고 마지막에 축소한다 — 크기마다 비례가 흔들리지 않는다.
 func drawIcon(_ context: CGContext, size: CGFloat, variant: Variant) {
     let unit = size / 1024
     context.saveGState()
-    // 원점을 좌상단으로 뒤집는다. 위치를 읽기 쉬워진다.
     context.translateBy(x: 0, y: size)
     context.scaleBy(x: unit, y: -unit)
 
-    // 아이콘 판. macOS 아이콘은 캔버스 가장자리에 여백을 둔다.
+    // macOS 베이스플레이트 규격 (824x824)
     let plate = CGRect(x: 100, y: 100, width: 824, height: 824)
 
+    // 1. 베이스플레이트 본체 및 슬레이트 그라디언트
     context.saveGState()
     context.addPath(squirclePath(in: plate))
     context.clip()
     fillVerticalGradient(context, in: plate, from: Palette.backgroundTop, to: Palette.backgroundBottom)
 
-    // 위쪽에서 들어오는 빛. 없으면 판이 납작해 보인다.
-    let highlight = CGRect(x: plate.minX, y: plate.minY, width: plate.width, height: plate.height * 0.55)
+    // 2. 상단 소프트 조명 (90° Top-Down Lighting)
+    let highlight = CGRect(x: plate.minX, y: plate.minY, width: plate.width, height: plate.height * 0.5)
     fillVerticalGradient(
         context, in: highlight,
-        from: CGColor(red: 1, green: 1, blue: 1, alpha: 0.14),
+        from: CGColor(red: 1, green: 1, blue: 1, alpha: 0.08),
         to: CGColor(red: 1, green: 1, blue: 1, alpha: 0)
     )
-    // 위 가장자리에 얇은 빛. macOS 아이콘의 입체감은 대부분 여기서 온다.
+
+    // 3. Apple 정품 1px 마이크로 이너 베벨 림 라이트
     context.saveGState()
     context.addPath(squirclePath(in: plate))
     context.clip()
-    context.addPath(squirclePath(in: plate.insetBy(dx: 5, dy: 5)))
+    context.addPath(squirclePath(in: plate.insetBy(dx: 4, dy: 4)))
     context.addPath(squirclePath(in: plate))
-    context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.22))
+    context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.16))
     context.fillPath(using: .evenOdd)
     context.restoreGState()
 
     context.restoreGState()
 
+    // 4. 중앙 고급 코튼 페이퍼 메모 카드 렌더링
     switch variant {
     case .tilted:
-        drawNote(context, tilt: -3.5, fold: 0)
+        drawNote(context, tilt: -2.8, fold: 48)
     case .upright:
-        drawNote(context, tilt: 0, fold: 0)
+        drawNote(context, tilt: 0, fold: 48)
     }
 
     context.restoreGState()
 }
 
 private func drawNote(_ context: CGContext, tilt: CGFloat, fold: CGFloat) {
-    let card = CGRect(x: 274, y: 250, width: 476, height: 524)
+    let card = CGRect(x: 254, y: 228, width: 516, height: 568)
 
     context.saveGState()
     context.translateBy(x: card.midX, y: card.midY)
     context.rotate(by: tilt * .pi / 180)
     context.translateBy(x: -card.midX, y: -card.midY)
 
-    context.setShadow(offset: CGSize(width: 0, height: -20), blur: 48,
-                      color: CGColor(red: 0.05, green: 0.04, blue: 0.12, alpha: 0.45))
-    // 그림자를 그리려면 한 번은 채워야 한다. 그 위에 그라디언트를 덮는다.
-    context.addPath(notePath(in: card, cornerRadius: 44, fold: fold))
+    // A. 2중 물리 섀도우: 1차 원거리 앰비언트 섀도우
+    context.saveGState()
+    context.setShadow(offset: CGSize(width: 0, height: -24), blur: 38,
+                      color: CGColor(red: 0.02, green: 0.03, blue: 0.06, alpha: 0.42))
+    context.addPath(notePath(in: card, cornerRadius: 40, fold: fold))
     context.setFillColor(Palette.paperTop)
     context.fillPath()
-    context.setShadow(offset: .zero, blur: 0, color: nil)
-
-    // 종이에도 판과 같은 방향의 빛을 준다. 평평한 크림 한 색은 인쇄물처럼 보인다.
-    context.saveGState()
-    context.addPath(notePath(in: card, cornerRadius: 44, fold: fold))
-    context.clip()
-    fillVerticalGradient(context, in: card, from: Palette.paperTop, to: Palette.paperBottom)
     context.restoreGState()
 
+    // B. 2중 물리 섀도우: 2차 근접 접촉 섀도우 (Contact Shadow)
+    context.saveGState()
+    context.setShadow(offset: CGSize(width: 0, height: -5), blur: 10,
+                      color: CGColor(red: 0.02, green: 0.03, blue: 0.06, alpha: 0.28))
+    context.addPath(notePath(in: card, cornerRadius: 40, fold: fold))
+    context.setFillColor(Palette.paperTop)
+    context.fillPath()
+    context.restoreGState()
+
+    // C. 코튼 종이 본체 텍스처 & 그라디언트 채우기
+    context.saveGState()
+    context.addPath(notePath(in: card, cornerRadius: 40, fold: fold))
+    context.clip()
+    fillVerticalGradient(context, in: card, from: Palette.paperTop, to: Palette.paperBottom)
+
+    // C-1. 은은한 도트 그리드 (미세 크래프트 디테일)
+    let dotSpacing: CGFloat = 46
+    let dotRadius: CGFloat = 2.2
+    for x in stride(from: card.minX + 54, through: card.maxX - 54, by: dotSpacing) {
+        for y in stride(from: card.minY + 60, through: card.maxY - 60, by: dotSpacing) {
+            context.addEllipse(in: CGRect(x: x - dotRadius, y: y - dotRadius, width: dotRadius * 2, height: dotRadius * 2))
+        }
+    }
+    context.setFillColor(Palette.subtleDot)
+    context.fillPath()
+
+    // C-2. 상단 1px 에지 하이라이트
+    context.setStrokeColor(Palette.paperEdge)
+    context.setLineWidth(2)
+    context.move(to: CGPoint(x: card.minX + 40, y: card.minY + 1))
+    context.addLine(to: CGPoint(x: card.maxX - 40, y: card.minY + 1))
+    context.strokePath()
+    context.restoreGState()
+
+    // D. 접힌 모서리 (Corner Fold) 및 사실적 음영
     if fold > 0 {
-        context.addPath(foldPath(in: card, fold: fold))
-        context.setFillColor(CGColor(red: 0.84, green: 0.81, blue: 0.75, alpha: 1))
+        let foldTriangle = CGMutablePath()
+        foldTriangle.move(to: CGPoint(x: card.maxX, y: card.maxY - fold))
+        foldTriangle.addLine(to: CGPoint(x: card.maxX - fold, y: card.maxY))
+        foldTriangle.addLine(to: CGPoint(x: card.maxX - fold, y: card.maxY - fold))
+        foldTriangle.closeSubpath()
+
+        // 접힌 부분 아래 부드러운 앰비언트 그림자
+        context.saveGState()
+        context.setShadow(offset: CGSize(width: -2, height: -2), blur: 5,
+                          color: CGColor(red: 0.05, green: 0.05, blue: 0.1, alpha: 0.35))
+        context.addPath(foldTriangle)
+        context.setFillColor(CGColor(red: 0.90, green: 0.88, blue: 0.84, alpha: 1))
         context.fillPath()
+        context.restoreGState()
+
+        // 접힌 면 자체의 그라디언트
+        context.saveGState()
+        context.addPath(foldTriangle)
+        context.clip()
+        fillVerticalGradient(context, in: CGRect(x: card.maxX - fold, y: card.maxY - fold, width: fold, height: fold),
+                             from: CGColor(red: 0.96, green: 0.94, blue: 0.90, alpha: 1),
+                             to: CGColor(red: 0.82, green: 0.80, blue: 0.76, alpha: 1))
+        context.restoreGState()
     }
 
-    context.setLineWidth(46)
+    // E. 만년필 잉크 획 (딥 인디고 첫 줄 + 테이퍼드 앰버 둘째 줄)
+    context.setLineWidth(44)
     context.setLineCap(.round)
     context.setLineJoin(.round)
 
-    context.setStrokeColor(Palette.ink)
+    context.setStrokeColor(Palette.deepInk)
     context.addPath(firstLinePath(in: card))
     context.strokePath()
 
-    context.setFillColor(Palette.amber)
-    context.addPath(strokeCap(at: trailingLineStart(in: card), width: 46))
+    context.setFillColor(Palette.amberInk)
+    context.addPath(strokeCap(at: trailingLineStart(in: card), width: 44))
     context.fillPath()
-    context.addPath(trailingLinePath(in: card, weight: 46))
+    context.addPath(trailingLinePath(in: card, weight: 44))
     context.fillPath()
+
+    // F. 상단 브라스(황동) 클립 (고급 문구류 디테일)
+    let clipOuter = CGRect(x: card.minX + 64, y: card.minY - 18, width: 34, height: 76)
+    context.saveGState()
+    context.setShadow(offset: CGSize(width: 0, height: -3), blur: 6,
+                      color: CGColor(red: 0.05, green: 0.05, blue: 0.1, alpha: 0.35))
+    
+    // 외부 클립 바디
+    let clipPath = CGMutablePath()
+    clipPath.addRoundedRect(in: clipOuter, cornerWidth: 17, cornerHeight: 17)
+    context.addPath(clipPath)
+    context.clip()
+    fillVerticalGradient(context, in: clipOuter, from: Palette.brassTop, to: Palette.brassBottom)
+    context.restoreGState()
+
+    // 클립 내부 음영 및 하이라이트 (금속성 와이어 느낌)
+    context.saveGState()
+    let clipInner = clipOuter.insetBy(dx: 7, dy: 7)
+    let clipInnerPath = CGMutablePath()
+    clipInnerPath.addRoundedRect(in: clipInner, cornerWidth: 10, cornerHeight: 10)
+    context.addPath(clipInnerPath)
+    context.clip()
+    fillVerticalGradient(context, in: clipInner, from: CGColor(red: 0.995, green: 0.99, blue: 0.975, alpha: 1),
+                         to: CGColor(red: 0.94, green: 0.92, blue: 0.88, alpha: 1))
+    context.restoreGState()
 
     context.restoreGState()
 }

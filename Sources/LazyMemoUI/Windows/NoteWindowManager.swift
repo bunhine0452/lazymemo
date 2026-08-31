@@ -15,6 +15,17 @@ final class NoteWindowManager {
     static let maximumVisibleWindows = 24
 
     private var controllers: [ULID: NoteWindowController] = [:]
+
+    /// 규칙과 상관없이 **지금 나와 있어야 하는** 종이.
+    ///
+    /// §7.2 는 "날짜가 붙은 것은 달력이 맡는다, 그 날이 오면 달력이 꺼내 준다"
+    /// 고 약속했는데, 꺼내 주는 쪽이 없었다 — 적힌 시각이 와도 아무 일도 일어나지
+    /// 않았다. 여기가 그 자리다 (`DueClock`).
+    ///
+    /// **`layout.json` 에 적지 않는다.** 적는 순간 그것은 「사람이 꺼내 둔 것」이
+    /// 되어(§7.2 의 예외) 그 메모는 영영 바탕화면에 남는다. 시각이 되어 잠깐
+    /// 나온 것과 사람이 꺼내 둔 것은 다른 일이다.
+    private var surfaced: Set<ULID> = []
     /// 지난번에 본 각 메모의 자리 — 일정이었는가 아닌가.
     /// 자리가 바뀐 것을 알아채는 유일한 근거다 (`handover`).
     private var wasScheduled: [ULID: Bool] = [:]
@@ -63,6 +74,10 @@ final class NoteWindowManager {
         let wanted = Set(visible.map(\.id))
 
         for (id, controller) in controllers where !wanted.contains(id) {
+            // **되돌리는 줄을 든 종이는 남는다** (D6). 지운 그 자리에서
+            // 되살릴 수 있어야 하므로, 줄이 스스로 물러날 때까지 창을 거두지
+            // 않는다 — 그때 `onDeletionSettled` 가 여기를 다시 부른다.
+            if controller.isMourning { continue }
             controllers.removeValue(forKey: id)
             Task { await controller.teardown() }
         }
@@ -71,7 +86,9 @@ final class NoteWindowManager {
             if let existing = controllers[memo.id] {
                 existing.adopt(memo)
             } else {
-                open(memo, activating: false)
+                // 시각이 되어 꺼낸 종이는 여기서도 기록하지 않는다 — 한 번만
+                // 안 적는 것으로는 부족하고, 다시 지어질 때마다 안 적어야 한다.
+                open(memo, activating: false, recording: !surfaced.contains(memo.id))
             }
             // 달력에서 내려온 종이는 **나왔다는 것을 스스로 말한다.** 바탕화면
             // 레벨의 창은 브라우저 뒤에 나므로, 그냥 두면 「종이로」를 누른
@@ -79,7 +96,9 @@ final class NoteWindowManager {
             if returned.contains(memo.id) { controllers[memo.id]?.announce() }
         }
 
-        layouts.prune(keeping: Set(store.memos.map(\.id)))
+        // **휴지통에 있는 것의 자리도 남긴다.** 되돌리면 있던 자리로 돌아와야
+        // 하는데, 지우는 순간 자리를 지워 버리면 되살린 종이가 엉뚱한 곳에 뜬다.
+        layouts.prune(keeping: Set(store.memos.map(\.id)).union(store.trash.map(\.id)))
     }
 
     /// **자리가 바뀐 메모를 따라 종이를 옮긴다** (설계문서 §7.2).
@@ -120,11 +139,18 @@ final class NoteWindowManager {
     }
 
     /// 종이로 있어야 할 메모 중 상한만큼. 목록은 이미 고정·최근순으로 정렬돼 있다.
+    ///
+    /// **시각이 되어 꺼낸 종이가 먼저다.** 상한(24장)에 밀려 잘리면, 지금 이 앱이
+    /// 사용자에게 하려는 말이 통째로 사라진다.
     private func plannedVisibleMemos() -> [Memo] {
-        store.memos
-            .filter { staysOnDesktop($0) }
-            .prefix(Self.maximumVisibleWindows)
-            .map { $0 }
+        // 치워 둔 것은 규칙이 뭐라 하든 서지 않는다 (`Tidy`). 다만 시각이
+        // 되어 꺼낸 종이는 예외다 — 그것은 앱이 지금 하려는 말이다.
+        let wanted = store.memos.filter {
+            ($0.tidied == nil && staysOnDesktop($0)) || surfaced.contains($0.id)
+        }
+        let risen = wanted.filter { surfaced.contains($0.id) }
+        let rest = wanted.filter { !surfaced.contains($0.id) }
+        return Array((risen + rest).prefix(Self.maximumVisibleWindows))
     }
 
     private func staysOnDesktop(_ memo: Memo) -> Bool {
@@ -153,8 +179,10 @@ final class NoteWindowManager {
 
     // MARK: 창 열고 닫기
 
+    /// - Parameter recording: `layout.json` 에 "이 메모는 바탕화면에 있다" 를
+    ///   적을지. 시각이 되어 잠깐 꺼낸 종이는 적지 않는다 (`surfaced`).
     @discardableResult
-    func open(_ memo: Memo, activating: Bool) -> NoteWindowController {
+    func open(_ memo: Memo, activating: Bool, recording: Bool = true) -> NoteWindowController {
         if let existing = controllers[memo.id] {
             existing.adopt(memo)
             existing.show(activating: activating)
@@ -178,11 +206,44 @@ final class NoteWindowManager {
                 self?.onCalendarRequest(id)
             }
         )
+        // 되돌리는 줄이 스스로 물러나면 그때 창을 거둔다 (`NoteModel`).
+        controller.model.onDeletionSettled = { [weak self] in self?.sync() }
         controllers[memo.id] = controller
         recordFrame(frame, for: memo.id)
-        layouts.setHidden(false, for: memo.id)
+        if recording { layouts.setHidden(false, for: memo.id) }
         controller.show(activating: activating)
         return controller
+    }
+
+    /// 규칙과 상관없이 이 종이를 지금 꺼내 놓는다 (`DueClock`).
+    ///
+    /// **잠깐 보였다 내려앉는 것으로는 부족하다.** 시각이 되었을 때 자리를 비운
+    /// 사람이 이 앱에서 가장 자주 겪는 실패("적었는데 그냥 지나갔다")의 당사자
+    /// 이므로, 종이는 나와서 **그대로 있는다.** 돌아온 사람이 화면에서 그것을
+    /// 본다. 하루가 끝나면 스스로 물러난다 (`clearSurfaced`).
+    func surface(_ id: ULID) {
+        guard let memo = store.memo(id), controllers[id] == nil else { return }
+        surfaced.insert(id)
+        open(memo, activating: false, recording: false).announce()
+    }
+
+    /// 꺼내 놓았던 종이를 도로 달력에 맡긴다 — 하루가 끝날 때 (`DayClock`).
+    ///
+    /// 사람이 그대로 두었다고 해서 그 자리가 사람의 뜻이 되지는 않는다.
+    /// 어제의 일정이 오늘도 바탕화면에 서 있으면 그것부터가 낡은 종이다 (철학 3).
+    func clearSurfaced() {
+        let risen = surfaced
+        surfaced.removeAll()
+        for id in risen where !isVisibleByRule(id) {
+            guard let controller = controllers.removeValue(forKey: id) else { continue }
+            Task { await controller.teardown() }
+        }
+    }
+
+    /// 꺼내 준 것과 상관없이, 규칙만으로도 이 종이가 바탕화면에 있는가.
+    private func isVisibleByRule(_ id: ULID) -> Bool {
+        guard let memo = store.memo(id) else { return false }
+        return staysOnDesktop(memo)
     }
 
     /// 방금 적힌 메모를 바탕화면에 내려놓는다.
@@ -194,21 +255,58 @@ final class NoteWindowManager {
         open(memo, activating: false).announce()
     }
 
-    func reveal(_ id: ULID, activating: Bool = true) {
+    /// 메모를 앞으로 데려와 커서를 세운다.
+    ///
+    /// - Parameter keepingPlace: 이 메모의 **자리**를 그대로 둘지.
+    ///
+    ///   달력에서 일정을 누르는 것은 「보는 일」이지 「꺼내 두는 일」이 아니다.
+    ///   그런데 여는 길이 하나뿐이라 읽으려는 클릭이 `layout.json` 에
+    ///   `hidden = false` 를 적었고, 그러면 §7.2 의 예외("사람이 정한 것이
+    ///   이긴다")에 걸려 그 일정은 **날짜를 가진 채 영영 바탕화면에 남았다.**
+    ///   보려고 한 번 누른 것이 자리를 영구히 옮기는 조작이 된 셈이다.
+    ///
+    ///   메뉴 목록과 빠른 입력은 그대로 기록한다 — 그 두 목록은 찬 점·빈 점으로
+    ///   "바탕화면에 있음/치워 둠" 을 말하고 있으므로(§14.10), 거기서 줄을 누르는
+    ///   것은 그 낱말대로 **꺼내는** 일이 맞다.
+    func reveal(_ id: ULID, activating: Bool = true, keepingPlace: Bool = false) {
         guard let memo = store.memo(id) else { return }
-        layouts.setHidden(false, for: id)
-        open(memo, activating: activating).focusEditor()
+        // 치워 둔 것을 찾아서 연 것은 **도로 꺼낸다는 뜻**이다. 그대로 두면
+        // 창은 떠 있는데 목록에는 없는 메모가 되고, 다음 날 규칙이 그 창을
+        // 도로 걷어 간다 — 사람이 방금 꺼낸 것을.
+        if memo.tidied != nil {
+            Task { await store.untidy(id) }
+        }
+        if keepingPlace {
+            surfaced.insert(id)
+        } else {
+            layouts.setHidden(false, for: id)
+        }
+        open(memo, activating: activating, recording: !keepingPlace).focusEditor()
     }
 
     /// 창을 치운다. 메모는 그대로 남는다 (D6 과는 별개의 개념이다).
     func hide(_ id: ULID) {
         guard let controller = controllers.removeValue(forKey: id) else { return }
+        // 사람이 치웠으면 꺼내 놓은 것도 끝난 일이다 — 안 지우면 다음 `sync`
+        // 가 규칙을 무시하고 도로 띄운다.
+        surfaced.remove(id)
         layouts.setHidden(true, for: id)
         Task { await controller.teardown() }
     }
 
     func isVisible(_ id: ULID) -> Bool {
         controllers[id] != nil
+    }
+
+    /// 하루가 바뀌었다 (`DayClock`) — 종이마다 나이를 다시 재게 한다.
+    ///
+    /// 철학 3("오래된 것은 스스로 물러난다")은 하루가 지나야 발화하는데,
+    /// 창은 메모가 바뀌지 않는 한 다시 그려지지 않는다. 알려 주지 않으면
+    /// 어제 적은 종이가 몇 주째 갓 적은 것처럼 또렷하게 서 있다.
+    func dayChanged(now: Date = Date()) {
+        for controller in controllers.values {
+            controller.model.dayChanged(now: now)
+        }
     }
 
     /// 종료 직전 — 저장 버튼이 없으므로 여기서 전부 확정한다.
@@ -222,8 +320,14 @@ final class NoteWindowManager {
 
     // MARK: 좌표
 
+    /// 자리만 적는다. **「나와 있다/치웠다」는 건드리지 않는다.**
+    ///
+    /// 적힌 뜻이 없으면 규칙이 말하는 자리를 그대로 적는다 — 예전에는 무조건
+    /// `hidden = false` 로 떨어져서, 잠깐 꺼내 보인 종이가 그 사실만으로
+    /// 「사람이 꺼내 둔 것」이 되어 영영 바탕화면에 남았다 (§7.2 의 예외).
     private func recordFrame(_ frame: CGRect, for id: ULID) {
-        let hidden = layouts.layout(for: id)?.hidden ?? false
+        let hidden = layouts.layout(for: id)?.hidden
+            ?? (store.memo(id)?.isScheduled ?? false)
         layouts.set(
             WindowLayout(frame: frame, displayUUID: Self.displayUUID(for: frame), hidden: hidden),
             for: id

@@ -232,6 +232,7 @@ struct CalendarView: View {
             if !model.isOnToday {
                 Button("오늘") { model.goToday() }
                     .buttonStyle(.plain)
+                    .spoken("오늘 — 오늘이 든 달로 돌아갑니다")
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(Theme.highlightInk)
                     .padding(.horizontal, 7)
@@ -240,7 +241,7 @@ struct CalendarView: View {
             }
 
             if isHovering {
-                QuietButton(symbol: "xmark", help: "치우기", action: onClose)
+                QuietButton(symbol: "xmark", help: "치우기 — 달력을 닫습니다", action: onClose)
             }
         }
         .padding(.horizontal, Theme.normal)
@@ -259,7 +260,7 @@ struct CalendarView: View {
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .help(delta < 0 ? "이전 달" : "다음 달")
+        .spoken("\(month)월 — \(delta < 0 ? "이전 달로" : "다음 달로") 넘깁니다")
     }
 
     private func weekdayRow(_ plan: CalendarLayout) -> some View {
@@ -268,10 +269,10 @@ struct CalendarView: View {
                 Text(symbol)
                     // 칸이 커지면 요일도 함께 큰다. 격자만 자라고 머리글이
                     // 그대로면 큰 창에서 요일 줄이 잔글씨로 남는다.
-                    .font(.system(size: plan.shape == .wide ? 9.5 : 8.5, weight: .semibold))
+                    .font(.system(size: plan.shape == .wide ? 10.5 : 9.5, weight: .semibold))
                     .tracking(0.6)
                     .foregroundStyle(
-                        columnColor(column).opacity(column == 0 || column == 6 ? 0.44 : 0.28)
+                        columnColor(column).opacity(column == 0 || column == 6 ? 0.85 : 0.65)
                     )
                     .frame(maxWidth: .infinity)
             }
@@ -433,6 +434,10 @@ struct CalendarView: View {
             }
         }
         .help(holding != nil ? "\(dayText(day.date))에 놓기" : dayHelp(day.date))
+        // 칸은 숫자 하나뿐이라 "몇 월 며칠 · 몇 개" 를 소리로 따로 적는다.
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(dayHelp(day.date)))
+        .accessibilityHint(Text(holding != nil ? "여기에 놓기" : "이 날 펼치기"))
     }
 
     /// 달 한 장치의 잉크 — 칸마다 마른 정도와, 붐비는 날의 얼룩.
@@ -506,6 +511,8 @@ struct CalendarView: View {
                     .foregroundStyle(Theme.sunday)
                     .lineLimit(2)
                     .padding(.top, 4)
+            } else if let deleted = model.lastDeleted {
+                deleteUndoLine(deleted)
             } else if let move = model.lastMove {
                 undoLine(move)
             }
@@ -631,12 +638,17 @@ struct CalendarView: View {
             // 끌기는 여기까지다. 버튼을 이 안에 두면 누르기 하나를 놓고 버튼과
             // 끌기가 다투게 되고, 어느 쪽이 이기는지가 상황마다 달라진다.
             .contentShape(.rect)
-            .help("눌러서 열고, 끌어서 다른 날로 옮깁니다")
             .gesture(carry(memo))
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(Text(clockLabel(memo).isEmpty
+                ? memo.title : "\(clockLabel(memo)) \(memo.title)"))
+            .accessibilityHint(Text("눌러서 열고, 끌어서 다른 날로 옮깁니다"))
+            .help("눌러서 열고, 끌어서 다른 날로 옮깁니다")
 
             if pointedRow == memo.id, !isCarried {
                 postponeButton(memo)
                 detachButton(memo)
+                deleteButton(memo)
             }
         }
         .padding(.vertical, 3)
@@ -665,7 +677,7 @@ struct CalendarView: View {
         .buttonStyle(.plain)
         .foregroundStyle(.secondary)
         // 누르기 **전에** 어디로 가는지 말해 준다.
-        .help(model.postponeTarget(memo).map { "\(dayText($0))로 미룹니다" } ?? "하루 미룹니다")
+        .spoken("미루기 — " + (model.postponeTarget(memo).map { "\(dayText($0))로 미룹니다" } ?? "하루 미룹니다"))
     }
 
     /// 날짜 떼기 — **「미루기」의 짝이다.**
@@ -686,7 +698,22 @@ struct CalendarView: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(.secondary)
-        .help("날짜를 떼고 바탕화면의 종이로 보냅니다")
+        .spoken("종이로 — 날짜를 떼고 바탕화면의 종이로 보냅니다")
+    }
+
+    /// 지우기 — **§6 의 「지우는 길이 셋」이 여기서만 뚫려 있었다.**
+    ///
+    /// 「미루기」·「종이로」와 나란히 서지만 낱말이 아니라 그림이고 색도 다르다.
+    /// 되돌아오지 않는 쪽으로 가는 버튼은 반쯤 보고도 구별되어야 한다 (설계문서 §6) —
+    /// 이 줄에서 잘못 누르면 미루려던 일이 없어진다.
+    ///
+    /// 붉은 원은 **손이 닿았을 때만** 깔린다. 목록의 모든 줄에 붉은 것이 서
+    /// 있으면 달력에서 가장 눈에 띄는 것이 지우기가 된다 (`CaptureRowTrash` 와
+    /// 같은 규칙).
+    private func deleteButton(_ memo: Memo) -> some View {
+        RowTrash(help: "지우기 — 바로 아래 줄에서 되돌릴 수 있습니다") {
+            Task { await model.delete(memo) }
+        }
     }
 
     // MARK: 집어서 옮기기
@@ -844,7 +871,25 @@ struct CalendarView: View {
             Button("되돌리기") { Task { await model.undo() } }
                 .buttonStyle(.plain)
                 .font(Theme.micro)
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(Theme.accentInk)
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 4)
+    }
+
+    /// 방금 지운 것을 되살리는 줄. **옮기기의 되돌리기와 같은 자리를 쓴다** —
+    /// 방금 한 일은 하나뿐이고, 자리를 따로 만들면 격자가 그만큼 줄어든다.
+    private func deleteUndoLine(_ memo: Memo) -> some View {
+        HStack(spacing: Theme.tight) {
+            Text("「\(shortTitle(memo.title))」 지웠습니다")
+                .font(Theme.micro)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+            Button("되돌리기") { Task { await model.restoreDeleted() } }
+                .buttonStyle(.plain)
+                .font(Theme.micro)
+                .foregroundStyle(Theme.accentInk)
+                .spoken("되돌리기 — 방금 지운 일정을 되살립니다")
             Spacer(minLength: 0)
         }
         .padding(.top, 4)
@@ -916,7 +961,7 @@ struct CalendarView: View {
     private func numeralColor(column: Int, isTarget: Bool, presence: Double) -> Color {
         // 손이 향하고 있는 칸은 바래지 않는다. 지난 날이라고 흐린 채로 두면
         // 지금 놓으려는 그 자리가 가장 안 읽히는 칸이 된다.
-        if isTarget { return Theme.accent }
+        if isTarget { return Theme.accentInk }
         return columnColor(column).opacity(0.92 * presence)
     }
 }
