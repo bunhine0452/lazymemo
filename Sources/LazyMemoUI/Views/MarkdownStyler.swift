@@ -306,7 +306,7 @@ enum MarkdownStyler {
 
         case .link(let destination):
             storage.addAttributes([
-                .foregroundColor: NSColor(Paper.linkColor),
+                .foregroundColor: Paper.linkNSColor,
                 .underlineStyle: NSUnderlineStyle.single.rawValue,
                 .link: destination,
                 .cursor: NSCursor.pointingHand,

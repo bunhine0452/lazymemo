@@ -66,7 +66,19 @@ enum Paper {
     static var ink: Color { Color(nsColor: inkNSColor) }
     static var fadedInk: Color { Color(nsColor: inkNSColor).opacity(0.52) }
 
-    static let linkColor = Color(red: 0.28, green: 0.47, blue: 0.70)
+    /// 본문 안의 링크.
+    ///
+    /// **한 값으로 두었더니 숯색 종이 위에서 3.5:1 이었다** — 본문 크기의 글에
+    /// 필요한 4.5:1 에 못 미친다. 잉크·호박색·네이비에서 한 번씩 겪은 것과
+    /// 같은 일이라 여기서도 외관마다 따로 잡는다 (§8.2).
+    /// 재는 자리는 맨 종이가 아니라 **여섯 색 중 가장 불리한 종이**다 —
+    /// 링크는 어느 색 종이에도 붙는다.
+    static let linkNSColor = NSColor(name: nil) { appearance in
+        appearance.isDark
+            ? NSColor(srgbRed: 0.56, green: 0.75, blue: 1.0, alpha: 1)
+            : NSColor(srgbRed: 0.20, green: 0.40, blue: 0.66, alpha: 1)
+    }
+    static var linkColor: Color { Color(nsColor: linkNSColor) }
 
     /// 글줄 간격. 좋은 종이는 글이 숨 쉴 자리를 준다.
     static let linePitch: CGFloat = 23
@@ -137,6 +149,22 @@ public enum PaperTint {
                 base = Paper.surfaceNSColor.usingColorSpace(.sRGB) ?? .white
             }
         return base
+    }
+
+    /// 종이 위에 **떠 있는 조각** — 겹쳐 뜨는 조작 캡슐의 면.
+    ///
+    /// 맨 종이(`Paper.surface`)로 칠했더니 다크에서 그것이 **색이 스민 종이보다
+    /// 어두워졌다.** 빛은 위에서 오므로 떠 있는 것은 바탕보다 밝아야 하는데,
+    /// 어두운 쪽에서만 그 방향이 뒤집혀 캡슐이 조각이 아니라 **파인 구멍**으로
+    /// 보였다. 밝기의 방향은 외관을 따라 뒤집히면 안 된다.
+    ///
+    /// 종이의 색을 그대로 들고 올라간다 — 재질은 하나이므로(§14.5) 떠 있는
+    /// 조각도 같은 종이의 한 조각이다.
+    public static func raised(ink: Color, dark isDark: Bool) -> NSColor {
+        let paper = surface(ink: ink, dark: isDark)
+        // 어두운 종이에서는 조금만 올려도 뜬다. 밝은 종이에서는 흰 쪽으로
+        // 크게 당겨야 미색 바탕에서 갈린다.
+        return paper.blended(withFraction: isDark ? 0.16 : 0.55, of: .white) ?? paper
     }
 
     /// 완성된 종이 한 장. `presence` 는 나이가 남긴 몫이다 (철학 3).

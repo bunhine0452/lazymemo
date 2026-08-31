@@ -251,6 +251,35 @@ struct PaperGrain: View {
     }
 }
 
+/// 종이 위에 떠 있는 조각 — 겹쳐 뜨는 조작 캡슐의 면 (`PaperTint.raised`).
+///
+/// 그림자도 외관을 따른다. 어두운 종이 위의 검은 그림자는 보이지 않으므로
+/// 더 짙게 깔아야 조각이 실제로 떠 보인다.
+struct RaisedSurface: View {
+    let ink: Color
+    /// `nil` 이면 캡슐, 값이 있으면 그 모서리의 사각형.
+    var radius: CGFloat?
+    var shadow: CGFloat = 3
+    var lift: CGFloat = 1
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let fill = Color(nsColor: PaperTint.raised(ink: ink, dark: colorScheme == .dark))
+        Group {
+            if let radius {
+                RoundedRectangle(cornerRadius: radius, style: .continuous).fill(fill)
+            } else {
+                Capsule().fill(fill)
+            }
+        }
+        .shadow(
+            color: .black.opacity(colorScheme == .dark ? 0.36 : 0.14),
+            radius: shadow, y: lift
+        )
+    }
+}
+
 extension Theme {
     static func paper(
         _ color: Color, age: MemoAge = .fresh,

@@ -139,9 +139,7 @@ struct NoteView: View {
     private var closeControl: some View {
         QuietButton(symbol: "xmark", help: "치우기 — 메모는 지워지지 않습니다", action: onClose)
             .padding(NoteControlLayout.capsulePadding)
-            .background {
-                Capsule().fill(Paper.surface).shadow(color: .black.opacity(0.14), radius: 3, y: 1)
-            }
+            .background { RaisedSurface(ink: color.ink) }
             .padding(NoteControlLayout.closeInset)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             .transition(.opacity)
@@ -156,10 +154,13 @@ struct NoteView: View {
                 Task { await model.delete() }
             }
 
-            Divider()
-                .frame(height: 11)
+            // 시스템 `Divider` 는 이 작은 캡슐 안에서 거의 안 보였다 —
+            // 지우기와 나머지를 가르는 것이 §6 의 안전장치인데 그 선이
+            // 안 보이면 장치가 아니다. 잉크로 직접 긋는다.
+            Rectangle()
+                .fill(Paper.ink.opacity(0.20))
+                .frame(width: 1, height: 12)
                 .padding(.horizontal, Theme.hairline)
-                .opacity(0.35)
 
             colorButton
 
@@ -186,10 +187,10 @@ struct NoteView: View {
             )
         }
         .padding(NoteControlLayout.capsulePadding)
-        .background {
-            // 글자 위에 겹치므로 얇은 바탕이 필요하다. 없으면 아이콘이 본문에 묻힌다.
-            Capsule().fill(Paper.surface).shadow(color: .black.opacity(0.14), radius: 3, y: 1)
-        }
+        // 글자 위에 겹치므로 얇은 바탕이 필요하다. 없으면 아이콘이 본문에 묻힌다.
+        // **떠 있는 것은 바탕보다 밝다** — 맨 종이로 칠하면 다크에서 이 조각이
+        // 색이 스민 종이보다 어두워져 파인 구멍으로 보인다 (`PaperTint.raised`).
+        .background { RaisedSurface(ink: color.ink) }
         .padding(NoteControlLayout.paperInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         .transition(.opacity)
@@ -387,7 +388,7 @@ struct NoteView: View {
             Spacer(minLength: 0)
         }
         .foregroundStyle(Theme.dangerInk)
-        .padding(.horizontal, Theme.loose + 5)
+        .padding(.horizontal, NoteControlLayout.footerInset)
         .padding(.bottom, hasFooter ? Theme.hairline : Theme.normal)
         .help("파일에 쓰지 못했습니다 — 글이 사라지지 않게 다른 곳에 옮겨 두세요")
         .transition(.opacity)
@@ -420,11 +421,16 @@ struct NoteView: View {
                     .font(Theme.micro)
                     .foregroundStyle(Paper.ink.opacity(0.40))
                     .lineLimit(1)
+                    .truncationMode(.tail)
             }
 
-            Spacer(minLength: 0)
+            // 아래 캡슐이 뜰 자리를 **미리 비워 둔다** (`NoteControlLayout`).
+            // 첫 줄을 비우려고 조작을 내렸더니 이번에는 이 줄이 덮였다 —
+            // 태그의 오른쪽이 캡슐 밑으로 들어가 있었다. 가려진 것은 가려진
+            // 줄도 모르고, 잘린 것은 잘린 줄 안다.
+            Spacer(minLength: NoteControlLayout.footerReserve())
         }
-        .padding(.horizontal, Theme.loose + 5)
+        .padding(.horizontal, NoteControlLayout.footerInset)
         .padding(.bottom, Theme.normal)
     }
 

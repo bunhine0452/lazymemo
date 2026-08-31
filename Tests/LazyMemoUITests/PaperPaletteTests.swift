@@ -102,6 +102,51 @@ struct PaperPaletteTests {
         }
     }
 
+    /// **떠 있는 것은 바탕보다 밝다.** 빛은 위에서 온다 — 이 방향이 외관을
+    /// 따라 뒤집히면 떠 있는 조각이 파인 구멍으로 보인다. 실제로 다크에서
+    /// 그랬다: 조작 캡슐을 맨 종이로 칠했는데 그것이 색이 스민 종이보다
+    /// 어두웠다.
+    @Test("겹쳐 뜨는 조각은 어느 외관에서도 종이보다 밝다")
+    func raisedIsAlwaysLighterThanItsPaper() {
+        for dark in [false, true] {
+            for color in MemoColor.allCases {
+                let paper = luminance(PaperTint.surface(ink: color.ink, dark: dark))
+                let chip = luminance(PaperTint.raised(ink: color.ink, dark: dark))
+                #expect(chip > paper)
+                // 갈리는 것이 목적이지 다른 재질이 되는 것이 아니다.
+                #expect(chip - paper > 0.01)
+            }
+        }
+    }
+
+    @Test("떠 있는 조각 위에서도 조작이 읽힌다")
+    func controlsReadOnTheRaisedChip() {
+        for dark in [false, true] {
+            let chip = luminance(PaperTint.raised(ink: MemoColor.yellow.ink, dark: dark))
+            let ink = luminance(inkColor(dark: dark))
+            #expect((max(ink, chip) + 0.05) / (min(ink, chip) + 0.05) > 4.5)
+        }
+    }
+
+    /// 본문 크기의 글이므로 4.5:1 이다. 한 값으로 두었을 때 다크에서 3.5:1 이었다.
+    @Test("링크는 여섯 색 어느 종이 위에서도 본문만큼 읽힌다")
+    func linksAreReadableOnEveryPaper() {
+        for dark in [false, true] {
+            var link = NSColor.blue
+            NSAppearance(named: dark ? .darkAqua : .aqua)?.performAsCurrentDrawingAppearance {
+                link = Paper.linkNSColor.usingColorSpace(.sRGB) ?? .blue
+            }
+            let ink = luminance(link)
+
+            // 맨 종이만 재면 모자란다 — 링크는 어느 색 종이에도 붙는다.
+            let papers = MemoColor.allCases.map { PaperTint.surface(ink: $0.ink, dark: dark) }
+                + [PaperTint.base(dark: dark)]
+            for paper in papers.map(luminance) {
+                #expect((max(ink, paper) + 0.05) / (min(ink, paper) + 0.05) > 4.5)
+            }
+        }
+    }
+
     private func inkColor(dark: Bool) -> NSColor {
         var ink = NSColor.black
         NSAppearance(named: dark ? .darkAqua : .aqua)?.performAsCurrentDrawingAppearance {

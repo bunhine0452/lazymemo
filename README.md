@@ -140,7 +140,7 @@ ImageIO 가 내보내는 PNG 는 압축이 얕아, 픽셀을 한 점도 건드�
 ## 개발
 
 ```sh
-./scripts/test.sh                 # 단위 테스트 (377개)
+./scripts/test.sh                 # 단위 테스트 (383개)
 ./scripts/verify-notes.sh         # 바탕화면 창이 실제로 뜨는지
 ./scripts/verify-mcp.sh           # MCP 대화 전체 (15항목)
 ./scripts/verify-restore.sh       # 껐다 켠 뒤 복원

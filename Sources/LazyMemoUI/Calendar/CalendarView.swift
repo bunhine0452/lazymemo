@@ -367,7 +367,10 @@ struct CalendarView: View {
         return ZStack {
             if isTarget {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(Theme.accent.opacity(0.13))
+                    // **잉크 쪽 값이다.** 면을 칠하는 딥 네이비를 13% 로 깔면
+                    // 어두운 종이에서 아무것도 안 보인다 — 끌고 있는 동안
+                    // 가장 중요한 표시가 다크에서만 사라진다.
+                    .fill(Theme.accentInk.opacity(0.15))
                     .padding(.horizontal, 2.5)
                     .padding(.vertical, 1.5)
             }
@@ -646,9 +649,13 @@ struct CalendarView: View {
             .help("눌러서 열고, 끌어서 다른 날로 옮깁니다")
 
             if pointedRow == memo.id, !isCarried {
-                postponeButton(memo)
-                detachButton(memo)
-                deleteButton(memo)
+                // 셋이 맞붙어 있으면 한 덩어리로 보이고, 그러면 지우기가
+                // 「종이로」의 오른쪽 끝처럼 읽힌다. 조작 사이는 벌린다.
+                HStack(spacing: Theme.tight - 2) {
+                    postponeButton(memo)
+                    detachButton(memo)
+                    deleteButton(memo)
+                }
             }
         }
         .padding(.vertical, 3)
@@ -711,7 +718,9 @@ struct CalendarView: View {
     /// 있으면 달력에서 가장 눈에 띄는 것이 지우기가 된다 (`CaptureRowTrash` 와
     /// 같은 규칙).
     private func deleteButton(_ memo: Memo) -> some View {
-        RowTrash(help: "지우기 — 바로 아래 줄에서 되돌릴 수 있습니다") {
+        // 이 버튼은 **포인터가 온 줄에만** 나타나므로 언제나 밝은 쪽이다.
+        // 흐린 세기는 «있는 줄은 알 만큼» 늘 켜 두는 목록용 값이다.
+        RowTrash(isLit: true, help: "지우기 — 바로 아래 줄에서 되돌릴 수 있습니다") {
             Task { await model.delete(memo) }
         }
     }
@@ -784,14 +793,13 @@ struct CalendarView: View {
             }
             .padding(.horizontal, 7)
             .padding(.vertical, 4)
-            .background(
-                RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Paper.surface)
-            )
+            // 손에 들려 있는 것이므로 종이 위에 떠 있다 — 맨 종이로 칠하면
+            // 다크에서 이 조각이 달력보다 어두워져 구멍처럼 보인다.
+            .background { RaisedSurface(ink: MemoColor.gray.ink, radius: 4, shadow: 5, lift: 2) }
             .overlay(
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .strokeBorder(Paper.ink.opacity(0.14), lineWidth: 0.75)
             )
-            .shadow(color: .black.opacity(0.20), radius: 5, y: 2)
             .fixedSize()
             .position(x: carried.point.x + 6, y: carried.point.y - 13)
             .allowsHitTesting(false)
@@ -813,7 +821,7 @@ struct CalendarView: View {
                 .onExitCommand(perform: closeWriter)
                 .padding(.vertical, 4)
                 .overlay(alignment: .bottom) {
-                    Rectangle().fill(Theme.accent.opacity(0.55)).frame(height: 1)
+                    Rectangle().fill(Theme.accentInk.opacity(0.55)).frame(height: 1)
                 }
         } else {
             // ＋ 를 버렸다. 칸마다 붙은 ＋ 는 "채워라" 라는 말이고 이 앱은

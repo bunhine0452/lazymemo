@@ -45,6 +45,34 @@ struct NoteControlLayoutTests {
         }
     }
 
+    /// 첫 줄을 비우려고 조작을 아래로 내렸더니 이번에는 **마지막 줄이 덮였다.**
+    /// 거기 있는 것은 날짜와 태그이고, 날짜는 누르면 달력으로 가는 버튼이기도 하다.
+    @Test("아래 조작이 꼬리의 날짜와 태그를 덮지 않는다")
+    func bottomControlsClearTheFooter() {
+        for width in [160.0, 200.0, 260.0, 400.0] {
+            let capsuleLeft = width - NoteControlLayout.paperInset
+                - NoteControlLayout.capsuleWidth(buttons: 4, dividers: 1)
+            let footerRight = width - NoteControlLayout.footerInset
+                - NoteControlLayout.footerReserve()
+
+            #expect(footerRight <= capsuleLeft)
+        }
+    }
+
+    @Test("비워 두고도 날짜 한 줄은 들어간다 — 비우기가 꼬리를 없애면 안 된다")
+    func footerStillHasRoomForADate() {
+        let room = paper - NoteControlLayout.footerInset * 2 - NoteControlLayout.footerReserve()
+
+        // 「8월 31일 오후 2:30」 은 10pt 로 100pt 남짓이다.
+        #expect(room > 110)
+    }
+
+    @Test("버튼이 늘면 비워 두는 폭도 따라 는다")
+    func reserveFollowsTheCapsule() {
+        #expect(NoteControlLayout.footerReserve(buttons: 5, dividers: 1)
+            > NoteControlLayout.footerReserve(buttons: 4, dividers: 1))
+    }
+
     @Test("캡슐 폭은 버튼 수에 따라 자란다 — 숫자가 실제 배치와 어긋나지 않게")
     func capsuleWidthAddsUp() {
         let one = NoteControlLayout.capsuleWidth(buttons: 1)

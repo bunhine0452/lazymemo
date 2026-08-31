@@ -123,7 +123,7 @@ private struct HotkeyRecorderView: View {
                 .padding(.vertical, Theme.tight)
                 .background(
                     RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
-                        .fill(Theme.accent.opacity(0.10))
+                        .fill(Theme.accentInk.opacity(0.12))
                 )
 
             Text(model.problem ?? "esc 로 그만두기")

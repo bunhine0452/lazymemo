@@ -59,6 +59,7 @@ struct PhotoStrip: View {
 
     @State private var isHovering = false
     @State private var original: NSImage?
+    @Environment(\.colorScheme) private var colorScheme
 
     /// 폭에 맞춰 눕혔을 때의 높이. 뚜껑보다 낮으면 통째로 보인다.
     private var aspect: CGFloat {
@@ -79,10 +80,14 @@ struct PhotoStrip: View {
                 .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .strokeBorder(.black.opacity(0.18), lineWidth: 0.75)
+                        // 잉크색 실선이라 밝은 종이에서는 어두운 테, 어두운
+                        // 종이에서는 밝은 테가 된다. 검정 한 값으로 두면
+                        // 다크에서 사진의 가장자리가 통째로 사라진다.
+                        .strokeBorder(Paper.ink.opacity(0.20), lineWidth: 0.75)
                 )
-                // 종이에 붙인 사진은 살짝 떠 있다.
-                .shadow(color: .black.opacity(0.22), radius: 3, y: 1)
+                // 종이에 붙인 사진은 살짝 떠 있다. 어두운 종이 위에서는
+                // 같은 검정이 거의 아무 일도 하지 않으므로 더 짙게 깐다.
+                .shadow(color: .black.opacity(colorScheme == .dark ? 0.45 : 0.22), radius: 3, y: 1)
                 // `.onHover` 는 키 윈도에서만 산다 (§7.1). 바탕화면의 종이에는
                 // 쓸 수 없으므로 감지기를 따로 얹는다.
                 .overlay { HoverSensor { hovering in
