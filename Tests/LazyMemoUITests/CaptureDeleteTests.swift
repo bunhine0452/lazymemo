@@ -109,8 +109,7 @@ struct CaptureDeleteTests {
 
         let model = QuickCaptureModel(store: store)
         model.query = "치과"
-        try await Task.sleep(for: .milliseconds(300))
-        #expect(model.listed.count == 2)
+        await settle("찾은 것이 둘이 되지 않았다") { model.listed.count == 2 }
 
         await model.delete(checkup)
 
@@ -139,8 +138,9 @@ struct CaptureDeleteTests {
 
         #expect(handled)
         // 지우기는 비동기로 이어진다. 목록에서 빠질 때까지만 기다린다.
-        try await Task.sleep(for: .milliseconds(200))
-        #expect(!model.listed.contains { $0.id == target.id })
+        await settle("지운 줄이 목록에서 안 빠졌다") {
+            !model.listed.contains { $0.id == target.id }
+        }
     }
 
     @Test("고른 줄이 없으면 ⌘⌫ 는 글 편집으로 넘어간다")

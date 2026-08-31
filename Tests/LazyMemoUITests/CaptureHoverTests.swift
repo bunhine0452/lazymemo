@@ -72,7 +72,9 @@ struct CaptureHoverTests {
 
         // true 를 돌려주면 그 키는 메모를 지운 것이다.
         #expect(!handled)
-        try await Task.sleep(for: .milliseconds(150))
+        // 여기서는 **아무 일도 안 일어나는 것**을 잰다. 일어나지 않는 것은
+        // 기다릴 조건이 없으므로, 일어날 만한 시간을 주고 안 일어났는지 본다.
+        try await Task.sleep(for: .milliseconds(200))
         #expect(store.trash.isEmpty)
         #expect(model.lastDeleted == nil)
     }
@@ -140,9 +142,8 @@ struct CaptureHoverTests {
         model.pointed = other.id
 
         model.query = "치과"
-        try await Task.sleep(for: .milliseconds(300))
+        await settle("찾은 것이 한 장이 되지 않았다") { model.listed.count == 1 }
 
-        #expect(model.listed.count == 1)
         #expect(model.pointed == nil)
     }
 

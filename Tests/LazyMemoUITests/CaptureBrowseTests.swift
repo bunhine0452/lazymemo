@@ -30,10 +30,6 @@ struct CaptureBrowseTests {
         return made
     }
 
-    /// 검색은 디바운스(120ms)가 걸려 있다. 결과가 올 때까지만 기다린다.
-    private func settle() async {
-        try? await Task.sleep(for: .milliseconds(300))
-    }
 
     /// 화살표로 그 제목의 줄까지 내려간다.
     ///
@@ -87,13 +83,11 @@ struct CaptureBrowseTests {
         model.prepareForShow()
 
         model.query = "치과"
-        await settle()
-        #expect(model.listing == .found)
+        await settle("찾은 것이 오지 않았다") { model.listing == .found }
         #expect(model.listed.map(\.title) == ["치과 예약"])
 
         model.query = ""
-        await settle()
-        #expect(model.listing == .recent)
+        await settle("요즘 것으로 안 돌아왔다") { model.listing == .recent }
         #expect(model.listed.count == 2)
     }
 
@@ -191,7 +185,9 @@ struct CaptureBrowseTests {
         model.prepareForShow()
 
         model.query = "장보기"
-        await settle()
+        // 목록의 성격이 바뀌는 것을 기다린다. «열두 장» 은 기다릴 조건이
+        // 못 된다 — 요즘 목록에도 이미 열두 장이 들어 있다.
+        await settle("찾은 것이 오지 않았다") { model.listing == .found }
 
         #expect(model.listing == .found)
         // 예전에는 인덱스에서 다섯 줄만 들고 와서 여섯 번째가 있는지조차 몰랐다.
@@ -210,7 +206,7 @@ struct CaptureBrowseTests {
         #expect(model.isExpanded)
 
         model.query = "메모"
-        await settle()
+        await settle("찾은 것이 오지 않았다") { model.listing == .found }
 
         #expect(!model.isExpanded)
         #expect(model.listed.count == 5)
@@ -228,8 +224,7 @@ struct CaptureBrowseTests {
 
         // 찾은 것이 하나뿐이면 골라 둔 「은행」은 목록에서 사라진다.
         model.query = "치과"
-        await settle()
-        #expect(model.listed.count == 1)
+        await settle("찾은 것이 한 장이 되지 않았다") { model.listed.count == 1 }
         #expect(model.listed[0].id != picked)
 
         // 예전에는 자리를 맞춰 첫 줄로 **밀어 넣었다.** 그러면 ⌘⏎ 가
@@ -251,9 +246,9 @@ struct CaptureBrowseTests {
         chooseRow(titled: "은행", in: model)
 
         model.query = "치과"
-        await settle()
+        await settle("찾은 것이 오지 않았다") { model.listing == .found }
         model.query = ""
-        await settle()
+        await settle("요즘 것으로 안 돌아왔다") { model.listing == .recent }
 
         // 화면에서 사라진 선택을 몰래 들고 있다가 되돌려 주면, 사용자는
         // 아무것도 고르지 않은 상자에서 ⌘⏎ 를 눌러 남의 메모를 열게 된다.
