@@ -89,6 +89,8 @@ h1 { font-size: 38px; line-height: 1.2; margin: 0 0 14px; letter-spacing: -.03em
 pre, code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; }
 pre {
   margin: 0; padding: 12px 14px; overflow-x: auto;
+  /* 긴 주소는 **눈으로만 접힌다** — 복사하면 여전히 한 줄이라 그대로 붙는다. */
+  white-space: pre-wrap; overflow-wrap: anywhere;
   background: rgba(127, 127, 127, .10);
   border-radius: 4px; font-size: 12.5px; line-height: 1.7;
 }
@@ -163,8 +165,7 @@ brew install --cask lazymemo</pre>
     <div class="card">
       <h3>소스에서 빌드</h3>
       <p>Xcode 없이 빌드된다. 이쪽이 1차 배포 경로다.</p>
-<pre>git clone https://github.com/\
-bunhine0452/lazymemo.git
+<pre>git clone https://github.com/bunhine0452/lazymemo
 cd lazymemo
 ./scripts/build-app.sh</pre>
     </div>
