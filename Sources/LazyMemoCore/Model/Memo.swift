@@ -19,6 +19,39 @@ public struct Memo: Sendable, Equatable, Identifiable {
     public var due: CalendarDate?
     /// 시각까지 — 약속.
     public var at: Date?
+
+    /// 되풀이하는 일인가 (`Recurrence`).
+    ///
+    /// **주기만 적는다.** 언제인지는 `due`·`at` 이 들고 있고, 그 회차가 지나면
+    /// 다음 회차로 걸어간다 (`Tidy.rolled`). 그래서 달력은 늘 **다음 한 번**만
+    /// 보여 주고, 「지난 일정은 물러난다」(철학 3)가 이 메모에는 적용되지 않는다 —
+    /// 되풀이하는 일은 지나가지 않는다.
+    public var every: Recurrence?
+
+    /// **이 종이가 나올 시각.** 일이 언제인가(`due`·`at`)와 다른 것을 말한다 —
+    /// 회의는 3시, 종이는 2시 30분.
+    ///
+    /// 장소와 같은 성질이다: **자리를 바꾸지 않는다.** 달력에 따로 나타나지
+    /// 않고(`isScheduled` 는 이 필드를 보지 않는다), 그 시각에 하는 일은
+    /// 바탕화면의 종이가 앞으로 나오는 것뿐이다 (`DueClock`). 시스템 알림
+    /// 권한은 여전히 쓰지 않는다.
+    ///
+    /// Claude 가 정할 수 있는 유일한 «시간» 이기도 하다 — 「회의 30분 전에
+    /// 이거 띄워줘」가 여기로 들어온다 (MCP `surface_at`).
+    public var surface: Date?
+
+    /// 어디 — 사람이 읽는 이름 그대로 (`강남역 3번 출구`).
+    ///
+    /// **장소는 자리를 정하지 않는다.** 날짜가 붙으면 종이가 물러나고 달력이
+    /// 맡지만 (§7.2), 장소가 붙어도 종이는 그 자리에 그대로 있다. 구조는 여전히
+    /// 시간 하나이고 (§14.2), 장소는 날짜와 같은 **부사**다 — 담는 그릇이 아니다.
+    /// 그래서 `isScheduled` 는 이 필드를 보지 않는다.
+    public var place: String?
+
+    /// 좌표가 있으면 길찾기가 정확해진다. **없어도 된다** — 이름만으로 지도에
+    /// 검색어로 넘길 수 있다.
+    public var geo: Coordinate?
+
     public var tags: [String]
     public var color: MemoColor
     public var pinned: Bool
@@ -41,7 +74,8 @@ public struct Memo: Sendable, Equatable, Identifiable {
 
     /// 앱이 해석하는 키 — 나머지는 전부 `preserved` 로 간다.
     public static let knownKeys: Set<String> = [
-        "id", "created", "updated", "due", "at", "tags", "color", "pinned", "deleted", "tidied",
+        "id", "created", "updated", "due", "at", "every", "surface", "place", "geo",
+        "tags", "color", "pinned", "deleted", "tidied",
     ]
 
     public init(
@@ -50,6 +84,10 @@ public struct Memo: Sendable, Equatable, Identifiable {
         updated: Date = Date(),
         due: CalendarDate? = nil,
         at: Date? = nil,
+        every: Recurrence? = nil,
+        surface: Date? = nil,
+        place: String? = nil,
+        geo: Coordinate? = nil,
         tags: [String] = [],
         color: MemoColor = .default,
         pinned: Bool = false,
@@ -65,6 +103,10 @@ public struct Memo: Sendable, Equatable, Identifiable {
         self.updated = updated.truncatingSubsecond
         self.due = due
         self.at = at?.truncatingSubsecond
+        self.every = every
+        self.surface = surface?.truncatingSubsecond
+        self.place = place
+        self.geo = geo
         self.tags = tags
         self.color = color
         self.pinned = pinned
@@ -74,8 +116,24 @@ public struct Memo: Sendable, Equatable, Identifiable {
         self.preserved = preserved
     }
 
-    /// 캘린더에 나타나는가 (설계문서 §10).
+    /// 캘린더에 나타나는가 (설계문서 §10). **장소는 여기에 끼지 않는다.**
     public var isScheduled: Bool { due != nil || at != nil }
+
+    /// 종이에 장소 잉크가 찍히는가. 이름이든 좌표든 하나만 있으면 된다.
+    public var hasPlace: Bool { place != nil || geo != nil }
+
+    /// 이 종이가 앞으로 나올 시각. **적혀 있으면 그것, 없으면 일정 시각이다.**
+    ///
+    /// 시계(`DueClock`)가 보는 값이 이것 하나여야, 「일정 시각에 나온다」와
+    /// 「따로 정한 시각에 나온다」가 두 갈래로 갈라지지 않는다.
+    public var surfacesAt: Date? { surface ?? at }
+
+    /// 일정 옆에 적을 「나올 때」. 일정이 없거나 같은 시각이면 `nil`.
+    public var surfaceLead: String? {
+        guard let surface else { return nil }
+        guard let event = at ?? due?.startOfDay() else { return nil }
+        return SurfaceWords.lead(surface: surface, event: event)
+    }
 
     /// 캘린더가 이 메모를 놓을 날짜. `at` 이 있으면 그 날, 없으면 `due`.
     public func scheduledDate(calendar: Calendar = .current) -> CalendarDate? {

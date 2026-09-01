@@ -4,6 +4,10 @@ import Observation
 
 /// 적힌 시각이 오면 알리는 시계 (`DayClock` 의 짝).
 ///
+/// **보는 값은 `Memo.surfacesAt` 하나다.** 「일정 시각에 나온다」와 「따로 정한
+/// 시각에 나온다」(`surface`)를 두 갈래로 두면 한쪽만 고쳐지는 날이 온다 —
+/// 자다 깬 기계, 하루가 바뀐 순간, 앱을 늦게 켠 저녁이 전부 두 번씩 있게 된다.
+///
 /// **§7.2 는 지키지 못한 약속을 하나 하고 있었다** — "언제 볼지 이미 정해졌다.
 /// 그 날이 오면 달력이 꺼내 준다." 꺼내 주는 쪽이 없었다. `at` 이 적힌 메모가
 /// 그 시각에 하는 일이 아무것도 없었고, 그러면 "적었는데 그냥 지나갔다" 가
@@ -87,10 +91,10 @@ final class DueClock {
         let today = CalendarDate(moment, calendar: calendar)
         let passed = store.memos
             .filter { memo in
-                guard let at = memo.at, at <= moment else { return false }
+                guard let at = memo.surfacesAt, at <= moment else { return false }
                 return CalendarDate(at, calendar: calendar) == today
             }
-            .sorted { ($0.at ?? .distantPast) > ($1.at ?? .distantPast) }
+            .sorted { ($0.surfacesAt ?? .distantPast) > ($1.surfacesAt ?? .distantPast) }
 
         // 지나간 것은 전부 "알린 것" 으로 친다 — 꺼내지 않은 것까지 포함해서.
         // 안 그러면 잠시 뒤 `arm` 이 그것들을 다시 지금 울릴 것으로 읽는다.
@@ -102,7 +106,7 @@ final class DueClock {
     private func arm() {
         task?.cancel()
         let moment = now()
-        guard let next = upcoming(after: moment), let at = next.at else { return }
+        guard let next = upcoming(after: moment), let at = next.surfacesAt else { return }
 
         let seconds = max(at.timeIntervalSince(moment), 0)
         task = Task { [weak self] in
@@ -120,10 +124,10 @@ final class DueClock {
         let moment = now()
         let due = store.memos
             .filter { memo in
-                guard let at = memo.at, !announced.contains(memo.id) else { return false }
+                guard let at = memo.surfacesAt, !announced.contains(memo.id) else { return false }
                 return at <= moment
             }
-            .sorted { ($0.at ?? .distantPast) < ($1.at ?? .distantPast) }
+            .sorted { ($0.surfacesAt ?? .distantPast) < ($1.surfacesAt ?? .distantPast) }
 
         for memo in due {
             announced.insert(memo.id)
@@ -136,9 +140,9 @@ final class DueClock {
     private func upcoming(after moment: Date) -> Memo? {
         store.memos
             .filter { memo in
-                guard let at = memo.at, !announced.contains(memo.id) else { return false }
+                guard let at = memo.surfacesAt, !announced.contains(memo.id) else { return false }
                 return at > moment
             }
-            .min { ($0.at ?? .distantFuture) < ($1.at ?? .distantFuture) }
+            .min { ($0.surfacesAt ?? .distantFuture) < ($1.surfacesAt ?? .distantFuture) }
     }
 }

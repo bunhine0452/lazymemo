@@ -216,7 +216,10 @@ struct InkBleedLayer: View {
                 )
                 // 색이 여럿이면 옆으로 늘어놓는다. 겹쳐 찍으면 섞여서 잿빛이
                 // 되고, 그러면 "그 파란 거" 를 자리로 기억할 수 없다.
-                let step = cell.width * 0.095
+                //
+                // 사이는 자국의 크기를 따라간다. 못 박아 두면 붐비는 날 —
+                // 자국이 가장 큰 날 — 에만 셋이 겹쳐 다시 잿빛이 된다.
+                let step = max(cell.width * 0.07, radius * 2.15)
                 let lead = -step * CGFloat(stain.inks.count - 1) / 2
 
                 for (order, ink) in stain.inks.enumerated() {
@@ -236,9 +239,18 @@ struct InkBleedLayer: View {
                             x: -reach, y: -reach, width: reach * 2, height: reach * 2
                         )),
                         with: .radialGradient(
+                            // **한복판은 젖어 있고 가장자리만 번진다.**
+                            //
+                            // 앞선 값은 0 에서 1 까지 내내 흐려져서, 얼룩이
+                            // 초점 안 맞은 사진처럼 보였다 — 종이에 밴 잉크가
+                            // 아니라 **렌더가 잘못된 것**으로 읽혔고, 달 전체를
+                            // 보면 칸마다 먼지가 앉은 것 같았다. 심은 또렷하게
+                            // 두고 바깥 3할만 풀어 준다. 펜촉이 한 번 닿은
+                            // 자국은 실제로 그렇게 생겼다.
                             Gradient(stops: [
                                 .init(color: ink.opacity(alpha), location: 0),
-                                .init(color: ink.opacity(alpha * 0.62), location: 0.5),
+                                .init(color: ink.opacity(alpha), location: 0.58),
+                                .init(color: ink.opacity(alpha * 0.55), location: 0.80),
                                 .init(color: ink.opacity(0), location: 1),
                             ]),
                             center: .zero, startRadius: 0, endRadius: reach
@@ -262,10 +274,13 @@ struct InkBleedLayer: View {
     /// 그것은 자국이 아니라 **골라 놓은 줄**로 읽히고, 고르는 일은 밑줄이
     /// 이미 하고 있다.
     private func sweep(_ context: inout GraphicsContext, size: CGSize, cell: CGSize, row: Int) {
-        let wash = Theme.highlightWash.opacity(0.30)
+        // **세기를 더 낮췄다.** 큰 창에서 이 자국은 칸 높이만큼 두꺼운 띠가
+        // 되는데, 그 크기에서 앞선 값(0.30)은 형광펜 자국이 아니라 **종이에
+        // 쏟은 것**으로 보였다. 자국은 넓어질수록 옅어야 자국으로 남는다.
+        let wash = Theme.highlightWash.opacity(0.16)
         let band = CGRect(
-            x: 0, y: CGFloat(row) * cell.height + cell.height * 0.14,
-            width: size.width, height: cell.height * 0.72
+            x: 0, y: CGFloat(row) * cell.height + cell.height * 0.20,
+            width: size.width, height: cell.height * 0.60
         )
         context.fill(
             Path(roundedRect: band, cornerRadius: band.height * 0.28),

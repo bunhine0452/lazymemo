@@ -1,265 +1,499 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>lazymemo — 바탕화면에 상주하는 메모 + 캘린더</title>
-<meta name="description" content="macOS 바탕화면에 상주하는 메모와 캘린더. 사용자는 게으르다를 전제로 설계했다. 메모는 당신 컴퓨터의 마크다운 파일이다.">
+<meta name="color-scheme" content="light dark">
+<title>lazymemo — sticky notes and a calendar that live on your macOS desktop</title>
+<meta name="description" content="A macOS desktop notepad and calendar, designed on the assumption that you would rather not tidy up. There is no app to open and no Save button, and every note is a Markdown file on your own Mac.">
+<link rel="canonical" href="https://bunhine0452.github.io/lazymemo/">
+<link rel="alternate" hreflang="en" href="https://bunhine0452.github.io/lazymemo/">
+<link rel="alternate" hreflang="ko" href="https://bunhine0452.github.io/lazymemo/ko/">
+<link rel="alternate" hreflang="x-default" href="https://bunhine0452.github.io/lazymemo/">
 <meta property="og:title" content="lazymemo">
-<meta property="og:description" content="앱을 «열어서» 쓰지 않는다. 저장 버튼이 없다. 메모는 당신 컴퓨터의 마크다운 파일이다.">
+<meta property="og:description" content="Sticky notes and a calendar that live on your macOS desktop. No app to open, no Save button, and every note is a Markdown file on your own Mac.">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://bunhine0452.github.io/lazymemo/">
+<meta property="og:image" content="https://bunhine0452.github.io/lazymemo/img/note.png">
+<meta property="og:locale" content="en">
+<meta property="og:locale:alternate" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232E4261'/><rect x='8' y='11' width='16' height='2.2' rx='1.1' fill='%23FDC24F'/><path d='M8 18h13.5' stroke='%23FDC24F' stroke-width='2' stroke-linecap='round' opacity='.62'/></svg>">
 <style>
 :root {
   --paper: #faf7f2;
   --paper-warm: #f7f2e6;
   --ink: #29261f;
-  --ink-soft: rgba(41, 38, 31, .62);
-  --ink-faint: rgba(41, 38, 31, .34);
+  --ink-soft: rgba(41, 38, 31, .64);
+  --ink-faint: rgba(41, 38, 31, .40);
   --rule: rgba(41, 38, 31, .12);
+  --rule-soft: rgba(41, 38, 31, .07);
   --accent: #2e4261;
-  --highlight: #fdc24f;
+  --accent-ink: #faf7f2;
+  --highlight: rgba(253, 194, 79, .52);
   --dot: rgba(41, 38, 31, .16);
+  --shell: rgba(127, 127, 127, .10);
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --paper: #232220;
     --paper-warm: #2b2823;
     --ink: #e6e2da;
-    --ink-soft: rgba(230, 226, 218, .60);
-    --ink-faint: rgba(230, 226, 218, .32);
+    --ink-soft: rgba(230, 226, 218, .62);
+    --ink-faint: rgba(230, 226, 218, .38);
     --rule: rgba(230, 226, 218, .14);
+    --rule-soft: rgba(230, 226, 218, .08);
     --accent: #99b8e6;
+    --accent-ink: #1b1a18;
+    --highlight: rgba(253, 194, 79, .30);
     --dot: rgba(230, 226, 218, .13);
+    --shell: rgba(255, 255, 255, .06);
   }
 }
 
 * { box-sizing: border-box; }
-
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 body {
   margin: 0;
   background: var(--paper);
-  /* 종이의 도트 그리드. 앱이 쓰는 것과 같은 23pt 간격이다. */
+  /* The paper's dot grid — the same 23pt spacing the app draws. */
   background-image: radial-gradient(var(--dot) 1px, transparent 1px);
   background-size: 23px 23px;
   color: var(--ink);
-  font: 16px/1.75 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
-        "Pretendard", "Noto Sans KR", system-ui, sans-serif;
-  letter-spacing: -.005em;
+  font: 16px/1.75 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+        "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -.004em;
 }
 
-.wrap { max-width: 760px; margin: 0 auto; padding: 0 24px; }
+.wrap { max-width: 860px; margin: 0 auto; padding: 0 28px; }
+@media (max-width: 520px) { .wrap { padding: 0 20px; } }
 
-/* ── 머리 ─────────────────────────────── */
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
 
-header { padding: 88px 0 56px; }
+/* ── Top row ──────────────────────────── */
+
+.topbar {
+  display: flex; align-items: center; gap: 18px;
+  padding-top: 26px; font-size: 13.5px;
+}
+.topbar .name { font-weight: 700; letter-spacing: -.02em; font-size: 15px; }
+.topbar nav { margin-left: auto; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.topbar nav a { color: var(--ink-soft); text-decoration: none; }
+.topbar nav a:hover { color: var(--ink); text-decoration: underline; }
+.topbar .lang {
+  color: var(--ink-soft); border: 1px solid var(--rule);
+  border-radius: 999px; padding: 3px 11px; text-decoration: none;
+}
+.topbar .lang:hover { color: var(--ink); border-color: var(--ink-faint); text-decoration: none; }
+/* The nav needs its own row on a narrow screen — without wrap on the
+   container a full-width child simply crowds the wordmark. */
+@media (max-width: 520px) {
+  .topbar { gap: 10px 12px; flex-wrap: wrap; }
+  .topbar nav { gap: 12px 16px; width: 100%; margin-left: 0; }
+}
+
+/* ── Head ─────────────────────────────── */
+
+header { padding: 62px 0 0; }
 
 .mark {
-  width: 60px; height: 60px; border-radius: 13px;
+  width: 58px; height: 58px; border-radius: 13px;
   background: var(--accent);
   display: flex; flex-direction: column; justify-content: center;
-  gap: 7px; padding: 0 13px; margin-bottom: 28px;
+  gap: 7px; padding: 0 13px; margin-bottom: 26px;
 }
-.mark i { display: block; height: 3px; border-radius: 2px; background: var(--highlight); }
+.mark i { display: block; height: 3px; border-radius: 2px; background: #fdc24f; }
 .mark i:last-child { width: 62%; opacity: .55; }
 
-h1 { font-size: 38px; line-height: 1.2; margin: 0 0 14px; letter-spacing: -.03em; font-weight: 700; }
+h1 { font-size: 40px; line-height: 1.15; margin: 0 0 16px; letter-spacing: -.035em; font-weight: 700; }
+@media (max-width: 520px) { h1 { font-size: 32px; } }
 
-.lede { font-size: 19px; line-height: 1.65; margin: 0 0 8px; max-width: 30em; }
+.lede { font-size: 19.5px; line-height: 1.6; margin: 0 0 14px; max-width: 24em; }
 .lede strong { font-weight: 700; }
 
-.sub { color: var(--ink-soft); margin: 0 0 34px; max-width: 32em; }
+.sub { color: var(--ink-soft); margin: 0 0 30px; max-width: 33em; font-size: 16.5px; }
 
-/* ── 설치 ─────────────────────────────── */
+/* A highlighter stroke, the same word the calendar uses for "this week". */
+.hl {
+  background: linear-gradient(var(--highlight), var(--highlight)) no-repeat;
+  background-size: 100% .92em;
+  background-position: 0 .16em;
+  padding: 0 .1em;
+}
 
-.install { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin-bottom: 14px; }
-@media (max-width: 620px) { .install { grid-template-columns: 1fr; } }
+.meta {
+  display: flex; flex-wrap: wrap; gap: 6px 14px;
+  font-size: 13px; color: var(--ink-faint); margin: 0 0 34px;
+}
+.meta span:not(:last-child)::after { content: " ·"; color: var(--rule); }
+
+/* ── Hero shot ────────────────────────── */
+
+.hero-shot { margin: 0 auto 44px; }
+.hero-shot img {
+  display: block; width: 100%; height: auto;
+  border-radius: 6px; border: 1px solid var(--rule);
+}
+.hero-shot figcaption {
+  margin-top: 11px; font-size: 13px; color: var(--ink-faint);
+  line-height: 1.6; max-width: 40em;
+}
+
+/* ── Install ──────────────────────────── */
+
+.install { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin-bottom: 16px; }
+@media (max-width: 640px) { .install { grid-template-columns: 1fr; } }
 
 .card {
   background: var(--paper-warm);
   border: 1px solid var(--rule);
-  border-radius: 5px;
+  border-radius: 6px;
   padding: 18px 20px 20px;
+  display: flex; flex-direction: column;
 }
 .card h3 { margin: 0 0 4px; font-size: 13px; font-weight: 700; letter-spacing: .01em; }
-.card p { margin: 0 0 12px; font-size: 13px; color: var(--ink-soft); line-height: 1.55; }
+.card p { margin: 0 0 12px; font-size: 13.5px; color: var(--ink-soft); line-height: 1.55; }
+.card pre { margin-top: auto; }
 
-pre, code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; }
+pre, code, kbd { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
 pre {
+  position: relative;
   margin: 0; padding: 12px 14px; overflow-x: auto;
-  /* 긴 주소는 **눈으로만 접힌다** — 복사하면 여전히 한 줄이라 그대로 붙는다. */
+  /* A long address folds for the eye only — copied, it is still one line. */
   white-space: pre-wrap; overflow-wrap: anywhere;
-  background: rgba(127, 127, 127, .10);
-  border-radius: 4px; font-size: 12.5px; line-height: 1.7;
+  background: var(--shell);
+  border-radius: 5px; font-size: 12.5px; line-height: 1.75;
 }
 pre .c { color: var(--ink-faint); }
+code { font-size: .92em; background: var(--shell); border-radius: 3px; padding: .1em .35em; }
 
-.note { font-size: 13px; color: var(--ink-faint); margin: 0 0 64px; line-height: 1.6; }
-
-/* ── 본문 ─────────────────────────────── */
-
-section { padding: 8px 0 56px; }
-h2 {
-  font-size: 13px; font-weight: 700; letter-spacing: .06em;
-  color: var(--ink-faint); margin: 0 0 20px; text-transform: uppercase;
+.copyable { display: flex; gap: 8px; align-items: flex-start; margin-top: auto; }
+.copyable pre { flex: 1 1 auto; min-width: 0; }
+.copy {
+  flex: 0 0 auto; margin-top: 2px;
+  font: 600 11.5px/1 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  letter-spacing: .02em;
+  color: var(--ink-soft); background: transparent;
+  border: 1px solid var(--rule); border-radius: 5px;
+  padding: 8px 10px; cursor: pointer;
+  /* Holds its width through “Copy” → “Copied” so the block beside it stays put. */
+  min-width: 70px; text-align: center; white-space: nowrap;
 }
-h2 + p { margin-top: 0; }
-p { margin: 0 0 16px; max-width: 34em; }
+.copy:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+.note { font-size: 13.5px; color: var(--ink-faint); line-height: 1.7; max-width: 42em; margin: 0; }
+.note strong { color: var(--ink-soft); font-weight: 700; }
+
+/* ── Body ─────────────────────────────── */
+
+section { padding: 0 0 60px; }
+section > pre { max-width: 44em; }
+h2 {
+  font-size: 12.5px; font-weight: 700; letter-spacing: .07em;
+  color: var(--ink-faint); margin: 0 0 22px; text-transform: uppercase;
+}
+h2 + p, h2 + .four, h2 + figure, h2 + .keys { margin-top: 0; }
+p { margin: 0 0 16px; max-width: 36em; }
 p:last-child { margin-bottom: 0; }
 
-.four { display: grid; gap: 26px 34px; grid-template-columns: 1fr 1fr; margin: 0; padding: 0; list-style: none; }
-@media (max-width: 620px) { .four { grid-template-columns: 1fr; } }
-.four h3 { margin: 0 0 5px; font-size: 15px; font-weight: 700; }
-.four p { margin: 0; font-size: 14.5px; color: var(--ink-soft); line-height: 1.65; }
+.four { display: grid; gap: 30px 38px; grid-template-columns: 1fr 1fr; margin: 0; padding: 0; list-style: none; }
+@media (max-width: 640px) { .four { grid-template-columns: 1fr; gap: 26px; } }
+.four h3 { margin: 0 0 6px; font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; }
+.four p { margin: 0; font-size: 14.5px; color: var(--ink-soft); line-height: 1.68; }
 
-figure { margin: 0 0 34px; }
+figure { margin: 0 0 38px; }
 figure img {
   display: block; width: 100%; height: auto;
-  border-radius: 5px; border: 1px solid var(--rule);
+  border-radius: 6px; border: 1px solid var(--rule);
 }
-figcaption { margin-top: 10px; font-size: 13px; color: var(--ink-faint); line-height: 1.6; }
+figcaption { margin-top: 11px; font-size: 13.5px; color: var(--ink-faint); line-height: 1.65; max-width: 40em; }
 
-.shots { padding-bottom: 24px; }
+/* ── Keys ─────────────────────────────── */
 
-/* 접힌 자리 — 앱의 두 층을 가르는 것과 같은 표시 */
-.crease { height: 1px; border: 0; margin: 0 0 56px;
-  background: linear-gradient(to right, transparent, var(--rule) 12%, var(--rule) 88%, transparent); }
-
-a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
-a:hover { text-decoration-thickness: 2px; }
+.keys { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+.keys th { display: none; }
+.keys td { padding: 11px 0; border-top: 1px solid var(--rule-soft); vertical-align: top; line-height: 1.6; }
+.keys tr:first-child td { border-top: 0; }
+.keys td:first-child { width: 168px; padding-right: 20px; white-space: nowrap; }
+.keys td:last-child { color: var(--ink-soft); }
+.keys td:last-child strong { color: var(--ink); font-weight: 600; }
+@media (max-width: 560px) {
+  .keys td { display: block; border-top: 0; padding: 0; }
+  .keys tr { display: block; padding: 12px 0; border-top: 1px solid var(--rule-soft); }
+  .keys tr:first-child { border-top: 0; }
+  .keys td:first-child { width: auto; padding: 0 0 4px; white-space: normal; }
+}
 
 kbd {
-  font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  display: inline-block;
+  font: 600 12.5px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--ink);
   border: 1px solid var(--rule); border-bottom-width: 2px;
   border-radius: 4px; padding: 3px 6px; white-space: nowrap;
 }
+.keys td:first-child .plain { font-size: 13.5px; color: var(--ink); }
+
+/* The crease that separates the app's two layers, borrowed here. */
+.crease { height: 1px; border: 0; margin: 0 0 60px;
+  background: linear-gradient(to right, transparent, var(--rule) 12%, var(--rule) 88%, transparent); }
+
+.aside {
+  border-left: 2px solid var(--rule);
+  padding: 2px 0 2px 18px; margin: 0 0 16px;
+  color: var(--ink-soft); font-size: 14.5px; max-width: 36em;
+}
+.aside p { margin: 0 0 10px; font-size: inherit; }
 
 footer {
-  padding: 40px 0 72px; border-top: 1px solid var(--rule);
+  padding: 40px 0 76px; border-top: 1px solid var(--rule);
   font-size: 13.5px; color: var(--ink-faint); line-height: 1.9;
 }
-footer a { color: inherit; }
-footer .links { margin-bottom: 10px; }
-footer .links a { margin-right: 18px; color: var(--accent); }
+footer .links { margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 8px 20px; }
+footer .links a { color: var(--accent); }
 </style>
 </head>
 <body>
 
+<div class="topbar wrap">
+  <span class="name">lazymemo</span>
+  <nav>
+    <a href="#screens">Screens</a>
+    <a href="#files">Your files</a>
+    <a href="#claude">Claude</a>
+    <a href="https://github.com/bunhine0452/lazymemo">GitHub</a>
+    <a class="lang" href="ko/" hreflang="ko" lang="ko">한국어</a>
+  </nav>
+</div>
+
 <header class="wrap">
   <div class="mark" aria-hidden="true"><i></i><i></i></div>
-  <h1>lazymemo</h1>
-  <p class="lede">macOS 바탕화면에 상주하는 메모 + 캘린더.<br><strong>사용자는 게으르다</strong>를 전제로 설계했다.</p>
-  <p class="sub">앱을 «열어서» 쓰지 않는다. 메모는 항상 바탕화면에 떠 있고,
-     새 메모는 <kbd>⌥⌘N</kbd> 한 번으로 시작되며, <strong>저장 버튼이 없다.</strong></p>
+  <h1>Notes that stay<br>where you left them.</h1>
+  <p class="lede">A notepad and calendar that live on your macOS desktop, designed on
+     one assumption — <strong>that you would rather not tidy up.</strong></p>
+  <p class="sub">So lazymemo never asks you to. There is no app to open, a new note begins
+     with <kbd>⌥⌘N</kbd>, and <span class="hl">there is no Save button.</span></p>
+  <p class="meta">
+    <span>macOS 26 (Tahoe) or later</span>
+    <span>2.6 MB bundle</span>
+    <span>No account needed</span>
+    <span>MIT licensed</span>
+  </p>
+</header>
 
+<figure class="hero-shot wrap">
+  <img src="img/note.png" width="640" height="252"
+       alt="A single note resting on the desktop, shown in light mode on the left and dark mode on the right.">
+  <figcaption>One sheet of paper. The controls appear over the content only while your
+    pointer is there, and they cover neither the first line nor the last.</figcaption>
+</figure>
+
+<div class="wrap">
   <div class="install">
     <div class="card">
       <h3>Homebrew</h3>
-      <p>한 줄로 설치한다.</p>
-<pre><span class="c"># macOS 26 (Tahoe) 이상</span>
-brew tap bunhine0452/lazymemo
+      <p>Two lines, really — the tap first, then the cask itself. Homebrew
+         looks after updates from then on.</p>
+      <div class="copyable">
+<pre id="brew">brew tap bunhine0452/lazymemo
 brew install --cask lazymemo</pre>
+        <button class="copy" type="button" data-copy="brew">Copy</button>
+      </div>
     </div>
     <div class="card">
-      <h3>소스에서 빌드</h3>
-      <p>Xcode 없이 빌드된다. 이쪽이 1차 배포 경로다.</p>
-<pre>git clone https://github.com/bunhine0452/lazymemo
+      <h3>Build from source</h3>
+      <p>Xcode is not required — Command Line Tools are enough. This is the path we
+         recommend most warmly.</p>
+      <div class="copyable">
+<pre id="src">git clone https://github.com/bunhine0452/lazymemo
 cd lazymemo
 ./scripts/build-app.sh</pre>
+        <button class="copy" type="button" data-copy="src">Copy</button>
+      </div>
     </div>
   </div>
-  <p class="note">이 앱은 아직 <strong>공증받지 않았다.</strong> 그래서 cask 는 설치 뒤 검역 딱지를 떼어 낸다 —
-    미봉책이고, Developer ID 를 받는 즉시 사라진다. 믿을 수 없다면 소스에서 직접 빌드하는 쪽이 맞다.
-    그렇게 만든 앱에는 애초에 딱지가 붙지 않는다.</p>
-</header>
+  <p class="note" style="margin-bottom:64px">
+    <strong>One thing we owe you up front: lazymemo is not notarized yet.</strong>
+    Anything you download carries Apple's quarantine flag, and since macOS 15 a
+    flagged app that has not been notarized simply reports itself as damaged. The cask
+    therefore removes that flag right after installing. We would much rather say so
+    plainly than do it quietly — it is a stopgap, and it disappears the day a
+    Developer&nbsp;ID certificate is in place. If you would prefer not to rely on that,
+    please build from source instead; an app you build yourself never receives the flag
+    at all. That choice is entirely reasonable, and it stays a first-class path.
+  </p>
+</div>
 
 <hr class="crease">
 
 <main class="wrap">
 
-<section>
-  <h2>왜 이렇게 생겼나</h2>
+<section id="why">
+  <h2>Why it looks this way</h2>
   <ul class="four">
     <li>
-      <h3>완성을 요구하지 않는다</h3>
-      <p>쓰다 만 것, 제목 없는 것, 날짜 없는 것이 정상 상태다. 빈칸도, 채우라는 표시도, 저장 버튼도 없다.</p>
+      <h3>It never asks you to finish</h3>
+      <p>Half-written, untitled, undated — those are the normal states here. There are
+         no empty fields waiting to be filled, no reminders to fill them, and no Save
+         button to forget.</p>
     </li>
     <li>
-      <h3>시간이 유일한 구조다</h3>
-      <p>폴더도 태그도 유지하지 않는다. 그래서 달력이 <strong>만지는 물건</strong>이다 — 일정을 집어 다른 날에 놓고,
-         한 번 눌러 미룬다. <code>내일 3시 치과</code> 라고 적으면 앱이 알아서 날짜를 읽는다.</p>
+      <h3>Time is the only structure</h3>
+      <p>lazymemo keeps no folders and no tags, so the calendar is something you
+         <strong>handle</strong> — pick an entry up, drop it on another day, or push it
+         back with a single click. Write <code>dentist tomorrow at 3</code> and the date
+         is read for you.</p>
     </li>
     <li>
-      <h3>오래된 것은 스스로 물러난다</h3>
-      <p>다 체크한 목록과 지난 일정은 조용히 바탕화면에서 빠진다. <strong>지운 것이 아니다</strong> —
-         메뉴가 «치워 둔 N장» 이라고 적어 둔다.</p>
+      <h3>Old things step aside on their own</h3>
+      <p>A checklist you have finished and a date that has passed quietly leave the
+         desktop. <strong>Nothing is deleted</strong> — the menu keeps the count, and one
+         click brings them all back.</p>
     </li>
     <li>
-      <h3>앱은 자기를 드러내지 않는다</h3>
-      <p>기본 상태의 메모는 글자와 종이뿐이다. 머리글도 아이콘 줄도 없고,
-         조작은 포인터가 올 때 내용 위에 겹쳐 뜬다.</p>
+      <h3>The app keeps out of your way</h3>
+      <p>A note at rest is paper and letters, nothing else: no title bar, no toolbar, no
+         coloured dots. The controls fade in over the content when your pointer arrives,
+         and fade out again when it leaves.</p>
     </li>
   </ul>
 </section>
 
-<section class="shots">
-  <h2>화면</h2>
+<section id="screens">
+  <h2>Screens</h2>
 
   <figure>
-    <img src="img/note.png" alt="바탕화면에 놓인 메모 한 장. 왼쪽은 밝은 모드, 오른쪽은 어두운 모드." loading="lazy">
-    <figcaption>종이 한 장. 포인터가 올 때만 조작이 겹쳐 뜨고, 첫 줄도 마지막 줄도 덮지 않는다.</figcaption>
+    <img src="img/capture.png" width="984" height="352" loading="lazy"
+         alt="Quick capture: a bubble below the menu bar icon holding a text field and a list of recent notes.">
+    <figcaption><kbd>⌥⌘N</kbd> opens quick capture. A single box does the writing, the
+      searching and the date reading — and when it opens, your recent notes are already
+      waiting underneath.</figcaption>
   </figure>
 
   <figure>
-    <img src="img/capture.png" alt="메뉴바 아이콘 아래 말풍선으로 뜬 빠른 입력 상자와 최근 메모 목록." loading="lazy">
-    <figcaption><kbd>⌥⌘N</kbd> 빠른 입력. 한 상자가 적기와 찾기와 날짜 읽기를 겸한다 —
-      열면 요즘 메모가 이미 아래에 놓여 있다.</figcaption>
+    <img src="img/calendar.png" width="704" height="492" loading="lazy"
+         alt="The calendar window: a month grid above, and the entries for the selected day below.">
+    <figcaption>The calendar has no widgets in it. Today is a hand-drawn circle, a busy
+      day is ink bleeding under the number, and you move between months by their names
+      rather than by arrows.</figcaption>
   </figure>
 
   <figure>
-    <img src="img/calendar.png" alt="달 격자와 그 날의 일정 목록으로 이루어진 달력 창." loading="lazy">
-    <figcaption>달력에는 부품이 없다. 오늘은 손으로 그린 동그라미, 붐비는 날은 숫자 아래 번진 잉크,
-      달 이동은 화살표가 아니라 이웃 달의 이름이다.</figcaption>
-  </figure>
-
-  <figure>
-    <img src="img/menu.png" alt="메뉴바 목록의 메모 줄들. 골라진 줄이 그 메모의 종이색으로 깔려 있다." loading="lazy">
-    <figcaption>목록의 줄도 종이의 낱말을 쓴다 — 찬 점은 바탕화면에 나와 있는 것, 빈 점은 치워 둔 것.</figcaption>
+    <img src="img/menu.png" width="768" height="206" loading="lazy"
+         alt="Rows of notes in the menu bar list, the highlighted row tinted with that note's own paper colour.">
+    <figcaption>The list speaks the same vocabulary as the paper. A filled dot is a note
+      out on the desktop; a hollow one has been put away.</figcaption>
   </figure>
 </section>
 
-<section>
-  <h2>메모는 파일이다</h2>
-  <p><strong>lazymemo 를 지워도 메모는 남는다.</strong> 정본은 당신 컴퓨터의 마크다운 파일이고,
-     Finder 로 열어도 텍스트 에디터로 고쳐도 된다.</p>
+<section id="keys">
+  <h2>How you use it</h2>
+  <table class="keys">
+    <tr>
+      <td><kbd>⌥⌘N</kbd></td>
+      <td><strong>Quick capture</strong>, in a bubble below the menu bar icon. Typing
+        also filters the notes you already have. The shortcut is yours to change in
+        Menu → Settings.</td>
+    </tr>
+    <tr>
+      <td><kbd>⌥⌘V</kbd></td>
+      <td><strong>Paste straight to the desktop.</strong> Whatever you copied — text or
+        a picture — becomes a new sheet without opening a window.</td>
+    </tr>
+    <tr>
+      <td><kbd>⌘⌫</kbd></td>
+      <td>Delete the note you have selected in the list. The box stays open and an
+        <strong>Undo</strong> appears on the line just below.</td>
+    </tr>
+    <tr>
+      <td><kbd>esc</kbd></td>
+      <td>Close. <strong>The box remembers what you were typing</strong> — reopen it and
+        your words are still there, selected, so typing simply replaces them.</td>
+    </tr>
+    <tr>
+      <td><span class="plain">The <kbd>×</kbd> on a note</span></td>
+      <td><strong>Hides it. It does not delete it.</strong> The note comes back from the
+        menu whenever you want it.</td>
+    </tr>
+    <tr>
+      <td><span class="plain">The red trash icon</span></td>
+      <td>Deletes — and the paper stays exactly where it was for eight seconds, holding
+        an Undo. After that you still have thirty days.</td>
+    </tr>
+    <tr>
+      <td><span class="plain">The calendar icon</span></td>
+      <td>Puts an undated note <strong>on the calendar</strong>; if it already has a
+        date, it shows you where that date lives.</td>
+    </tr>
+    <tr>
+      <td><span class="plain">A calendar row</span></td>
+      <td>Push it back a day, <strong>take the date off and send it back to the
+        desktop</strong>, or delete it. All three leave an Undo behind.</td>
+    </tr>
+  </table>
+  <p class="note" style="margin-top:24px">Finished things retire by themselves. A list
+    with every box ticked steps back three days after you last touched it, and a past
+    appointment steps back at the end of the following day. Neither is deleted — both
+    stay in the files, in search and on the calendar, and the menu notes how many are
+    put away. Notes you have pinned are never touched by this.</p>
+</section>
+
+<hr class="crease">
+
+<section id="files">
+  <h2>Your notes are files</h2>
+  <p><strong>If you ever remove lazymemo, your notes stay.</strong> The source of truth
+     is a folder of Markdown files on your own Mac — open them in Finder, edit them in
+     any text editor you like.</p>
 <pre>~/Documents/lazymemo/
-  notes/2026/08/01K3ZQ….md   <span class="c">← 정본</span>
-  .trash/                     <span class="c">← 삭제한 메모 (30일 보존)</span></pre>
-  <p style="margin-top:16px">이 폴더를 iCloud Drive 안으로 옮기면 동기화가 된다. 별도 백엔드가 없고,
-     옮기면 앱이 따라간다 (메뉴 → 설정).</p>
+  notes/2026/08/01K3ZQ….md   <span class="c">← the original</span>
+  .trash/                     <span class="c">← deleted notes, kept 30 days</span></pre>
+  <p style="margin-top:18px">Move that folder inside iCloud Drive and you have sync.
+     There is no backend to sign up for and nothing to configure — when you move the
+     folder, the app follows it (Menu → Settings).</p>
 </section>
 
-<section>
-  <h2>Claude 연동 (선택)</h2>
-  <p>lazymemo 는 MCP 서버를 함께 빌드한다. 등록하면 Claude Desktop 에서
-     «다음 주 화요일 오후 2시에 치과 예약 잡아줘» 라고 말할 수 있다.</p>
-  <p><strong>API 키가 필요 없다.</strong> lazymemo 가 Claude 를 호출하는 것이 아니라
-     Claude 가 lazymemo 를 호출하는 방향이라, 토큰 비용은 당신의 Claude 구독이 부담한다.</p>
-  <p>Claude 가 메모를 지울 수 있으므로 <strong>영구 삭제하는 도구를 아예 만들지 않았다.</strong>
-     이건 규칙이 아니라 배선이다 — MCP 서버가 호출할 수 있는 코드에 하드 삭제 함수 자체가 없다.</p>
+<section id="claude">
+  <h2>Claude, if you would like it</h2>
+  <p>lazymemo builds a small MCP server alongside the app. Register it and you can ask
+     Claude Desktop things like <em>“book the dentist for two o'clock next Tuesday”</em>
+     or <em>“what is on this month?”</em></p>
+  <p><strong>No API key is needed.</strong> Claude calls lazymemo rather than the other
+     way around, so the token cost sits with your own Claude subscription. The
+     integration is entirely optional and off until you register it yourself.</p>
+  <div class="aside">
+    <p>Because Claude is able to delete notes, <strong>we did not build a tool that
+      deletes permanently.</strong> This is wiring rather than policy — no hard-delete
+      function exists anywhere in the code the MCP server can reach. Deletion moves a
+      note to <code>.trash/</code>, and restoring it is a single call.</p>
+  </div>
 </section>
 
-<section>
-  <h2>프라이버시</h2>
-  <p>메모 본문이 컴퓨터 밖으로 나가는 경로는 위의 MCP 연동뿐이고, 그건 직접 등록해야 켜진다.</p>
-  <p>네트워크를 쓰는 곳이 하나 더 있다 — <strong>링크를 카드로 펼치기.</strong> 본문에 붙인 주소의 제목과
-     그림을 가져오려고 그 주소에 접속한다. 나가는 것은 주소 하나뿐이고 메모 본문은 아니지만,
-     어느 사이트를 붙였는지는 그 사이트가 알게 된다. 설정에서 끌 수 있고,
-     끄면 이 앱은 아무 데도 접속하지 않는다.</p>
-  <p class="note" style="margin:0">이 페이지도 같은 규칙을 지킨다 — 바깥으로 나가는 요청이 하나도 없다.
-     추적기도, 웹폰트도, 분석 스크립트도 없다.</p>
+<section id="privacy">
+  <h2>Privacy</h2>
+  <p>The only route by which the text of your notes can leave your Mac is the MCP
+     integration above, and it opens only when you register it yourself.</p>
+  <p>One other thing uses the network — <strong>unfolding a link into a card.</strong>
+     To do that, lazymemo asks the address you pasted for its title and picture. Only
+     the address goes out, never the note; even so, that site does learn you pasted it.
+     You can switch this off in Settings, and with it off the app contacts nothing at
+     all.</p>
+  <p class="note">This page keeps the same promise. It makes no outbound request of any
+     kind — no trackers, no web fonts, no analytics — and the deploy workflow checks
+     that before publishing.</p>
+</section>
+
+<section id="language">
+  <h2>A note on language</h2>
+  <p>The app's interface is currently <strong>in Korean only</strong>, and the
+     screenshots above show it exactly as it ships today. If that is a problem for you,
+     we are sorry — please treat this page as a description rather than a promise, and
+     you are very welcome to
+     <a href="https://github.com/bunhine0452/lazymemo/issues">open an issue</a> to say
+     so. This page is also available in <a href="ko/" hreflang="ko" lang="ko">한국어</a>.</p>
 </section>
 
 </main>
@@ -267,11 +501,37 @@ cd lazymemo
 <footer class="wrap">
   <div class="links">
     <a href="https://github.com/bunhine0452/lazymemo">GitHub</a>
-    <a href="https://github.com/bunhine0452/lazymemo/blob/main/docs/DESIGN.md">설계문서</a>
-    <a href="https://github.com/bunhine0452/lazymemo/releases/latest">릴리스</a>
+    <a href="https://github.com/bunhine0452/lazymemo/blob/main/docs/DESIGN.md">Design notes</a>
+    <a href="https://github.com/bunhine0452/lazymemo/releases/latest">Releases</a>
+    <a href="ko/" hreflang="ko" lang="ko">한국어</a>
   </div>
-  MIT © 2026 Kim Hyunbin · macOS 26 (Tahoe) 이상 · 번들 2.6MB
+  MIT © 2026 Kim Hyunbin · Thank you for taking a look.
 </footer>
+
+<script>
+// Nothing here reaches the network. It copies a command block and says so briefly.
+document.querySelectorAll('.copy').forEach(function (button) {
+  button.addEventListener('click', function () {
+    var block = document.getElementById(button.dataset.copy);
+    if (!block) return;
+    var done = function () {
+      var was = button.textContent;
+      button.textContent = 'Copied';
+      setTimeout(function () { button.textContent = was; }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(block.innerText).then(done, function () {});
+      return;
+    }
+    // Older browsers: select the block so ⌘C still works.
+    var range = document.createRange();
+    range.selectNodeContents(block);
+    var selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+});
+</script>
 
 </body>
 </html>

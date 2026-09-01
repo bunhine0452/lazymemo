@@ -22,6 +22,12 @@ struct Hotkey: Equatable, Sendable {
         modifiers: UInt32(optionKey | cmdKey)
     )
 
+    /// 지금 여기 ⌥⌘L.
+    static let here = Hotkey(
+        keyCode: UInt32(kVK_ANSI_L),
+        modifiers: UInt32(optionKey | cmdKey)
+    )
+
     /// 보조키가 하나도 없으면 전역 단축키로 쓸 수 없다 — 글자 하나가
     /// 어느 앱에서든 가로채이면 타자를 칠 수가 없다.
     var isUsable: Bool {

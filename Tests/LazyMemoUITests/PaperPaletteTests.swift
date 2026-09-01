@@ -15,16 +15,41 @@ import Testing
 @MainActor
 @Suite("종이 팔레트 — 여섯 색이 갈리는가")
 struct PaperPaletteTests {
-    /// 두 종이가 얼마나 다른가. sRGB 위의 거리 — 완벽한 지각 척도는 아니지만,
-    /// **같은 잣대를 두 외관에 대는 것**이 여기서 재려는 전부다.
+    /// 두 종이가 얼마나 다른가 — **눈이 재는 거리**(CIE Lab, ΔE).
+    ///
+    /// 앞선 판은 sRGB 위의 거리로 쟀다. 그 잣대는 어두운 쪽을 과소평가한다:
+    /// sRGB 값은 감마가 씌워진 저장용 숫자라, 같은 「한 걸음」이 밝은 자리에서는
+    /// 눈에 거의 안 보이고 어두운 자리에서는 크게 보인다. 그래서 **어두운 종이가
+    /// 색을 많이 먹어야만 통과하는 시험**이 되었고, 실제로 그 압력이 다크의
+    /// 여섯 장을 종이가 아니라 색 판으로 만들었다 (`PaperTint.dark`).
+    ///
+    /// Lab 은 그 왜곡을 펴 놓은 자리다. 여기서 재면 「빛에서 되던 만큼은
+    /// 어둠에서도」가 **밝기를 맞추라는 말이 아니라 눈에 같은 만큼 갈리라는 말**이
+    /// 된다. 잣대를 바꾸는 것은 그 자체가 한 번의 결정이라 여기 적어 둔다.
     private func distance(_ left: NSColor, _ right: NSColor) -> Double {
-        guard let a = left.usingColorSpace(.sRGB), let b = right.usingColorSpace(.sRGB) else {
-            return 0
+        let a = lab(left), b = lab(right)
+        let dl = a.0 - b.0, da = a.1 - b.1, db = a.2 - b.2
+        return (dl * dl + da * da + db * db).squareRoot()
+    }
+
+    /// sRGB → CIE Lab (D65). 손으로 적는 이유는 `MonthGridGeometry` 와 같다 —
+    /// 색 공간 변환을 시스템에 맡기면 어느 외관에서 해석됐는지가 값에 섞인다.
+    private func lab(_ color: NSColor) -> (Double, Double, Double) {
+        guard let rgb = color.usingColorSpace(.sRGB) else { return (0, 0, 0) }
+        // 감마를 벗긴다.
+        let linear = [rgb.redComponent, rgb.greenComponent, rgb.blueComponent].map { channel -> Double in
+            let value = Double(channel)
+            return value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
         }
-        let dr = a.redComponent - b.redComponent
-        let dg = a.greenComponent - b.greenComponent
-        let db = a.blueComponent - b.blueComponent
-        return Double((dr * dr + dg * dg + db * db).squareRoot())
+        let x = linear[0] * 0.4124564 + linear[1] * 0.3575761 + linear[2] * 0.1804375
+        let y = linear[0] * 0.2126729 + linear[1] * 0.7151522 + linear[2] * 0.0721750
+        let z = linear[0] * 0.0193339 + linear[1] * 0.1191920 + linear[2] * 0.9503041
+        // D65 백색점.
+        func f(_ t: Double) -> Double {
+            t > 216.0 / 24389.0 ? pow(t, 1.0 / 3.0) : (841.0 / 108.0) * t + 4.0 / 29.0
+        }
+        let fx = f(x / 0.95047), fy = f(y), fz = f(z / 1.08883)
+        return (116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz))
     }
 
     /// 그 외관에서 가장 닮은 두 장의 거리. 여기가 곧 팔레트의 약한 고리다.
@@ -39,9 +64,12 @@ struct PaperPaletteTests {
         return closest
     }
 
-    /// 여기 못 미치면 나란히 놓아도 같은 종이로 보인다. 빛 모드에서 통과하던
-    /// 값을 바닥으로 삼는다 — "빛에서 되던 만큼은 어둠에서도" 가 이 항목의 말이다.
-    private let floor = 0.045
+    /// 여기 못 미치면 나란히 놓아도 같은 종이로 보인다.
+    ///
+    /// ΔE 2.3 이 「겨우 다르다」고 느끼는 한 걸음(JND)이다. 두 걸음을 바닥으로
+    /// 삼는다 — 종이는 나란히 붙어 있지 않고 바탕화면 여기저기 흩어져 있어서,
+    /// 겨우 다른 정도로는 **기억해서 알아보는** 데 못 미친다.
+    private let floor = 5.0
 
     @Test("빛 모드에서 여섯 색이 서로 다른 종이다")
     func lightPapersAreDistinct() {
@@ -52,9 +80,28 @@ struct PaperPaletteTests {
     func darkPapersAreDistinct() {
         let dark = closestPair(dark: true)
         #expect(dark > floor)
-        // 빛에서 갈리는 만큼은 어둠에서도 갈려야 한다. 예전에는 어두운 쪽이
-        // 빛 쪽의 3/4 에도 못 미쳤다(무채와 노랑이 0.036).
+        // 빛에서 갈리는 만큼은 어둠에서도 갈려야 한다. 이것이 **눈으로 재는**
+        // 항목이라는 데 값이 걸려 있다 — sRGB 로 재던 시절에는 이 한 줄이
+        // "어둠에서 색을 더 먹어라" 로 읽혀서, 통과하는 유일한 길이 종이를
+        // 색 판으로 만드는 것이었다.
         #expect(dark >= closestPair(dark: false) * 0.9)
+    }
+
+    /// **어두운 종이는 바탕 곁에 머문다** — 색이 면을 차지하면 그건 종이가 아니다.
+    ///
+    /// 위의 두 항목만으로는 이쪽이 지켜지지 않는다. "여섯이 갈리는가" 는 색을
+    /// 키우면 언제나 통과하므로, 갈리라는 압력만 있고 물러나라는 압력이 없으면
+    /// 다음 사람이 값을 만질 때 다시 진한 쪽으로 흘러간다. 앞선 판이 그렇게
+    /// 됐다 — 여섯 장이 맨 종이보다 L\* 11 이나 밝았다.
+    @Test("숯색 종이는 맨 종이 곁에 머문다 — 색 판이 되지 않는다")
+    func darkPapersStayNearTheBase() {
+        let base = lab(PaperTint.base(dark: true)).0
+        for color in MemoColor.allCases {
+            let paper = lab(PaperTint.surface(ink: color.ink, dark: true)).0
+            #expect(paper - base < 6)
+            // 그렇다고 맨 종이와 같지는 않다. 색은 있어야 한다.
+            #expect(paper > base)
+        }
     }
 
     @Test("어두운 종이는 색을 더 먹는다 — 스밈과 채도 상한을 따로 잡는다")

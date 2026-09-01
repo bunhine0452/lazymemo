@@ -26,6 +26,10 @@ public actor MemoService {
     /// 파일 감시 이벤트가 여기로 되돌아와도 할 일이 없다.
     @discardableResult
     public func reconcile() async throws -> [Memo] {
+        // 밖에서 떨어진 낯선 이름의 파일을 먼저 받아 앉힌다. 이 한 줄이
+        // 아이폰 단축어·Hazel·Finder 끌어놓기를 전부 입력 경로로 만든다.
+        try? await vault.adopt()
+
         let files = try await vault.loadAll()
         let known = (try? await index.fingerprints()) ?? [:]
 
@@ -96,13 +100,18 @@ public actor MemoService {
         body: String = "",
         due: CalendarDate? = nil,
         at: Date? = nil,
+        every: Recurrence? = nil,
+        surface: Date? = nil,
+        place: String? = nil,
+        geo: Coordinate? = nil,
         tags: [String] = [],
         color: MemoColor = .default,
         now: Date = Date()
     ) async throws -> Memo {
         let memo = Memo(
             id: ULID(timestamp: now), created: now, updated: now,
-            due: due, at: at, tags: tags, color: color, body: body
+            due: due, at: at, every: every, surface: surface, place: place, geo: geo,
+            tags: tags, color: color, body: body
         )
         return try await persist(memo)
     }
@@ -114,6 +123,10 @@ public actor MemoService {
         body: String? = nil,
         due: CalendarDate?? = nil,
         at: Date?? = nil,
+        every: Recurrence?? = nil,
+        surface: Date?? = nil,
+        place: String?? = nil,
+        geo: Coordinate?? = nil,
         tags: [String]? = nil,
         color: MemoColor? = nil,
         pinned: Bool? = nil,
@@ -124,6 +137,10 @@ public actor MemoService {
         if let body { memo.body = body }
         if let due { memo.due = due }
         if let at { memo.at = at }
+        if let every { memo.every = every }
+        if let surface { memo.surface = surface }
+        if let place { memo.place = place }
+        if let geo { memo.geo = geo }
         if let tags { memo.tags = tags }
         if let color { memo.color = color }
         if let pinned { memo.pinned = pinned }
@@ -172,6 +189,24 @@ public actor MemoService {
             tidied.append(try await persist(moved))
         }
         return tidied
+    }
+
+    /// 지난 회차의 되풀이 일정을 **다음 회차로 걸어 보낸다** (`Tidy.rolled`).
+    ///
+    /// 치우기와 짝이지만 방향이 반대다 — 치우기는 물러나게 하고 이것은 앞으로
+    /// 보낸다. 그래서 `tidyFinished` 보다 **먼저** 돌아야 한다: 순서가 바뀌면
+    /// 지난 회차가 치워진 뒤에 걸어가게 되고, 그 사이에 사람이 메뉴를 열면
+    /// 분리수거가 「치워 둔 N장」에 잠깐 들어가 있다.
+    ///
+    /// - Returns: 걸어간 메모들.
+    @discardableResult
+    public func rollRecurring(now: Date = Date()) async throws -> [Memo] {
+        var rolled: [Memo] = []
+        for memo in try await vault.loadAll().map(\.memo) {
+            guard let moved = Tidy.rolled(memo, now: now) else { continue }
+            rolled.append(try await persist(moved))
+        }
+        return rolled
     }
 
     /// 치워 둔 것을 도로 꺼낸다.

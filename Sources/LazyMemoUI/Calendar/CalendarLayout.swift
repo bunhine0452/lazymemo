@@ -50,13 +50,26 @@ struct CalendarLayout: Equatable {
     /// 않는다 — 창을 재던 `onGeometryChange` 가 **내용의 크기**를 도로 물어와
     /// 격자가 한 번 더 자랐다. 지금은 창을 `GeometryReader` 로 받고 자리를 먹는
     /// 것들의 높이를 여기서 못 박는다.
-    static let headerHeight: CGFloat = 36
+    ///
+    /// 36pt 였다. 달 이름과 이웃 달과 「오늘」과 치우기가 그 안에서 서로
+    /// 밀치고 있었고, 누르는 자리는 글자만 했다 — 「9월」을 누르려다 「8월」의
+    /// 여백을 누르는 일이 잦았다. 조작 하나가 `Theme.touch` 를 지키려면
+    /// 머리도 그만큼은 있어야 한다.
+    static let headerHeight: CGFloat = 42
     /// 요일 줄의 높이 (아래 여백까지 포함).
-    static let weekdayHeight: CGFloat = 15
+    ///
+    /// 9.5pt 짜리 요일은 격자가 커질수록 잔글씨로 남았다. 이 줄은 달을
+    /// 읽는 눈금이라 숫자만큼은 아니어도 **읽히기는 해야 한다.**
+    static let weekdayHeight: CGFloat = 19
     /// 접힌 자리의 두께.
     static let creaseThickness: CGFloat = 13
     /// 접힌 자리가 통째로 먹는 자리 — 두께에 사이 여백을 더한 것.
     static let creaseBlock: CGFloat = creaseThickness + Theme.tight
+
+    /// 아직 창을 재지 못했을 때 대신 쓰는 크기 — 새 창이 열리는 크기와 같다
+    /// (`CalendarWindowController.defaultSize`). 둘이 어긋나면 첫 프레임만
+    /// 다른 눈금으로 그려진다.
+    static let defaultWindow = CGSize(width: 320, height: 470)
 
     /// 가로로 눕는 문턱.
     ///
@@ -75,16 +88,21 @@ struct CalendarLayout: Equatable {
     private static let gridShare: CGFloat = 0.58
     /// 세로 판형의 주 높이 범위. 아래쪽은 겨냥의 한계(끌어다 놓기가 조준
     /// 게임이 되는 높이), 위쪽은 달이 성겨 보이기 시작하는 높이다.
-    private static let weekRange: ClosedRange<CGFloat> = 30...54
+    ///
+    /// 아래쪽을 30 에서 올렸다. 한 칸이 30pt 이면 **칸 하나가 `Theme.touch`
+    /// 보다 크지 않다** — 이 창에서 가장 자주 누르는 과녁 마흔둘이 전부
+    /// 최소치 언저리였다는 뜻이다. 최소 창도 함께 키웠다
+    /// (`CalendarWindowController.minimumSize`).
+    private static let weekRange: ClosedRange<CGFloat> = 32...58
     /// 가로 판형은 세로로 남는 높이를 격자가 거의 다 쓴다. 아래로 더 갈 수
     /// 있고(짧고 넓은 창) 위로도 더 갈 수 있다(정사각형에 가까운 큰 창).
-    private static let wideWeekRange: ClosedRange<CGFloat> = 26...64
+    private static let wideWeekRange: ClosedRange<CGFloat> = 28...64
     private static let panelShare: CGFloat = 0.38
     /// 오른쪽 면의 폭. 아래쪽은 `09:30 팀 회의` 한 줄이 안 잘리는 폭,
     /// 위쪽은 더 넓어져도 읽는 속도가 나아지지 않는 폭이다.
     private static let panelRange: ClosedRange<CGFloat> = 190...300
-    private static let markRange: ClosedRange<CGFloat> = 15...28
-    private static let numeralRange: ClosedRange<CGFloat> = 10.5...16
+    private static let markRange: ClosedRange<CGFloat> = 16...30
+    private static let numeralRange: ClosedRange<CGFloat> = 11.5...19
     /// 칸의 최소 폭. 격자가 이보다 좁아지면 오른쪽 면을 줄여서라도 지킨다.
     private static let minimumCell: CGFloat = 30
 
@@ -95,7 +113,7 @@ struct CalendarLayout: Equatable {
         // 아직 창을 재지 못했으면 기본 창 크기로 친다. 0 을 그대로 풀면 첫
         // 프레임만 다른 눈금으로 그려지고, 그것이 화면 밖 렌더에서는 결과가 된다.
         guard size.width > 0, size.height > 0 else {
-            return resolve(size: CGSize(width: 300, height: 440), rows: rows)
+            return resolve(size: CalendarLayout.defaultWindow, rows: rows)
         }
         let weeks = CGFloat(max(rows, 1))
         let lyingDown = size.width >= size.height * wideThreshold && size.width >= wideMinimumWidth
@@ -145,7 +163,10 @@ struct CalendarLayout: Equatable {
         self.panelWidth = panelWidth
         let cell = max(Self.gridWidth(shape: shape, panelWidth: panelWidth, in: size), 1) / Self.columns
         markSize = Self.clamp(min(weekHeight * 0.52, cell * 0.56), to: Self.markRange)
-        numeralSize = Self.clamp(markSize * 0.64, to: Self.numeralRange)
+        // 숫자가 동그라미 안에서 차지하는 몫. 0.64 였을 때는 큰 창에서
+        // 마흔둘이 넓은 여백 가운데 떠 있는 것으로 보였다 — 칸만 자라고
+        // 글자는 안 자란 셈이다.
+        numeralSize = Self.clamp(markSize * 0.68, to: Self.numeralRange)
     }
 
     /// 격자가 갖는 폭. 가로 판형에서는 오른쪽 면과 접힌 자리를 뺀 나머지다.

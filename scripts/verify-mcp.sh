@@ -25,6 +25,16 @@ OUT="$(LAZYMEMO_VAULT="$VAULT" "$BIN" 2>/dev/null <<'JSONL'
 {"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"create_memo","arguments":{"due":"틀린날짜"}}}
 {"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"nonexistent_tool","arguments":{}}}
 {"jsonrpc":"2.0","id":10,"method":"unknown/method"}
+{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"create_memo","arguments":{"text":"커피","place":"광화문 교보문고","geo":"37.5709,126.9769"}}}
+{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"list_memos","arguments":{"place":"광화문"}}}
+{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"create_memo","arguments":{"text":"어디","geo":"여기쯤"}}}
+{"jsonrpc":"2.0","id":14,"method":"prompts/list"}
+{"jsonrpc":"2.0","id":15,"method":"prompts/get","params":{"name":"weekly-tidy"}}
+{"jsonrpc":"2.0","id":16,"method":"prompts/get","params":{"name":"없는것"}}
+{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"create_memo","arguments":{"text":"회의","at":"2026-09-10T15:00:00+09:00","surface_at":"2026-09-10T14:30:00+09:00"}}}
+{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"list_memos","arguments":{"from":"2026-09-10","to":"2026-09-10"}}}
+{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"create_memo","arguments":{"text":"분리수거","due":"2026-09-08","every":"매주"}}}
+{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"create_memo","arguments":{"text":"가끔","every":"이따금"}}}
 JSONL
 )"
 
@@ -50,8 +60,10 @@ echo "▸ MCP 대화 검증"
 
 check "initialize 가 프로토콜 버전을 되돌려준다" \
     "by_id[1]['result']['protocolVersion']=='2025-06-18'"
-check "tools/list 가 도구 6개를 노출한다" \
-    "len(by_id[2]['result']['tools'])==6"
+check "tools/list 가 도구 7개를 노출한다" \
+    "len(by_id[2]['result']['tools'])==7"
+check "나올 시각을 정하는 도구가 있다" \
+    "any(t['name']=='surface_memo' for t in by_id[2]['result']['tools'])"
 check "하드 삭제 도구가 없다 (D6)" \
     "not any('purge' in t['name'] or 'permanently' in t['name'] for t in by_id[2]['result']['tools'])"
 check "create_memo 가 id 를 돌려준다" \
@@ -69,7 +81,39 @@ check "없는 도구도 isError 로 돌려준다" \
 check "모르는 메서드는 JSON-RPC 오류다" \
     "by_id[10]['error']['code']==-32601"
 check "알림에는 응답하지 않는다" \
-    "len(lines)==10"
+    "len(lines)==20"
+check "되풀이하는 일의 주기를 낱말로 돌려준다" \
+    "json.loads(by_id[19]['result']['content'][0]['text'])[0]['every']=='매주'"
+check "모르는 주기는 isError 로 돌려준다" \
+    "by_id[20]['result']['isError'] is True"
+check "나올 시각을 일정과 따로 적는다 — 회의는 3시, 종이는 2시 30분" \
+    "json.loads(by_id[17]['result']['content'][0]['text'])[0]['surface_at'].startswith('2026-09-10T14:30')"
+check "나올 시각은 일정을 바꾸지 않는다" \
+    "json.loads(by_id[17]['result']['content'][0]['text'])[0]['at'].startswith('2026-09-10T15:00')"
+check "나올 시각이 달력의 자리를 바꾸지 않는다" \
+    "len(json.loads(by_id[18]['result']['content'][0]['text']))==1"
+check "prompts 를 쓸 수 있다고 알린다" \
+    "'prompts' in by_id[1]['result']['capabilities']"
+check "사람이 고를 프롬프트를 5개 내놓는다" \
+    "len(by_id[14]['result']['prompts'])==5"
+check "프롬프트마다 사람이 읽는 이름이 있다" \
+    "all(p.get('title') and p.get('description') for p in by_id[14]['result']['prompts'])"
+check "prompts/get 이 시킬 말을 돌려준다" \
+    "by_id[15]['result']['messages'][0]['content']['text'].strip() != ''"
+check "정리 프롬프트는 지우기 전에 묻게 되어 있다" \
+    "'묻기 전에 지우지 마' in by_id[15]['result']['messages'][0]['content']['text']"
+check "없는 프롬프트는 JSON-RPC 오류다" \
+    "by_id[16]['error']['code']==-32602"
+check "create_memo 가 place 와 geo 를 그대로 돌려준다" \
+    "json.loads(by_id[11]['result']['content'][0]['text'])[0]['place']=='광화문 교보문고'"
+check "좌표는 적은 그대로 왕복한다" \
+    "json.loads(by_id[11]['result']['content'][0]['text'])[0]['geo']=='37.5709,126.9769'"
+check "장소 필터가 부분일치로 찾는다" \
+    "len(json.loads(by_id[12]['result']['content'][0]['text']))==1"
+check "장소는 자리를 바꾸지 않는다 — 날짜 없는 메모는 일정이 되지 않는다" \
+    "'at' not in json.loads(by_id[11]['result']['content'][0]['text'])[0] and 'due' not in json.loads(by_id[11]['result']['content'][0]['text'])[0]"
+check "읽을 수 없는 좌표는 isError 로 돌려준다" \
+    "by_id[13]['result']['isError'] is True"
 
 # 삭제 → 휴지통 → 복원 왕복
 MEMO_ID="$(echo "$OUT" | /usr/bin/python3 -c "
@@ -92,9 +136,9 @@ OUT="$OUT2"
 check "delete_memo 후 휴지통에 남아 있다" \
     "len(json.loads(by_id[3]['result']['content'][0]['text']))==1"
 check "삭제한 메모는 목록에서 빠진다" \
-    "len(json.loads(by_id[4]['result']['content'][0]['text']))==1"
+    "len(json.loads(by_id[4]['result']['content'][0]['text']))==4"
 check "restore_memo 로 되돌아온다" \
-    "len(json.loads(by_id[6]['result']['content'][0]['text']))==2"
+    "len(json.loads(by_id[6]['result']['content'][0]['text']))==5"
 
 # 파일이 실제로 남아 있는지 (하드 삭제가 아니었음을 파일 시스템에서 확인)
 if [ -n "$(find "$VAULT/vault" -name '*.md' | head -1)" ]; then

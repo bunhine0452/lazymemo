@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>lazymemo — 바탕화면에 머무는 메모와 달력</title>
+<meta name="description" content="macOS 바탕화면에 상주하는 메모와 달력입니다. 정리하기 싫어하는 마음을 전제로 설계했습니다. 열 앱도 저장 버튼도 없고, 메모는 사용자 컴퓨터의 마크다운 파일입니다.">
+<link rel="canonical" href="https://bunhine0452.github.io/lazymemo/ko/">
+<link rel="alternate" hreflang="en" href="https://bunhine0452.github.io/lazymemo/">
+<link rel="alternate" hreflang="ko" href="https://bunhine0452.github.io/lazymemo/ko/">
+<link rel="alternate" hreflang="x-default" href="https://bunhine0452.github.io/lazymemo/">
+<meta property="og:title" content="lazymemo">
+<meta property="og:description" content="바탕화면에 머무는 메모와 달력입니다. 열 앱도 저장 버튼도 없고, 메모는 사용자 컴퓨터의 마크다운 파일입니다.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://bunhine0452.github.io/lazymemo/ko/">
+<meta property="og:image" content="https://bunhine0452.github.io/lazymemo/img/note.png">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:locale:alternate" content="en">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232E4261'/><rect x='8' y='11' width='16' height='2.2' rx='1.1' fill='%23FDC24F'/><path d='M8 18h13.5' stroke='%23FDC24F' stroke-width='2' stroke-linecap='round' opacity='.62'/></svg>">
+<style>
+:root {
+  --paper: #faf7f2;
+  --paper-warm: #f7f2e6;
+  --ink: #29261f;
+  --ink-soft: rgba(41, 38, 31, .64);
+  --ink-faint: rgba(41, 38, 31, .40);
+  --rule: rgba(41, 38, 31, .12);
+  --rule-soft: rgba(41, 38, 31, .07);
+  --accent: #2e4261;
+  --highlight: rgba(253, 194, 79, .52);
+  --dot: rgba(41, 38, 31, .16);
+  --shell: rgba(127, 127, 127, .10);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #232220;
+    --paper-warm: #2b2823;
+    --ink: #e6e2da;
+    --ink-soft: rgba(230, 226, 218, .62);
+    --ink-faint: rgba(230, 226, 218, .38);
+    --rule: rgba(230, 226, 218, .14);
+    --rule-soft: rgba(230, 226, 218, .08);
+    --accent: #99b8e6;
+    --highlight: rgba(253, 194, 79, .30);
+    --dot: rgba(230, 226, 218, .13);
+    --shell: rgba(255, 255, 255, .06);
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  /* 종이의 도트 그리드입니다. 앱이 쓰는 것과 같은 23pt 간격입니다. */
+  background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+  background-size: 23px 23px;
+  color: var(--ink);
+  font: 16px/1.8 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+        "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+  letter-spacing: -.005em;
+}
+
+.wrap { max-width: 860px; margin: 0 auto; padding: 0 28px; }
+@media (max-width: 520px) { .wrap { padding: 0 20px; } }
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+.topbar {
+  display: flex; align-items: center; gap: 18px;
+  padding-top: 26px; font-size: 13.5px;
+}
+.topbar .name { font-weight: 700; letter-spacing: -.02em; font-size: 15px; }
+.topbar nav { margin-left: auto; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.topbar nav a { color: var(--ink-soft); text-decoration: none; }
+.topbar nav a:hover { color: var(--ink); text-decoration: underline; }
+.topbar .lang {
+  color: var(--ink-soft); border: 1px solid var(--rule);
+  border-radius: 999px; padding: 3px 11px; text-decoration: none;
+}
+.topbar .lang:hover { color: var(--ink); border-color: var(--ink-faint); text-decoration: none; }
+/* The nav needs its own row on a narrow screen — without wrap on the
+   container a full-width child simply crowds the wordmark. */
+@media (max-width: 520px) {
+  .topbar { gap: 10px 12px; flex-wrap: wrap; }
+  .topbar nav { gap: 12px 16px; width: 100%; margin-left: 0; }
+}
+
+header { padding: 62px 0 0; }
+
+.mark {
+  width: 58px; height: 58px; border-radius: 13px;
+  background: var(--accent);
+  display: flex; flex-direction: column; justify-content: center;
+  gap: 7px; padding: 0 13px; margin-bottom: 26px;
+}
+.mark i { display: block; height: 3px; border-radius: 2px; background: #fdc24f; }
+.mark i:last-child { width: 62%; opacity: .55; }
+
+h1 { font-size: 38px; line-height: 1.25; margin: 0 0 16px; letter-spacing: -.035em; font-weight: 700; }
+@media (max-width: 520px) { h1 { font-size: 30px; } }
+
+.lede { font-size: 19px; line-height: 1.7; margin: 0 0 14px; max-width: 26em; }
+.lede strong { font-weight: 700; }
+
+.sub { color: var(--ink-soft); margin: 0 0 30px; max-width: 32em; font-size: 16.5px; }
+
+/* 형광펜 자국입니다. 달력이 「이번 주」를 적을 때 쓰는 낱말과 같습니다. */
+.hl {
+  background: linear-gradient(var(--highlight), var(--highlight)) no-repeat;
+  background-size: 100% .92em;
+  background-position: 0 .16em;
+  padding: 0 .1em;
+}
+
+.meta {
+  display: flex; flex-wrap: wrap; gap: 6px 14px;
+  font-size: 13px; color: var(--ink-faint); margin: 0 0 34px;
+}
+.meta span:not(:last-child)::after { content: " ·"; color: var(--rule); }
+
+.hero-shot { margin: 0 auto 44px; }
+.hero-shot img {
+  display: block; width: 100%; height: auto;
+  border-radius: 6px; border: 1px solid var(--rule);
+}
+.hero-shot figcaption {
+  margin-top: 11px; font-size: 13px; color: var(--ink-faint);
+  line-height: 1.7; max-width: 40em;
+}
+
+.install { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin-bottom: 16px; }
+@media (max-width: 640px) { .install { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--paper-warm);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 18px 20px 20px;
+  display: flex; flex-direction: column;
+}
+.card h3 { margin: 0 0 4px; font-size: 13px; font-weight: 700; letter-spacing: .01em; }
+.card p { margin: 0 0 12px; font-size: 13.5px; color: var(--ink-soft); line-height: 1.6; }
+
+pre, code, kbd { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+pre {
+  margin: 0; padding: 12px 14px; overflow-x: auto;
+  /* 긴 주소는 눈으로만 접힙니다 — 복사하면 여전히 한 줄이라 그대로 붙습니다. */
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  background: var(--shell);
+  border-radius: 5px; font-size: 12.5px; line-height: 1.75;
+}
+pre .c { color: var(--ink-faint); }
+code { font-size: .92em; background: var(--shell); border-radius: 3px; padding: .1em .35em; }
+
+.copyable { display: flex; gap: 8px; align-items: flex-start; margin-top: auto; }
+.copyable pre { flex: 1 1 auto; min-width: 0; }
+.copy {
+  flex: 0 0 auto; margin-top: 2px;
+  font: 600 11.5px/1 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, sans-serif;
+  color: var(--ink-soft); background: transparent;
+  border: 1px solid var(--rule); border-radius: 5px;
+  padding: 8px 10px; cursor: pointer;
+  /* 「복사」 → 「복사했습니다」 로 늘어나도 옆의 명령 덩이가 밀리지 않게 폭을 잡아 둡니다. */
+  min-width: 96px; text-align: center; white-space: nowrap;
+}
+.copy:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+.note { font-size: 13.5px; color: var(--ink-faint); line-height: 1.8; max-width: 42em; margin: 0; }
+.note strong { color: var(--ink-soft); font-weight: 700; }
+
+section { padding: 0 0 60px; }
+section > pre { max-width: 44em; }
+h2 {
+  font-size: 12.5px; font-weight: 700; letter-spacing: .07em;
+  color: var(--ink-faint); margin: 0 0 22px;
+}
+h2 + p, h2 + .four, h2 + figure, h2 + .keys { margin-top: 0; }
+p { margin: 0 0 16px; max-width: 34em; }
+p:last-child { margin-bottom: 0; }
+
+.four { display: grid; gap: 30px 38px; grid-template-columns: 1fr 1fr; margin: 0; padding: 0; list-style: none; }
+@media (max-width: 640px) { .four { grid-template-columns: 1fr; gap: 26px; } }
+.four h3 { margin: 0 0 6px; font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; }
+.four p { margin: 0; font-size: 14.5px; color: var(--ink-soft); line-height: 1.75; }
+
+figure { margin: 0 0 38px; }
+figure img {
+  display: block; width: 100%; height: auto;
+  border-radius: 6px; border: 1px solid var(--rule);
+}
+figcaption { margin-top: 11px; font-size: 13.5px; color: var(--ink-faint); line-height: 1.75; max-width: 40em; }
+
+.keys { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+.keys td { padding: 11px 0; border-top: 1px solid var(--rule-soft); vertical-align: top; line-height: 1.7; }
+.keys tr:first-child td { border-top: 0; }
+.keys td:first-child { width: 168px; padding-right: 20px; white-space: nowrap; }
+.keys td:last-child { color: var(--ink-soft); }
+.keys td:last-child strong { color: var(--ink); font-weight: 600; }
+@media (max-width: 560px) {
+  .keys td { display: block; border-top: 0; padding: 0; }
+  .keys tr { display: block; padding: 12px 0; border-top: 1px solid var(--rule-soft); }
+  .keys tr:first-child { border-top: 0; }
+  .keys td:first-child { width: auto; padding: 0 0 4px; white-space: normal; }
+}
+
+kbd {
+  display: inline-block;
+  font: 600 12.5px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--ink);
+  border: 1px solid var(--rule); border-bottom-width: 2px;
+  border-radius: 4px; padding: 3px 6px; white-space: nowrap;
+}
+.keys td:first-child .plain { font-size: 13.5px; color: var(--ink); }
+
+/* 앱의 두 층을 가르는 접힌 자리를 그대로 빌려 왔습니다. */
+.crease { height: 1px; border: 0; margin: 0 0 60px;
+  background: linear-gradient(to right, transparent, var(--rule) 12%, var(--rule) 88%, transparent); }
+
+.aside {
+  border-left: 2px solid var(--rule);
+  padding: 2px 0 2px 18px; margin: 0 0 16px;
+  color: var(--ink-soft); font-size: 14.5px; max-width: 34em;
+}
+.aside p { margin: 0 0 10px; font-size: inherit; }
+
+footer {
+  padding: 40px 0 76px; border-top: 1px solid var(--rule);
+  font-size: 13.5px; color: var(--ink-faint); line-height: 1.9;
+}
+footer .links { margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 8px 20px; }
+footer .links a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="topbar wrap">
+  <span class="name">lazymemo</span>
+  <nav>
+    <a href="#screens">화면</a>
+    <a href="#files">메모 파일</a>
+    <a href="#claude">Claude</a>
+    <a href="https://github.com/bunhine0452/lazymemo">GitHub</a>
+    <a class="lang" href="../" hreflang="en" lang="en">English</a>
+  </nav>
+</div>
+
+<header class="wrap">
+  <div class="mark" aria-hidden="true"><i></i><i></i></div>
+  <h1>적어 둔 자리에<br>그대로 있는 메모.</h1>
+  <p class="lede">macOS 바탕화면에 상주하는 메모와 달력입니다.
+     <strong>정리하기 싫어하는 마음</strong>을 전제로 설계했습니다.</p>
+  <p class="sub">그래서 정리를 부탁드리지 않습니다. 열어야 할 앱이 없고, 새 메모는
+     <kbd>⌥⌘N</kbd> 한 번으로 시작되며, <span class="hl">저장 버튼이 없습니다.</span></p>
+  <p class="meta">
+    <span>macOS 26 (Tahoe) 이상</span>
+    <span>번들 2.6MB</span>
+    <span>계정도 로그인도 없음</span>
+    <span>MIT 라이선스</span>
+  </p>
+</header>
+
+<figure class="hero-shot wrap">
+  <img src="../img/note.png" width="640" height="252"
+       alt="바탕화면에 놓인 메모 한 장. 왼쪽은 밝은 모드, 오른쪽은 어두운 모드입니다.">
+  <figcaption>종이 한 장입니다. 조작은 포인터가 올 때만 내용 위에 겹쳐 뜨고,
+    첫 줄도 마지막 줄도 덮지 않습니다.</figcaption>
+</figure>
+
+<div class="wrap">
+  <div class="install">
+    <div class="card">
+      <h3>Homebrew</h3>
+      <p>사실 두 줄입니다 — 탭을 더하고, 그다음 cask 를 받습니다. 그 뒤로는
+         갱신을 Homebrew 가 맡습니다.</p>
+      <div class="copyable">
+<pre id="brew">brew tap bunhine0452/lazymemo
+brew install --cask lazymemo</pre>
+        <button class="copy" type="button" data-copy="brew">복사</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>소스에서 빌드</h3>
+      <p>Xcode 없이 빌드됩니다 — Command Line Tools 면 충분합니다. 저희가 가장 권해
+         드리는 길입니다.</p>
+      <div class="copyable">
+<pre id="src">git clone https://github.com/bunhine0452/lazymemo
+cd lazymemo
+./scripts/build-app.sh</pre>
+        <button class="copy" type="button" data-copy="src">복사</button>
+      </div>
+    </div>
+  </div>
+  <p class="note" style="margin-bottom:64px">
+    <strong>먼저 말씀드릴 것이 하나 있습니다. 이 앱은 아직 공증받지 않았습니다.</strong>
+    내려받은 앱에는 검역 딱지가 붙고, macOS 15 부터는 딱지가 붙은 미공증 앱이 그냥
+    「손상되었습니다」로 끝납니다. 그래서 cask 가 설치 직후 그 딱지를 떼어 냅니다.
+    조용히 떼는 대신 이렇게 적어 두는 편을 택했습니다 — 미봉책이고, Developer&nbsp;ID
+    를 받는 날 사라집니다. 그 처리가 미덥지 않으시다면 소스에서 직접 빌드해 주세요.
+    직접 빌드한 앱에는 애초에 딱지가 붙지 않습니다. 그 선택은 전혀 이상하지 않으며,
+    그쪽도 계속 1차 경로로 둡니다.
+  </p>
+</div>
+
+<hr class="crease">
+
+<main class="wrap">
+
+<section id="why">
+  <h2>왜 이렇게 생겼는지</h2>
+  <ul class="four">
+    <li>
+      <h3>완성을 요구하지 않습니다</h3>
+      <p>쓰다 만 것, 제목 없는 것, 날짜 없는 것이 여기서는 정상 상태입니다. 채워
+         달라고 기다리는 빈칸도, 채우라는 표시도, 잊어버릴 저장 버튼도 없습니다.</p>
+    </li>
+    <li>
+      <h3>시간이 유일한 구조입니다</h3>
+      <p>폴더도 태그도 두지 않습니다. 그래서 달력이 <strong>만지는 물건</strong>입니다
+         — 일정을 집어 다른 날에 놓고, 한 번 눌러 미룹니다. <code>내일 3시 치과</code>
+         라고 적으시면 날짜는 앱이 읽습니다.</p>
+    </li>
+    <li>
+      <h3>오래된 것은 스스로 물러납니다</h3>
+      <p>다 체크한 목록과 지난 일정은 조용히 바탕화면에서 빠집니다.
+         <strong>지운 것이 아닙니다</strong> — 메뉴가 몇 장인지 적어 두고, 한 번에
+         도로 꺼내실 수 있습니다.</p>
+    </li>
+    <li>
+      <h3>앱이 앞에 나서지 않습니다</h3>
+      <p>가만히 있는 메모는 글자와 종이뿐입니다. 머리글도 아이콘 줄도 색 점도 없고,
+         조작은 포인터가 올 때 내용 위에 떠올랐다가 포인터가 떠나면 함께
+         물러납니다.</p>
+    </li>
+  </ul>
+</section>
+
+<section id="screens">
+  <h2>화면</h2>
+
+  <figure>
+    <img src="../img/capture.png" width="984" height="352" loading="lazy"
+         alt="메뉴바 아이콘 아래 말풍선으로 뜬 빠른 입력 상자와 최근 메모 목록.">
+    <figcaption><kbd>⌥⌘N</kbd> 로 빠른 입력이 열립니다. 한 상자가 적기와 찾기와 날짜
+      읽기를 겸하고, 열면 요즘 메모가 이미 아래에 놓여 있습니다.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../img/calendar.png" width="704" height="492" loading="lazy"
+         alt="달 격자와 고른 날의 일정 목록으로 이루어진 달력 창.">
+    <figcaption>달력에는 부품이 없습니다. 오늘은 손으로 그린 동그라미, 붐비는 날은
+      숫자 아래 번진 잉크, 달 이동은 화살표가 아니라 이웃 달의 이름입니다.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../img/menu.png" width="768" height="206" loading="lazy"
+         alt="메뉴바 목록의 메모 줄들. 골라진 줄이 그 메모의 종이색으로 깔려 있습니다.">
+    <figcaption>목록의 줄도 종이의 낱말을 씁니다 — 찬 점은 바탕화면에 나와 있는 것,
+      빈 점은 치워 둔 것입니다.</figcaption>
+  </figure>
+</section>
+
+<section id="keys">
+  <h2>쓰는 법</h2>
+  <table class="keys">
+    <tr>
+      <td><kbd>⌥⌘N</kbd></td>
+      <td><strong>빠른 입력.</strong> 메뉴바 아이콘 밑에 말풍선으로 뜹니다. 치시면
+        기존 메모가 함께 걸러집니다. 단축키는 메뉴 → 설정에서 바꾸실 수 있습니다.</td>
+    </tr>
+    <tr>
+      <td><kbd>⌥⌘V</kbd></td>
+      <td><strong>클립보드 즉시 메모.</strong> 복사해 두신 글이나 사진이 창을 열지
+        않고 바로 새 종이가 됩니다.</td>
+    </tr>
+    <tr>
+      <td><kbd>⌘⌫</kbd></td>
+      <td>목록에서 고른 메모를 지웁니다. 상자는 닫히지 않고 바로 아래 줄에
+        <strong>되돌리기</strong>가 생깁니다.</td>
+    </tr>
+    <tr>
+      <td><kbd>esc</kbd></td>
+      <td>닫기. <strong>적던 글은 상자가 기억합니다</strong> — 다시 열면 그대로 있고
+        전부 선택돼 있어, 그냥 치시면 덮어써집니다.</td>
+    </tr>
+    <tr>
+      <td><span class="plain">메모의 <kbd>×</kbd></span></td>
+      <td><strong>숨기기입니다. 삭제가 아닙니다.</strong> 메뉴에서 언제든 다시
+        꺼내실 수 있습니다.</td>
+    </tr>
+    <tr>
+      <td><span class="plain">붉은 휴지통</span></td>
+      <td>지웁니다. 종이는 그 자리에 남아 8초 동안 「되돌리기」를 들고 있고, 그
+        뒤로도 30일 안에 되돌리실 수 있습니다.</td>
+    </tr>
+    <tr>
+      <td><span class="plain">달력 아이콘</span></td>
+      <td>날짜가 없는 메모를 <strong>달력에 놓습니다.</strong> 날짜가 이미 있으면
+        그 일정이 달력의 어디에 있는지 펼쳐 보여 드립니다.</td>
+    </tr>
+    <tr>
+      <td><span class="plain">달력의 일정 줄</span></td>
+      <td>하루 미루거나, <strong>날짜를 떼어 바탕화면 종이로 돌려보내거나</strong>,
+        지웁니다. 셋 다 아래에 되돌리기가 남습니다.</td>
+    </tr>
+  </table>
+  <p class="note" style="margin-top:24px">끝난 것은 스스로 물러납니다. 칸을 전부 체크한
+    목록은 마지막으로 손대신 지 사흘 뒤, 지난 일정은 그 다음 날이 끝나면 바탕화면에서
+    빠집니다. 지운 것이 아닙니다 — 파일에도 검색에도 달력에도 그대로 있고, 메뉴가
+    「치워 둔 N장」이라고 적어 둡니다. 고정해 두신 메모는 이 규칙이 건드리지
+    않습니다.</p>
+</section>
+
+<hr class="crease">
+
+<section id="files">
+  <h2>메모는 파일입니다</h2>
+  <p><strong>lazymemo 를 지우셔도 메모는 남습니다.</strong> 정본은 사용자 컴퓨터에
+     있는 마크다운 파일이고, Finder 로 여셔도 다른 텍스트 에디터로 고치셔도
+     괜찮습니다.</p>
+<pre>~/Documents/lazymemo/
+  notes/2026/08/01K3ZQ….md   <span class="c">← 정본</span>
+  .trash/                     <span class="c">← 삭제한 메모 (30일 보존)</span></pre>
+  <p style="margin-top:18px">이 폴더를 iCloud Drive 안으로 옮기시면 동기화가 됩니다.
+     가입할 백엔드도 설정할 것도 없고, 폴더를 옮기시면 앱이 따라갑니다
+     (메뉴 → 설정).</p>
+</section>
+
+<section id="claude">
+  <h2>Claude 연동 (선택입니다)</h2>
+  <p>lazymemo 는 MCP 서버를 함께 빌드합니다. 등록하시면 Claude Desktop 에서
+     <em>「다음 주 화요일 오후 2시에 치과 예약 잡아줘」</em> 나
+     <em>「이번 달 일정 뭐 있어?」</em> 처럼 말씀하실 수 있습니다.</p>
+  <p><strong>API 키는 필요 없습니다.</strong> lazymemo 가 Claude 를 부르는 것이 아니라
+     Claude 가 lazymemo 를 부르는 방향이라, 토큰 비용은 사용자의 Claude 구독이
+     부담합니다. 이 연동은 전적으로 선택이고, 직접 등록하시기 전에는 꺼져
+     있습니다.</p>
+  <div class="aside">
+    <p>Claude 가 메모를 지울 수 있기 때문에, <strong>영구 삭제하는 도구는 아예 만들지
+      않았습니다.</strong> 이건 규칙이 아니라 배선입니다 — MCP 서버가 닿을 수 있는
+      코드에 하드 삭제 함수 자체가 없습니다. 삭제는 <code>.trash/</code> 로 옮기는
+      것까지이고, 되돌리기는 호출 한 번입니다.</p>
+  </div>
+</section>
+
+<section id="privacy">
+  <h2>프라이버시</h2>
+  <p>메모 본문이 컴퓨터 밖으로 나가는 경로는 위의 MCP 연동뿐이고, 그것도 직접
+     등록하셔야 열립니다.</p>
+  <p>네트워크를 쓰는 곳이 하나 더 있습니다 — <strong>링크를 카드로 펼치기</strong>
+     입니다. 붙이신 주소의 제목과 그림을 가져오려고 그 주소에 접속합니다. 나가는 것은
+     주소 하나뿐이고 메모 본문은 아니지만, 어느 사이트를 붙이셨는지는 그 사이트가
+     알게 됩니다. 설정에서 끄실 수 있고, 끄시면 이 앱은 아무 데도 접속하지
+     않습니다.</p>
+  <p class="note">이 페이지도 같은 약속을 지킵니다. 바깥으로 나가는 요청이 하나도
+     없습니다 — 추적기도, 웹폰트도, 분석 스크립트도 없고, 배포 워크플로가 내보내기
+     전에 그것을 실제로 검사합니다.</p>
+</section>
+
+</main>
+
+<footer class="wrap">
+  <div class="links">
+    <a href="https://github.com/bunhine0452/lazymemo">GitHub</a>
+    <a href="https://github.com/bunhine0452/lazymemo/blob/main/docs/DESIGN.md">설계문서</a>
+    <a href="https://github.com/bunhine0452/lazymemo/releases/latest">릴리스</a>
+    <a href="../" hreflang="en" lang="en">English</a>
+  </div>
+  MIT © 2026 Kim Hyunbin · 봐 주셔서 고맙습니다.
+</footer>
+
+<script>
+// 여기서 바깥으로 나가는 것은 없습니다. 명령 한 덩이를 복사하고 그 사실을 잠깐 알립니다.
+document.querySelectorAll('.copy').forEach(function (button) {
+  button.addEventListener('click', function () {
+    var block = document.getElementById(button.dataset.copy);
+    if (!block) return;
+    var done = function () {
+      var was = button.textContent;
+      button.textContent = '복사했습니다';
+      setTimeout(function () { button.textContent = was; }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(block.innerText).then(done, function () {});
+      return;
+    }
+    var range = document.createRange();
+    range.selectNodeContents(block);
+    var selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+});
+</script>
+
+</body>
+</html>

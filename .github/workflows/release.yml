@@ -74,7 +74,13 @@ jobs:
         run: |
           ./scripts/package-release.sh
           ZIP="dist/lazymemo-${{ steps.v.outputs.version }}.zip"
+          # sha256 을 **자산으로도 올린다.** cask 는 탭에 적힌 값을 보지만,
+          # 앱이 스스로 바꿀 때(`UpdateInstaller`)는 볼 것이 여기밖에 없다 —
+          # 이 앱은 공증받지 않아 Gatekeeper 가 대신 봐 주지 않는다 (§12.2).
+          # 파일 안에 경로가 아니라 이름만 남도록 dist 안에서 만든다.
+          ( cd dist && shasum -a 256 "$(basename "$ZIP")" > "$(basename "$ZIP").sha256" )
           echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+          echo "sum=$ZIP.sha256" >> "$GITHUB_OUTPUT"
           echo "sha=$(shasum -a 256 "$ZIP" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
       - name: 릴리스 노트 짓기
@@ -113,6 +119,7 @@ jobs:
         run: |
           TAG="${{ steps.v.outputs.tag }}"
           ZIP="${{ steps.pkg.outputs.zip }}"
+          SUM="${{ steps.pkg.outputs.sum }}"
           NAME="$(basename "$ZIP")"
 
           if gh release view "$TAG" --json assets -q '.assets[].name' 2>/dev/null | grep -qx "$NAME"; then
@@ -120,12 +127,12 @@ jobs:
               echo "::error::$TAG 에 이미 $NAME 이 나가 있습니다. 바이트를 바꾸면 cask 의 sha256 이 어긋나 설치가 깨집니다 — 판을 올리거나, 탭을 함께 갱신할 수 있을 때 force 로 다시 실행하세요."
               exit 1
             fi
-            gh release upload "$TAG" "$ZIP" --clobber
+            gh release upload "$TAG" "$ZIP" "$SUM" --clobber
           elif gh release view "$TAG" >/dev/null 2>&1; then
             # 판은 있는데 자산이 없다 — 손으로 다듬어 둔 노트는 그대로 두고 붙이기만 한다.
-            gh release upload "$TAG" "$ZIP"
+            gh release upload "$TAG" "$ZIP" "$SUM" --clobber
           else
-            gh release create "$TAG" "$ZIP" \
+            gh release create "$TAG" "$ZIP" "$SUM" \
               --title "lazymemo ${{ steps.v.outputs.version }}" \
               --notes-file /tmp/notes.md
           fi

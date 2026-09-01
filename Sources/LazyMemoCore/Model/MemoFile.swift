@@ -48,6 +48,13 @@ public enum MemoFile {
             throw DecodingError.invalidIdentifier(frontmatter.string("id"))
         }
 
+        let geo = frontmatter.string("geo").flatMap(Coordinate.init)
+        // 읽지 못한 `geo` 는 우리가 이해하지 못한 필드다 — 아는 척 지우지 않고
+        // `preserved` 로 보내 원문 그대로 되쓴다. 파일이 정본이기 때문이다 (D4).
+        let known = (geo == nil && frontmatter["geo"] != nil)
+            ? Memo.knownKeys.subtracting(["geo"])
+            : Memo.knownKeys
+
         let created = frontmatter.string("created").flatMap(Timestamp.date(from:)) ?? Date()
 
         return Memo(
@@ -58,13 +65,17 @@ public enum MemoFile {
             updated: frontmatter.string("updated").flatMap(Timestamp.date(from:)) ?? created,
             due: frontmatter.string("due").flatMap(CalendarDate.init(iso:)),
             at: frontmatter.string("at").flatMap(Timestamp.date(from:)),
+            every: frontmatter.string("every").flatMap(Recurrence.init),
+            surface: frontmatter.string("surface").flatMap(Timestamp.date(from:)),
+            place: frontmatter.string("place"),
+            geo: geo,
             tags: frontmatter.list("tags") ?? [],
             color: frontmatter.string("color").flatMap(MemoColor.init(rawValue:)) ?? .default,
             pinned: frontmatter.bool("pinned") ?? false,
             body: body,
             deleted: frontmatter.string("deleted").flatMap(Timestamp.date(from:)),
             tidied: frontmatter.string("tidied").flatMap(Timestamp.date(from:)),
-            preserved: frontmatter.excluding(Memo.knownKeys)
+            preserved: frontmatter.excluding(known)
         )
     }
 
@@ -82,6 +93,20 @@ public enum MemoFile {
         }
         if let at = memo.at {
             lines.append(Frontmatter.line(key: "at", scalar: Timestamp.string(from: at, timeZone: timeZone)))
+        }
+        if let every = memo.every {
+            lines.append(Frontmatter.line(key: "every", scalar: every.label))
+        }
+        // 나올 때는 일이 언제인가 바로 다음이다 — 같은 종류의 값이라 붙여 둔다.
+        if let surface = memo.surface {
+            lines.append(Frontmatter.line(key: "surface", scalar: Timestamp.string(from: surface, timeZone: timeZone)))
+        }
+        // 시간을 먼저 적고 장소를 뒤에 적는다 — 줄 순서가 곧 이 앱의 우선순위다 (§14.2).
+        if let place = memo.place {
+            lines.append(Frontmatter.line(key: "place", scalar: place))
+        }
+        if let geo = memo.geo {
+            lines.append(Frontmatter.line(key: "geo", scalar: geo.description))
         }
         if !memo.tags.isEmpty {
             lines.append(Frontmatter.line(key: "tags", list: memo.tags))

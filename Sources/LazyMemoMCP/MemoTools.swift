@@ -25,6 +25,7 @@ struct MemoTools {
                     "properties": [
                         "query": ["type": "string", "description": "본문 검색어"],
                         "tag": ["type": "string", "description": "이 태그를 가진 메모만"],
+                        "place": ["type": "string", "description": "장소 이름에 이 말이 들어간 메모만 (예: 강남)"],
                         "from": ["type": "string", "description": "일정 시작일 YYYY-MM-DD"],
                         "to": ["type": "string", "description": "일정 종료일 YYYY-MM-DD"],
                         "limit": ["type": "integer", "description": "최대 개수 (기본 30)"],
@@ -35,7 +36,9 @@ struct MemoTools {
                 "name": "create_memo",
                 "description": """
                     새 메모를 만든다. 약속처럼 시각이 정해진 것은 at 에, 마감이나 목표처럼 \
-                    날짜만 있는 것은 due 에 넣으면 캘린더에도 나타난다. 둘 다 비우면 그냥 메모다.
+                    날짜만 있는 것은 due 에 넣으면 캘린더에도 나타난다. 둘 다 비우면 그냥 메모다. \
+                    place 는 어디인지를 적는 칸이며, 날짜와 달리 메모가 놓이는 자리를 바꾸지 않는다 \
+                    — 바탕화면의 종이에 장소가 함께 적힐 뿐이다.
                     """,
                 "inputSchema": [
                     "type": "object",
@@ -44,6 +47,17 @@ struct MemoTools {
                         "text": ["type": "string", "description": "메모 본문 (마크다운)"],
                         "due": ["type": "string", "description": "마감일 YYYY-MM-DD"],
                         "at": ["type": "string", "description": "약속 시각 ISO8601 (예: 2026-09-01T14:00:00+09:00)"],
+                        "every": [
+                            "type": "string",
+                            "enum": Recurrence.allCases.map(\.label),
+                            "description": "되풀이하는 일이면 주기. 언제인지는 due/at 이 들고 있고, 그 회차가 지나면 앱이 다음 회차로 옮긴다",
+                        ],
+                        "surface_at": [
+                            "type": "string",
+                            "description": "이 메모가 바탕화면에 나올 시각 ISO8601. 일정(at)과 다른 것을 말한다 — 회의는 3시, 종이는 2시 30분",
+                        ],
+                        "place": ["type": "string", "description": "장소 이름 (예: 강남역 3번 출구). 사람이 읽는 말 그대로"],
+                        "geo": ["type": "string", "description": "좌표 위도,경도 (예: 37.4979,127.0276). 선택 — 없으면 이름으로 지도를 찾는다"],
                         "tags": ["type": "array", "items": ["type": "string"]],
                         "color": [
                             "type": "string",
@@ -63,9 +77,36 @@ struct MemoTools {
                         "text": ["type": "string"],
                         "due": ["type": "string", "description": "YYYY-MM-DD, 빈 문자열이면 삭제"],
                         "at": ["type": "string", "description": "ISO8601, 빈 문자열이면 삭제"],
+                        "every": [
+                            "type": "string",
+                            "description": "되풀이 주기(매일·매주·매월·매년), 빈 문자열이면 삭제",
+                        ],
+                        "surface_at": ["type": "string", "description": "나올 시각 ISO8601, 빈 문자열이면 삭제"],
+                        "place": ["type": "string", "description": "장소 이름, 빈 문자열이면 삭제"],
+                        "geo": ["type": "string", "description": "위도,경도. 빈 문자열이면 삭제"],
                         "tags": ["type": "array", "items": ["type": "string"]],
                         "color": ["type": "string", "enum": MemoColor.allCases.map(\.rawValue)],
                         "pinned": ["type": "boolean"],
+                    ],
+                ],
+            ],
+            [
+                "name": "surface_memo",
+                "description": """
+                    이 메모가 바탕화면에 **나올 시각**을 정한다. 일정을 바꾸지 않는다 — \
+                    회의는 3시 그대로 두고 종이만 2시 30분에 앞으로 꺼낼 때 쓴다. \
+                    일정이 없는 메모에도 쓸 수 있다("금요일 아침에 이거 다시 보여줘"). \
+                    시스템 알림이 아니라 바탕화면의 종이가 앞으로 나오는 것이다.
+                    """,
+                "inputSchema": [
+                    "type": "object",
+                    "required": ["id"],
+                    "properties": [
+                        "id": ["type": "string", "description": "메모 id (ULID)"],
+                        "at": [
+                            "type": "string",
+                            "description": "나올 시각 ISO8601. 빈 문자열이면 다시 일정 시각에 나온다",
+                        ],
                     ],
                 ],
             ],
@@ -119,6 +160,7 @@ struct MemoTools {
         case "list_memos": try await listMemos(arguments)
         case "create_memo": try await createMemo(arguments)
         case "update_memo": try await updateMemo(arguments)
+        case "surface_memo": try await surfaceMemo(arguments)
         case "delete_memo": try await deleteMemo(arguments)
         case "restore_memo": try await restoreMemo(arguments)
         case "list_trash": try await listTrash()
@@ -143,6 +185,11 @@ struct MemoTools {
         if let tag = arguments["tag"] as? String, !tag.isEmpty {
             memos = memos.filter { $0.tags.contains(tag) }
         }
+        // "강남에서 할 일 뭐 있어?" — 부분일치면 충분하다. 사람은 «강남역 3번 출구» 를
+        // 통째로 기억해서 묻지 않는다.
+        if let place = arguments["place"] as? String, !place.isEmpty {
+            memos = memos.filter { $0.place?.localizedCaseInsensitiveContains(place) ?? false }
+        }
 
         return encode(Array(memos.prefix(limit)))
     }
@@ -154,6 +201,10 @@ struct MemoTools {
             body: text,
             due: try calendarDate(arguments["due"], field: "due") ?? nil,
             at: try timestamp(arguments["at"], field: "at") ?? nil,
+            every: try recurrence(arguments["every"]) ?? nil,
+            surface: try timestamp(arguments["surface_at"], field: "surface_at") ?? nil,
+            place: (arguments["place"] as? String).flatMap { $0.isEmpty ? nil : $0 },
+            geo: try coordinate(arguments["geo"], field: "geo") ?? nil,
             tags: arguments["tags"] as? [String] ?? [],
             color: (arguments["color"] as? String).flatMap(MemoColor.init(rawValue:)) ?? .default
         )
@@ -168,9 +219,23 @@ struct MemoTools {
             body: arguments["text"] as? String,
             due: try calendarDate(arguments["due"], field: "due"),
             at: try timestamp(arguments["at"], field: "at"),
+            every: try recurrence(arguments["every"]),
+            surface: try timestamp(arguments["surface_at"], field: "surface_at"),
+            place: optionalText(arguments["place"]),
+            geo: try coordinate(arguments["geo"], field: "geo"),
             tags: arguments["tags"] as? [String],
             color: (arguments["color"] as? String).flatMap(MemoColor.init(rawValue:)),
             pinned: arguments["pinned"] as? Bool
+        )
+        return encode([memo])
+    }
+
+    /// 나올 시각만 고친다. **일정은 건드리지 않는다** — 그 둘이 한 도구에 섞이면
+    /// 모델이 「30분 전에 띄워줘」를 「30분 앞당겨줘」로 실행하는 날이 온다.
+    private func surfaceMemo(_ arguments: [String: Any]) async throws -> String {
+        let memo = try await service.update(
+            try identifier(arguments),
+            surface: try timestamp(arguments["at"], field: "at") ?? .some(nil)
         )
         return encode([memo])
     }
@@ -206,6 +271,25 @@ struct MemoTools {
         return .some(date)
     }
 
+    private func optionalText(_ value: Any?) -> String?? {
+        guard let raw = value as? String else { return nil }
+        return raw.isEmpty ? .some(nil) : .some(raw)
+    }
+
+    private func recurrence(_ value: Any?) throws -> Recurrence?? {
+        guard let raw = value as? String else { return nil }
+        if raw.isEmpty { return .some(nil) }
+        guard let every = Recurrence(raw) else { throw Failure.malformed("every", raw) }
+        return .some(every)
+    }
+
+    private func coordinate(_ value: Any?, field: String) throws -> Coordinate?? {
+        guard let raw = value as? String else { return nil }
+        if raw.isEmpty { return .some(nil) }
+        guard let point = Coordinate(raw) else { throw Failure.malformed(field, raw) }
+        return .some(point)
+    }
+
     private func timestamp(_ value: Any?, field: String) throws -> Date?? {
         guard let raw = value as? String else { return nil }
         if raw.isEmpty { return .some(nil) }
@@ -228,6 +312,10 @@ struct MemoTools {
             ]
             if let due = memo.due { object["due"] = due.description }
             if let at = memo.at { object["at"] = Timestamp.string(from: at) }
+            if let every = memo.every { object["every"] = every.label }
+            if let surface = memo.surface { object["surface_at"] = Timestamp.string(from: surface) }
+            if let place = memo.place { object["place"] = place }
+            if let geo = memo.geo { object["geo"] = geo.description }
             if !memo.tags.isEmpty { object["tags"] = memo.tags }
             if let deleted = memo.deleted { object["deleted"] = Timestamp.string(from: deleted) }
             return object

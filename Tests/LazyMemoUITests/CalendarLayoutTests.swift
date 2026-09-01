@@ -13,8 +13,9 @@ struct CalendarLayoutTests {
 
     /// 창을 훑는 표본. 실제로 쓸 만한 크기부터 최소 크기까지.
     private static let windows: [CGSize] = [
-        CGSize(width: 300, height: 440),   // 기본
-        CGSize(width: 272, height: 300),   // 최소
+        CGSize(width: 320, height: 470),   // 기본
+        CGSize(width: 288, height: 356),   // 최소 (`CalendarWindowController.minimumSize`)
+        CGSize(width: 300, height: 440),   // 예전 기본 — 저장된 창은 그대로 열린다
         CGSize(width: 340, height: 620),   // 세로로 길게
         CGSize(width: 430, height: 320),   // 눕는 문턱
         CGSize(width: 620, height: 360),   // 가로로 넓게
@@ -52,7 +53,7 @@ struct CalendarLayoutTests {
         // 0 을 그대로 풀면 첫 프레임만 다른 눈금으로 그려지고, 화면 밖
         // 렌더에서는 그 한 프레임이 곧 결과다.
         #expect(CalendarLayout.resolve(size: .zero, rows: 6)
-            == CalendarLayout.resolve(size: CGSize(width: 300, height: 440), rows: 6))
+            == CalendarLayout.resolve(size: CalendarLayout.defaultWindow, rows: 6))
     }
 
     // MARK: 창을 넘지 않는다
@@ -109,12 +110,15 @@ struct CalendarLayoutTests {
         #expect(small.numeralSize < large.numeralSize)
     }
 
+    /// 칸 하나가 `Theme.touch` 보다 작으면, 이 창에서 가장 자주 누르는 과녁
+    /// 마흔둘이 전부 최소치 아래라는 뜻이다. 끌어다 놓기의 착지 판정도 이
+    /// 칸이라(`MonthGridGeometry`) 좁아지는 만큼 그대로 조준 게임이 된다.
     @Test("주 높이는 겨냥할 수 있는 범위 안에 머문다")
     func weekHeightStaysAimable() {
         for size in Self.windows {
             for rows in 4...6 {
                 let plan = CalendarLayout.resolve(size: size, rows: rows)
-                #expect(plan.weekHeight >= 26)
+                #expect(plan.weekHeight >= Theme.touch)
                 #expect(plan.weekHeight <= 64)
             }
         }

@@ -16,11 +16,18 @@ final class CalendarWindowController: NSObject, NSWindowDelegate {
     private static let layoutKey = "calendar"
     /// 일곱 칸이 손가락으로 겨냥할 만한 크기가 되는 최소 폭에서 시작한다.
     /// 여기서 더 좁히면 끌어다 놓기가 조준 게임이 된다.
-    private static let defaultSize = NSSize(width: 300, height: 440)
+    private static let defaultSize = NSSize(
+        width: CalendarLayout.defaultWindow.width, height: CalendarLayout.defaultWindow.height
+    )
     /// 세로로 선 창의 최소 높이는 340 이었다. 가로로 눕히면 그만큼이 필요
     /// 없다 — 접힌 자리가 세로로 서면서 아래에 쌓이던 목록이 옆으로 가므로,
     /// 짧고 넓은 창(예: 560×320)이 오히려 제 모양이다 (`CalendarLayout`).
-    private static let minimumSize = NSSize(width: 272, height: 300)
+    ///
+    /// 300 에서 올렸다. 칸 하나가 `Theme.touch` 보다 커야 한다는 약속을
+    /// 세우고 나니(`CalendarLayout.weekRange`) 6주 달의 격자만으로 192pt 다 —
+    /// 그 아래로는 격자가 창을 넘거나, 아래 면이 조작하는 자리가 아니라
+    /// 잘린 띠가 된다.
+    private static let minimumSize = NSSize(width: 288, height: 356)
 
     private let model: CalendarModel
     private let layouts: LayoutStore
@@ -28,9 +35,19 @@ final class CalendarWindowController: NSObject, NSWindowDelegate {
     private let onSelectMemo: (ULID) -> Void
     private var window: DesktopLevelWindow?
 
-    init(store: MemoStore, layouts: LayoutStore, onSelectMemo: @escaping (ULID) -> Void) {
+    /// 시스템 캘린더를 읽는 문. 권한을 묻는 자리는 `open()` 하나뿐이다.
+    private let feed = EventKitFeed()
+    private let settings: SettingsStore
+
+    init(
+        store: MemoStore,
+        layouts: LayoutStore,
+        settings: SettingsStore,
+        onSelectMemo: @escaping (ULID) -> Void
+    ) {
         self.store = store
-        self.model = CalendarModel(store: store)
+        self.settings = settings
+        self.model = CalendarModel(store: store, feed: feed)
         self.layouts = layouts
         self.onSelectMemo = onSelectMemo
         super.init()
@@ -73,6 +90,17 @@ final class CalendarWindowController: NSObject, NSWindowDelegate {
 
     func open() {
         guard window == nil else { return }
+
+        // **캘린더 권한을 묻는 자리는 여기 하나뿐이다** (§8). 메모를 적으러 온
+        // 사람에게 첫 실행부터 캘린더를 내놓으라고 묻지 않는다 — 달력을 한 번도
+        // 안 여는 사람에게는 영영 물을 일이 없다. 거절하면 시스템이 그 사실을
+        // 기억하므로 다시 묻지 않는다.
+        if settings.current.showsSystemEvents ?? true {
+            Task { [feed, model] in
+                await feed.requestAccessIfNeeded()
+                await model.refresh()
+            }
+        }
 
         let frame = resolveFrame()
         let window = DesktopLevelWindow(contentRect: frame)

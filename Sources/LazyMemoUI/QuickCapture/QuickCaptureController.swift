@@ -68,7 +68,10 @@ final class QuickCaptureController {
     init(store: MemoStore, windows: NoteWindowManager) {
         self.store = store
         self.windows = windows
-        self.model = QuickCaptureModel(store: store)
+        self.model = QuickCaptureModel(
+            store: store,
+            lastOpened: { [weak windows] id in windows?.lastOpened(id) }
+        )
 
         let initialSize = NSSize(width: Self.width, height: 120)
         self.panel = QuickCapturePanel(contentRect: NSRect(origin: .zero, size: initialSize))
@@ -381,7 +384,22 @@ final class QuickCaptureController {
         try? await Task.sleep(for: .milliseconds(600))
         if deactivating {
             NSApp.deactivate()
-            try? await Task.sleep(for: .milliseconds(400))
+            // **시간이 아니라 상태를 기다린다.**
+            //
+            // 400ms 고정으로 기다리고 있었다. 비활성화는 비동기라 그 안에
+            // 물러날 때도 있고 아닐 때도 있었고, 그래서 이 진단은 **같은
+            // 나무에서 다섯 번 중 둘이 빨갛게** 나왔다 — 재려던 세상(비활성)이
+            // 아니라 그때그때 다른 세상을 재고 있었던 것이다.
+            //
+            // 그 깜빡임이 실제로 한 번 «회귀» 로 오인돼 두 세션의 시간을
+            // 먹었다. 검증 스크립트가 가끔 빨간 것은 초록보다 나쁘다 —
+            // 사람이 그것을 믿지 않게 되거나, 없는 결함을 쫓게 된다.
+            for _ in 0..<80 {
+                if !NSApp.isActive { break }
+                try? await Task.sleep(for: .milliseconds(25))
+            }
+            // 물러난 뒤에도 창 서열이 정리될 틈은 한 박자 준다.
+            try? await Task.sleep(for: .milliseconds(120))
         }
 
         guard let textView = panel.contentView?.firstTextView as? MemoNSTextView else {

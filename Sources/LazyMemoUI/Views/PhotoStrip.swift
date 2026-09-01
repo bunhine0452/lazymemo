@@ -87,7 +87,10 @@ struct PhotoStrip: View {
                 )
                 // 종이에 붙인 사진은 살짝 떠 있다. 어두운 종이 위에서는
                 // 같은 검정이 거의 아무 일도 하지 않으므로 더 짙게 깐다.
-                .shadow(color: .black.opacity(colorScheme == .dark ? 0.45 : 0.22), radius: 3, y: 1)
+                // 닿는 자리와 퍼지는 자리를 나누는 것은 `RaisedSurface` 와 같다 —
+                // 붙인 사진은 이 앱에서 가장 «얹혀 있는» 물건이다.
+                .shadow(color: .black.opacity(colorScheme == .dark ? 0.55 : 0.24), radius: 1, y: 0.5)
+                .shadow(color: .black.opacity(colorScheme == .dark ? 0.34 : 0.16), radius: 5, y: 2)
                 // `.onHover` 는 키 윈도에서만 산다 (§7.1). 바탕화면의 종이에는
                 // 쓸 수 없으므로 감지기를 따로 얹는다.
                 .overlay { HoverSensor { hovering in

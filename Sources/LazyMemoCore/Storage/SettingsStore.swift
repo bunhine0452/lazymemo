@@ -36,6 +36,46 @@ public struct Settings: Codable, Sendable, Equatable {
     /// 사용자는 메모가 전부 사라진 것으로 본다.
     public var vaultPath: String?
 
+    /// 종이 위에서 Claude 를 부를 수 있게 할지 (`{#claude-tidy-action}`).
+    ///
+    /// **`claude` 가 없는 컴퓨터에서는 이 값이 무엇이든 아무 일도 없다.** 켜져
+    /// 있어도 누르기 전에는 아무것도 나가지 않는다 — 자동으로 도는 것이 아니다.
+    public var usesClaude: Bool?
+
+    /// 찾아 둔 `claude` 의 자리. 켤 때마다 로그인 셸을 띄우지 않으려고 적어 둔다.
+    public var claudePath: String?
+
+    /// 적어 둔 자리에 가면 그 종이가 나오게 할지 (`PlaceWatcher`).
+    ///
+    /// **기본은 꺼짐이다.** `Always` 위치 권한은 이 앱이 요구하는 것 중 가장
+    /// 무거운 것이라 — 앱을 안 보고 있을 때도 시스템이 자리를 알려 준다 —
+    /// 「끌 수 있다」로는 모자라고 **켜는 것을 사람이 직접 해야 한다**로 잠근다.
+    public var watchesPlaces: Bool?
+
+    /// 아침마다 Claude 가 종이 한 장을 놓을지 (`MorningBrief`).
+    ///
+    /// **기본은 꺼짐이다.** 사용자가 누르지 않았는데 토큰을 쓰는 유일한 기능이라,
+    /// 「끌 수 있다」로는 모자라고 **켜는 것을 사람이 직접 해야 한다**로 잠근다.
+    public var morningBrief: Bool?
+
+    /// 브리핑이 쓰는 종이. 매일 새로 만들지 않고 이 한 장을 다시 쓴다.
+    public var briefMemoID: String?
+
+    /// 달력에 시스템 캘린더의 일정도 함께 보일지.
+    ///
+    /// **켜져 있어도 달력을 열기 전에는 아무것도 묻지 않는다.** 캘린더 권한을
+    /// 묻는 자리는 달력 창이 처음 열릴 때 하나뿐이다 (§8 — 첫 실행에서 사용자를
+    /// 시스템 설정으로 보내지 않는다). `nil` 이면 켜짐.
+    public var showsSystemEvents: Bool?
+
+    /// 새 판이 나왔는지 GitHub 에 물어볼지 (`UpdateCheck`).
+    ///
+    /// **이것이 켜져 있으면 앱이 네트워크를 쓴다.** 링크 카드에 이어 두 번째로
+    /// §9.3 의 약속이 갈리는 자리라, 같은 조건을 건다 — 끌 수 있고, 나가는 것은
+    /// 주소 하나뿐이며(메모 본문도 판 번호도 보내지 않는다), 켜져 있다는 사실이
+    /// 메뉴에서 보인다. `nil` 이면 켜짐.
+    public var checksForUpdates: Bool?
+
     /// 첫 장(안내 종이)을 이미 놓았는가.
     ///
     /// 이것 하나가 "처음 켠 것" 의 유일한 근거다. 안내를 두 번 놓으면 그건
@@ -48,6 +88,13 @@ public struct Settings: Codable, Sendable, Equatable {
         embedsLinks: Bool? = nil,
         paperOpacity: Double? = nil,
         vaultPath: String? = nil,
+        usesClaude: Bool? = nil,
+        claudePath: String? = nil,
+        watchesPlaces: Bool? = nil,
+        morningBrief: Bool? = nil,
+        briefMemoID: String? = nil,
+        showsSystemEvents: Bool? = nil,
+        checksForUpdates: Bool? = nil,
         greeted: Bool? = nil
     ) {
         self.hotkeyKeyCode = hotkeyKeyCode
@@ -55,6 +102,13 @@ public struct Settings: Codable, Sendable, Equatable {
         self.embedsLinks = embedsLinks
         self.paperOpacity = paperOpacity
         self.vaultPath = vaultPath
+        self.usesClaude = usesClaude
+        self.claudePath = claudePath
+        self.watchesPlaces = watchesPlaces
+        self.morningBrief = morningBrief
+        self.briefMemoID = briefMemoID
+        self.showsSystemEvents = showsSystemEvents
+        self.checksForUpdates = checksForUpdates
         self.greeted = greeted
     }
 

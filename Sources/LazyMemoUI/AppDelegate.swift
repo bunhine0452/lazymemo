@@ -14,6 +14,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBar: MenuBarController?
     private let clock = DayClock()
     private var dueClock: DueClock?
+    /// 앱이 뜨기 전에 두드린 주소. 문이 열리면 그때 들여보낸다.
+    private var pendingURLs: [URL] = []
 
     public override init() { super.init() }
 
@@ -55,6 +57,30 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         self.windows = windows
         self.menuBar = menuBar
 
+        // 서비스 메뉴 「lazymemo 에 적기」. `Info.plist` 의 NSMessage 와 짝이다.
+        NSApp.servicesProvider = menuBar.door
+        // 개발 중 번들을 옮겨 다니면 등록이 낡는다. 한 번 털어 준다.
+        NSUpdateDynamicServices()
+
+        // 앱이 없을 때 두드린 주소가 있으면 이제 들여보낸다.
+        let waiting = pendingURLs
+        pendingURLs = []
+        if !waiting.isEmpty {
+            Task { [door = menuBar.door] in
+                for url in waiting { await door.receive(url: url) }
+            }
+        }
+
+        // `claude` 가 이 컴퓨터에 있는지 한 번 찾는다 (`ClaudeSupport`).
+        // **없으면 아무 일도 일어나지 않는다** — 종이에 조작이 하나 안 생길 뿐이고,
+        // 그 사실을 어디에도 적지 않는다 (없는 사람에게는 존재하지 않는 기능이다).
+        Task { [weak windows, weak menuBar] in
+            let runner = await ClaudeSupport.resolve(settings: settings)
+            windows?.adoptClaude(runner)
+            // 아침 시계는 `claude` 를 찾은 뒤에 건다 — 없으면 걸 이유가 없다.
+            if runner != nil { menuBar?.brief.start() }
+        }
+
         // 하루가 바뀌면 앱이 스스로 하는 일들 (`DayClock`).
         //
         // 이 앱은 바탕화면에 상주하므로 몇 주씩 안 꺼진다. 이것이 없던 동안
@@ -87,6 +113,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             dueClock.start()
             // 일정은 달력에서만 보이므로(§7.2) 달력의 열림 여부도 복원 대상이다.
             menuBar.restoreCalendar()
+            menuBar.restoreDrawer()
 
             let environment = ProcessInfo.processInfo.environment
             if environment["LAZYMEMO_SPIKE"] == "1" {
@@ -125,6 +152,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             // 바탕화면 종이가 창 전환기에 서지 않는지 (`verify-notes.sh`).
             if environment["LAZYMEMO_WINDOWROLE"] == "1" {
                 Self.log("창역할 \(DesktopLevelWindow.roleDiagnostics)")
+                exit(0)
+            }
+            // 서랍이 실제 창에서 펼쳐지고 제자리로 접히는지 (`verify-drawer.sh`).
+            if environment["LAZYMEMO_DRAWER"] == "1" {
+                Self.log("서랍 \(await menuBar.drawerDiagnostics())")
                 exit(0)
             }
             if environment["LAZYMEMO_MENU"] == "1" {
@@ -203,6 +235,19 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// 저장소를 못 여는 상황은 복구 경로가 없다 — 조용히 죽지 않고 이유를 보여준 뒤 종료한다.
+    /// `lazymemo://add?text=…` — 다른 앱·단축어·스크립트가 두드리는 문 (`InboundLink`).
+    ///
+    /// **글자만 받는다.** 무엇을 받는지는 `InboundLink` 한 곳에서만 정하고,
+    /// 여기서는 늘리지 않는다. 앱이 아직 안 떴으면 잠깐 들고 있다가 들여보낸다 —
+    /// 이 주소로 앱이 처음 깨어나는 경우가 있기 때문이다.
+    public func application(_ application: NSApplication, open urls: [URL]) {
+        guard let door = menuBar?.door else {
+            pendingURLs.append(contentsOf: urls)
+            return
+        }
+        Task { for url in urls { await door.receive(url: url) } }
+    }
+
     private func presentFatal(_ message: String) {
         let alert = NSAlert()
         alert.alertStyle = .critical

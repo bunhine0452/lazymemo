@@ -2,9 +2,9 @@
 oculpm_plan: v1
 id: lazymemo-comfort-v2
 title: "lazymemo v2 — 편안함 감사 후속: 새는 것 막고, 앱에 시계를 달고, 스무 장 너머를 연다"
-status: active
+status: done
 created: 2026-08-29
-updated: 2026-08-29
+updated: 2026-08-31
 owner: claude-code
 ---
 

@@ -59,6 +59,23 @@ enum Theme {
     static let normal: CGFloat = 14
     static let loose: CGFloat = 20
 
+    // MARK: 손이 닿는 크기
+
+    /// 누르는 자리의 최소 한 변.
+    ///
+    /// 이 앱의 조작은 대부분 그림 한 개이고, 그 그림은 작아도 된다 (철학 4).
+    /// **닿는 자리까지 작을 이유는 없다.** 앞선 판은 그린 만큼만 누를 수 있어서
+    /// 16·18pt 짜리 과녁이 줄줄이 서 있었다 — 조용한 것이 아니라 그냥 안
+    /// 눌리는 것이었고, 게으른 사람을 전제로 만든 앱이 손끝의 정확도를
+    /// 요구하고 있었다.
+    ///
+    /// 그림과 과녁을 갈라 놓는다. 색과 세기는 여전히 옅고 작지만, 누르는
+    /// 자리는 언제나 이만큼이다 (`hitTarget`).
+    static let touch: CGFloat = 24
+    /// 낱말이 적힌 조각(「미루기」·「오늘」)의 최소 높이. 아이콘과 달리 가로로는
+    /// 글자가 정하므로 높이만 잡아 준다.
+    static let touchRow: CGFloat = 22
+
     // MARK: 글자 — 넷
 
     /// 메모 본문. 읽는 글.
@@ -66,8 +83,20 @@ enum Theme {
     /// 빠른 입력. 한 줄 적고 마는 자리라 크다.
     static let capture = Font.system(size: 19, weight: .light)
     static let title = Font.system(size: 13, weight: .semibold)
-    static let label = Font.system(size: 11)
-    static let micro = Font.system(size: 10)
+
+    /// 꼬리에 적히는 글 — **숫자가 열을 이루는 자리다.**
+    ///
+    /// 이 두 층에 오는 것은 대개 날짜와 시각이다(「8월 31일 오후 2:30」·「오늘
+    /// 9:30」). 비례 숫자는 `1` 이 좁고 `0` 이 넓어서, 한 자리가 바뀔 때마다
+    /// 줄 전체가 좌우로 흔들린다 — 메뉴 목록처럼 여러 줄이 세로로 서는 곳에서는
+    /// 그 흔들림이 줄마다 어긋난 오른쪽 끝으로 보인다.
+    ///
+    /// **글꼴을 바꾸지 않고 숫자 폭만 고정한다.** 고정폭 글꼴(`design: .monospaced`)
+    /// 로 통째로 갈아 끼우면 한글이 그 글꼴에 없어 다른 얼굴로 떨어져 나가,
+    /// 한 줄 안에서 두 글꼴이 섞인다. `monospacedDigit()` 은 같은 얼굴의 숫자만
+    /// 등폭으로 바꾼다.
+    static let label = Font.system(size: 11).monospacedDigit()
+    static let micro = Font.system(size: 10).monospacedDigit()
     static let microMono = Font.system(size: 10, design: .monospaced)
 
     static let bodyLineSpacing: CGFloat = 3
@@ -194,7 +223,13 @@ struct PaperSurface: View {
             .fill(surface)
             .overlay {
                 if dotted {
-                    DotGrid(color: tint.opacity(isDark ? 0.30 : 0.28))
+                    // 점은 종이의 격자이지 무늬가 아니다. 가장자리에 두께가
+                    // 생기면서 종이가 물건으로 읽히기 시작했으므로, 점은 그만큼
+                    // 물러나도 된다 — 눈에 띄면 격자가 아니라 무늬가 된다.
+                    //
+                    // 숯색 종이에서 조금 더 진한 것은 앞선 판과 같은 이유다:
+                    // 어두운 바탕에서 옅은 점은 점이 아니라 잡티로 보인다.
+                    DotGrid(color: tint.opacity(isDark ? 0.26 : 0.22))
                 }
             }
             .overlay {
@@ -245,7 +280,9 @@ struct PaperGrain: View {
             image
                 .resizable(resizingMode: .tile)
                 // 알아채지 못할 만큼만. 눈에 띄면 잡티가 아니라 잡음이 된다.
-                .opacity(0.16)
+                // 점을 물린 만큼(`PaperSurface`) 결이 그 몫을 조금 받는다 —
+                // 종이를 물건으로 만드는 것은 격자가 아니라 표면이다.
+                .opacity(0.20)
                 .allowsHitTesting(false)
         }
     }
@@ -273,9 +310,17 @@ struct RaisedSurface: View {
                 Capsule().fill(fill)
             }
         }
+        // **그림자는 두 겹이다.** 한 겹으로는 «닿아 있음» 과 «떠 있음» 을 같은
+        // 흐림으로 말해야 해서, 반경을 키우면 조각이 공중에 뜨고 줄이면 바닥에
+        // 붙는다. 실제 물건은 둘을 동시에 한다 — 닿는 자리에 좁고 진한 그림자가
+        // 있고, 그 둘레로 넓고 옅은 그림자가 퍼진다.
         .shadow(
-            color: .black.opacity(colorScheme == .dark ? 0.36 : 0.14),
-            radius: shadow, y: lift
+            color: .black.opacity(colorScheme == .dark ? 0.50 : 0.16),
+            radius: 1, y: 0.5
+        )
+        .shadow(
+            color: .black.opacity(colorScheme == .dark ? 0.32 : 0.11),
+            radius: shadow * 1.6, y: lift + 1
         )
     }
 }
@@ -290,8 +335,45 @@ extension Theme {
 
     /// 종이의 잘린 가장자리. 눈에 띄는 테두리가 아니라 형태를 잡아 주는 실선.
     static func edge(radius: CGFloat = cardRadius) -> some View {
+        PaperEdge(radius: radius)
+    }
+}
+
+/// 종이의 잘린 가장자리 — **두께가 있다.**
+///
+/// 앞선 판은 사방을 같은 세기(잉크 10%)로 둘렀다. 형태는 잡아 주지만 종이가
+/// 얼마나 두꺼운지는 말하지 않아서, 가까이서 보면 여전히 **색칠한 사각형**이었다.
+/// 떠 있다는 느낌을 그림자 하나에 전부 맡기고 있었던 셈이다 (철학 「재질은 하나」).
+///
+/// 빛은 위에서 온다. 그러면 종이의 윗변은 빛을 받아 밝고 아랫변은 자기 두께에
+/// 가려 어둡다 — 그 한 줄 차이가 두께다. 선을 굵히지 않고 **위아래의 세기만
+/// 갈라** 놓는다: 굵은 테두리는 종이가 아니라 카드가 된다.
+///
+/// 세기를 외관마다 따로 잡는 이유는 `Theme.accentInk` 와 같다. 어두운 종이
+/// 위에서 흰 실선을 빛 모드만큼 밝히면 그건 두께가 아니라 **광택**이 되고,
+/// 검은 실선은 아예 보이지 않는다.
+struct PaperEdge: View {
+    var radius: CGFloat = Theme.cardRadius
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let dark = colorScheme == .dark
         RoundedRectangle(cornerRadius: radius, style: .continuous)
-            .strokeBorder(Paper.ink.opacity(0.10), lineWidth: 0.75)
+            .strokeBorder(
+                LinearGradient(
+                    stops: [
+                        .init(color: .white.opacity(dark ? 0.10 : 0.85), location: 0),
+                        // 옆면은 앞선 판이 두르던 그 값 그대로다 — 좌우는
+                        // 빛을 스치듯 받으므로 밝지도 어둡지도 않다.
+                        .init(color: Paper.ink.opacity(0.10), location: 0.42),
+                        .init(color: dark ? .black.opacity(0.42) : Paper.ink.opacity(0.20), location: 1),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ),
+                lineWidth: 0.75
+            )
     }
 }
 
@@ -316,6 +398,15 @@ enum SpokenHelp {
 }
 
 extension View {
+    /// 보이는 것은 그대로 두고 **누르는 자리만** 넓힌다 (`Theme.touch`).
+    ///
+    /// 그림을 키우는 것과 다르다. 옅은 핀 하나, 9pt 짜리 낱말은 그대로 두고
+    /// 그 둘레의 빈자리까지 판정에 넣는다 — 화면은 조용한 채로 손만 편해진다.
+    func hitTarget(_ side: CGFloat = Theme.touch) -> some View {
+        frame(minWidth: side, minHeight: side)
+            .contentShape(.rect)
+    }
+
     /// 도움말을 그대로 VoiceOver 의 이름과 힌트로 쓴다.
     func spoken(_ help: String) -> some View {
         let said = SpokenHelp.split(help)
@@ -350,10 +441,11 @@ struct QuietButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
                 // 조작이 첫 줄을 덮지 않는다는 약속은 이 숫자 위에 서 있다
                 // (`NoteControlLayout`) — 여기서 키우면 그쪽 시험이 잡는다.
                 .frame(width: NoteControlLayout.button, height: NoteControlLayout.button)
+                .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .foregroundStyle(tint)

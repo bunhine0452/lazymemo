@@ -36,7 +36,15 @@ jobs:
         run: |
           # 이 페이지의 약속을 시험으로 지킨다 — 웹폰트 하나가 조용히 들어오면
           # 「추적기도 웹폰트도 없다」 는 문장이 거짓말이 된다.
-          if grep -nE 'https?://(fonts|cdn|www\.google|unpkg|jsdelivr)' site/index.html; then
+          #
+          # 거는 것은 site/ 아래 **모든** html 이다. 페이지가 둘(영어·한국어)이
+          # 되고 나면 한쪽만 보는 검사는 나머지 한쪽을 통과시켜 준다.
+          #
+          # 그리고 거는 자리는 **가져오는 자리**뿐이다 — 본문의 <a href> 나
+          # og:image 처럼 페이지가 부르지 않는 주소까지 막으면 GitHub 로 가는
+          # 링크조차 못 달게 된다.
+          if grep -rnE 'src[[:space:]]*=[[:space:]]*"[^"]*//|url\([[:space:]]*.?https?:|<link[^>]+rel="(stylesheet|preconnect|dns-prefetch|preload)"' \
+               --include='*.html' site; then
             echo "::error::바깥 자원을 부르고 있습니다"
             exit 1
           fi

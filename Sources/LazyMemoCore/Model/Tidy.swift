@@ -55,6 +55,10 @@ public enum Tidy {
         for memo: Memo, now: Date = Date(), calendar: Calendar = .current
     ) -> Reason? {
         guard memo.tidied == nil, memo.deleted == nil, !memo.pinned else { return nil }
+        // **되풀이하는 일은 지나가지 않는다.** 지난 회차라서 물러나야 할 것처럼
+        // 보이지만, 그 자리는 물러남이 아니라 다음 회차로 걸어감이다 (`rolled`).
+        // 여기서 치우면 분리수거는 딱 한 번 하고 영영 사라진다.
+        guard memo.every == nil else { return nil }
 
         // 시간이 유일한 구조다 (§14.2) — 날짜가 있으면 그것부터 본다.
         if let day = memo.scheduledDate(calendar: calendar),
@@ -68,6 +72,47 @@ public enum Tidy {
         }
 
         return nil
+    }
+
+    /// 되풀이하는 일정이 지났으면 **다음 회차로 걸어간 메모**를, 아니면 `nil`.
+    ///
+    /// 「지난 일정은 물러난다」의 짝이다 — 물러나는 대신 앞으로 간다. 밀린 만큼
+    /// 한 번에 걸어가는 이유는 앱을 몇 주 안 켰을 수 있기 때문이다
+    /// (`Recurrence.walk`).
+    ///
+    /// **나올 때도 함께 옮긴다.** 안 그러면 다음 회차에 종이가 안 나온다 —
+    /// 「30분 전」이 지난 회차의 30분 전에 그대로 남는다.
+    public static func rolled(
+        _ memo: Memo, now: Date = Date(), calendar: Calendar = .current
+    ) -> Memo? {
+        guard let every = memo.every, memo.deleted == nil else { return nil }
+        var moved = memo
+
+        if let at = memo.at {
+            guard let next = every.walk(at, past: now, calendar: calendar) else { return nil }
+            let shift = next.timeIntervalSince(at)
+            moved.at = next
+            if memo.due != nil { moved.due = CalendarDate(next, calendar: calendar) }
+            if let surface = memo.surface { moved.surface = surface.addingTimeInterval(shift) }
+        } else if let due = memo.due {
+            // 날짜만 있는 것은 **그 날이 끝나야** 지난 것이다 (`pastGrace` 와 같은 셈).
+            guard let midnight = due.startOfDay(calendar: calendar),
+                  let today = CalendarDate(now, calendar: calendar).startOfDay(calendar: calendar),
+                  midnight < today,
+                  let next = every.walk(midnight, past: today.addingTimeInterval(-1), calendar: calendar)
+            else { return nil }
+            moved.due = CalendarDate(next, calendar: calendar)
+            if let surface = memo.surface {
+                moved.surface = surface.addingTimeInterval(next.timeIntervalSince(midnight))
+            }
+        } else {
+            // 날짜 없는 되풀이는 걸어갈 자리가 없다. 규칙만 적어 두고 둔다.
+            return nil
+        }
+
+        // 걸어간 것은 다시 산 것이다 — 치워 뒀더라도 도로 나온다.
+        moved.tidied = nil
+        return moved
     }
 
     /// 체크상자가 하나라도 있고 **전부** 체크됐는가.

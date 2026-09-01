@@ -182,6 +182,48 @@ public actor MemoVault {
         return try scan(directory: paths.notes).first { $0.lastPathComponent == name }
     }
 
+    /// 폴더에 떨어진 **낯선 이름의 `.md` 를 정본으로 받아 앉힌다.**
+    ///
+    /// 이 앱의 파일 이름은 ULID 인데, 밖에서 만든 파일이 그 규칙을 알 리 없다.
+    /// 아이폰 단축어가 떨군 `메모.md`, Hazel 이 옮겨 놓은 것, Finder 로 끌어다
+    /// 놓은 것 — 이름을 맞추라고 요구하는 대신 **우리가 붙인다.** 「완성을
+    /// 요구하지 않는다」(철학 1)는 화면 안에서만 지킬 약속이 아니다.
+    ///
+    /// frontmatter 가 아예 없으면 파일 전체를 본문으로 본다. `id` 만 없으면
+    /// 나머지(`due`·`place` 등)는 그대로 살린다 — `MemoFile.decode` 의 `fallbackID`
+    /// 가 그 자리를 위해 있던 것이다.
+    ///
+    /// **받아 앉힌 뒤 원본 파일은 지운다.** 두 이름으로 같은 메모가 남으면 다음
+    /// 스캔에서 또 받아 앉혀 무한히 불어난다.
+    @discardableResult
+    public func adopt(now: Date = Date()) throws -> [Memo] {
+        var adopted: [Memo] = []
+
+        for location in try scan(directory: paths.notes) {
+            let name = location.lastPathComponent
+            // 이미 우리 이름이면 손댈 것이 없다.
+            guard MemoFile.identifier(fromFileName: name) == nil else { continue }
+
+            guard let data = try? Data(contentsOf: location) else { continue }
+            let text = String(decoding: data, as: UTF8.self)
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            // 빈 파일은 받지 않는다. 쓰다 만 것일 수도 있으므로 지우지도 않는다.
+            guard !trimmed.isEmpty else { continue }
+
+            let modified = modificationDate(of: location)
+            let fresh = ULID(timestamp: modified)
+            let memo = (try? MemoFile.decode(text, fallbackID: fresh))
+                ?? Memo(id: fresh, created: modified, updated: modified, body: trimmed)
+
+            guard let saved = try? save(memo) else { continue }
+            // 정본이 새 자리에 앉은 것을 확인한 뒤에 지운다.
+            if url(for: memo.id) != location { try? fileManager.removeItem(at: location) }
+            adopted.append(saved.memo)
+        }
+
+        return adopted
+    }
+
     private func scan(directory: URL) throws -> [URL] {
         guard let enumerator = fileManager.enumerator(
             at: directory,

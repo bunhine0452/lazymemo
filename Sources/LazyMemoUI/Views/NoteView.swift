@@ -29,7 +29,11 @@ struct NoteView: View {
     @State private var paperHeight: CGFloat = 0
 
     private var color: MemoColor { model.memo.color }
-    private var hasFooter: Bool { model.memo.isScheduled || !model.memo.tags.isEmpty }
+
+    /// 아래 캡슐에 든 버튼 수. 「다듬기」가 있으면 하나 더다 — 이 값이 어긋나면
+    /// 캡슐이 꼬리를 덮는다 (`NoteControlLayout` 이 지키는 그 규칙).
+    private var controlCount: Int { NoteControlLayout.paperButtons(hasTidy: model.canTidy) }
+    private var hasFooter: Bool { NoteFooter.isVisible(for: model.memo) }
 
     /// 조작 줄이 떠 있는가 — 포인터가 왔거나, 색을 고르는 중이거나.
     private var showsControls: Bool { staged || isHovering || isPickingColor }
@@ -71,6 +75,9 @@ struct NoteView: View {
 
             // 방금 지웠으면 그 자리에 되돌리는 줄이 덮인다 (D6).
             if let deleted = model.justDeleted { deletedVeil(deleted) }
+
+            // 기다리는 중이거나 방금 다듬었으면 아래에 한 줄이 뜬다.
+            if model.thinking != .none { thinkingBar }
         }
         .background {
             Theme.paper(color.ink, age: age)
@@ -82,6 +89,9 @@ struct NoteView: View {
             }
         }
         .overlay(Theme.edge())
+        // 캡슐에서 덜어 낸 것들이 여기 있다. macOS 사람이 이미 아는 자리이고,
+        // 화면에 자리를 차지하지 않으므로 철학 4 와도 부딪히지 않는다.
+        .contextMenu { paperMenu }
         // `.onHover` 는 키 윈도에서만 반응한다. 바탕화면의 종이는 다른 앱을
         // 쓰는 동안에도 되살아나야 하므로 감지기를 따로 둔다.
         .overlay { HoverSensor { isHovering = $0 } }
@@ -137,7 +147,7 @@ struct NoteView: View {
 
     /// 오른쪽 위 — 치우기 하나.
     private var closeControl: some View {
-        QuietButton(symbol: "xmark", help: "치우기 — 메모는 지워지지 않습니다", action: onClose)
+        QuietButton(symbol: "xmark", help: "치우기 — 서랍에 들어갑니다. 지워지지 않습니다", action: onClose)
             .padding(NoteControlLayout.capsulePadding)
             .background { RaisedSurface(ink: color.ink) }
             .padding(NoteControlLayout.closeInset)
@@ -162,15 +172,28 @@ struct NoteView: View {
                 .frame(width: 1, height: 12)
                 .padding(.horizontal, Theme.hairline)
 
-            colorButton
-
-            QuietButton(
-                symbol: model.memo.pinned ? "pin.fill" : "pin",
-                help: model.memo.pinned ? "고정 해제" : "고정",
-                isActive: model.memo.pinned
-            ) {
-                Task { await model.togglePin() }
+            // **`claude` 가 없으면 이 자리도 없다.** 안 되는 버튼을 놓아 두는
+            // 것보다 아예 없는 편이 낫다 (`ClaudeCLI` — 있으면 켜지고 없으면
+            // 조용히 없다). 그래서 아래 꼬리가 비워 둘 폭도 함께 달라진다.
+            if model.canTidy {
+                QuietButton(
+                    symbol: "sparkles",
+                    help: "다듬기 — Claude 가 이 메모를 읽기 좋게 고칩니다. 8초 안에 되돌릴 수 있습니다"
+                ) {
+                    Task { await model.tidyWithClaude() }
+                }
             }
+
+            // **색과 고정은 여기 없다 — 우클릭으로 갔다** (`paperMenu`).
+            //
+            // 다섯이 서 있을 때 캡슐이 136pt 였고, 260pt 짜리 종이의 꼬리에
+            // 남는 자리가 87pt 였다. 날짜 한 줄이 100pt 남짓이므로 **날짜가
+            // 캡슐 밑으로 들어가고 있었다.** 그리고 그 다섯을 1pt 간격으로
+            // 붙여 둔 탓에 겨냥까지 필요했다.
+            //
+            // 덜어 낼 것은 «자주 하지 않고, 잘못 눌러도 값이 싼» 것이다 —
+            // 색과 고정이 그렇다. 지우기는 값이 비싸서, 달력과 다듬기는
+            // 자주 써서 남는다.
 
             // 자리를 옮기는 길 (§7.2). 날짜를 얻으면 이 종이는 달력이 맡으므로
             // 바탕화면에서 물러난다 — 그것이 이 버튼이 하는 일의 전부다.
@@ -196,12 +219,36 @@ struct NoteView: View {
         .transition(.opacity)
     }
 
+    /// 우클릭 메뉴. 캡슐이 감당 못 하는 것들이 여기 산다.
+    ///
+    /// **지우기도 여기 둔다.** 캡슐에 이미 있지만, 우클릭으로 열었을 때
+    /// «여기서는 못 지우나» 가 되면 안 된다 — 한 길만 있는 것보다 두 길이
+    /// 같은 것을 하는 편이 낫다.
+    @ViewBuilder private var paperMenu: some View {
+        if model.canTidy {
+            Button("다듬기") { Task { await model.tidyWithClaude() } }
+        }
+        Button(model.memo.pinned ? "고정 해제" : "고정") {
+            Task { await model.togglePin() }
+        }
+        Menu("색") {
+            ForEach(MemoColor.allCases, id: \.self) { candidate in
+                Button(candidate.label) { Task { await model.setColor(candidate) } }
+            }
+        }
+        Divider()
+        Button("지우기", role: .destructive) { Task { await model.delete() } }
+    }
+
     private var colorButton: some View {
         Button { isPickingColor.toggle() } label: {
             Circle()
                 .fill(color.tint)
-                .frame(width: 10, height: 10)
-                .frame(width: 18, height: 18)
+                .frame(width: 11, height: 11)
+                // 캡슐의 폭 셈이 버튼 하나를 이만큼으로 친다
+                // (`NoteControlLayout.capsuleWidth`). 여기만 작으면 그림도
+                // 어긋나고 시험이 지키는 숫자도 어긋난다.
+                .frame(width: NoteControlLayout.button, height: NoteControlLayout.button)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -220,7 +267,7 @@ struct NoteView: View {
                 } label: {
                     Circle()
                         .fill(candidate.tint)
-                        .frame(width: 17, height: 17)
+                        .frame(width: 18, height: 18)
                         .overlay {
                             Circle()
                                 .strokeBorder(
@@ -229,12 +276,16 @@ struct NoteView: View {
                                 )
                                 .padding(-3)
                         }
+                        // 여섯 개가 나란히 선 자리다. 원만 한 과녁이면 사이의
+                        // 여백이 전부 헛손질이 된다.
+                        .hitTarget(Theme.touch + 2)
                 }
                 .buttonStyle(.plain)
                 .spoken(candidate.label)
             }
         }
-        .padding(Theme.normal)
+        .padding(.horizontal, Theme.snug)
+        .padding(.vertical, Theme.tight)
     }
 
     // MARK: 붙인 사진
@@ -343,6 +394,48 @@ struct NoteView: View {
     ///
     /// 8초 뒤에는 스스로 물러난다. 그 뒤로도 되돌릴 수는 있다 — 메뉴가 5분
     /// 동안 들고 있고, 휴지통은 30일이다 (`MenuBarController`).
+    /// Claude 가 다듬는 동안, 그리고 다듬은 직후에 뜨는 한 줄.
+    ///
+    /// **본문을 덮지 않는다.** 지우기의 되돌리기는 종이를 통째로 덮지만(그때는
+    /// 글이 없어진 것이므로), 다듬기는 글이 **바뀐** 것이라 바뀐 글이 보여야
+    /// 되돌릴지 말지를 정할 수 있다.
+    @ViewBuilder private var thinkingBar: some View {
+        HStack(spacing: Theme.tight) {
+            switch model.thinking {
+            case .working:
+                Text("다듬는 중…")
+                    .font(Theme.micro)
+                    .foregroundStyle(Paper.fadedInk)
+            case .done:
+                Text("다듬었습니다")
+                    .font(Theme.micro)
+                    .foregroundStyle(Paper.fadedInk)
+                Button { Task { await model.undoTidy() } } label: {
+                    // 8초 안에 닿아야 하는 자리다. 급한 손에 13pt 를 내밀지 않는다.
+                    Text("되돌리기")
+                        .font(Theme.micro)
+                        .padding(.horizontal, Theme.tight)
+                        .hitTarget(Theme.touchRow)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.accentInk)
+                .spoken("되돌리기 — 다듬기 전의 글로 되돌립니다")
+            case .failed(let reason):
+                Text(reason)
+                    .font(Theme.micro)
+                    .foregroundStyle(Paper.fadedInk)
+                    .lineLimit(2)
+            case .none:
+                EmptyView()
+            }
+            Spacer(minLength: NoteControlLayout.footerReserve(buttons: controlCount))
+        }
+        .padding(.horizontal, NoteControlLayout.footerInset)
+        .padding(.bottom, Theme.tight)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+        .transition(.opacity)
+    }
+
     private func deletedVeil(_ deleted: Memo) -> some View {
         VStack(spacing: Theme.tight) {
             Text("「\(deleted.title)」 지웠습니다")
@@ -351,11 +444,16 @@ struct NoteView: View {
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
 
-            Button("되돌리기") {
+            Button {
                 Task { await model.restoreDeleted() }
+            } label: {
+                // 방금 잘못 지운 사람이 오는 자리다 — 이 종이에서 가장 넉넉해야 한다.
+                Text("되돌리기")
+                    .font(Theme.label)
+                    .padding(.horizontal, Theme.snug)
+                    .hitTarget(Theme.touch)
             }
             .buttonStyle(.plain)
-            .font(Theme.label)
             .foregroundStyle(Theme.accentInk)
             .spoken("되돌리기 — 방금 지운 이 메모를 되살립니다")
         }
@@ -396,42 +494,121 @@ struct NoteView: View {
 
     // MARK: 꼬리 — 날짜와 태그가 있을 때만
 
+    /// 종이의 마지막 줄 — 언제·어디·무엇에 대하여.
+    ///
+    /// **한 줄이 원칙이고, 두 줄은 양보다.** 이 줄은 겹쳐 뜨는 캡슐이 덮지 않도록
+    /// 오른쪽을 미리 비워 둔 자리라(`NoteControlLayout.footerReserve`), 셋을 억지로
+    /// 밀어 넣으면 날짜가 접혀 세 줄이 된다 — 실제로 그렇게 됐다. 자리가 모자라면
+    /// **장소가 아랫줄로 내려앉는다.** 접히는 것이지 사라지는 것이 아니고, 캡슐이
+    /// 비워야 할 자리도 그때는 아랫줄로 함께 옮겨 간다.
     private var footer: some View {
-        HStack(spacing: Theme.tight) {
-            if let schedule = scheduleLabel {
-                // 날짜는 **적힌 것이자 누를 수 있는 것**이다. 이 메모가 달력의
-                // 어느 칸에 서 있는지는 여기서 한 번에 가는 길이 없으면
-                // 달력을 열어 그 달까지 손으로 넘겨야 알 수 있다.
-                Button(action: onCalendar) {
-                    Label {
-                        Text(schedule).font(Theme.micro)
-                    } icon: {
-                        Image(systemName: model.memo.at != nil ? "clock" : "calendar")
-                            .font(.system(size: 9))
-                    }
-                    .foregroundStyle(isPast ? Paper.ink.opacity(0.35) : Paper.fadedInk)
-                    .contentShape(.rect)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Theme.tight) {
+                scheduleMark
+                surfaceMark
+                placeMark
+                tagMark
+                Spacer(minLength: NoteControlLayout.footerReserve(buttons: controlCount))
+            }
+            .padding(.bottom, Theme.normal)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: Theme.tight) {
+                    scheduleMark
+                    surfaceMark
+                    tagMark
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(.plain)
-                .spoken("달력에서 보기 — 이 일정이 달력의 어디에 있는지 펼칩니다")
+                HStack(spacing: Theme.tight) {
+                    placeMark
+                    Spacer(minLength: NoteControlLayout.footerReserve(buttons: controlCount))
+                }
             }
-
-            if !model.memo.tags.isEmpty {
-                Text(model.memo.tags.prefix(3).map { "#\($0)" }.joined(separator: " "))
-                    .font(Theme.micro)
-                    .foregroundStyle(Paper.ink.opacity(0.40))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
-
-            // 아래 캡슐이 뜰 자리를 **미리 비워 둔다** (`NoteControlLayout`).
-            // 첫 줄을 비우려고 조작을 내렸더니 이번에는 이 줄이 덮였다 —
-            // 태그의 오른쪽이 캡슐 밑으로 들어가 있었다. 가려진 것은 가려진
-            // 줄도 모르고, 잘린 것은 잘린 줄 안다.
-            Spacer(minLength: NoteControlLayout.footerReserve())
+            // 두 줄이면 꼬리가 캡슐 위로 올라선다 (`footerTwoLineInset`) —
+            // 윗줄에는 비워 둘 자리가 없기 때문이다.
+            .padding(.bottom, NoteControlLayout.footerTwoLineInset)
         }
         .padding(.horizontal, NoteControlLayout.footerInset)
-        .padding(.bottom, Theme.normal)
+    }
+
+    /// 날짜는 **적힌 것이자 누를 수 있는 것**이다. 이 메모가 달력의 어느 칸에
+    /// 서 있는지는 여기서 한 번에 가는 길이 없으면 달력을 열어 그 달까지 손으로
+    /// 넘겨야 알 수 있다.
+    @ViewBuilder private var scheduleMark: some View {
+        if scheduleLabel != nil {
+            Button(action: onCalendar) {
+                Label {
+                    // **한 조각이다.** 「오후 3:00」과 「30분 전」을 두 칩으로
+                    // 나누면 무엇이 일정이고 무엇이 알림인지 매번 읽어야 한다.
+                    Text(scheduleText).font(Theme.micro).lineLimit(1)
+                } icon: {
+                    Image(systemName: model.memo.at != nil ? "clock" : "calendar")
+                        .font(.system(size: 9))
+                }
+                .foregroundStyle(isPast ? Paper.ink.opacity(0.35) : Paper.fadedInk)
+                // 글자는 그대로 두고 누르는 자리만 위아래로 넓힌다. 이 줄의
+                // 높이는 `NoteControlLayout.footerLine` 이 알고 있다 — 캡슐이
+                // 이 줄에 닿는지 그 숫자로 셈하므로 둘이 함께 움직여야 한다.
+                .frame(minHeight: NoteControlLayout.footerLine)
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .spoken("달력에서 보기 — 이 일정이 달력의 어디에 있는지 펼칩니다")
+        }
+    }
+
+    /// 일정이 없는데 나올 때만 정해진 종이. 「금요일 아침에 이거 다시 보여줘」다.
+    ///
+    /// 누를 수 있게 만들지 않았다 — 달력에 없는 시각이라 **갈 곳이 없다.**
+    /// 날짜 칩이 누를 수 있는 이유는 그 메모가 달력의 어딘가에 서 있기 때문이고,
+    /// 이것은 그렇지 않다 (`Memo.surface` — 자리를 바꾸지 않는다).
+    @ViewBuilder private var surfaceMark: some View {
+        if !model.memo.isScheduled, let surface = model.memo.surface {
+            Label {
+                Text(Self.surfaceText(surface)).font(Theme.micro).lineLimit(1)
+            } icon: {
+                Image(systemName: "arrow.up").font(.system(size: 9))
+            }
+            .foregroundStyle(surface <= model.asOf ? Paper.ink.opacity(0.35) : Paper.fadedInk)
+            .help("이 시각에 종이가 앞으로 나옵니다")
+            .accessibilityLabel(Text("\(Self.surfaceText(surface))에 이 종이가 앞으로 나옵니다"))
+        }
+    }
+
+    static func surfaceText(_ surface: Date) -> String {
+        surface.formatted(.dateTime.month().day().hour().minute()) + " 나옴"
+    }
+
+    /// 장소도 누를 수 있다. 다만 날짜와 다르다 — 날짜를 누르면 이 메모가 옮겨
+    /// 앉은 곳(달력)으로 가지만, 장소를 눌러도 **이 종이는 그대로 있고** 지도만
+    /// 바깥에서 열린다. 장소는 자리를 정하지 않는다 (§14.2, `MapLink`).
+    @ViewBuilder private var placeMark: some View {
+        if let mark = NoteFooter.placeLabel(for: model.memo) {
+            Button {
+                if let url = MapLink.url(for: model.memo) { NSWorkspace.shared.open(url) }
+            } label: {
+                Label {
+                    Text(mark).font(Theme.micro).lineLimit(1).truncationMode(.tail)
+                } icon: {
+                    Image(systemName: "mappin").font(.system(size: 9))
+                }
+                .foregroundStyle(Paper.fadedInk)
+                .frame(minHeight: NoteControlLayout.footerLine)
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .spoken("지도에서 보기 — \(mark) 을(를) 지도 앱에서 엽니다")
+        }
+    }
+
+    @ViewBuilder private var tagMark: some View {
+        if !model.memo.tags.isEmpty {
+            Text(model.memo.tags.prefix(3).map { "#\($0)" }.joined(separator: " "))
+                .font(Theme.micro)
+                .foregroundStyle(Paper.ink.opacity(0.40))
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
     }
 
     /// 사진 한 장이 종이에서 가질 수 있는 최대 높이.
@@ -450,6 +627,17 @@ struct NoteView: View {
     private var isPast: Bool {
         guard let scheduled = model.memo.scheduledDate() else { return false }
         return scheduled < CalendarDate(Date())
+    }
+
+    /// 일정 칩에 적히는 말. 「나올 때」가 따로 있으면 한 조각으로 붙인다.
+    private var scheduleText: String {
+        guard let schedule = scheduleLabel else { return "" }
+        // 「9월 1일 화 · 30분 전 · 매주」. 셋 다 같은 시각을 가리키는 말이라
+        // 한 조각으로 붙는다 — 되풀이는 날짜를 **한정하는 말**이지 별개의 값이
+        // 아니다 (`Recurrence` — 주기만 말하고 언제인지는 날짜가 들고 있다).
+        return [schedule, model.memo.surfaceLead, model.memo.every?.label]
+            .compactMap { $0 }
+            .joined(separator: " · ")
     }
 
     private var scheduleLabel: String? {

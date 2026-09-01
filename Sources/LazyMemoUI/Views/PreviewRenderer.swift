@@ -22,7 +22,13 @@ enum PreviewRenderer {
 
         // 모델을 먼저 만들고 잠깐 기다린다 — 붙인 사진을 파일에서 불러오는
         // 일이 비동기라, 만들자마자 그리면 그림이 아직 없다.
-        let scheduled = NoteModel(memo: samples.scheduled, store: store, previews: previews)
+        // **버튼이 넷에서 다섯으로 늘면 꼬리가 비워야 할 폭도 달라진다.**
+        // 그 어긋남은 렌더에서만 보이므로(§14.9), 여기서는 `claude` 가 있는
+        // 것으로 치고 그린다 — 진짜로 부르지는 않는다.
+        let pretendClaude = ClaudeRunner(cli: ClaudeCLI(path: "/usr/bin/true"))
+        let scheduled = NoteModel(
+            memo: samples.scheduled, store: store, previews: previews, claude: pretendClaude
+        )
         let plain = NoteModel(memo: samples.plain, store: store, previews: previews)
         try? await Task.sleep(for: .milliseconds(300))
 
@@ -125,6 +131,20 @@ enum PreviewRenderer {
             into: directory
         )
 
+        // 낱말이 기억나지 않을 때 (`MemoFilter`). **무엇으로 걸렀는지가
+        // 화면에 없으면** 목록이 짧아진 이유를 알 길이 없다.
+        let recalling = QuickCaptureModel(store: store)
+        recalling.arrowOffset = QuickCaptureController.width - 70
+        recalling.query = "#사진"
+        try? await Task.sleep(for: .milliseconds(400))
+        log("capture-filter.chips=\(recalling.filter.chips) 찾은것=\(recalling.pool.count)")
+        await render(
+            name: "capture-filter",
+            size: CGSize(width: QuickCaptureController.width, height: 200),
+            content: QuickCaptureView(model: recalling, onCommit: {}, onCancel: {}),
+            into: directory
+        )
+
         // 빈 상자 — 열면 요즘 메모가 바로 아래 놓인다. 적으러 열었을 때
         // 목록이 글 자리를 밀어내지 않는지는 그려 봐야 안다.
         let browsing = QuickCaptureModel(store: store)
@@ -157,8 +177,10 @@ enum PreviewRenderer {
             into: directory
         )
 
-        let calendarSize = CGSize(width: 300, height: 440)
-        let calendar = CalendarModel(store: store)
+        let calendarSize = CGSize(width: 320, height: 470)
+        // 남의 일정이 우리 종이와 어떻게 갈라 보이는지는 **눈으로만** 확인된다 (§14.9).
+        // 실제 캘린더 권한 없이 렌더가 돌아야 하므로 표본 문을 하나 세운다.
+        let calendar = CalendarModel(store: store, feed: SampleFeed())
         await calendar.refresh()
         log("calendar.days=\(calendar.byDay.count)")
         await render(
@@ -211,6 +233,83 @@ enum PreviewRenderer {
             ),
             into: directory
         )
+
+        await renderDrawer(store: store, into: directory)
+    }
+
+    /// 「서랍」 — **네 모습이 다 손을 타야만 나타난다.**
+    ///
+    /// 닫힌 폴더는 그냥 열어 두면 보이지만, 펼친 격자도·되돌린 한 장도·종이가
+    /// 위에 떠 있는 순간도 전부 포인터가 있어야 생긴다. 렌더에서 연출하지
+    /// 않으면 이 화면에서 새로 만든 것이 통째로 미확인으로 남는다 (§14.9).
+    private static func renderDrawer(store: MemoStore, into directory: URL) async {
+        // 서랍은 «밀어 둔 종이» 를 담는다. 표본 창고의 메모는 대부분 일정이라
+        // (일정은 달력이 맡는다 — `DrawerContents`) 날짜 없는 종이를 몇 장 만든다.
+        let filed: [(String, MemoColor)] = [
+            ("장보기 목록\n- [x] 우유\n- [x] 계란\n- [x] 세제", .green),
+            ("읽다 만 것 — 「종이의 물성」\n3장까지 읽었다", .blue),
+            ("환불 신청 번호\n8821-0043", .yellow),
+            ("겨울옷 정리", .purple),
+            ("명함 사진 찍어 두기", .pink),
+            ("이사 견적 세 군데\n한아름 / 무지개 / 다섯별", .gray),
+            // 여기서부터는 무더기에 자리가 없다 — 바닥 한 줄이 「그리고 N장 더」
+            // 라고 말하는지는 넘쳐 봐야만 확인된다 (`DrawerContents.overflow`).
+            ("자전거 공기압", .blue),
+            ("도서관 반납", .yellow),
+            ("우산 새로 사기", .green),
+        ]
+        for (body, color) in filed {
+            _ = try? await store.create(body: body, color: color)
+        }
+
+        // 좌표 파일이 없는 렌더에서는 「사람이 치웠는가」를 물을 곳이 없다.
+        // 전부 치운 것으로 친다 — 일정은 `DrawerContents` 가 알아서 뺀다.
+        let drawer = DrawerModel(store: store, putAway: { _ in true })
+        log("drawer.papers=\(drawer.count)")
+
+        await render(
+            name: "drawer",
+            size: DrawerGeometry.closedSize,
+            content: DrawerView(model: drawer),
+            into: directory
+        )
+
+        // 종이가 서랍 위에 떠 있는 순간. 놓으면 들어간다는 것을 **놓기 전에**
+        // 말해 주는지는 이 그림에서만 확인된다.
+        drawer.staged = DrawerModel.Staged(landing: drawer.papers.first?.id)
+        await render(
+            name: "drawer-landing",
+            size: DrawerGeometry.closedSize,
+            content: DrawerView(model: drawer),
+            into: directory
+        )
+
+        let plan = drawer.geometry()
+        // 손은 **무더기 가운데**에 얹는다. 맨 위 한 장에 얹으면 위아래로
+        // 벌어지는 모습이 반쪽만 나온다 — 이 동작이 위엣것을 가리지 않는지는
+        // 가운데에서 봐야 안다.
+        drawer.staged = DrawerModel.Staged(isOpen: true, hovered: drawer.papers[safe: 3]?.id)
+        await render(
+            name: "drawer-open",
+            size: plan.size,
+            content: DrawerView(model: drawer),
+            into: directory
+        )
+
+        // 한 장을 원래 크기로 되돌린 모습. 되돌린 종이가 서랍 안에 들어가는지,
+        // 뒤에 깔린 격자와 갈리는지는 나란히 놓고 봐야 안다.
+        if let first = drawer.papers.first {
+            drawer.staged = DrawerModel.Staged(
+                isOpen: true, zoomed: first.id, lastFiled: drawer.papers.last
+            )
+            await render(
+                name: "drawer-zoomed",
+                size: plan.size,
+                content: DrawerView(model: drawer),
+                into: directory
+            )
+        }
+        drawer.staged = nil
     }
 
     /// 「달력」을 **조작하는 중**으로 만들어 그린다.
@@ -393,6 +492,26 @@ enum PreviewRenderer {
 
     // MARK: 표본
 
+    /// 렌더용 표본 캘린더. 실제 시스템 캘린더를 읽지 않는다.
+    private struct SampleFeed: CalendarFeed {
+        func events(from: CalendarDate, to: CalendarDate) async -> [ForeignEvent] {
+            let day = Calendar.current.date(
+                from: DateComponents(year: 2026, month: 8, day: 31)
+            ) ?? Date()
+            return [
+                ForeignEvent(
+                    id: "sample-standup", title: "팀 스탠드업",
+                    start: day.addingTimeInterval(10 * 3600), isAllDay: false,
+                    calendarName: "직장"
+                ),
+                ForeignEvent(
+                    id: "sample-holiday", title: "재택 근무",
+                    start: day, isAllDay: true, calendarName: "직장"
+                ),
+            ]
+        }
+    }
+
     private struct Samples {
         let scheduled: Memo
         let plain: Memo
@@ -405,8 +524,14 @@ enum PreviewRenderer {
         ) ?? Date()
 
         let scheduled = (try? await store.create(
-            body: "치과 예약\n강남역 3번 출구에서 5분",
-            at: appointment, tags: ["병원"], color: .blue
+            body: "치과 예약\n보험증 챙기기",
+            at: appointment,
+            // 일이 언제인가(14:30)와 종이가 언제 나오는가(14:00)가 한 조각으로
+            // 붙는 것을 눈으로 본다 — 「오후 2:30 · 30분 전」.
+            surface: appointment.addingTimeInterval(-1800),
+            // 장소가 본문에서 아래 잉크로 옮겨 앉는 것이 이 표본의 볼거리다.
+            place: "강남역 3번 출구", geo: Coordinate("37.4979,127.0276"),
+            tags: ["병원"], color: .blue
         )) ?? Memo(body: "치과 예약")
 
         // 마크다운 꾸밈과 붙여넣기 결과를 한 장에 담아 눈으로 확인한다.

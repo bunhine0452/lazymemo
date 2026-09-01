@@ -133,6 +133,10 @@ struct QuickCaptureView: View {
                 PhotoChipRow(images: model.images) { model.originalURL(for: $0) }
             }
 
+            if !model.filter.chips.isEmpty {
+                filterChips(model.filter.chips)
+            }
+
             if let schedule = model.scheduleLabel {
                 scheduleChip(schedule)
             }
@@ -151,6 +155,29 @@ struct QuickCaptureView: View {
     /// 달력 그림을 낱말로 바꿨다. 아이콘은 "날짜다" 까지만 말하고 "달력으로
     /// 간다" 를 말하지 못한다. 달 이동을 `‹ ›` 대신 이웃 달의 이름으로 적은
     /// 것과 같은 이유다 (§10.5 — 누르는 자리가 곧 도착지의 이름).
+    /// 무엇으로 걸렀는지 (`MemoFilter`).
+    ///
+    /// **가려진 것은 가려진 줄도 모른다.** 목록이 짧아진 이유가 화면에 없으면
+    /// 사람은 그것을 «메모가 사라졌다» 로 읽는다 — 「… 외 N장 더」를 세어
+    /// 적는 것과 같은 이유로 여기서도 적는다.
+    private func filterChips(_ chips: [String]) -> some View {
+        HStack(spacing: 5) {
+            ForEach(chips, id: \.self) { chip in
+                Text(chip)
+                    .font(.system(size: 10, weight: .medium))
+                    .padding(.horizontal, Theme.snug)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Paper.ink.opacity(0.08)))
+            }
+            Text("만 보입니다")
+                .font(.system(size: 10))
+                .opacity(0.55)
+        }
+        .foregroundStyle(.secondary)
+        .transition(.opacity)
+        .fixedSize()
+    }
+
     private func scheduleChip(_ text: String) -> some View {
         HStack(spacing: 5) {
             Text(text)
@@ -319,11 +346,18 @@ struct QuickCaptureView: View {
             Text("「\(memo.title)」 지웠습니다")
                 .lineLimit(1)
             Spacer(minLength: Theme.snug)
-            Button("되돌리기") {
+            Button {
                 Task { await model.restoreLastDeleted() }
+            } label: {
+                // 급하게 찾는 손이 오는 자리다 — 지운 직후가 잘못 눌렀다는
+                // 것을 아는 순간이므로. 낱말은 그대로 두고 둘레를 넓힌다.
+                Text("되돌리기")
+                    .foregroundStyle(Theme.accentInk)
+                    .padding(.horizontal, Theme.tight)
+                    .frame(minHeight: Theme.touchRow)
+                    .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(Theme.accentInk)
             .spoken("되돌리기 — 방금 지운 메모를 되살립니다")
         }
         .font(Theme.micro)

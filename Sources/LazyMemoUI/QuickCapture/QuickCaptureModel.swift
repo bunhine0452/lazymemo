@@ -21,6 +21,7 @@ final class QuickCaptureModel {
             // 날짜 인식은 로컬 문자열 처리라 즉시 한다. 타자마다 칩이 따라와야
             // 사용자가 "아, 얘가 읽고 있구나" 를 알 수 있다.
             schedule = NaturalDateParser.parse(query)
+            filter = MemoFilter.read(query)
             reloadImages()
             // 낱말이 바뀌면 목록은 다른 물건이다. 넓혀 둔 것은 그때 것이라
             // 도로 접는다 — 지운 뒤의 다시 짓기(`refreshListing`)는 같은
@@ -82,6 +83,8 @@ final class QuickCaptureModel {
     private(set) var images: [AttachedImage] = []
     /// 입력에서 알아낸 일정. 없으면 그냥 메모다.
     private(set) var schedule: NaturalDateParser.Result?
+    /// 입력에서 알아낸 **거를 조건** (`MemoFilter`). 낱말이 기억나지 않을 때 남는 길이다.
+    private(set) var filter = MemoFilter()
     /// 화살표로 고른 메모. **자리가 아니라 그 메모 자체를 들고 있는다.**
     ///
     /// 자리만 기억하던 때에는 목록이 갈리는 순간 고른 것이 조용히 바뀌었다 —
@@ -132,6 +135,8 @@ final class QuickCaptureModel {
     private(set) var placeholder: String = CapturePrompt.next(after: nil)
 
     private let store: MemoStore
+    /// 그 메모를 마지막으로 **연** 때. 없으면 열어 본 적이 없다는 뜻이다.
+    private let lastOpened: (ULID) -> Date?
     private var searchTask: Task<Void, Never>?
 
     /// 타자마다 인덱스를 때리지 않는다. 사람이 한 글자 더 치는 시간보다 짧게 둔다.
@@ -146,8 +151,9 @@ final class QuickCaptureModel {
     /// 넓혔을 때의 줄 수. 이보다 길면 상자가 화면을 덮는다.
     static let expandedLimit = 20
 
-    init(store: MemoStore) {
+    init(store: MemoStore, lastOpened: @escaping (ULID) -> Date? = { _ in nil }) {
         self.store = store
+        self.lastOpened = lastOpened
     }
 
     /// 적은 것을 지우고 처음으로 되돌린다. **확정한 뒤에만 부른다.**
@@ -205,8 +211,19 @@ final class QuickCaptureModel {
         // **치워 둔 것은 여기 오지 않는다** (`Tidy`). 다섯 자리뿐인 목록이
         // 다 끝난 장보기로 차면 그건 「요즘」이 아니다. 찾으면 나오고,
         // 열면 도로 꺼내진다.
-        pool = store.active
+        //
+        // **읽은 것도 「요즘」이다.** 고친 때만 세면 어제 열어 본 메모가 목록
+        // 밖으로 밀린다 — 읽기만 해서는 `updated` 가 안 움직이기 때문이다.
+        // 그래서 고친 때와 연 때 중 나중 것으로 센다 (`WindowLayout.opened`).
+        pool = store.active.sorted { left, right in
+            if left.pinned != right.pinned { return left.pinned }
+            return recency(of: left) > recency(of: right)
+        }
         dropSelectionIfGone()
+    }
+
+    private func recency(of memo: Memo) -> Date {
+        max(memo.updated, lastOpened(memo.id) ?? .distantPast)
     }
 
     /// 목록이 다시 지어졌다. 고른 것이 그 안에 없으면 **놓는다.**
@@ -252,6 +269,8 @@ final class QuickCaptureModel {
         searchTask?.cancel()
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
 
+        // 조건만 있고 낱말이 없어도 찾을 것이 있다 — `#사진` 한 마디로
+        // 「그 사진 붙여 둔 거」에 닿는 것이 이 상자의 값이다.
         guard !text.isEmpty else {
             showRecent()
             return
@@ -266,11 +285,18 @@ final class QuickCaptureModel {
 
     /// 친 글로 걸러 낸다. 디바운스 밖에서도 부른다 — 지운 직후처럼 기다릴
     /// 이유가 없을 때다.
+    ///
+    /// **두 걸음이다.** 인덱스는 낱말만 알고, 생김새·태그·장소·날짜는 메모를
+    /// 손에 쥐어야 볼 수 있다. 낱말이 비어 있으면(`#사진` 만 쳤을 때) 요즘
+    /// 것부터 훑어 거른다 — 그때 인덱스에 넘길 것이 없기 때문이다.
     private func find(_ text: String) async {
-        let found = await store.search(text, limit: Self.searchCeiling)
+        let condition = MemoFilter.read(text)
+        let words = condition.words.trimmingCharacters(in: .whitespacesAndNewlines)
+        let found = await store.search(words, limit: Self.searchCeiling)
         guard !Task.isCancelled else { return }
+
         listing = .found
-        pool = found
+        pool = condition.narrows ? found.filter { condition.matches($0) } : found
         dropSelectionIfGone()
     }
 

@@ -40,6 +40,26 @@ final class NoteModel {
     /// 번인데 되돌리기가 셋이면 그 휴지통은 못 누르는 버튼이다.
     private(set) var justDeleted: Memo?
 
+    /// **이 앱이 처음 갖는 「기다리는 상태」** (`{#claude-wait-state}`).
+    ///
+    /// 지금까지 이 앱의 모든 조작은 즉시 끝났다 — 저장도, 지우기도, 날짜
+    /// 인식도. 그래서 «기다림» 을 말하는 낱말이 화면에 하나도 없었고, 답이
+    /// 오는 데 십 초가 걸리는 조작을 그냥 붙이면 종이는 그동안 **아무 말도
+    /// 안 하는 종이**가 된다.
+    enum Thinking: Equatable {
+        case none
+        /// 답을 기다리는 중.
+        case working
+        /// 방금 다듬었다. 8초 동안 되돌릴 수 있다 — 지우기와 같은 창이다 (D6).
+        case done(previous: String)
+        case failed(String)
+    }
+    private(set) var thinking: Thinking = .none
+    private var thinkingTask: Task<Void, Never>?
+
+    /// 이 종이를 Claude 가 다듬을 수 있는가. 없으면 조작 자체가 없다.
+    var canTidy: Bool { claude != nil && justDeleted == nil }
+
     /// 되돌리는 줄이 머무는 시간. 달력의 되돌리기와 같은 값이다 — 이보다
     /// 길면 지운 종이가 화면에 눌어붙고, 짧으면 놓친다.
     private static let undoWindow: Duration = .seconds(8)
@@ -63,6 +83,12 @@ final class NoteModel {
     private var retriesLeft = NoteModel.retryBudget
 
     private let store: MemoStore
+    /// `claude` 가 이 컴퓨터에 있으면 그것을 부르는 길. 없으면 `nil` 이다.
+    ///
+    /// 찾는 데 로그인 셸을 한 번 띄울 수 있어 **기동보다 늦게 정해질 수 있다.**
+    /// 그래서 나중에 넣을 수 있는 자리로 둔다 — 이미 떠 있는 종이도 그때
+    /// 조작이 하나 생긴다.
+    var claude: ClaudeRunner?
     private let attachments: AttachmentStore
     private let previews: LinkPreviewStore
     private var saveTask: Task<Void, Never>?
@@ -70,7 +96,11 @@ final class NoteModel {
     private var linkTask: Task<Void, Never>?
     private var isDirty = false
 
-    init(memo: Memo, store: MemoStore, previews: LinkPreviewStore) {
+    init(
+        memo: Memo, store: MemoStore, previews: LinkPreviewStore,
+        claude: ClaudeRunner? = nil
+    ) {
+        self.claude = claude
         self.memo = memo
         self.text = memo.body
         self.store = store
@@ -242,6 +272,68 @@ final class NoteModel {
     }
 
     /// 이 종이를 지운다. **창은 그 자리에 남아 되돌리는 줄을 든다.**
+    // MARK: Claude 가 다듬기 (`{#claude-tidy-action}`)
+
+    /// 이 종이를 Claude 에게 한 번 보낸다.
+    ///
+    /// **적던 글을 먼저 내린다.** 안 그러면 Claude 는 디스크의 옛 글을 읽고,
+    /// 돌아온 답이 방금 친 줄을 지운다.
+    ///
+    /// 그리고 **답이 오는 사이에 글이 바뀌었으면 버린다.** 십 초는 사람이 한
+    /// 줄 더 적기에 충분한 시간이고, 그때 답을 덮어쓰면 그것은 다듬은 것이
+    /// 아니라 지운 것이다. 되돌리기가 있어도 잃은 줄은 화면에서 이미 사라진 뒤다.
+    func tidyWithClaude() async {
+        guard let claude, thinking == .none, justDeleted == nil else { return }
+
+        await flush()
+        let before = text
+        guard !before.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        thinking = .working
+        do {
+            let answer = try await claude.ask(ClaudePrompts.tidy, about: before)
+            guard text == before else {
+                settle(.failed("적는 사이에 글이 바뀌어 그대로 두었습니다"))
+                return
+            }
+            guard answer != before else {
+                settle(.failed("다듬을 것이 없었습니다"))
+                return
+            }
+            // `edited` 는 «바뀌었다» 는 알림이라 글자를 넣지 않는다 — 평소에는
+            // 편집기가 이미 `text` 를 써 놓기 때문이다. 여기서는 우리가 쓴다.
+            text = answer
+            edited(answer)
+            await flush()
+            settle(.done(previous: before))
+        } catch {
+            // **조용히 삼키지 않는다.** 아무 일도 안 일어난 것처럼 보이면
+            // 사람은 한 번 더 누르고, 그때마다 토큰이 나간다.
+            settle(.failed(String(describing: error)))
+        }
+    }
+
+    /// 다듬기 전으로 돌린다.
+    func undoTidy() async {
+        guard case .done(let previous) = thinking else { return }
+        thinkingTask?.cancel()
+        thinking = .none
+        text = previous
+        edited(previous)
+        await flush()
+    }
+
+    /// 잠깐 말하고 물러나는 줄. 지우기의 되돌리기와 같은 창을 쓴다.
+    private func settle(_ state: Thinking) {
+        thinking = state
+        thinkingTask?.cancel()
+        thinkingTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.undoWindow)
+            guard !Task.isCancelled else { return }
+            self?.thinking = .none
+        }
+    }
+
     func delete() async {
         await flush()
         // 지우기 **전에** 표시해 둔다. 지우는 순간 목록이 바뀌고 창을 거두는

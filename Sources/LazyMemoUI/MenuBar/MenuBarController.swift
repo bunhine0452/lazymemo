@@ -23,12 +23,22 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let spike = DesktopWindowSpike()
     private let capture: QuickCaptureController
     private let clipboardCapture: ClipboardCapture
+    /// URL 스킴과 서비스 메뉴가 들어오는 문. `AppDelegate` 가 붙인다.
+    let door: InboundDoor
+    /// 아침에 종이를 놓는 시계. **기본은 꺼져 있다.**
+    let brief: MorningBrief
+    /// `⌥⌘L` — 지금 여기.
+    private let here: HereCapture
+    /// 「가면 떠오른다」. **기본은 꺼져 있다.**
+    let watcher: PlaceWatcher
     private let calendar: CalendarWindowController
+    private let drawer: DrawerWindowController
     private let hotkey = HotkeyManager()
     private let recorder = HotkeyRecorder()
     private let settings: SettingsStore
     private let appearance: PaperAppearance
     private let mover: VaultMover
+    let updater: Updater
     /// 설정에 적혀 있었지만 찾지 못한 메모 폴더 (`AppPaths.resolve`).
     /// 값이 있으면 지금 화면은 **기본 폴더**를 보고 있다는 뜻이다.
     private let missingVault: URL?
@@ -57,20 +67,38 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             // 옮기기 전에 적던 글을 전부 내린다 — 옮기고 나면 옛 자리는 없다.
             flush: { [weak windows] in await windows?.flushAll() }
         )
+        self.updater = Updater(settings: settings)
+        self.brief = MorningBrief(store: store, settings: settings, windows: windows)
         self.capture = QuickCaptureController(store: store, windows: windows)
-        self.clipboardCapture = ClipboardCapture(store: store, windows: windows)
+        let door = InboundDoor(store: store, windows: windows)
+        self.door = door
+        self.clipboardCapture = ClipboardCapture(store: store, windows: windows, door: door)
+        self.here = HereCapture(door: door)
+        self.watcher = PlaceWatcher(store: store, settings: settings)
         self.calendar = CalendarWindowController(
-            store: store, layouts: layouts,
+            store: store, layouts: layouts, settings: settings,
             // 달력에서 줄을 누르는 것은 **보는 일**이다. 자리는 그대로 달력에
             // 둔다 — 안 그러면 읽으려는 클릭 한 번이 그 일정을 영영 바탕화면의
             // 종이로 만든다 (§7.2 의 예외에 걸린다).
             onSelectMemo: { [weak windows] id in windows?.reveal(id, keepingPlace: true) }
         )
+        // 서랍은 밀어 둔 종이가 가는 자리다 (`DrawerContents`). 창 관리자를
+        // 그대로 받는다 — 넣고 꺼내는 것이 전부 종이 창을 여닫는 일이라,
+        // 서랍이 좌표 파일을 따로 만지면 규칙이 두 곳에 살게 된다.
+        self.drawer = DrawerWindowController(store: store, layouts: layouts, windows: windows)
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
         configureButton()
         menu.delegate = self
+
+        // 켜져 있으면 뜨자마자 한 번 물어본다. **결과는 창이 아니라 메뉴에 있다** —
+        // 사용자가 메뉴를 열었을 때 거기 있으면 된다 (철학 4).
+        Task { [updater] in await updater.check() }
+
+        // 도착하면 그 종이가 나온다 — `DueClock` 과 같은 길이다 (시스템 알림 아님).
+        watcher.onArrival = { [weak windows] id in windows?.surface(id) }
+        watcher.start()
 
         // 말풍선은 아이콘 밑에 매달린다. 아이콘 자리는 여기만 알고 있고,
         // 메뉴바가 붐비면 숨겨져 자리가 없을 수도 있다.
@@ -79,6 +107,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // 날짜를 적었으면 그것은 일정이다 — 종이가 아니라 달력이 받는다 (§7.2).
         capture.onScheduled = { [weak self] day in self?.calendar.announce(day) }
         clipboardCapture.onScheduled = { [weak self] day in self?.calendar.announce(day) }
+        door.onScheduled = { [weak self] day in self?.calendar.announce(day) }
 
         // 종이에서 달력으로 건너가는 길 (§7.2). 두 창이 서로를 모르므로
         // 여기서 잇는다 — 날짜가 없으면 놓을 날을 고르러 가고, 있으면 그
@@ -99,6 +128,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
         hotkey.register(id: 2, .paste) { [weak self] in
             Task { await self?.clipboardCapture.capture() }
+        }
+        hotkey.register(id: 3, .here) { [weak self] in
+            Task { await self?.here.capture() }
         }
     }
 
@@ -122,6 +154,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     /// 껐다 켰을 때 달력을 열려 있던 대로 되돌린다 (§7.2).
     func restoreCalendar() { calendar.restoreIfWasOpen() }
+
+    /// 껐다 켜도 서랍은 놓아 둔 자리에 그대로 있다.
+    func restoreDrawer() { drawer.restoreIfWasVisible() }
+
+    func openDrawer() { drawer.open() }
+
+    /// 서랍이 실제 창에서 약속대로 자라고 접히는가 (`verify-drawer.sh`).
+    func drawerDiagnostics() async -> String { await drawer.diagnostics() }
 
     /// 하루가 바뀌었다 (`DayClock`). 달력 창은 여기만 들고 있다.
     func dayChanged(to day: CalendarDate) { calendar.dayChanged(to: day) }
@@ -222,6 +262,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let calendarItem = item(title: "달력", action: #selector(toggleCalendar), key: "")
         calendarItem.state = calendar.isOpen ? .on : .off
         menu.addItem(calendarItem)
+
+        let drawerItem = item(title: "서랍", action: #selector(toggleDrawer), key: "")
+        drawerItem.state = drawer.isVisible ? .on : .off
+        drawerItem.toolTip = "밀어 둔 종이가 모이는 자리 — 바탕화면에 놓입니다"
+        menu.addItem(drawerItem)
         menu.addItem(.separator())
 
         addMemoList(to: menu)
@@ -229,6 +274,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         addTrashSection(to: menu)
 
         menu.addItem(.separator())
+        addUpdateLine(to: menu)
         menu.addItem(settingsItem())
         addVaultItem(to: menu)
         menu.addItem(.separator())
@@ -445,6 +491,48 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(spike)
     }
 
+    /// 업데이트 한 줄.
+    ///
+    /// **새 판이 있을 때만 눈에 띈다.** 최신이면 «확인» 한 줄로 접히고, 개발 중
+    /// (`swift run`)에는 아예 없다 — 바꿀 번들이 없는데 바꾸자고 하면 안 된다.
+    ///
+    /// Homebrew 로 깔린 앱은 스스로 바꾸지 않는다. 대신 **명령을 복사해 준다** —
+    /// 터미널에 무엇을 쳐야 하는지 외우게 하지 않는다.
+    private func addUpdateLine(to menu: NSMenu) {
+        guard updater.source != .development else { return }
+
+        switch updater.state {
+        case .found(let release):
+            let line: NSMenuItem
+            if updater.source == .homebrew {
+                line = item(title: "새 판 \(release.version) 이 있습니다", action: #selector(copyBrewCommand), key: "")
+                line.subtitle = "눌러서 `brew upgrade --cask lazymemo` 복사"
+            } else {
+                line = item(title: "새 판 \(release.version) 으로 바꾸기", action: #selector(installUpdate), key: "")
+                line.subtitle = "받아서 바꾸고 다시 엽니다"
+            }
+            menu.addItem(line)
+
+        case .installing:
+            menu.addItem(disabled("새 판을 받는 중입니다…"))
+
+        case .checking:
+            menu.addItem(disabled("새 판이 있는지 보는 중…"))
+
+        case .failed(let reason):
+            let line = item(title: "업데이트 확인", action: #selector(checkForUpdates), key: "")
+            line.subtitle = reason
+            menu.addItem(line)
+
+        case .idle, .upToDate:
+            let line = item(title: "업데이트 확인", action: #selector(checkForUpdates), key: "")
+            line.subtitle = updater.state == .upToDate
+                ? "\(LazyMemo.version) — 최신입니다"
+                : "지금은 \(LazyMemo.version)"
+            menu.addItem(line)
+        }
+    }
+
     /// 설정. 항목이 몇 개뿐이라 창을 따로 짓지 않는다 — 창을 여는 것 자체가
     /// 조작 한 번이고, 이 앱은 그 한 번을 아끼는 앱이다.
     private func settingsItem() -> NSMenuItem {
@@ -464,6 +552,53 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         submenu.addItem(vaultLocationItem())
 
         submenu.addItem(.separator())
+        // `claude` 가 없으면 이 줄들도 없다 — 없는 사람에게는 존재하지 않는 기능이다.
+        if windows.claude != nil || settings.current.claudePath != nil {
+            let tidy = item(title: "종이에서 Claude 부르기", action: #selector(toggleClaude), key: "")
+            tidy.state = settings.current.usesClaude ?? true ? .on : .off
+            tidy.subtitle = "종이의 ✧ 를 누를 때만 나갑니다 · 8초 안에 되돌릴 수 있습니다"
+            submenu.addItem(tidy)
+
+            let morning = item(title: "아침 여덟 시에 브리핑 놓기", action: #selector(toggleMorningBrief), key: "")
+            morning.state = brief.isEnabled ? .on : .off
+            // **누르지 않았는데 값이 드는 유일한 기능이다.** 그 사실을 적는다.
+            morning.subtitle = "매일 메모를 Claude 에게 보냅니다 — 구독 사용량이 듭니다"
+            submenu.addItem(morning)
+            submenu.addItem(.separator())
+        }
+
+        let watch = item(title: "가면 떠오르게 하기", action: #selector(togglePlaceWatch), key: "")
+        watch.state = watcher.isEnabled ? .on : .off
+        // **켜 둔 것을 잊게 두지 않는다** — 몇 자리를 지켜보는지까지 적는다.
+        watch.subtitle = watcher.note
+        submenu.addItem(watch)
+
+        // 위치는 켜고 끄는 값이 아니라 **권한이 정한다.** 그래서 토글이 아니라
+        // 지금 어떤 상태인지만 적는다 — 거절해 놓고 «왜 안 되지» 가 남으면 안 된다.
+        if let note = HereCapture.access.note {
+            let location = disabled("지금 여기 — ⌥⌘L")
+            location.subtitle = note
+            submenu.addItem(location)
+            submenu.addItem(.separator())
+        }
+
+        let events = item(title: "시스템 캘린더 함께 보기", action: #selector(toggleSystemEvents), key: "")
+        events.state = settings.current.showsSystemEvents ?? true ? .on : .off
+        // 권한을 묻는 자리는 달력을 처음 열 때다. 거절했다면 그 사실이 여기 보인다 —
+        // 조용히 빈 달력을 내놓으면 사용자는 연동이 고장 난 줄 안다.
+        events.subtitle = EventKitFeed.access.note ?? "달력을 처음 열 때 한 번 묻습니다 · 읽기만 합니다"
+        submenu.addItem(events)
+        submenu.addItem(.separator())
+
+        if updater.source != .development {
+            let check = item(title: "새 판이 나오면 알기", action: #selector(toggleUpdateChecks), key: "")
+            check.state = updater.isEnabled ? .on : .off
+            // 네트워크를 쓰는 두 번째 기능이다. 켜져 있다는 사실이 보여야 한다 (§9.3).
+            check.subtitle = "GitHub 에 판 번호만 물어봅니다 — 메모는 나가지 않습니다"
+            submenu.addItem(check)
+            submenu.addItem(.separator())
+        }
+
         let embed = item(title: "링크를 카드로 펼치기", action: #selector(toggleLinkEmbedding), key: "")
         embed.state = settings.current.embedsLinks ?? true ? .on : .off
         // 네트워크를 쓰는 유일한 기능이다. 켜져 있다는 사실이 보여야 한다 (§9.3).
@@ -580,6 +715,46 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func moveVault() { mover.begin() }
 
+    @objc private func checkForUpdates() {
+        Task { await updater.check(userAsked: true) }
+    }
+
+    @objc private func installUpdate() {
+        Task { await updater.install() }
+    }
+
+    /// brew 의 앱은 brew 가 바꾼다. 우리는 무엇을 쳐야 하는지만 손에 쥐여 준다.
+    @objc private func copyBrewCommand() {
+        guard let advice = updater.source.advice else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(advice, forType: .string)
+    }
+
+    @objc private func toggleClaude() {
+        settings.update { $0.usesClaude = !($0.usesClaude ?? true) }
+        // 껐으면 이번 실행에서도 바로 사라져야 한다 — 다시 켤 때까지 기다리게 하지 않는다.
+        Task { [weak self] in
+            guard let self else { return }
+            windows.adoptClaude(await ClaudeSupport.resolve(settings: settings))
+        }
+    }
+
+    @objc private func toggleMorningBrief() {
+        brief.setEnabled(!brief.isEnabled)
+    }
+
+    @objc private func togglePlaceWatch() {
+        watcher.setEnabled(!watcher.isEnabled)
+    }
+
+    @objc private func toggleSystemEvents() {
+        settings.update { $0.showsSystemEvents = !($0.showsSystemEvents ?? true) }
+    }
+
+    @objc private func toggleUpdateChecks() {
+        updater.setEnabled(!updater.isEnabled)
+    }
+
     @objc private func toggleLinkEmbedding() {
         settings.update { $0.embedsLinks = !($0.embedsLinks ?? true) }
     }
@@ -618,6 +793,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func toggleCalendar() { calendar.toggle() }
+
+    @objc private func toggleDrawer() { drawer.toggle() }
 
     @objc private func toggleSpike() { spike.toggle() }
 

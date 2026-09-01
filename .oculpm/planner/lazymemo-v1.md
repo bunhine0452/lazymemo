@@ -2,9 +2,9 @@
 oculpm_plan: v1
 id: lazymemo-v1
 title: "lazymemo v1 — 바탕화면 메모 + 캘린더 (macOS 네이티브)"
-status: active
+status: done
 created: 2026-08-28
-updated: 2026-08-28
+updated: 2026-08-31
 owner: claude-code
 ---
 

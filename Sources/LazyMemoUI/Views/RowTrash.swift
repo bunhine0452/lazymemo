@@ -35,14 +35,17 @@ struct RowTrash: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: "trash")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 11.5, weight: .semibold))
                 // 손이 닿기 전까지는 종이의 잉크색이다.
                 .foregroundStyle(over ? AnyShapeStyle(.white) : AnyShapeStyle(Paper.ink))
                 .opacity(over ? 1 : (isLit ? Self.lit : Self.resting))
-                .frame(width: 20, height: 20)
+                // 원판은 그림에 맞춰 작게, 누르는 자리는 `Theme.touch` 까지.
+                // 붉은 원이 과녁만큼 커지면 목록에서 가장 큰 것이 지우기가 된다.
+                .frame(width: 21, height: 21)
                 .background {
                     if over { Circle().fill(Theme.danger) }
                 }
+                .hitTarget()
         }
         .buttonStyle(.plain)
         .onHover { isOver = $0 }

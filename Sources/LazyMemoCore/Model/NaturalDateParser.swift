@@ -31,14 +31,18 @@ public enum NaturalDateParser {
         /// 달력에서 날을 골라 놓고 적는 자리(`QuickSchedule`)는 이 둘을
         /// 갈라야 한다 — 고른 날을 무시하면 안 되기 때문이다.
         public var namesDay: Bool
+        /// 되풀이하는 일인가 (`Recurrence`). 「매주 화요일 8시」의 «매주».
+        public var every: Recurrence?
 
         public init(
-            due: CalendarDate? = nil, at: Date? = nil, phrases: [String], namesDay: Bool = true
+            due: CalendarDate? = nil, at: Date? = nil, phrases: [String],
+            namesDay: Bool = true, every: Recurrence? = nil
         ) {
             self.due = due
             self.at = at
             self.phrases = phrases
             self.namesDay = namesDay
+            self.every = every
         }
     }
 
@@ -68,6 +72,27 @@ public enum NaturalDateParser {
     ) -> Result? {
         var calendar = baseCalendar
         calendar.firstWeekday = 2   // 한국에서 "이번 주"는 월요일에 시작한다
+
+        // 되풀이 낱말을 먼저 떼어 낸다. 그러면 나머지(「화요일 8시」)는 이미
+        // 읽을 줄 아는 글이고, **요일과 시각은 그 나머지가 정해 준다** —
+        // 규칙이 요일을 따로 들고 있으면 둘이 어긋나는 날이 온다.
+        if let repeated = Recurrence.find(in: text) {
+            let rest = strip([repeated.phrase], from: text)
+            // 되풀이만 적고 날짜를 안 적었으면 오늘부터로 친다. 「매일 물 마시기」에
+            // 날짜를 되묻지 않는다 — 완성을 요구하지 않는다(철학 1).
+            var result = once(rest, now: now, calendar: calendar)
+                ?? Result(due: CalendarDate(now, calendar: calendar), phrases: [], namesDay: false)
+            result.every = repeated.recurrence
+            result.phrases.append(repeated.phrase)
+            return result
+        }
+        return once(text, now: now, calendar: calendar)
+    }
+
+    /// 되풀이를 뺀 한 번짜리 읽기.
+    private static func once(
+        _ text: String, now: Date, calendar: Calendar
+    ) -> Result? {
 
         // "3시간 뒤" 는 날짜 낱말 없이도 순간이 정해진다.
         if let soon = TimeParser.momentFromNow(text, now: now, calendar: calendar) {

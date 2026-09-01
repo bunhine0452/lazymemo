@@ -11,19 +11,24 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
     private let window: DesktopLevelWindow
     private let onFrameChange: (ULID, CGRect) -> Void
     private let onCloseRequest: (ULID) -> Void
+    /// 서랍으로 날아가는 중. **이때의 좌표는 적지 않는다** — 서랍만 한 크기로
+    /// 줄어드는 그 프레임들이 `layout.json` 에 들어가면, 꺼냈을 때 종이가
+    /// 서랍 자리에 손톱만 하게 돌아온다.
+    private var isFlying = false
 
     init(
         memo: Memo,
         store: MemoStore,
         previews: LinkPreviewStore,
         appearance: PaperAppearance,
+        claude: ClaudeRunner? = nil,
         frame: CGRect,
         onFrameChange: @escaping (ULID, CGRect) -> Void,
         onCloseRequest: @escaping (ULID) -> Void,
         onCalendarRequest: @escaping (ULID) -> Void = { _ in }
     ) {
         self.id = memo.id
-        self.model = NoteModel(memo: memo, store: store, previews: previews)
+        self.model = NoteModel(memo: memo, store: store, previews: previews, claude: claude)
         self.window = DesktopLevelWindow(contentRect: frame)
         self.onFrameChange = onFrameChange
         self.onCloseRequest = onCloseRequest
@@ -73,6 +78,44 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
         model.adopt(memo)
     }
 
+    // MARK: 서랍으로
+
+    /// 끌고 있는 종이를 비쳐 보이게 한다.
+    ///
+    /// 서랍 위에 종이를 가져가면 **서랍이 종이 밑에 깔린다** — 끌고 있는 창이
+    /// 앞에 서기 때문이다. 그대로 두면 사람은 자기가 무엇 위에 놓으려는지 볼
+    /// 수 없고, 놓기 전에 확인할 수 없는 조작은 겨냥이 아니라 도박이다.
+    func setDimmed(_ on: Bool) {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.12
+            window.animator().alphaValue = on ? 0.5 : 1
+        }
+    }
+
+    /// 서랍으로 날아 들어간다 — 줄어들면서 사라진다.
+    ///
+    /// 그냥 없어지면 「닫혔다」와 구별되지 않는다. 어디로 갔는지 눈이 따라가는
+    /// 그 짧은 동안이 **종이를 잃지 않았다**는 유일한 증거다.
+    func flyInto(_ target: CGRect, completion: @escaping @MainActor () -> Void) {
+        window.cancelSettling()
+        isFlying = true
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.24
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            window.animator().setFrame(target, display: true)
+            window.animator().alphaValue = 0
+        } completionHandler: {
+            // 완료 핸들러는 메인에서 온다 — 격리를 그대로 잇는다.
+            MainActor.assumeIsolated {
+                // 창은 곧 거둬지지만, 되살아날 수도 있다 (되돌리기·다시 열기).
+                // 투명한 채로 남겨 두면 다음에 열었을 때 보이지 않는 창이 뜬다.
+                self.window.alphaValue = 1
+                self.isFlying = false
+                completion()
+            }
+        }
+    }
+
     /// 창을 없애기 전에 반드시 부른다 — 저장 버튼이 없으므로 여기가 마지막 기회다.
     func teardown() async {
         await model.flush()
@@ -93,10 +136,12 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
     // MARK: NSWindowDelegate
 
     func windowDidMove(_ notification: Notification) {
+        guard !isFlying else { return }
         onFrameChange(id, window.frame)
     }
 
     func windowDidResize(_ notification: Notification) {
+        guard !isFlying else { return }
         onFrameChange(id, window.frame)
     }
 }

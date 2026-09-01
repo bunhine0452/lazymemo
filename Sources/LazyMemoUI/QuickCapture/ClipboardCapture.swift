@@ -10,16 +10,22 @@ import LazyMemoCore
 final class ClipboardCapture {
     private let store: MemoStore
     private let windows: NoteWindowManager
-    var onScheduled: (CalendarDate) -> Void = { _ in }
+    private let door: InboundDoor
+    var onScheduled: (CalendarDate) -> Void = { _ in } {
+        didSet { door.onScheduled = onScheduled }
+    }
 
     init(
         store: MemoStore,
         windows: NoteWindowManager,
+        door: InboundDoor? = nil,
         onScheduled: @escaping (CalendarDate) -> Void = { _ in }
     ) {
         self.store = store
         self.windows = windows
+        self.door = door ?? InboundDoor(store: store, windows: windows)
         self.onScheduled = onScheduled
+        self.door.onScheduled = onScheduled
     }
 
     /// 클립보드의 내용(텍스트 또는 이미지)을 즉시 메모로 저장하고 안내한다.
@@ -51,23 +57,9 @@ final class ClipboardCapture {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return nil }
 
-        // 자연어 날짜/시간 파싱
-        let schedule = NaturalDateParser.parse(text)
-        let body = if let schedule {
-            NaturalDateParser.strip(schedule.phrases, from: text)
-        } else {
-            text
-        }
-
-        let finalBody = body.isEmpty ? text : body
-        guard let memo = try? await store.create(
-            body: finalBody,
-            due: schedule?.due,
-            at: schedule?.at
-        ) else { return nil }
-
-        announce(memo)
-        return memo
+        // 읽는 규칙은 문마다 다르지 않다 — 날짜도 장소도 `InboundDoor` 가 읽는다.
+        // 복사해 온 주소가 그대로 장소가 되는 것이 이 갈래의 값이다.
+        return await door.receive(text: text)
     }
 
     private func announce(_ memo: Memo) {

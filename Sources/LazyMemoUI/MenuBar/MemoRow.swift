@@ -6,13 +6,16 @@ import LazyMemoCore
 /// 좌표를 뷰 밖에 두는 이유는 `MonthGridGeometry` 와 같다 — 휴지통을 몇 픽셀
 /// 어긋나게 놓으면 "눌렀는데 안 지워진다" 가 되고, 그건 화면을 봐서는 모른다.
 struct MemoRowGeometry {
-    static let height: CGFloat = 30
+    /// 한 줄의 높이. 메뉴에서 여덟 줄이 서므로 함부로 키울 수는 없지만,
+    /// 30pt 는 휴지통(22pt)이 위아래로 4pt 씩 밖에 안 남아 **줄을 열려다
+    /// 지우는** 일이 생기는 높이였다.
+    static let height: CGFloat = 32
     static let width: CGFloat = 320
 
     /// 종이 색 점.
     static let dotDiameter: CGFloat = 8
-    /// 휴지통이 차지하는 정사각형.
-    static let trashSide: CGFloat = 22
+    /// 휴지통이 차지하는 정사각형 (`Theme.touch`).
+    static let trashSide: CGFloat = 24
 
     private static let leading: CGFloat = 13
     private static let trailing: CGFloat = 9
@@ -66,7 +69,7 @@ struct MemoRowGeometry {
 
     /// 누르는 자리는 그림보다 넉넉하다 — 게으른 손은 조준하지 않는다.
     func hitsTrash(_ point: CGPoint) -> Bool {
-        trash.insetBy(dx: -4, dy: -4).contains(point)
+        trash.insetBy(dx: -4, dy: -3).contains(point)
     }
 }
 
@@ -156,7 +159,15 @@ enum MemoTimeLabel {
 @MainActor
 final class MemoRow: NSView {
     private static let titleFont = NSFont.systemFont(ofSize: 13)
-    private static let timeFont = NSFont.systemFont(ofSize: 11)
+    /// 시간 한 조각의 글꼴 — **숫자만 등폭이다** (`Theme.micro` 와 같은 셈).
+    ///
+    /// 이 목록에서는 줄이 세로로 서고 시간은 오른쪽에 붙는다. 비례 숫자는
+    /// `1` 이 좁아서 「오늘 11:00」과 「오늘 9:30」의 오른쪽 끝이 서로 어긋나는데,
+    /// 이 줄을 직접 그리기로 한 까닭 중 하나가 시스템 목록의 들쭉날쭉함이었다
+    /// (§14.10). 여기서 다시 흔들리면 그 결정이 반만 지켜진다.
+    ///
+    /// 폭을 재는 자리(`geometry`)도 같은 글꼴을 쓰므로 셈은 함께 움직인다.
+    private static let timeFont = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
     /// 포인터가 없을 때의 휴지통 세기. 있는 줄만 알 만큼.
     private static let restingTrash: CGFloat = 0.24
 

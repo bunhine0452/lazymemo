@@ -34,6 +34,16 @@ final class NoteWindowManager {
     /// 알지 못하므로 바깥(`MenuBarController`)이 이어 준다.
     var onCalendarRequest: (ULID) -> Void = { _ in }
 
+    /// 바탕화면의 종이 목록이 바뀌었다 — 서랍이 이걸 듣고 제 안을 다시 센다.
+    ///
+    /// **`layout.json` 은 관찰되지 않는다.** 종이가 서랍으로 들어가고 나오는
+    /// 것은 메모가 아니라 좌표 파일의 `hidden` 이 바뀌는 일이라, `@Observable`
+    /// 로는 아무 데도 전해지지 않는다 (`DrawerWindowController`).
+    var onDeskChanged: () -> Void = {}
+
+    /// 종이가 끌리고 있다. 서랍이 그 위에 있는지 보고 받아 든다 (`DrawerWindowController`).
+    var onNoteDragged: (ULID, CGRect) -> Void = { _, _ in }
+
     private let store: MemoStore
     private let layouts: LayoutStore
     private let previews: LinkPreviewStore
@@ -70,6 +80,7 @@ final class NoteWindowManager {
 
     func sync() {
         let returned = applyHandovers()
+        defer { announceDeskChange() }
         let visible = plannedVisibleMemos()
         let wanted = Set(visible.map(\.id))
 
@@ -127,6 +138,10 @@ final class NoteWindowManager {
         return returned
     }
 
+    /// 자리가 바뀐 종이가 있으면 서랍도 다시 센다 — 날짜가 붙은 종이는
+    /// 서랍에 있을 자리가 아니다 (`DrawerContents`).
+    private func announceDeskChange() { onDeskChanged() }
+
     /// 자리가 바뀌었을 때 `layout.json` 에 새로 적을 `hidden` 값. 없으면 `nil`.
     ///
     /// 날짜를 얻으면 달력이 맡으므로 종이는 물러나고(`hidden = true`), 날짜를
@@ -179,10 +194,28 @@ final class NoteWindowManager {
 
     // MARK: 창 열고 닫기
 
+    /// `claude` 를 찾았으면 그것. 기동보다 늦게 정해질 수 있어 나중에 넣는다.
+    private(set) var claude: ClaudeRunner?
+
+    /// 찾은 뒤에 넣는다. **이미 떠 있는 종이에도 그때 조작이 하나 생긴다** —
+    /// 늦게 정해졌다고 이번 실행 내내 없는 것으로 두면, 사용자에게는 그냥
+    /// «가끔 있고 가끔 없는 버튼» 이 된다.
+    func adoptClaude(_ runner: ClaudeRunner?) {
+        claude = runner
+        for controller in controllers.values { controller.model.claude = runner }
+    }
+
+    /// 마지막으로 사람이 연 때. 「요즘 것」을 셀 때 `Memo.updated` 와 견준다.
+    func lastOpened(_ id: ULID) -> Date? { layouts.opened(id) }
+
     /// - Parameter recording: `layout.json` 에 "이 메모는 바탕화면에 있다" 를
     ///   적을지. 시각이 되어 잠깐 꺼낸 종이는 적지 않는다 (`surfaced`).
     @discardableResult
     func open(_ memo: Memo, activating: Bool, recording: Bool = true) -> NoteWindowController {
+        // **사람이 연 것만 적는다.** `activating` 이 그 신호다 — 켤 때 되살아난
+        // 창과 시각이 되어 나온 종이는 «내가 본 것» 이 아니다 (`WindowLayout.opened`).
+        if activating { layouts.markOpened(memo.id) }
+
         if let existing = controllers[memo.id] {
             existing.adopt(memo)
             existing.show(activating: activating)
@@ -195,6 +228,7 @@ final class NoteWindowManager {
             store: store,
             previews: previews,
             appearance: appearance,
+            claude: claude,
             frame: frame,
             onFrameChange: { [weak self] id, frame in
                 self?.recordFrame(frame, for: id)
@@ -282,6 +316,42 @@ final class NoteWindowManager {
             layouts.setHidden(false, for: id)
         }
         open(memo, activating: activating, recording: !keepingPlace).focusEditor()
+        onDeskChanged()
+    }
+
+    // MARK: 서랍 (`DrawerWindowController`)
+
+    /// 종이를 서랍에 **날려 넣는다.**
+    ///
+    /// 그냥 치우면(`hide`) 종이가 그 자리에서 사라지는데, 그것은 「닫혔다」와
+    /// 구별되지 않는다. 서랍 쪽으로 줄어들며 사라지는 짧은 동안이 «여기로
+    /// 들어갔다» 를 말하는 유일한 말이다 — 들어간 자리를 못 본 사람은 그
+    /// 종이를 잃은 것으로 여긴다.
+    func fileIntoDrawer(_ id: ULID, target: CGRect) {
+        guard let controller = controllers[id] else { return }
+        controller.flyInto(target) { [weak self] in self?.hide(id) }
+    }
+
+    /// 서랍에서 도로 꺼낸다 — 바탕화면의 제자리로 돌아가 잠깐 앞에 선다.
+    ///
+    /// `reveal` 과 달리 **커서를 세우지 않는다.** 서랍에서 꺼내는 손은 그 종이를
+    /// 다시 보려는 것이지 지금 고쳐 쓰려는 것이 아니고, 커서를 세우면 다른 앱을
+    /// 쓰던 사람의 타자가 그 종이로 빨려 들어간다.
+    func unfile(_ id: ULID) {
+        guard let memo = store.memo(id) else { return }
+        if memo.tidied != nil {
+            Task { await store.untidy(id) }
+        }
+        surfaced.remove(id)
+        layouts.setHidden(false, for: id)
+        open(memo, activating: false, recording: true).announce()
+        onDeskChanged()
+    }
+
+    /// 끌고 있는 종이를 비쳐 보이게 한다 — 밑에 깔린 서랍이 보이도록.
+    func dim(_ id: ULID?, on: Bool) {
+        guard let id, let controller = controllers[id] else { return }
+        controller.setDimmed(on)
     }
 
     /// 창을 치운다. 메모는 그대로 남는다 (D6 과는 별개의 개념이다).
@@ -292,6 +362,9 @@ final class NoteWindowManager {
         surfaced.remove(id)
         layouts.setHidden(true, for: id)
         Task { await controller.teardown() }
+        // 치운 종이는 서랍으로 간다 (`DrawerContents`). ×를 누르는 것이
+        // 「넣기」의 두 손짓 중 하나다.
+        onDeskChanged()
     }
 
     func isVisible(_ id: ULID) -> Bool {
@@ -332,6 +405,7 @@ final class NoteWindowManager {
             WindowLayout(frame: frame, displayUUID: Self.displayUUID(for: frame), hidden: hidden),
             for: id
         )
+        onNoteDragged(id, frame)
     }
 
     /// 저장된 좌표가 있으면 쓰고, 화면이 사라졌으면 주 화면으로 데려온다 (§7).

@@ -30,6 +30,12 @@ final class CalendarModel {
     private(set) var grid: MonthGrid
     /// 날짜별 일정. 격자와 아래 판이 같은 것을 본다.
     private(set) var byDay: [String: [Memo]] = [:]
+    /// 시스템 캘린더에서 빌려 온 일정. **아래 판에만 선다.**
+    ///
+    /// 격자의 번진 잉크(§10.4)에는 넣지 않는다. 그 밀도는 «내가 쌓아 둔 것» 을
+    /// 말하는 것이고, 남의 회의까지 세면 평일이 전부 똑같이 붐벼 보인다 —
+    /// 밀도가 아무것도 알려 주지 않게 된다.
+    private(set) var foreignByDay: [String: [ForeignEvent]] = [:]
     /// 아래 판이 펼쳐 보이는 날. 처음에는 오늘이다.
     private(set) var selected: CalendarDate
     private(set) var lastMove: Move?
@@ -58,10 +64,18 @@ final class CalendarModel {
 
     private let store: MemoStore
     private let calendar: Calendar
+    /// 남의 일정을 **읽기만** 하는 문. 권한이 없거나 꺼져 있으면 빈 문이 선다.
+    private let feed: CalendarFeed
     private var undoTask: Task<Void, Never>?
 
-    init(store: MemoStore, now: Date = Date(), calendar: Calendar = .current) {
+    init(
+        store: MemoStore,
+        feed: CalendarFeed = EmptyCalendarFeed(),
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) {
         self.store = store
+        self.feed = feed
         self.calendar = calendar
         let today = CalendarDate(now, calendar: calendar)
         self.today = today
@@ -77,6 +91,16 @@ final class CalendarModel {
 
     var selectedMemos: [Memo] { memos(on: selected) }
 
+    /// 아래 판에 서는 줄 — 우리 종이와 남의 일정이 한 줄기로 (`DayAgenda`).
+    func rows(on date: CalendarDate) -> [AgendaRow] {
+        DayAgenda.rows(
+            memos: memos(on: date),
+            events: foreignByDay[date.description] ?? []
+        )
+    }
+
+    var selectedRows: [AgendaRow] { rows(on: selected) }
+
     func isToday(_ date: CalendarDate) -> Bool { date == today }
 
     var isOnToday: Bool { selected == today && grid.year == today.year && grid.month == today.month }
@@ -91,6 +115,15 @@ final class CalendarModel {
             grouped[date.description, default: []].append(memo)
         }
         byDay = grouped.mapValues(sortWithinDay)
+
+        // 남의 일정은 우리 것을 다 세운 **뒤에** 얹는다. 캘린더가 느리거나
+        // 권한이 없어도 내 메모는 이미 화면에 있다.
+        let events = await feed.events(from: range.lowerBound, to: range.upperBound)
+        var borrowed: [String: [ForeignEvent]] = [:]
+        for event in events {
+            borrowed[event.day(calendar: calendar).description, default: []].append(event)
+        }
+        foreignByDay = borrowed
     }
 
     /// 하루 안에서는 시각이 있는 것부터, 그 다음 최근 수정 순.

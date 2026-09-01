@@ -12,6 +12,15 @@ public struct WindowLayout: Codable, Sendable, Equatable {
     /// 사용자가 창을 닫은 상태. **삭제가 아니다** — 저장 버튼이 없는 앱에서
     /// 창을 닫는 것은 "이 메모를 바탕화면에서 치운다"는 뜻이다.
     public var hidden: Bool
+    /// 마지막으로 **연** 때. 고친 때(`Memo.updated`)와 다른 것을 말한다.
+    ///
+    /// 읽기만 한 메모는 `updated` 가 그대로라, 어제 열어 본 것이 「요즘」에서
+    /// 빠진다. 그런데 사람이 «요즘 것» 이라고 부르는 것에는 읽은 것도 들어간다.
+    ///
+    /// 파생물인 `layout.json` 에 둔다 — **정본 파일에 적으면 안 된다.** 읽기만
+    /// 해도 파일이 바뀌면 iCloud 가 매번 동기화하고, 「손댄 것은 다시 산 것이다」
+    /// 라는 `updated` 의 뜻도 흐려진다.
+    public var opened: Date?
 
     public init(
         frame: CGRect,
@@ -114,6 +123,20 @@ public final class LayoutStore {
     public func set(_ layout: WindowLayout, forKey key: String) {
         layouts[key] = layout
         scheduleSave()
+    }
+
+    /// 이 메모를 지금 열었다고 적어 둔다. 좌표가 아직 없으면 적을 곳도 없다 —
+    /// 그때는 곧 좌표가 생기고, 그 순간이 곧 열린 때다.
+    public func markOpened(_ id: ULID, at moment: Date = Date()) {
+        guard var layout = layouts[id.stringValue] else { return }
+        layout.opened = moment
+        layouts[id.stringValue] = layout
+        scheduleSave()
+    }
+
+    /// 마지막으로 연 때. 「요즘 것」을 셀 때 `Memo.updated` 와 견준다.
+    public func opened(_ id: ULID) -> Date? {
+        layouts[id.stringValue]?.opened
     }
 
     public func setHidden(_ hidden: Bool, for id: ULID) {

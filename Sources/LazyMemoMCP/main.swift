@@ -9,6 +9,34 @@ import LazyMemoCore
 ///
 /// 두 프로세스의 계약은 파일 그 자체이고(D4), 앱은 FSEvents 로 변경을 알아챈다.
 
+// **인자가 있으면 서버가 아니라 도구다** (`InboundCommand`).
+//
+// 이 실행 파일에 문을 하나 더 낸 것은 값이 크기 때문이다 — cron·Raycast·Alfred·
+// Hazel·셸 스크립트·다른 에이전트가 전부 이 문으로 바탕화면에 종이를 놓을 수
+// 있고, 새로 만들 배선은 없다. Vault 를 여는 코드가 이미 여기 있다.
+//
+// 인자가 없을 때의 동작은 **바꾸지 않는다.** Claude Desktop 이 이 파일을 인자
+// 없이 띄우므로, 그 갈래를 건드리면 이미 등록해 둔 사람의 연동이 조용히 깨진다.
+let command = InboundCommand.parse(CommandLine.arguments)
+
+// 저장소를 열 필요가 없는 것부터 답한다.
+switch command {
+case .help:
+    print(InboundCommand.usage)
+    exit(0)
+case .version:
+    print(LazyMemo.version)
+    exit(0)
+case .unknown(let verb):
+    FileHandle.standardError.write(Data("모르는 명령입니다: \(verb)\n\n\(InboundCommand.usage)\n".utf8))
+    exit(2)
+case .empty:
+    FileHandle.standardError.write(Data("적을 글이 없습니다.\n\n\(InboundCommand.usage)\n".utf8))
+    exit(2)
+case .serve, .add:
+    break
+}
+
 let transport = StdioTransport()
 
 /// 클라이언트가 요청한 프로토콜 버전을 그대로 돌려준다.
@@ -27,6 +55,21 @@ do {
     exit(1)
 }
 
+// 터미널에서 온 한 장. 적고 나면 물러난다 — 서버로 서지 않는다.
+if case .add(let inbound) = command {
+    let note = NoteReader.read(inbound)
+    do {
+        let memo = try await service.create(
+            body: note.body, due: note.due, at: note.at, every: note.every, place: note.place
+        )
+        print(memo.id.stringValue)
+        exit(0)
+    } catch {
+        FileHandle.standardError.write(Data("적지 못했습니다: \(error)\n".utf8))
+        exit(1)
+    }
+}
+
 let tools = MemoTools(service: service)
 StdioTransport.log("Vault: \(paths.vault.path(percentEncoded: false))")
 
@@ -36,7 +79,11 @@ func handle(_ request: JSONRPC.Request) async -> [String: Any]? {
         let version = request.params["protocolVersion"] as? String ?? fallbackProtocolVersion
         return JSONRPC.result(id: request.id, [
             "protocolVersion": version,
-            "capabilities": ["tools": ["listChanged": false]],
+            "capabilities": [
+                "tools": ["listChanged": false],
+                // 도구 목록은 모델이 읽고, 프롬프트 목록은 **사람이 읽는다**.
+                "prompts": ["listChanged": false],
+            ],
             "serverInfo": ["name": "lazymemo", "version": LazyMemo.version],
             "instructions": """
                 lazymemo 는 사용자의 바탕화면 메모다. 메모와 일정이 같은 것이라,
@@ -47,6 +94,23 @@ func handle(_ request: JSONRPC.Request) async -> [String: Any]? {
 
     case "ping":
         return JSONRPC.result(id: request.id, [:])
+
+    case "prompts/list":
+        return JSONRPC.result(id: request.id, ["prompts": MemoPrompts.definitions])
+
+    case "prompts/get":
+        guard let name = request.params["name"] as? String else {
+            return JSONRPC.failure(id: request.id, .invalidParams, "name 이 필요합니다")
+        }
+        guard let messages = MemoPrompts.messages(for: name),
+              let definition = MemoPrompts.definition(name)
+        else {
+            return JSONRPC.failure(id: request.id, .invalidParams, "없는 프롬프트입니다: \(name)")
+        }
+        return JSONRPC.result(id: request.id, [
+            "description": definition["description"] ?? "",
+            "messages": messages,
+        ])
 
     case "tools/list":
         return JSONRPC.result(id: request.id, ["tools": MemoTools.definitions])

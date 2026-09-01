@@ -133,11 +133,18 @@ public final class MemoStore {
         body: String = "",
         due: CalendarDate? = nil,
         at: Date? = nil,
+        every: Recurrence? = nil,
+        surface: Date? = nil,
+        place: String? = nil,
+        geo: Coordinate? = nil,
         tags: [String] = [],
         color: MemoColor = .default
     ) async throws -> Memo {
         let memo = try await recording("메모를 만들지 못했습니다") {
-            try await service.create(body: body, due: due, at: at, tags: tags, color: color)
+            try await service.create(
+                body: body, due: due, at: at, every: every, surface: surface, place: place, geo: geo,
+                tags: tags, color: color
+            )
         }
         insertOrReplace(memo)
         return memo
@@ -149,13 +156,18 @@ public final class MemoStore {
         body: String? = nil,
         due: CalendarDate?? = nil,
         at: Date?? = nil,
+        every: Recurrence?? = nil,
+        surface: Date?? = nil,
+        place: String?? = nil,
+        geo: Coordinate?? = nil,
         tags: [String]? = nil,
         color: MemoColor? = nil,
         pinned: Bool? = nil
     ) async throws -> Memo {
         let memo = try await recording("메모를 저장하지 못했습니다") {
             try await service.update(
-                id, body: body, due: due, at: at, tags: tags, color: color, pinned: pinned
+                id, body: body, due: due, at: at, every: every, surface: surface, place: place, geo: geo,
+                tags: tags, color: color, pinned: pinned
             )
         }
         insertOrReplace(memo)
@@ -236,6 +248,11 @@ public final class MemoStore {
     /// 실패해도 경고로 올리지 않는다 — 못 치웠다는 것은 화면이 어제와 같다는
     /// 뜻일 뿐이라 사람이 할 일이 없다. 경고는 할 일이 있을 때만 (§6).
     private func sweepFinished(now: Date) async {
+        // 걸어가는 것이 먼저다 — 치우기가 먼저 돌면 지난 회차가 잠깐
+        // 「치워 둔 N장」에 들어갔다 나온다.
+        if let rolled = try? await service.rollRecurring(now: now) {
+            for memo in rolled { insertOrReplace(memo) }
+        }
         guard let tidied = try? await service.tidyFinished(now: now) else { return }
         for memo in tidied { insertOrReplace(memo) }
     }
