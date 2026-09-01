@@ -4,6 +4,8 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>ko</string>
+	<key>CFBundleDisplayName</key>
+	<string>lazymemo</string>
 	<key>CFBundleExecutable</key>
 	<string>LazyMemo</string>
 	<key>CFBundleIconFile</key>
@@ -14,21 +16,53 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>LazyMemo</string>
-	<key>CFBundleDisplayName</key>
-	<string>lazymemo</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.0</string>
+	<string>0.2.0</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>io.github.bunhine0452.lazymemo.add</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>lazymemo</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>2</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>26.0</string>
-	<!-- Dock 아이콘 없이 메뉴바에만 상주 (설계문서 D1/§4) -->
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>달력에 시스템 캘린더의 일정을 함께 보여 주기 위해 읽습니다. lazymemo 는 캘린더에 아무것도 쓰지 않습니다.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>MIT License. Copyright © 2026 Kim Hyunbin.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>적어 둔 자리에 도착하면 그 메모를 바탕화면에 꺼내 주기 위해 위치를 지켜봅니다. 위치를 저장하지도, 밖으로 보내지도 않습니다.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>⌥⌘L 로 지금 있는 자리를 메모에 적기 위해 한 번 위치를 읽습니다. 위치를 계속 지켜보지 않습니다.</string>
+	<key>NSServices</key>
+	<array>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>lazymemo 에 적기</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>addToLazyMemo</string>
+			<key>NSPortName</key>
+			<string>LazyMemo</string>
+			<key>NSSendTypes</key>
+			<array>
+				<string>NSStringPboardType</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSSupportsAutomaticTermination</key>
 	<false/>
 	<key>NSSupportsSuddenTermination</key>
