@@ -14,40 +14,49 @@
 <meta property="og:description" content="Sticky notes and a calendar that live on your macOS desktop. No app to open, no Save button, and every note is a Markdown file on your own Mac.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://bunhine0452.github.io/lazymemo/">
-<meta property="og:image" content="https://bunhine0452.github.io/lazymemo/img/note.png">
+<meta property="og:image" content="https://bunhine0452.github.io/lazymemo/media/demo-poster.jpg">
 <meta property="og:locale" content="en">
 <meta property="og:locale:alternate" content="ko_KR">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232E4261'/><rect x='8' y='11' width='16' height='2.2' rx='1.1' fill='%23FDC24F'/><path d='M8 18h13.5' stroke='%23FDC24F' stroke-width='2' stroke-linecap='round' opacity='.62'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23295245'/><path d='M8 11.5h16' stroke='%23FAF7EC' stroke-width='2.6' stroke-linecap='round'/><path d='M8 18.5c8 0 11.5 1.5 15 4' stroke='%23B3D69A' stroke-width='2.3' stroke-linecap='round' fill='none'/></svg>">
 <style>
+/* Cream and forest — the app's own visual rules (docs/VISUAL_DESIGN.md), carried over. */
 :root {
-  --paper: #faf7f2;
-  --paper-warm: #f7f2e6;
-  --ink: #29261f;
-  --ink-soft: rgba(41, 38, 31, .64);
-  --ink-faint: rgba(41, 38, 31, .40);
-  --rule: rgba(41, 38, 31, .12);
-  --rule-soft: rgba(41, 38, 31, .07);
-  --accent: #2e4261;
-  --accent-ink: #faf7f2;
-  --highlight: rgba(253, 194, 79, .52);
-  --dot: rgba(41, 38, 31, .16);
-  --shell: rgba(127, 127, 127, .10);
+  --paper: #faf7f0;
+  --paper-warm: #f4efe3;
+  --paper-deep: #ece6d6;
+  --ink: #24221c;
+  --ink-soft: rgba(36, 34, 28, .66);
+  --ink-faint: rgba(36, 34, 28, .42);
+  --rule: rgba(36, 34, 28, .12);
+  --rule-soft: rgba(36, 34, 28, .07);
+  --forest: #295245;
+  --forest-ink: #295245;
+  --on-forest: #faf7ec;
+  --sage: #b3d69a;
+  --sage-wash: rgba(41, 82, 69, .09);
+  --dot: rgba(36, 34, 28, .13);
+  --shell: rgba(41, 82, 69, .07);
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 14px 40px rgba(20, 40, 33, .12);
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #232220;
-    --paper-warm: #2b2823;
-    --ink: #e6e2da;
-    --ink-soft: rgba(230, 226, 218, .62);
-    --ink-faint: rgba(230, 226, 218, .38);
-    --rule: rgba(230, 226, 218, .14);
-    --rule-soft: rgba(230, 226, 218, .08);
-    --accent: #99b8e6;
-    --accent-ink: #1b1a18;
-    --highlight: rgba(253, 194, 79, .30);
-    --dot: rgba(230, 226, 218, .13);
-    --shell: rgba(255, 255, 255, .06);
+    --paper: #1f1e1b;
+    --paper-warm: #262521;
+    --paper-deep: #2d2b26;
+    --ink: #e8e3d9;
+    --ink-soft: rgba(232, 227, 217, .66);
+    --ink-faint: rgba(232, 227, 217, .42);
+    --rule: rgba(232, 227, 217, .14);
+    --rule-soft: rgba(232, 227, 217, .08);
+    --forest: #2f5c4d;
+    --forest-ink: #a6d4ba;
+    --on-forest: #f2f5ea;
+    --sage: #9cc487;
+    --sage-wash: rgba(166, 212, 186, .10);
+    --dot: rgba(232, 227, 217, .10);
+    --shell: rgba(166, 212, 186, .08);
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 44px rgba(0,0,0,.42);
   }
 }
 
@@ -58,7 +67,6 @@ html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
 body {
   margin: 0;
   background: var(--paper);
-  /* The paper's dot grid — the same 23pt spacing the app draws. */
   background-image: radial-gradient(var(--dot) 1px, transparent 1px);
   background-size: 23px 23px;
   color: var(--ink);
@@ -67,19 +75,19 @@ body {
   letter-spacing: -.004em;
 }
 
-.wrap { max-width: 860px; margin: 0 auto; padding: 0 28px; }
+.wrap { max-width: 920px; margin: 0 auto; padding: 0 28px; }
 @media (max-width: 520px) { .wrap { padding: 0 20px; } }
 
-a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a { color: var(--forest-ink); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 a:hover { text-decoration-thickness: 2px; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+:focus-visible { outline: 2px solid var(--forest-ink); outline-offset: 3px; border-radius: 3px; }
 
 /* ── Top row ──────────────────────────── */
-
 .topbar {
-  display: flex; align-items: center; gap: 18px;
-  padding-top: 26px; font-size: 13.5px;
+  display: flex; align-items: center; gap: 12px;
+  padding-top: 24px; font-size: 13.5px;
 }
+.topbar .brand { display: flex; align-items: center; gap: 9px; text-decoration: none; color: var(--ink); }
 .topbar .name { font-weight: 700; letter-spacing: -.02em; font-size: 15px; }
 .topbar nav { margin-left: auto; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .topbar nav a { color: var(--ink-soft); text-decoration: none; }
@@ -89,136 +97,138 @@ a:hover { text-decoration-thickness: 2px; }
   border-radius: 999px; padding: 3px 11px; text-decoration: none;
 }
 .topbar .lang:hover { color: var(--ink); border-color: var(--ink-faint); text-decoration: none; }
-/* The nav needs its own row on a narrow screen — without wrap on the
-   container a full-width child simply crowds the wordmark. */
 @media (max-width: 520px) {
   .topbar { gap: 10px 12px; flex-wrap: wrap; }
   .topbar nav { gap: 12px 16px; width: 100%; margin-left: 0; }
 }
 
+/* The app icon — a half-written note. A straight first line, a second that trails off. */
+.mark { width: 30px; height: 30px; border-radius: 8px; background: var(--forest); display: inline-block; flex: 0 0 auto; }
+
 /* ── Head ─────────────────────────────── */
-
-header { padding: 62px 0 0; }
-
-.mark {
-  width: 58px; height: 58px; border-radius: 13px;
-  background: var(--accent);
-  display: flex; flex-direction: column; justify-content: center;
-  gap: 7px; padding: 0 13px; margin-bottom: 26px;
+header { padding: 64px 0 0; }
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12.5px; font-weight: 600; letter-spacing: .04em;
+  color: var(--forest-ink); background: var(--sage-wash);
+  border-radius: 999px; padding: 5px 12px 5px 8px; margin-bottom: 22px;
 }
-.mark i { display: block; height: 3px; border-radius: 2px; background: #fdc24f; }
-.mark i:last-child { width: 62%; opacity: .55; }
+.eyebrow b { background: var(--forest); color: var(--on-forest); border-radius: 999px; padding: 1px 8px; font-weight: 700; }
 
-h1 { font-size: 40px; line-height: 1.15; margin: 0 0 16px; letter-spacing: -.035em; font-weight: 700; }
-@media (max-width: 520px) { h1 { font-size: 32px; } }
+h1 { font-size: 46px; line-height: 1.12; margin: 0 0 18px; letter-spacing: -.035em; font-weight: 800; max-width: 13em; }
+@media (max-width: 520px) { h1 { font-size: 33px; } }
 
-.lede { font-size: 19.5px; line-height: 1.6; margin: 0 0 14px; max-width: 24em; }
+.lede { font-size: 19.5px; line-height: 1.6; margin: 0 0 12px; max-width: 26em; }
 .lede strong { font-weight: 700; }
+.sub { color: var(--ink-soft); margin: 0 0 28px; max-width: 34em; font-size: 16.5px; }
 
-.sub { color: var(--ink-soft); margin: 0 0 30px; max-width: 33em; font-size: 16.5px; }
-
-/* A highlighter stroke, the same word the calendar uses for "this week". */
 .hl {
-  background: linear-gradient(var(--highlight), var(--highlight)) no-repeat;
-  background-size: 100% .92em;
-  background-position: 0 .16em;
-  padding: 0 .1em;
+  background: linear-gradient(rgba(240,194,79,.55), rgba(240,194,79,.55)) no-repeat;
+  background-size: 100% .9em; background-position: 0 .18em; padding: 0 .1em;
 }
+@media (prefers-color-scheme: dark) { .hl { background-image: linear-gradient(rgba(240,194,79,.30), rgba(240,194,79,.30)); } }
 
-.meta {
-  display: flex; flex-wrap: wrap; gap: 6px 14px;
-  font-size: 13px; color: var(--ink-faint); margin: 0 0 34px;
+.cta { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: center; margin: 0 0 18px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-weight: 700; font-size: 14.5px; text-decoration: none;
+  border-radius: 12px; padding: 12px 18px; line-height: 1;
+  border: 1px solid transparent; transition: transform .12s ease, box-shadow .12s ease;
 }
+.btn.primary { background: var(--forest); color: var(--on-forest); box-shadow: 0 6px 18px rgba(41,82,69,.22); }
+.btn.primary:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(41,82,69,.28); text-decoration: none; }
+.btn.quiet { color: var(--forest-ink); border-color: var(--rule); background: var(--paper-warm); }
+.btn.quiet:hover { border-color: var(--ink-faint); text-decoration: none; }
+
+.meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--ink-faint); margin: 0 0 40px; }
 .meta span:not(:last-child)::after { content: " ·"; color: var(--rule); }
 
-/* ── Hero shot ────────────────────────── */
-
-.hero-shot { margin: 0 auto 44px; }
-.hero-shot img {
-  display: block; width: 100%; height: auto;
-  border-radius: 6px; border: 1px solid var(--rule);
+/* ── Film ─────────────────────────────── */
+.film { margin: 0 auto 26px; }
+.film .frame {
+  position: relative; border-radius: 18px; overflow: hidden;
+  border: 1px solid var(--rule); box-shadow: var(--shadow);
+  background: var(--paper-deep);
 }
-.hero-shot figcaption {
-  margin-top: 11px; font-size: 13px; color: var(--ink-faint);
-  line-height: 1.6; max-width: 40em;
+.film video, .film img { display: block; width: 100%; height: auto; }
+.film figcaption { margin-top: 12px; font-size: 13.5px; color: var(--ink-faint); line-height: 1.7; max-width: 46em; }
+.film .steps { display: grid; gap: 8px 18px; grid-template-columns: repeat(4, 1fr); margin: 18px 0 0; padding: 0; list-style: none; counter-reset: step; }
+@media (max-width: 720px) { .film .steps { grid-template-columns: 1fr 1fr; } }
+.film .steps li { font-size: 13px; color: var(--ink-soft); line-height: 1.6; padding-left: 26px; position: relative; }
+.film .steps li b { display: block; color: var(--ink); font-weight: 700; }
+.film .steps li::before {
+  content: counter(step); counter-increment: step;
+  position: absolute; left: 0; top: .15em; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--forest); color: var(--on-forest); font-size: 10.5px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
 }
 
 /* ── Install ──────────────────────────── */
-
-.install { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin-bottom: 16px; }
+.install { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin: 44px 0 16px; }
 @media (max-width: 640px) { .install { grid-template-columns: 1fr; } }
-
 .card {
-  background: var(--paper-warm);
-  border: 1px solid var(--rule);
-  border-radius: 6px;
-  padding: 18px 20px 20px;
-  display: flex; flex-direction: column;
+  background: var(--paper-warm); border: 1px solid var(--rule); border-radius: 14px;
+  padding: 18px 20px 20px; display: flex; flex-direction: column;
 }
 .card h3 { margin: 0 0 4px; font-size: 13px; font-weight: 700; letter-spacing: .01em; }
-.card p { margin: 0 0 12px; font-size: 13.5px; color: var(--ink-soft); line-height: 1.55; }
-.card pre { margin-top: auto; }
+.card p { margin: 0 0 12px; font-size: 13.5px; color: var(--ink-soft); line-height: 1.6; }
 
 pre, code, kbd { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
 pre {
-  position: relative;
   margin: 0; padding: 12px 14px; overflow-x: auto;
-  /* A long address folds for the eye only — copied, it is still one line. */
   white-space: pre-wrap; overflow-wrap: anywhere;
-  background: var(--shell);
-  border-radius: 5px; font-size: 12.5px; line-height: 1.75;
+  background: var(--shell); border-radius: 8px; font-size: 12.5px; line-height: 1.75;
 }
 pre .c { color: var(--ink-faint); }
-code { font-size: .92em; background: var(--shell); border-radius: 3px; padding: .1em .35em; }
+code { font-size: .92em; background: var(--shell); border-radius: 4px; padding: .1em .35em; }
 
 .copyable { display: flex; gap: 8px; align-items: flex-start; margin-top: auto; }
 .copyable pre { flex: 1 1 auto; min-width: 0; }
 .copy {
   flex: 0 0 auto; margin-top: 2px;
-  font: 600 11.5px/1 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  letter-spacing: .02em;
-  color: var(--ink-soft); background: transparent;
-  border: 1px solid var(--rule); border-radius: 5px;
-  padding: 8px 10px; cursor: pointer;
-  /* Holds its width through “Copy” → “Copied” so the block beside it stays put. */
-  min-width: 70px; text-align: center; white-space: nowrap;
+  font: 600 11.5px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: var(--forest-ink); background: transparent;
+  border: 1px solid var(--rule); border-radius: 8px; padding: 9px 10px; cursor: pointer;
+  min-width: 78px; text-align: center; white-space: nowrap;
 }
-.copy:hover { color: var(--ink); border-color: var(--ink-faint); }
+.copy:hover { border-color: var(--forest-ink); }
 
-.note { font-size: 13.5px; color: var(--ink-faint); line-height: 1.7; max-width: 42em; margin: 0; }
+.note { font-size: 13.5px; color: var(--ink-faint); line-height: 1.8; max-width: 46em; margin: 0; }
 .note strong { color: var(--ink-soft); font-weight: 700; }
 
 /* ── Body ─────────────────────────────── */
-
-section { padding: 0 0 60px; }
+section { padding: 0 0 64px; }
 section > pre { max-width: 44em; }
 h2 {
-  font-size: 12.5px; font-weight: 700; letter-spacing: .07em;
-  color: var(--ink-faint); margin: 0 0 22px; text-transform: uppercase;
+  font-size: 12.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--forest-ink); margin: 0 0 22px; display: flex; align-items: center; gap: 10px;
 }
-h2 + p, h2 + .four, h2 + figure, h2 + .keys { margin-top: 0; }
+h2::after { content: ""; flex: 1; height: 1px; background: var(--rule-soft); }
 p { margin: 0 0 16px; max-width: 36em; }
 p:last-child { margin-bottom: 0; }
 
-.four { display: grid; gap: 30px 38px; grid-template-columns: 1fr 1fr; margin: 0; padding: 0; list-style: none; }
-@media (max-width: 640px) { .four { grid-template-columns: 1fr; gap: 26px; } }
+.four { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin: 0; padding: 0; list-style: none; }
+@media (max-width: 640px) { .four { grid-template-columns: 1fr; } }
+.four li { background: var(--paper-warm); border: 1px solid var(--rule-soft); border-radius: 14px; padding: 18px 20px 20px; }
 .four h3 { margin: 0 0 6px; font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; }
-.four p { margin: 0; font-size: 14.5px; color: var(--ink-soft); line-height: 1.68; }
+.four p { margin: 0; font-size: 14.5px; color: var(--ink-soft); line-height: 1.75; }
 
-figure { margin: 0 0 38px; }
-figure img {
-  display: block; width: 100%; height: auto;
-  border-radius: 6px; border: 1px solid var(--rule);
+.screens { display: grid; gap: 22px 22px; grid-template-columns: 1fr 1fr; }
+@media (max-width: 720px) { .screens { grid-template-columns: 1fr; } }
+.screens figure.wide { grid-column: 1 / -1; }
+figure { margin: 0; }
+figure .shot {
+  border-radius: 14px; overflow: hidden; border: 1px solid var(--rule); background: var(--paper-deep);
+  box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 10px 30px rgba(20,40,33,.08);
 }
-figcaption { margin-top: 11px; font-size: 13.5px; color: var(--ink-faint); line-height: 1.65; max-width: 40em; }
-
-/* ── Keys ─────────────────────────────── */
+figure img { display: block; width: 100%; height: auto; }
+figcaption { margin-top: 11px; font-size: 13.5px; color: var(--ink-faint); line-height: 1.75; max-width: 40em; }
+figcaption b { color: var(--ink); font-weight: 700; }
 
 .keys { width: 100%; border-collapse: collapse; font-size: 14.5px; }
-.keys th { display: none; }
-.keys td { padding: 11px 0; border-top: 1px solid var(--rule-soft); vertical-align: top; line-height: 1.6; }
+.keys td { padding: 11px 0; border-top: 1px solid var(--rule-soft); vertical-align: top; line-height: 1.7; }
 .keys tr:first-child td { border-top: 0; }
-.keys td:first-child { width: 168px; padding-right: 20px; white-space: nowrap; }
+.keys td:first-child { width: 210px; padding-right: 20px; white-space: nowrap; }
 .keys td:last-child { color: var(--ink-soft); }
 .keys td:last-child strong { color: var(--ink); font-weight: 600; }
 @media (max-width: 560px) {
@@ -231,37 +241,45 @@ figcaption { margin-top: 11px; font-size: 13.5px; color: var(--ink-faint); line-
 kbd {
   display: inline-block;
   font: 600 12.5px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: var(--ink);
+  color: var(--ink); background: var(--paper-warm);
   border: 1px solid var(--rule); border-bottom-width: 2px;
-  border-radius: 4px; padding: 3px 6px; white-space: nowrap;
+  border-radius: 5px; padding: 3px 6px; white-space: nowrap;
 }
 .keys td:first-child .plain { font-size: 13.5px; color: var(--ink); }
 
-/* The crease that separates the app's two layers, borrowed here. */
-.crease { height: 1px; border: 0; margin: 0 0 60px;
+.crease { height: 1px; border: 0; margin: 0 0 64px;
   background: linear-gradient(to right, transparent, var(--rule) 12%, var(--rule) 88%, transparent); }
 
 .aside {
-  border-left: 2px solid var(--rule);
-  padding: 2px 0 2px 18px; margin: 0 0 16px;
-  color: var(--ink-soft); font-size: 14.5px; max-width: 36em;
+  border-left: 3px solid var(--sage); background: var(--sage-wash); border-radius: 0 12px 12px 0;
+  padding: 12px 16px; margin: 0 0 16px; color: var(--ink-soft); font-size: 14.5px; max-width: 36em;
 }
 .aside p { margin: 0 0 10px; font-size: inherit; }
+.aside p:last-child { margin: 0; }
+
+.folders { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+.folders span { font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: var(--sage-wash); color: var(--forest-ink); }
+.folders span.on { background: var(--forest); color: var(--on-forest); }
+.folders span.new { border: 1px dashed rgba(41,82,69,.4); background: transparent; }
 
 footer {
   padding: 40px 0 76px; border-top: 1px solid var(--rule);
   font-size: 13.5px; color: var(--ink-faint); line-height: 1.9;
 }
 footer .links { margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 8px 20px; }
-footer .links a { color: var(--accent); }
+footer .links a { color: var(--forest-ink); }
 </style>
 </head>
 <body>
 
 <div class="topbar wrap">
-  <span class="name">lazymemo</span>
+  <a class="brand" href="./" aria-label="lazymemo">
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#295245"/><path d="M8 11.5h16" stroke="#FAF7EC" stroke-width="2.6" stroke-linecap="round"/><path d="M8 18.5c8 0 11.5 1.5 15 4" stroke="#B3D69A" stroke-width="2.3" stroke-linecap="round" fill="none"/></svg>
+    <span class="name">lazymemo</span>
+  </a>
   <nav>
     <a href="#screens">Screens</a>
+    <a href="#drawer">Drawer &amp; folders</a>
     <a href="#files">Your files</a>
     <a href="#claude">Claude</a>
     <a href="https://github.com/bunhine0452/lazymemo">GitHub</a>
@@ -270,33 +288,49 @@ footer .links a { color: var(--accent); }
 </div>
 
 <header class="wrap">
-  <div class="mark" aria-hidden="true"><i></i><i></i></div>
-  <h1>Notes that stay<br>where you left them.</h1>
+  <p class="eyebrow"><b>0.4</b> The drawer now has folders</p>
+  <h1>Notes that stay where you left them.</h1>
   <p class="lede">A notepad and calendar that live on your macOS desktop, designed on
      one assumption — <strong>that you would rather not tidy up.</strong></p>
   <p class="sub">So lazymemo never asks you to. There is no app to open, a new note begins
-     with <kbd>⌥⌘N</kbd>, and <span class="hl">there is no Save button.</span></p>
+     with <kbd>⌥⌘N</kbd>, and <span class="hl">there is no Save button.</span>
+     Write <code>dentist tomorrow at 3</code> and the date is read for you.</p>
+  <div class="cta">
+    <a class="btn primary" href="#install">Install</a>
+    <a class="btn quiet" href="https://github.com/bunhine0452/lazymemo/releases/latest">Releases</a>
+  </div>
   <p class="meta">
     <span>macOS 26 (Tahoe) or later</span>
-    <span>2.6 MB bundle</span>
+    <span>3.6 MB bundle</span>
     <span>No account needed</span>
     <span>MIT licensed</span>
   </p>
 </header>
 
-<figure class="hero-shot wrap">
-  <img src="img/note.png" width="640" height="252"
-       alt="A single note resting on the desktop, shown in light mode on the left and dark mode on the right.">
-  <figcaption>One sheet of paper. The controls appear over the content only while your
-    pointer is there, and they cover neither the first line nor the last.</figcaption>
+<figure class="film wrap">
+  <div class="frame">
+    <video autoplay muted loop playsinline poster="media/demo-poster.jpg"
+           width="1280" height="800"
+           aria-label="lazymemo going round once: a line typed into quick capture, a date handed to the calendar, a note flying into the drawer, and the drawer sorted into folders.">
+      <source src="media/demo.mp4" type="video/mp4">
+      <img src="media/demo.gif" alt="lazymemo going round once" width="1280" height="800">
+    </video>
+  </div>
+  <ol class="steps">
+    <li><b>Write</b> One line into ⌥⌘N. If a date is in it, a chip appears.</li>
+    <li><b>The calendar takes it</b> Anything dated goes to the calendar, not the desktop.</li>
+    <li><b>Into the drawer</b> A sheet flies into the drawer tab in the corner.</li>
+    <li><b>Sort into folders</b> Open it, view one folder, move sheets, take one back out.</li>
+  </ol>
+  <figcaption>A screen recording of the real app. The hands were the app's own, and everything on screen is a real window.</figcaption>
 </figure>
 
-<div class="wrap">
+<div class="wrap" id="install">
   <div class="install">
     <div class="card">
       <h3>Homebrew</h3>
-      <p>Two lines, really — the tap first, then the cask itself. Homebrew
-         looks after updates from then on.</p>
+      <p>Two lines, really — the tap first, then the cask itself. From then on the app
+         tells you when a new version is out.</p>
       <div class="copyable">
 <pre id="brew">brew tap bunhine0452/lazymemo
 brew install --cask lazymemo</pre>
@@ -323,7 +357,7 @@ cd lazymemo
     plainly than do it quietly — it is a stopgap, and it disappears the day a
     Developer&nbsp;ID certificate is in place. If you would prefer not to rely on that,
     please build from source instead; an app you build yourself never receives the flag
-    at all. That choice is entirely reasonable, and it stays a first-class path.
+    at all.
   </p>
 </div>
 
@@ -342,51 +376,86 @@ cd lazymemo
     </li>
     <li>
       <h3>Time is the only structure</h3>
-      <p>lazymemo keeps no folders and no tags, so the calendar is something you
-         <strong>handle</strong> — pick an entry up, drop it on another day, or push it
-         back with a single click. Write <code>dentist tomorrow at 3</code> and the date
-         is read for you.</p>
+      <p>A note on the desktop is never asked where it belongs. The calendar is something
+         you <strong>handle</strong> — pick an entry up, drop it on another day, or push it
+         back with a click. Folders exist only <em>after</em> you put a note away, inside
+         the drawer.</p>
     </li>
     <li>
       <h3>Old things step aside on their own</h3>
       <p>A checklist you have finished and a date that has passed quietly leave the
-         desktop. <strong>Nothing is deleted</strong> — the menu keeps the count, and one
-         click brings them all back.</p>
+         desktop for the drawer. <strong>Nothing is deleted</strong> — open the drawer
+         and there they are, and one click brings them all back.</p>
     </li>
     <li>
       <h3>The app keeps out of your way</h3>
-      <p>A note at rest is paper and letters, nothing else: no title bar, no toolbar, no
-         coloured dots. The controls fade in over the content when your pointer arrives,
-         and fade out again when it leaves.</p>
+      <p>A note at rest is paper and letters, nothing else. The controls fade in over the
+         content when your pointer arrives and fade out when it leaves. Nothing appears
+         in the Dock or in Alt-Tab.</p>
     </li>
   </ul>
 </section>
 
 <section id="screens">
   <h2>Screens</h2>
+  <div class="screens">
+    <figure class="wide">
+      <div class="shot"><img src="img/capture.png" width="1476" height="896" loading="lazy"
+           alt="Quick capture: a bubble below the menu bar icon holding a text field and a list of recent notes, in light mode on the left and dark mode on the right."></div>
+      <figcaption><b>Quick capture.</b> <kbd>⌥⌘N</kbd> — one box does the writing, the searching
+        and the date reading. Your recent notes are already waiting underneath, and
+        <code>#photo</code>, link and to-do filters sit right there.
+        <b>Whatever you were typing survives a restart.</b></figcaption>
+    </figure>
+    <figure>
+      <div class="shot"><img src="img/note.png" width="960" height="378" loading="lazy"
+           alt="A single note resting on the desktop, with the time and place written along the bottom and the control capsule showing."></div>
+      <figcaption><b>One sheet of paper.</b> The controls appear over the content only while your
+        pointer is there, and they cover neither the first line nor the last.</figcaption>
+    </figure>
+    <figure>
+      <div class="shot"><img src="img/calendar.png" width="1116" height="783" loading="lazy"
+           alt="The calendar window: a month grid above, the selected day's entries below, and push-back / to-paper / delete controls over one row."></div>
+      <figcaption><b>The calendar.</b> Pick an entry up and drop it on another day, push it
+        back with a click, or take the date off and send it back to the desktop. All
+        three leave an Undo.</figcaption>
+    </figure>
+    <figure class="wide">
+      <div class="shot"><img src="img/menu.png" width="1152" height="321" loading="lazy"
+           alt="Rows of notes in the menu bar list, the highlighted row tinted with that note's own paper colour."></div>
+      <figcaption><b>The menu bar list.</b> A filled dot is a note out on the desktop; a hollow
+        one is in the drawer. Delete from the trash icon and an Undo appears on the next line.</figcaption>
+    </figure>
+  </div>
+</section>
 
-  <figure>
-    <img src="img/capture.png" width="984" height="352" loading="lazy"
-         alt="Quick capture: a bubble below the menu bar icon holding a text field and a list of recent notes.">
-    <figcaption><kbd>⌥⌘N</kbd> opens quick capture. A single box does the writing, the
-      searching and the date reading — and when it opens, your recent notes are already
-      waiting underneath.</figcaption>
-  </figure>
-
-  <figure>
-    <img src="img/calendar.png" width="704" height="492" loading="lazy"
-         alt="The calendar window: a month grid above, and the entries for the selected day below.">
-    <figcaption>The calendar has no widgets in it. Today is a hand-drawn circle, a busy
-      day is ink bleeding under the number, and you move between months by their names
-      rather than by arrows.</figcaption>
-  </figure>
-
-  <figure>
-    <img src="img/menu.png" width="768" height="206" loading="lazy"
-         alt="Rows of notes in the menu bar list, the highlighted row tinted with that note's own paper colour.">
-    <figcaption>The list speaks the same vocabulary as the paper. A filled dot is a note
-      out on the desktop; a hollow one has been put away.</figcaption>
-  </figure>
+<section id="drawer">
+  <h2>Drawer &amp; folders</h2>
+  <p>A small <strong>“Drawer N”</strong> tab sits in a corner of the desktop. A note goes in
+     when you press its × or drag it onto the tab, and inside, the drawer is divided into
+     <strong>named folders</strong>. Putting a note into a folder is putting it into the
+     drawer; a note you take back out keeps its label, so it returns to the same folder
+     next time.</p>
+  <div class="folders" aria-hidden="true">
+    <span class="on">All 13</span><span>Groceries 4</span><span>To read 3</span><span>Home 4</span><span class="new">+ New folder</span>
+  </div>
+  <div class="screens">
+    <figure>
+      <div class="shot"><img src="img/drawer.png" width="1272" height="1326" loading="lazy"
+           alt="The open drawer: a search field on top, folder chips beneath it, and a list of rows with colour, title, second line and time. One row is hovered and shows take-out, folder and delete controls."></div>
+      <figcaption><b>The open drawer.</b> Search → folder strip → list. Hover a row for
+        take out · folder · delete; click it and it unfolds to show the whole note.
+        Korean initial-consonant search works here too.</figcaption>
+    </figure>
+    <figure>
+      <div class="shot"><img src="img/drawer-folder.png" width="1272" height="576" loading="lazy"
+           alt="The drawer showing only the “Groceries” folder, with its three rows."></div>
+      <figcaption><b>One folder at a time.</b> Click a chip to see only that folder. Drag rows
+        onto chips to move them; right-click a chip to rename or delete it — deleting a
+        folder never deletes its notes. The label is a single <code>folder:</code> line
+        in the note's file, so Claude sees the same thing.</figcaption>
+    </figure>
+  </div>
 </section>
 
 <section id="keys">
@@ -394,9 +463,8 @@ cd lazymemo
   <table class="keys">
     <tr>
       <td><kbd>⌥⌘N</kbd></td>
-      <td><strong>Quick capture</strong>, in a bubble below the menu bar icon. Typing
-        also filters the notes you already have. The shortcut is yours to change in
-        Menu → Settings.</td>
+      <td><strong>Quick capture</strong>, in a bubble below the menu bar icon. Typing also
+        filters the notes you already have. The shortcut is yours to change in Menu → Settings.</td>
     </tr>
     <tr>
       <td><kbd>⌥⌘V</kbd></td>
@@ -404,19 +472,14 @@ cd lazymemo
         a picture — becomes a new sheet without opening a window.</td>
     </tr>
     <tr>
-      <td><kbd>⌘⌫</kbd></td>
-      <td>Delete the note you have selected in the list. The box stays open and an
-        <strong>Undo</strong> appears on the line just below.</td>
-    </tr>
-    <tr>
       <td><kbd>esc</kbd></td>
-      <td>Close. <strong>The box remembers what you were typing</strong> — reopen it and
-        your words are still there, selected, so typing simply replaces them.</td>
+      <td>Close. <strong>The box remembers what you were typing</strong> — through a
+        restart and through an update. Reopen it and your words are still there, selected.</td>
     </tr>
     <tr>
       <td><span class="plain">The <kbd>×</kbd> on a note</span></td>
-      <td><strong>Hides it. It does not delete it.</strong> The note comes back from the
-        menu whenever you want it.</td>
+      <td><strong>Puts it in the drawer. It does not delete it.</strong> Right-click the
+        note to pick a folder as you put it away.</td>
     </tr>
     <tr>
       <td><span class="plain">The red trash icon</span></td>
@@ -429,16 +492,15 @@ cd lazymemo
         date, it shows you where that date lives.</td>
     </tr>
     <tr>
-      <td><span class="plain">A calendar row</span></td>
-      <td>Push it back a day, <strong>take the date off and send it back to the
-        desktop</strong>, or delete it. All three leave an Undo behind.</td>
+      <td><span class="plain">In the drawer: <kbd>↑</kbd><kbd>↓</kbd> <kbd>Tab</kbd> <kbd>⏎</kbd></span></td>
+      <td>Walk the list, step to the next folder, unfold the row. <kbd>⌘⏎</kbd> takes a
+        note out, <kbd>⌘⌫</kbd> deletes it, and <kbd>esc</kbd> backs out one layer at a time.</td>
     </tr>
   </table>
   <p class="note" style="margin-top:24px">Finished things retire by themselves. A list
-    with every box ticked steps back three days after you last touched it, and a past
-    appointment steps back at the end of the following day. Neither is deleted — both
-    stay in the files, in search and on the calendar, and the menu notes how many are
-    put away. Notes you have pinned are never touched by this.</p>
+    with every box ticked steps into the drawer three days after you last touched it, and
+    a past appointment at the end of the following day. Neither is deleted — both stay in
+    the files, in search and on the calendar. Notes you have pinned are never touched by this.</p>
 </section>
 
 <hr class="crease">
@@ -449,18 +511,19 @@ cd lazymemo
      is a folder of Markdown files on your own Mac — open them in Finder, edit them in
      any text editor you like.</p>
 <pre>~/Documents/lazymemo/
-  notes/2026/08/01K3ZQ….md   <span class="c">← the original</span>
+  notes/2026/09/01K3ZQ….md   <span class="c">← the original — the folder label is one line inside it</span>
   .trash/                     <span class="c">← deleted notes, kept 30 days</span></pre>
   <p style="margin-top:18px">Move that folder inside iCloud Drive and you have sync.
      There is no backend to sign up for and nothing to configure — when you move the
-     folder, the app follows it (Menu → Settings).</p>
+     folder, the app follows it (Menu → Settings). From an iPhone, a single Shortcut that
+     drops a <code>.md</code> into that folder is enough; the app adopts it.</p>
 </section>
 
 <section id="claude">
   <h2>Claude, if you would like it</h2>
   <p>lazymemo builds a small MCP server alongside the app. Register it and you can ask
-     Claude Desktop things like <em>“book the dentist for two o'clock next Tuesday”</em>
-     or <em>“what is on this month?”</em></p>
+     Claude Desktop things like <em>“book the dentist for two o'clock next Tuesday”</em>,
+     <em>“what is on this month?”</em> or <em>“put milk in the groceries folder”</em>.</p>
   <p><strong>No API key is needed.</strong> Claude calls lazymemo rather than the other
      way around, so the token cost sits with your own Claude subscription. The
      integration is entirely optional and off until you register it yourself.</p>
@@ -476,14 +539,13 @@ cd lazymemo
   <h2>Privacy</h2>
   <p>The only route by which the text of your notes can leave your Mac is the MCP
      integration above, and it opens only when you register it yourself.</p>
-  <p>One other thing uses the network — <strong>unfolding a link into a card.</strong>
-     To do that, lazymemo asks the address you pasted for its title and picture. Only
-     the address goes out, never the note; even so, that site does learn you pasted it.
-     You can switch this off in Settings, and with it off the app contacts nothing at
-     all.</p>
+  <p>Two other things use the network — <strong>unfolding a link into a card</strong> (the
+     address you pasted goes out, nothing else) and <strong>checking for a new version</strong>
+     (one request to GitHub, without even the version number). Both can be switched off
+     in Settings, and with them off the app contacts nothing at all.</p>
   <p class="note">This page keeps the same promise. It makes no outbound request of any
-     kind — no trackers, no web fonts, no analytics — and the deploy workflow checks
-     that before publishing.</p>
+     kind — no trackers, no web fonts, no analytics — and the film above is served from
+     the same place as the page. The deploy workflow checks that before publishing.</p>
 </section>
 
 <section id="language">
@@ -523,7 +585,6 @@ document.querySelectorAll('.copy').forEach(function (button) {
       navigator.clipboard.writeText(block.innerText).then(done, function () {});
       return;
     }
-    // Older browsers: select the block so ⌘C still works.
     var range = document.createRange();
     range.selectNodeContents(block);
     var selection = window.getSelection();
