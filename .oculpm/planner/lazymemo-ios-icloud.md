@@ -29,12 +29,12 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 - [x] 컨테이너 안 읽기·쓰기에 NSFileCoordinator 가 필요한지 판단하고 필요한 자리에만 붙인다 {#sync-coordination}
 
 ## 폰 화면 — 빠른 입력·목록·달력·편집 {#ios-ui}
-- [ ] 켜면 바로 키보드 — 빠른 입력. 공용 NaturalDateParser 로 날짜를 읽으면 「달력에 남기기」로 바뀐다 {#ui-capture}
+- [~] 켜면 바로 키보드 — 빠른 입력. 공용 NaturalDateParser 로 날짜를 읽으면 「달력에 남기기」로 바뀐다 {#ui-capture}
 - [ ] 목록 — 최근순, 찾기(첫소리 HangulInitials), 폴더 칩, 밀어서 지우기 + 되돌리기 {#ui-list}
 - [ ] 달력 — 달 격자(MonthGrid) + 그 날 일정(DayAgenda), 미루기·종이로·지우기 {#ui-calendar}
 - [ ] 편집 — 저장 버튼 없이 글자가 바뀌면 파일로, 바깥(맥)에서 바뀌면 화면이 따라온다 {#ui-editor}
 - [ ] 휴지통 — 최근 삭제 목록·되돌리기 {#ui-trash}
-- [ ] 공유 시트 확장 「lazymemo 에 적기」 — InboundNote 를 거쳐 컨테이너에 파일 하나 {#ui-share-ext}
+- [x] 공유 시트 확장 「lazymemo 에 적기」 — InboundNote 를 거쳐 컨테이너에 파일 하나 {#ui-share-ext}
 - [ ] 빠른 입력의 「지금 여기」 — 누를 때만 위치를 재고 place·geo 를 붙인다 (첫 실행에 묻지 않는다) {#ui-location}
 
 ## 맥이 iCloud 를 같이 본다 {#mac-side}
@@ -66,4 +66,6 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 | 2026-09-13T02:39:40+09:00 | #mac-icloud-sync | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0239_feature_mac-icloud-sync-and-developer-id.md | planCloud → merge, 메뉴 항목, 실컨테이너는 release-device 에서 |
 | 2026-09-13T02:39:45+09:00 | #mac-placeholder | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0239_feature_mac-icloud-sync-and-developer-id.md | requestMissingDownloads in reconcile (양쪽 플랫폼) |
 | 2026-09-13T02:39:50+09:00 | #mac-signing | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0239_feature_mac-icloud-sync-and-developer-id.md | Developer ID 서명 확인됨; 프로필·공증 자격은 사용자가 포털에서 |
+| 2026-09-13T02:46:33+09:00 | #ui-share-ext | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0246_feature_share-extension-and-app-group.md | 타깃·App Group·InboxDrop 완료, 시트 얼굴은 MOBILE_DESIGN §8 대로 다듬을 것 |
+| 2026-09-13T02:46:39+09:00 | #ui-capture | claude-code | ☐→~ | .oculpm/journal/20260913/Chores/0245_chore_mobile-design-spec.md | 디자인 확정 (docs/MOBILE_DESIGN.md + 캔버스) — 구현은 사용자 결정(무더기 방향) 뒤 |
 <!-- oculpm:plan-log end -->

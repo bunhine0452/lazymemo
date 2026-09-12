@@ -148,8 +148,13 @@ public struct AppPaths: Sendable, Equatable {
         public let usingCloud: Bool
     }
 
+    /// - Parameter shared: 앱과 공유 확장이 같이 닿는 App Group 폴더. iCloud 가
+    ///   없을 때 폰의 Vault 가 여기 앉는다 — 확장은 앱의 샌드박스를 못 보므로,
+    ///   그냥 Documents 에 두면 「lazymemo 에 적기」가 iCloud 를 끈 사람에게는
+    ///   아무 데도 적지 못하는 문이 된다.
     public static func resolveCloud(
         container: URL?,
+        shared: URL? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         fileManager: FileManager = .default
     ) -> CloudResolution {
@@ -157,13 +162,30 @@ public struct AppPaths: Sendable, Equatable {
         if environment[vaultEnvironmentKey]?.isEmpty == false {
             return CloudResolution(paths: home, usingCloud: false)
         }
-        guard let container else {
-            return CloudResolution(paths: home, usingCloud: false)
+        if let container {
+            return CloudResolution(
+                paths: AppPaths(vault: cloudVault(inContainer: container), support: home.support),
+                usingCloud: true
+            )
         }
-        return CloudResolution(
-            paths: AppPaths(vault: cloudVault(inContainer: container), support: home.support),
-            usingCloud: true
-        )
+        if let shared {
+            return CloudResolution(
+                paths: AppPaths(vault: sharedVault(inGroup: shared), support: home.support),
+                usingCloud: false
+            )
+        }
+        return CloudResolution(paths: home, usingCloud: false)
+    }
+
+    /// 앱과 공유 확장이 함께 닿는 폴더 (iOS). iCloud 가 꺼져 있을 때의 Vault 자리.
+    public static let appGroupIdentifier = "group.io.github.bunhine0452.lazymemo"
+
+    public static func sharedContainer(fileManager: FileManager = .default) -> URL? {
+        fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)
+    }
+
+    public static func sharedVault(inGroup group: URL) -> URL {
+        group.appending(path: vaultFolderName, directoryHint: .isDirectory)
     }
 
     static func isDirectory(_ url: URL, fileManager: FileManager = .default) -> Bool {

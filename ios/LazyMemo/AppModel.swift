@@ -35,7 +35,9 @@ final class AppModel {
         let container = await Task.detached(priority: .userInitiated) {
             AppPaths.ubiquityContainer()
         }.value
-        let resolved = AppPaths.resolveCloud(container: container)
+        // iCloud 가 없으면 App Group 폴더 — 공유 확장이 같은 곳에 떨구려면 앱의
+        // 샌드박스 안이어서는 안 된다.
+        let resolved = AppPaths.resolveCloud(container: container, shared: AppPaths.sharedContainer())
 
         do {
             try resolved.paths.createDirectories()
