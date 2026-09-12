@@ -453,6 +453,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = lazymemo;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "펜의 핀을 누를 때만 지금 있는 자리를 재어 메모에 붙입니다. 위치를 저장하지도 내보내지도 않습니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -483,6 +484,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = lazymemo;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "펜의 핀을 누를 때만 지금 있는 자리를 재어 메모에 붙입니다. 위치를 저장하지도 내보내지도 않습니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

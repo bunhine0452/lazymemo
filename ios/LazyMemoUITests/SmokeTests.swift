@@ -122,6 +122,24 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["chip-date"].exists, "고른 날이 펜에 물려야 한다")
     }
 
+    // MARK: 지금 여기 — 누를 때만 묻고, 한 번 재고, 칩으로 물린다
+
+    func testHerePinAttachesAPlace() throws {
+        let app = launch()
+        XCTAssertTrue(app.descendants(matching: .any)["capture"].waitForExistence(timeout: 10))
+
+        // 권한과 자리는 ios/scripts/uitest.sh 가 simctl 로 미리 준다 — 시스템 권한
+        // 창을 시험이 기다리지 않게. 실기기의 첫 누름은 그 창을 진짜로 띄운다.
+        app.buttons["here"].tap()
+
+        let chip = app.descendants(matching: .any)["chip-place"]
+        let trouble = app.descendants(matching: .any)["here-trouble"]
+        let settled = NSPredicate { _, _ in chip.exists || trouble.exists }
+        let expectation = XCTNSPredicateExpectation(predicate: settled, object: nil)
+        XCTAssertEqual(XCTWaiter().wait(for: [expectation], timeout: 20), .completed, "칩도 안내도 안 왔다")
+        XCTAssertTrue(chip.exists, "자리가 칩으로 물려야 한다 — 시뮬레이터에 위치가 없으면 「위치를 못 잡았습니다」가 뜬다")
+    }
+
     // MARK: 도우미
 
     private func launch() -> XCUIApplication {

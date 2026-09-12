@@ -12,6 +12,7 @@ struct HomeView: View {
     @State private var pen: PenModel
     @State private var undo = UndoModel()
     @State private var folders: FolderModel
+    @State private var here = HereFix()
     @State private var tab: Tab = .memos
     @State private var showsTrash = false
 
@@ -52,7 +53,11 @@ struct HomeView: View {
     /// 펜은 하나다 — 고른 탭에만 앉힌다. 두 탭에 다 두면 보이지 않는 쪽도 살아
     /// 있어 초점과 접근성이 둘로 갈린다.
     private var penBar: some View {
-        PenBar(pen: pen, undo: undo, usingCloud: session.usingCloud)
+        PenBar(pen: pen, undo: undo, usingCloud: session.usingCloud, fixing: here.fixing, hereTrouble: here.trouble) {
+            Task {
+                if let fix = await here.fix() { pen.here = fix }
+            }
+        }
     }
 
     /// ⋯ 메뉴 — 저장 자리 한 줄 · 휴지통 · 치워 둔 N장.

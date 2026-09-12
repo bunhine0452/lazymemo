@@ -30,12 +30,12 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 
 ## 폰 화면 — 빠른 입력·목록·달력·편집 {#ios-ui}
 - [~] 켜면 바로 키보드 — 빠른 입력. 공용 NaturalDateParser 로 날짜를 읽으면 「달력에 남기기」로 바뀐다 {#ui-capture}
-- [ ] 목록 — 최근순, 찾기(첫소리 HangulInitials), 폴더 칩, 밀어서 지우기 + 되돌리기 {#ui-list}
-- [ ] 달력 — 달 격자(MonthGrid) + 그 날 일정(DayAgenda), 미루기·종이로·지우기 {#ui-calendar}
-- [ ] 편집 — 저장 버튼 없이 글자가 바뀌면 파일로, 바깥(맥)에서 바뀌면 화면이 따라온다 {#ui-editor}
-- [ ] 휴지통 — 최근 삭제 목록·되돌리기 {#ui-trash}
+- [~] 목록 — 최근순, 찾기(첫소리 HangulInitials), 폴더 칩, 밀어서 지우기 + 되돌리기 {#ui-list}
+- [~] 달력 — 달 격자(MonthGrid) + 그 날 일정(DayAgenda), 미루기·종이로·지우기 {#ui-calendar}
+- [~] 편집 — 저장 버튼 없이 글자가 바뀌면 파일로, 바깥(맥)에서 바뀌면 화면이 따라온다 {#ui-editor}
+- [~] 휴지통 — 최근 삭제 목록·되돌리기 {#ui-trash}
 - [x] 공유 시트 확장 「lazymemo 에 적기」 — InboundNote 를 거쳐 컨테이너에 파일 하나 {#ui-share-ext}
-- [ ] 빠른 입력의 「지금 여기」 — 누를 때만 위치를 재고 place·geo 를 붙인다 (첫 실행에 묻지 않는다) {#ui-location}
+- [x] 빠른 입력의 「지금 여기」 — 누를 때만 위치를 재고 place·geo 를 붙인다 (첫 실행에 묻지 않는다) {#ui-location}
 
 ## 맥이 iCloud 를 같이 본다 {#mac-side}
 - [x] 설정 → 「iCloud 로 동기화」 — 컨테이너 자리 해석(entitlement 있으면 API, 없으면 Mobile Documents 경로) 뒤 VaultRelocation 재사용 {#mac-icloud-sync}
@@ -68,4 +68,9 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 | 2026-09-13T02:39:50+09:00 | #mac-signing | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0239_feature_mac-icloud-sync-and-developer-id.md | Developer ID 서명 확인됨; 프로필·공증 자격은 사용자가 포털에서 |
 | 2026-09-13T02:46:33+09:00 | #ui-share-ext | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0246_feature_share-extension-and-app-group.md | 타깃·App Group·InboxDrop 완료, 시트 얼굴은 MOBILE_DESIGN §8 대로 다듬을 것 |
 | 2026-09-13T02:46:39+09:00 | #ui-capture | claude-code | ☐→~ | .oculpm/journal/20260913/Chores/0245_chore_mobile-design-spec.md | 디자인 확정 (docs/MOBILE_DESIGN.md + 캔버스) — 구현은 사용자 결정(무더기 방향) 뒤 |
+| 2026-09-13T03:15:05+09:00 | #ui-location | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0314_feature_phone-here-pin.md | HereFix + 칩, uitest.sh |
+| 2026-09-13T03:15:10+09:00 | #ui-list | claude-code | ☐→~ | .oculpm/journal/20260913/Features_to_add/0307_feature_phone-ui-first-cut.md | 1차 구현 — 애플 원칙 재설계 대기 |
+| 2026-09-13T03:15:16+09:00 | #ui-calendar | claude-code | ☐→~ | .oculpm/journal/20260913/Features_to_add/0307_feature_phone-ui-first-cut.md | 1차 구현 — 재설계 대기 |
+| 2026-09-13T03:15:21+09:00 | #ui-editor | claude-code | ☐→~ | .oculpm/journal/20260913/Features_to_add/0307_feature_phone-ui-first-cut.md | 1차 구현 — 재설계 대기 |
+| 2026-09-13T03:15:26+09:00 | #ui-trash | claude-code | ☐→~ | .oculpm/journal/20260913/Features_to_add/0307_feature_phone-ui-first-cut.md | 1차 구현 — 재설계 대기 |
 <!-- oculpm:plan-log end -->

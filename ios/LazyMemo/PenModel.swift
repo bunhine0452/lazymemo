@@ -59,8 +59,12 @@ final class PenModel {
     // MARK: 읽기 — 누르기 전에 무엇을 읽었는지 보인다
 
     /// 글에서 읽어 낸 것. 끈 칩은 빼고 돌려준다.
+    ///
+    /// 글이 없고 자리만 물려 있으면 **자리가 곧 글이다** — 「여기 주차했다」는
+    /// 사람이 나중에 덧붙인다 (맥의 `HereCapture` 와 같다).
     var reading: ParsedNote {
         guard let inbound = InboundNote.make(text: text, place: here?.place) else {
+            if let here { return ParsedNote(body: here.place, place: here.place) }
             return ParsedNote(body: "")
         }
         var note = NoteReader.read(inbound)
@@ -69,7 +73,7 @@ final class PenModel {
         return note
     }
 
-    var canLeave: Bool { InboundNote.make(text: text) != nil }
+    var canLeave: Bool { InboundNote.make(text: text) != nil || here != nil }
 
     /// 날짜가 읽혔으면(또는 달력이 물렸으면) 단추가 그렇게 말한다.
     var leaveLabel: String {
@@ -88,7 +92,7 @@ final class PenModel {
     }
 
     var placeChip: String? {
-        guard let place = reading.place else { return nil }
+        guard let place = here?.place ?? reading.place else { return nil }
         return "@" + place
     }
 

@@ -8,6 +8,9 @@ struct PenBar: View {
     let pen: PenModel
     let undo: UndoModel
     let usingCloud: Bool
+    var fixing = false
+    /// 「위치를 못 잡았습니다」 — 칩 자리에 한 번.
+    var hereTrouble: String?
     var onHere: () -> Void = {}
 
     @FocusState private var focused: Bool
@@ -55,9 +58,16 @@ struct PenBar: View {
         let date = pen.dateChip
         let place = pen.placeChip
         let every = pen.everyChip
-        if date != nil || place != nil || every != nil {
+        if date != nil || place != nil || every != nil || hereTrouble != nil {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
+                    if let hereTrouble, pen.here == nil {
+                        Text(hereTrouble)
+                            .font(.footnote)
+                            .foregroundStyle(Paper.fadedInk)
+                            .frame(minHeight: 32)
+                            .accessibilityIdentifier("here-trouble")
+                    }
                     if let date {
                         chip(date, on: pen.readsDate, hint: "누르면 날짜로 읽지 않습니다") { pen.readsDate.toggle() }
                             .accessibilityIdentifier("chip-date")
@@ -105,12 +115,17 @@ struct PenBar: View {
     private var penRow: some View {
         HStack(alignment: .bottom, spacing: 10) {
             Button(action: onHere) {
-                Image(systemName: "mappin")
-                    .font(.system(size: 18))
-                    .foregroundStyle(pen.here == nil ? Theme.accentInk.opacity(0.4) : Theme.accentInk)
-                    .frame(width: 44, height: 44)
+                if fixing {
+                    ProgressView().frame(width: 44, height: 44)
+                } else {
+                    Image(systemName: "mappin")
+                        .font(.system(size: 18))
+                        .foregroundStyle(pen.here == nil ? Theme.accentInk.opacity(0.4) : Theme.accentInk)
+                        .frame(width: 44, height: 44)
+                }
             }
             .buttonStyle(.plain)
+            .disabled(fixing)
             .accessibilityLabel("지금 여기")
             .accessibilityHint("이 자리의 주소를 메모에 붙입니다")
             .accessibilityIdentifier("here")
