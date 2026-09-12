@@ -43,6 +43,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// 값이 있으면 지금 화면은 **기본 폴더**를 보고 있다는 뜻이다.
     private let missingVault: URL?
     private let menu = NSMenu()
+    private let welcome = WelcomeWindow()
 
     /// 단축키 등록에 실패했는지 — 다른 앱이 같은 조합을 선점한 경우다.
     private var hotkeyAvailable = false
@@ -276,6 +277,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         addUpdateLine(to: menu)
         menu.addItem(settingsItem())
+        menu.addItem(item(title: "시작하기 및 사용 안내…", action: #selector(showWelcome), key: ""))
         addVaultItem(to: menu)
         menu.addItem(.separator())
         menu.addItem(item(title: "lazymemo 종료", action: #selector(quit), key: "q"))
@@ -499,7 +501,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// Homebrew 로 깔린 앱은 스스로 바꾸지 않는다. 대신 **명령을 복사해 준다** —
     /// 터미널에 무엇을 쳐야 하는지 외우게 하지 않는다.
     private func addUpdateLine(to menu: NSMenu) {
-        guard updater.source != .development else { return }
+        guard updater.source.allowsExternalUpdates else { return }
 
         switch updater.state {
         case .found(let release):
@@ -590,7 +592,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         submenu.addItem(events)
         submenu.addItem(.separator())
 
-        if updater.source != .development {
+        if updater.source.allowsExternalUpdates {
             let check = item(title: "새 판이 나오면 알기", action: #selector(toggleUpdateChecks), key: "")
             check.state = updater.isEnabled ? .on : .off
             // 네트워크를 쓰는 두 번째 기능이다. 켜져 있다는 사실이 보여야 한다 (§9.3).
@@ -675,6 +677,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     // MARK: 동작
 
     @objc private func openCapture() { capture.toggle() }
+
+    @objc func showWelcome() {
+        welcome.show(
+            shortcut: hotkey.current.displayName,
+            onCapture: { [weak self] in self?.capture.toggle() },
+            onCalendar: { [weak self] in self?.openCalendar() },
+            onDrawer: { [weak self] in self?.drawer.toggle() }
+        )
+    }
 
     @objc private func captureClipboard() {
         Task { await clipboardCapture.capture() }

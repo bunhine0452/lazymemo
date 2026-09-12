@@ -77,6 +77,19 @@ struct UpdateCheckTests {
 
 @Suite("InstallSource")
 struct InstallSourceTests {
+    @Test("App Store 영수증은 Homebrew 흔적보다 우선한다")
+    func appStoreReceipt() {
+        let source = InstallSource.detect(bundlePath: "/Applications/LazyMemo.app") { _ in true }
+        #expect(source == .appStore)
+        #expect(!source.allowsExternalUpdates)
+    }
+
+    @Test("스토어 빌드는 첫 영수증을 받기 전에도 자체 업데이트하지 않는다")
+    func appStoreBeforeReceipt() {
+        #expect(InstallSource.detect(bundlePath: "/Applications/LazyMemo.app", appStoreBuild: true) {
+            _ in false
+        } == .appStore)
+    }
     @Test("brew 가 놓은 자리에 있고 Caskroom 이 있으면 brew 의 것이다")
     func detectsHomebrew() {
         let source = InstallSource.detect(bundlePath: "/Applications/LazyMemo.app") {
@@ -89,7 +102,9 @@ struct InstallSourceTests {
     @Test("brew 가 깔려 있어도 다른 자리의 앱은 brew 의 것이 아니다")
     func standaloneOutsideApplications() {
         // 손으로 받아 둔 앱까지 brew 에 미루면 그 사람은 영영 업데이트를 못 받는다.
-        let source = InstallSource.detect(bundlePath: "/Users/me/dist/LazyMemo.app") { _ in true }
+        let source = InstallSource.detect(bundlePath: "/Users/me/dist/LazyMemo.app") {
+            $0.contains("Caskroom")
+        }
         #expect(source == .standalone)
     }
 

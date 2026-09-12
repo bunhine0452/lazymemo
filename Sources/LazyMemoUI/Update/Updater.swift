@@ -33,7 +33,10 @@ final class Updater {
 
     init(
         settings: SettingsStore,
-        source: InstallSource = .detect(bundlePath: Bundle.main.bundlePath),
+        source: InstallSource = .detect(
+            bundlePath: Bundle.main.bundlePath,
+            appStoreBuild: Bundle.main.object(forInfoDictionaryKey: "LazyMemoAppStoreBuild") as? Bool == true
+        ),
         fetch: @escaping UpdateCheck.Fetch = Updater.download
     ) {
         self.settings = settings
@@ -43,7 +46,7 @@ final class Updater {
 
     /// 자동으로 물어봐도 되는가. 개발 중에는 바꿀 번들이 없으므로 묻지도 않는다.
     var isEnabled: Bool {
-        source != .development && (settings.current.checksForUpdates ?? true)
+        source.allowsExternalUpdates && (settings.current.checksForUpdates ?? true)
     }
 
     func setEnabled(_ enabled: Bool) {
@@ -54,7 +57,7 @@ final class Updater {
     /// 새 판이 있는지 본다. `userAsked` 면 설정이 꺼져 있어도 이번 한 번은 묻는다 —
     /// 사람이 직접 눌렀다면 그것이 곧 허락이다.
     func check(userAsked: Bool = false) async {
-        guard source != .development, userAsked || isEnabled else { return }
+        guard source.allowsExternalUpdates, userAsked || isEnabled else { return }
         guard state != .checking, state != .installing else { return }
 
         state = .checking

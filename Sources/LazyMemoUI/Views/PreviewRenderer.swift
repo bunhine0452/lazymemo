@@ -19,6 +19,11 @@ enum PreviewRenderer {
         log("표본 생성")
         let samples = await makeSamples(store: store)
         log("표본 완료")
+        for step in 0..<4 {
+            await render(name: step == 0 ? "welcome" : "tutorial-\(step + 1)",
+                         size: CGSize(width: 660, height: 610),
+                         content: WelcomeView(initialStep: step), into: directory)
+        }
 
         // 모델을 먼저 만들고 잠깐 기다린다 — 붙인 사진을 파일에서 불러오는
         // 일이 비동기라, 만들자마자 그리면 그림이 아직 없다.
@@ -126,7 +131,7 @@ enum PreviewRenderer {
         log("capture.query=[\(capture.query)] len=\(capture.query.count) label=\(capture.scheduleLabel ?? "-")")
         await render(
             name: "capture",
-            size: CGSize(width: QuickCaptureController.width, height: 210),
+            size: CGSize(width: QuickCaptureController.width, height: 310),
             content: QuickCaptureView(model: capture, onCommit: {}, onCancel: {}),
             into: directory
         )
@@ -140,7 +145,7 @@ enum PreviewRenderer {
         log("capture-filter.chips=\(recalling.filter.chips) 찾은것=\(recalling.pool.count)")
         await render(
             name: "capture-filter",
-            size: CGSize(width: QuickCaptureController.width, height: 200),
+            size: CGSize(width: QuickCaptureController.width, height: 310),
             content: QuickCaptureView(model: recalling, onCommit: {}, onCancel: {}),
             into: directory
         )
@@ -159,7 +164,7 @@ enum PreviewRenderer {
         log("capture-recent.listed=\(browsing.listed.count) 지운것=\(browsing.lastDeleted?.title ?? "-")")
         await render(
             name: "capture-recent",
-            size: CGSize(width: QuickCaptureController.width, height: 300),
+            size: CGSize(width: QuickCaptureController.width, height: 545),
             content: QuickCaptureView(
                 model: browsing, onCommit: {}, onCancel: {},
                 // 찬 점과 빈 점이 나란히 보이게 — 한 종류만 그리면
@@ -309,6 +314,41 @@ enum PreviewRenderer {
                 into: directory
             )
         }
+
+        // **찾는 중.** 글 상자에 커서를 놓을 수 없으므로 연출값으로 세운다
+        // (`DrawerModel.Staged.query`). 이 그림이 답하는 것은 하나다 —
+        // 여덟 장이 두 장으로 줄었을 때 판이 «좁혀졌다» 로 보이는가, 아니면
+        // 아래가 텅 빈 채로 남는가 (§16.3 — 빈자리는 공짜가 아니다).
+        drawer.staged = DrawerModel.Staged(isOpen: true, query: "ㅈ")
+        await render(
+            name: "drawer-searching",
+            size: DrawerGeometry(count: drawer.count).size,
+            content: DrawerView(model: drawer),
+            into: directory
+        )
+
+        // **못 찾은 서랍.** 「여기 아무것도 없습니다」와 갈리는지가 요점이다 —
+        // 방금 아홉 장을 넣어 둔 사람에게 그 말은 거짓말이다.
+        drawer.staged = DrawerModel.Staged(isOpen: true, query: "없는말")
+        await render(
+            name: "drawer-nothing-found",
+            size: DrawerGeometry(count: 0).size,
+            content: DrawerView(model: drawer),
+            into: directory
+        )
+
+        // **여러 장을 골라 둔 모습.** 고른 장이 무더기에서 빠져나온 채로 남는지,
+        // 바닥 한 줄이 조작을 내놓는지는 이 그림에서만 확인된다.
+        drawer.staged = DrawerModel.Staged(
+            isOpen: true,
+            picked: Set(drawer.papers.prefix(3).map(\.id))
+        )
+        await render(
+            name: "drawer-picked",
+            size: plan.size,
+            content: DrawerView(model: drawer),
+            into: directory
+        )
         drawer.staged = nil
     }
 
@@ -480,9 +520,9 @@ enum PreviewRenderer {
                             .font(Theme.label)
                             .foregroundStyle(Paper.fadedInk)
                     }
-                    .frame(width: 96, height: 112, alignment: .topLeading)
                     .padding(.top, 12)
                     .padding(.leading, 12)
+                    .frame(width: 96, height: 112, alignment: .topLeading)
                     .background(Theme.paper(color.ink))
                     .overlay(Theme.edge())
                 }

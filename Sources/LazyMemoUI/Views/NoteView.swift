@@ -27,6 +27,7 @@ struct NoteView: View {
     @State private var isPickingColor = false
     /// 종이의 높이. 사진이 가질 수 있는 몫을 여기서 잰다.
     @State private var paperHeight: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var color: MemoColor { model.memo.color }
 
@@ -89,6 +90,13 @@ struct NoteView: View {
             }
         }
         .overlay(Theme.edge())
+        .overlay(alignment: .top) {
+            Capsule().fill(color.tint)
+                .frame(width: 38, height: 3)
+                .padding(.top, 7)
+                .allowsHitTesting(false)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
         // 캡슐에서 덜어 낸 것들이 여기 있다. macOS 사람이 이미 아는 자리이고,
         // 화면에 자리를 차지하지 않으므로 철학 4 와도 부딪히지 않는다.
         .contextMenu { paperMenu }
@@ -96,7 +104,7 @@ struct NoteView: View {
         // 쓰는 동안에도 되살아나야 하므로 감지기를 따로 둔다.
         .overlay { HoverSensor { isHovering = $0 } }
         .opacity(paperOpacity)
-        .animation(Theme.reveal, value: isHovering)
+        .animation(reduceMotion ? nil : Theme.reveal, value: isHovering)
         .animation(Theme.reveal, value: model.isUnsaved)
         .animation(Theme.reveal, value: model.justDeleted?.id)
         .animation(Theme.settle, value: age)

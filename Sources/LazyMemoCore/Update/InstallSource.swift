@@ -8,6 +8,8 @@ import Foundation
 /// «이미 나간 판의 바이트는 바꾸지 않는다» 를 지키는 것과 같은 종류의 규칙이다 —
 /// 둘이 같은 것을 관리한다고 믿게 두면 안 된다.
 public enum InstallSource: Sendable, Equatable {
+    /// App Store가 업데이트를 관리한다. 외부 업데이트를 확인하거나 설치하지 않는다.
+    case appStore
     /// brew 가 관리한다. 앱은 손대지 않고 사람에게 `brew upgrade` 를 알린다.
     case homebrew
     /// 앱이 스스로 바꾼다.
@@ -25,10 +27,14 @@ public enum InstallSource: Sendable, Equatable {
 
     public static func detect(
         bundlePath: String,
+        appStoreBuild: Bool = false,
         exists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
     ) -> InstallSource {
         guard bundlePath.hasSuffix(".app"), !bundlePath.contains("/.build/") else {
             return .development
+        }
+        if appStoreBuild || exists(bundlePath + "/Contents/_MASReceipt/receipt") {
+            return .appStore
         }
         // 브루가 깔려 있다는 것만으로는 부족하다 — **이 번들이 brew 가 놓은
         // 자리에 있을 때**만 brew 의 것이다. 손으로 받아 다른 데 둔 앱까지
@@ -42,8 +48,11 @@ public enum InstallSource: Sendable, Equatable {
     /// 사람에게 하는 말. 앱이 스스로 못 바꾸는 경우에만 쓴다.
     public var advice: String? {
         switch self {
+        case .appStore: "App Store에서 업데이트할 수 있습니다"
         case .homebrew: "brew upgrade --cask lazymemo"
         case .development, .standalone: nil
         }
     }
+
+    public var allowsExternalUpdates: Bool { self == .homebrew || self == .standalone }
 }

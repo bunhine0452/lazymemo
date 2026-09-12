@@ -83,8 +83,14 @@ struct DrawerGeometry: Equatable {
     static let padding: CGFloat = 14
     /// 바닥의 한 줄 — 방금 한 일이나 넣는 법을 적는다.
     static let footerHeight: CGFloat = 22
+    static let headerHeight: CGFloat = 48
 
-    /// 스크롤 없이 보이는 장수. 이보다 쌓이면 서랍이 화면을 넘는다.
+    /// **처음 펼칠 때 겹치는 장수.** 이보다 많으면 바닥 한 줄이 「그리고 N장
+    /// 더」라고 말하고, 그 줄을 누르면 여덟 장씩 늘어난다 (`DrawerContents.page`).
+    ///
+    /// 예전에는 이 값이 상한이기도 했다 — 아홉째 장부터는 **닿을 길이 아예
+    /// 없었다.** 「조용히 자르지 않는다」고 적어 두고 숫자만 말했을 뿐, 그
+    /// 종이를 보려면 여덟 장을 먼저 꺼내야 했다. 지금은 시작값일 뿐이다.
     static let visible = 8
 
     /// **한 장을 원래 크기로 되돌릴 자리.** 펼친 서랍의 안쪽은 언제나 종이
@@ -94,17 +100,18 @@ struct DrawerGeometry: Equatable {
     /// 기본 종이 크기(§7 의 260×200)와 같다.
     static let paperRoom = CGSize(width: 260, height: 200)
 
-    /// 무더기에 실제로 놓이는 장수 (스크롤 없이 보이는 만큼).
+    /// 무더기에 실제로 놓이는 장수.
     var stacked: Int
-    /// 스크롤해야 닿는 장이 있는가.
+    /// 아직 가려진 장이 있는가.
     var scrolls: Bool
     /// 펼친 창의 크기.
     var size: CGSize
 
-    init(count: Int) {
+    /// - Parameter limit: 몇 장까지 겹칠 것인가. 「더 보기」를 누르면 커진다.
+    init(count: Int, limit: Int = Self.visible) {
         let papers = max(count, 1)
-        stacked = min(Self.visible, papers)
-        scrolls = papers > Self.visible
+        stacked = min(max(limit, 1), papers)
+        scrolls = papers > stacked
 
         // 겹친 무더기의 높이 — 맨 아래 한 장은 통째로 보이고, 그 위의 것들은
         // 띠만큼씩 어긋나 있다.
@@ -119,7 +126,7 @@ struct DrawerGeometry: Equatable {
         )
         size = CGSize(
             width: inner.width + Self.padding * 2,
-            height: inner.height + Self.padding * 2 + Self.footerHeight
+            height: inner.height + Self.padding * 2 + Self.footerHeight + Self.headerHeight
         )
     }
 
@@ -127,12 +134,25 @@ struct DrawerGeometry: Equatable {
     var inner: CGSize {
         CGSize(
             width: size.width - Self.padding * 2,
-            height: size.height - Self.padding * 2 - Self.footerHeight
+            height: size.height - Self.padding * 2 - Self.footerHeight - Self.headerHeight
         )
     }
 
     /// 무더기의 `index` 번째 종이가 놓이는 세로 자리.
     func offset(of index: Int) -> CGFloat { Self.band * CGFloat(index) }
+
+    /// **이 화면에 겹칠 수 있는 최대 장수.**
+    ///
+    /// 「더 보기」에 상한이 없으면 창이 화면 위아래로 빠져나가고, 그러면 §16.4
+    /// 가 고쳐 둔 고장(「폴더가 있던 자리를 통째로 떠난다」)이 그대로 돌아온다.
+    /// 자랄 수 있는 만큼까지만 자란다 — 그러고도 남는 장은 바닥 한 줄이
+    /// 계속 「그리고 N장 더」라고 말한다. **조용히 자르지 않는다.**
+    static func limit(fitting height: CGFloat) -> Int {
+        let chrome = padding * 2 + footerHeight + headerHeight + sheet.height + lift
+        let room = height - chrome
+        guard room > 0 else { return 1 }
+        return max(1, Int(room / band) + 1)
+    }
 
     /// 한 장을 되돌릴 크기 — **그 종이가 바탕화면에서 갖던 크기.**
     ///

@@ -33,6 +33,7 @@ struct QuickCaptureView: View {
 
     /// 글 높이에 맞춰 자란다. 한 줄에서 시작해 다섯 줄까지.
     @State private var editorHeight: CGFloat = QuickCaptureView.minimumEditorHeight
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     static let minimumEditorHeight: CGFloat = 30
     private static let maximumEditorHeight: CGFloat = 150
@@ -59,17 +60,20 @@ struct QuickCaptureView: View {
             bubble
         }
         .frame(width: QuickCaptureController.width)
-        .animation(Theme.reveal, value: model.listed.count)
-        .animation(Theme.reveal, value: model.selectedID)
-        .animation(Theme.reveal, value: model.pointed)
-        .animation(Theme.reveal, value: model.scheduleLabel)
-        .animation(Theme.reveal, value: model.lastDeleted?.id)
-        .animation(Theme.reveal, value: model.isExpanded)
+        .animation(reduceMotion ? nil : Theme.reveal, value: model.listed.count)
+        .animation(reduceMotion ? nil : Theme.reveal, value: model.selectedID)
+        .animation(reduceMotion ? nil : Theme.reveal, value: model.pointed)
+        .animation(reduceMotion ? nil : Theme.reveal, value: model.scheduleLabel)
+        .animation(reduceMotion ? nil : Theme.reveal, value: model.lastDeleted?.id)
+        .animation(reduceMotion ? nil : Theme.reveal, value: model.isExpanded)
     }
 
     private var bubble: some View {
         VStack(alignment: .leading, spacing: 0) {
+            heading
             input
+
+            if model.query.isEmpty { searchShortcuts }
 
             if !model.listed.isEmpty {
                 Divider().opacity(0.3)
@@ -85,6 +89,52 @@ struct QuickCaptureView: View {
         }
         .background(Theme.paper(MemoColor.gray.ink, radius: Theme.panelRadius, dotted: false))
         .overlay(Theme.edge(radius: Theme.panelRadius))
+    }
+
+    private var heading: some View {
+        HStack(spacing: 8) {
+            MemoBrandMark()
+            Text("lazymemo")
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundStyle(Theme.accentInk)
+            Text("잠깐, 메모 한 장")
+                .font(.system(size: 11))
+            Spacer()
+            Button(action: onCancel) {
+                Image(systemName: "xmark").font(.system(size: 11, weight: .medium))
+                    .hitTarget(28)
+            }
+            .buttonStyle(.plain)
+            .spoken("닫기 — 적던 글은 앱을 사용하는 동안 남습니다")
+        }
+        .foregroundStyle(.secondary)
+        .padding(.leading, Theme.loose)
+        .padding(.trailing, Theme.normal)
+        .padding(.top, Theme.snug)
+    }
+
+    private var searchShortcuts: some View {
+        HStack(spacing: 8) {
+            Text("찾기").foregroundStyle(.secondary)
+            searchShortcut("사진", symbol: "photo", query: "#사진")
+            searchShortcut("링크", symbol: "link", query: "#링크")
+            searchShortcut("할 일", symbol: "checklist", query: "#체크")
+            Spacer(minLength: 0)
+        }
+        .font(.system(size: 11, weight: .medium))
+        .padding(.horizontal, Theme.loose)
+        .padding(.bottom, Theme.normal)
+    }
+
+    private func searchShortcut(_ title: String, symbol: String, query: String) -> some View {
+        Button { model.query = query } label: {
+            Label(title, systemImage: symbol)
+                .padding(.horizontal, 10)
+                .frame(height: 28)
+                .background(Theme.softAccent, in: RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+        .spoken("\(title) 메모 찾기")
     }
 
     /// 말풍선의 꼬리. 메뉴바 아이콘을 가리킨다.
@@ -108,7 +158,7 @@ struct QuickCaptureView: View {
         VStack(alignment: .leading, spacing: Theme.snug) {
             MemoTextArea(
                 text: $model.query,
-                font: .systemFont(ofSize: 19, weight: .light),
+                font: .systemFont(ofSize: 19, weight: .regular),
                 insets: NSSize(width: 0, height: 4),
                 // 붙인 사진은 아래 조각으로 보인다. 경로 글자까지 19pt 로
                 // 늘어놓으면 말풍선이 그것만으로 가득 찬다.
@@ -204,13 +254,43 @@ struct QuickCaptureView: View {
     /// 글은 저장되지 않은 채. 손은 **무엇을 누를 수 있는지**만 비추고,
     /// 키가 무엇을 할지는 화살표와 클릭만 정한다.
     private var results: some View {
+        Group {
+            if model.isExpanded {
+                ScrollViewReader { reader in
+                    ScrollView { resultRows }
+                        .frame(height: 300)
+                        .onChange(of: model.selectedID) { _, id in
+                            if let id { reader.scrollTo(id, anchor: .center) }
+                        }
+                        .onAppear {
+                            if let id = model.selectedID { reader.scrollTo(id, anchor: .center) }
+                        }
+                }
+            } else {
+                resultRows
+            }
+        }
+    }
+
+    private var resultRows: some View {
         VStack(spacing: 0) {
+            HStack {
+                Text(model.listing == .recent ? "최근 메모" : "검색 결과")
+                Spacer()
+                Text("\(model.pool.count)장").monospacedDigit()
+            }
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, Theme.loose)
+            .padding(.vertical, Theme.snug)
+
             ForEach(Array(model.listed.enumerated()), id: \.element.id) { index, memo in
                 row(
                     memo, index: index,
                     isSelected: model.selectedID == memo.id,
                     isPointed: pointedID == memo.id
                 )
+                .id(memo.id)
                 .onHover { inside in
                     if inside { model.pointed = memo.id }
                     else if model.pointed == memo.id { model.pointed = nil }
@@ -279,7 +359,11 @@ struct QuickCaptureView: View {
             // 여는 자리와 지우는 자리를 **한 뷰에 겹치지 않는다.** 겹치면
             // 누르기 하나를 놓고 둘이 다투고, 어느 쪽이 이기는지가 상황마다
             // 달라진다 (달력에서 「미루기」를 끌기 밖에 둔 것과 같은 이유).
-            HStack(spacing: Theme.snug) {
+            Button {
+                model.selection = index
+                onCommit()
+            } label: {
+              HStack(spacing: Theme.snug) {
                 paperDot(memo)
 
                 Text(memo.title)
@@ -291,13 +375,11 @@ struct QuickCaptureView: View {
                 Text(MemoTimeLabel.text(for: memo))
                     .font(Theme.micro)
                     .foregroundStyle(.secondary)
+              }
+              .frame(minHeight: 28)
+              .contentShape(.rect)
             }
-            .contentShape(.rect)
-            // 줄을 **직접 누른 것**은 고른 것이다 — 스치는 것과 다르다.
-            .onTapGesture {
-                model.selection = index
-                onCommit()
-            }
+            .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(Text("\(memo.title), \(MemoTimeLabel.text(for: memo))"))
             .accessibilityHint(Text("열기"))
@@ -373,36 +455,39 @@ struct QuickCaptureView: View {
     /// 목록이 요즘 것인지 찾은 것인지도 여기서만 말한다 — 목록 위에 이름표를
     /// 하나 더 얹으면 상자가 그만큼 커지고, 커진 상자는 적을 자리를 밀어낸다.
     private var hint: some View {
-        HStack(spacing: Theme.normal) {
-            // ⌘⏎ 로 할 일이 없으면 적지 않는다. 빈 상자에 "적기 끝" 이 떠
-            // 있으면 그것은 지금 눌러도 아무 일도 안 나는 거짓말이다.
-            if let commandLabel {
-                Label(commandLabel, systemImage: "command")
-            }
-            if !model.listed.isEmpty {
-                Label(model.listing == .recent ? "요즘 메모" : "찾은 것", systemImage: "arrow.up.arrow.down")
-            }
+        HStack(spacing: Theme.snug) {
+            Text(selectedMemo == nil ? "↵ 줄바꿈 · esc 닫기" : "↑↓ 선택 · ⌘⌫ 지우기")
+                .font(.system(size: 11))
             Spacer(minLength: 0)
-            // 고른 줄이 있을 때만 지우는 법을 적는다. **⌘ 를 빼면 안 된다** —
-            // ⌫ 하나는 글자를 지우는 키이고, 그렇게 적어 두면 사람은 글을
-            // 지우면서 메모가 안 지워진다고 여긴다.
-            if selectedMemo != nil {
-                Label("⌘⌫ 지우기", systemImage: "trash")
+            if let commandLabel {
+                Button(action: onCommit) {
+                    HStack(spacing: 12) {
+                        Text(commandLabel)
+                        Text("⌘↵").opacity(0.75)
+                    }
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.onAccent)
+                    .padding(.horizontal, 14)
+                    .frame(height: 34)
+                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
+                .spoken("\(commandLabel) — Command Return")
             } else {
-                Text("esc 로 닫아도 적던 것은 남습니다").font(Theme.micro)
+                Text("적으면 메모, 찾으면 검색")
+                    .font(.system(size: 11))
             }
         }
-        .font(Theme.micro)
         .foregroundStyle(.secondary)
         .padding(.horizontal, Theme.loose)
-        .padding(.bottom, Theme.snug)
-        .padding(.top, model.listed.isEmpty ? 0 : Theme.tight)
+        .padding(.vertical, Theme.normal)
     }
 
     /// 지금 ⌘⏎ 가 할 일. 없으면 `nil`.
     private var commandLabel: String? {
-        if selectedMemo != nil { return "열기" }
-        return model.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : "적기 끝"
+        if selectedMemo != nil { return "메모 열기" }
+        guard !model.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return model.scheduleLabel == nil ? "메모 남기기" : "달력에 남기기"
     }
 
     /// 텍스트 뷰가 넘겨준 키 명령. `true` 를 돌려주면 텍스트 뷰는 처리하지 않는다.

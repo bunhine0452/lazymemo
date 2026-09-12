@@ -48,6 +48,13 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
     /// 마지막으로 본 창 자리. 사람이 창을 옮긴 만큼만 붙박이를 밀어 준다.
     private var lastFrame: CGRect = .zero
     private var dropWatch: Task<Void, Never>?
+    /// 서랍이 펼쳐져 있는 동안 키를 지켜본다.
+    ///
+    /// SwiftUI 의 `onKeyPress` 대신 이것을 쓰는 이유는 이 저장소가 이미 같은
+    /// 길을 쓰기 때문이다 (`QuickCaptureController.editingKeyMonitor`). 테두리
+    /// 없는 패널에서 «어느 뷰가 키를 받는가» 는 화면에 안 보이는 일이고,
+    /// 한 곳에 모아 두어야 시험이 물을 수 있다 (§14.9).
+    private var keyMonitor: Any?
     /// 창 애니메이션 중에는 `windowDidMove` 가 매 프레임 온다. 그때 붙박이를
     /// 새로 적으면 **펼치는 동안 서랍이 제자리에서 조금씩 밀려난다.**
     private var isAnimating = false
@@ -69,6 +76,10 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
         model.onToggle = { [weak self] open in self?.animate(open: open) }
         model.onTakeOut = { [weak self] id in self?.takeOut(id) }
         model.onDelete = { [weak self] id in self?.delete(id) }
+        // 찾기로 무더기가 줄거나 「더 보기」로 늘면 창도 따라간다. **빠르게**
+        // 따라가야 한다 — 글자 한 자에 0.3초씩 창이 출렁이면 그것은 「좁혀진다」가
+        // 아니라 「창이 튄다」로 보인다.
+        model.onLayoutChanged = { [weak self] in self?.resizeIfOpen(duration: 0.14) }
 
         observeStore()
         // 바탕화면에서 종이가 나가고 들어오는 것은 좌표 파일이 아는데, 그
@@ -123,6 +134,8 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
         self.window = window
         lastFrame = frame
         record(frame, isVisible: true)
+        model.setCeiling(DrawerGeometry.limit(fitting: screen.height))
+        watchKeys()
     }
 
     func close() {
@@ -132,6 +145,8 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
         window?.orderOut(nil)
         window = nil
         dropWatch?.cancel()
+        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+        keyMonitor = nil
     }
 
     /// 껐다 켜면 놓아 뒀던 대로 돌아온다. 치운 사람에게는 아무 일도 없다.
@@ -166,7 +181,7 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
 
     /// 펼친 채로 장수가 바뀌면 창도 따라 자란다 — 안 그러면 새로 들어온 종이가
     /// 창 밖에서 잘린다.
-    private func resizeIfOpen() {
+    private func resizeIfOpen(duration: TimeInterval = DrawerWindowController.duration) {
         guard model.isOpen, let window else { return }
         let target = DrawerGeometry.openFrame(
             anchoredAt: anchor, size: model.geometry().size, on: screen
@@ -176,7 +191,7 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
         else { return }
         isAnimating = true
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = reduceMotion ? 0.01 : Self.duration
+            context.duration = reduceMotion ? 0.01 : duration
             window.animator().setFrame(target, display: true)
         } completionHandler: { [weak self] in
             MainActor.assumeIsolated { self?.isAnimating = false }
@@ -256,6 +271,66 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
 
     private func delete(_ id: ULID) {
         Task { [store] in try? await store.delete(id) }
+    }
+
+    // MARK: 키보드
+
+    /// 펼친 서랍에서 키를 맡는다. **문법은 `DrawerKeys` 가 정한다.**
+    private func watchKeys() {
+        guard keyMonitor == nil else { return }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) {
+            [weak self] event -> NSEvent? in
+            let handled = MainActor.assumeIsolated { self?.handle(event) ?? false }
+            // 맡은 키는 삼킨다 — 흘려보내면 글 상자가 같은 키를 한 번 더 받는다.
+            return handled ? nil : event
+        }
+    }
+
+    /// 이 키를 서랍이 맡는가.
+    ///
+    /// 비공개가 아닌 이유는 `QuickCaptureController.handles` 와 같다 — **키가
+    /// 어디로 가는지는 화면에 안 보인다.** 시험이 직접 부른다.
+    func handle(_ event: NSEvent) -> Bool {
+        guard let window, window.isKeyWindow, model.isOpen else { return false }
+
+        // **조합 중에는 아무것도 맡지 않는다.** 한글을 치는 동안의 ↩ 는 «펼쳐라»
+        // 가 아니라 «이 글자를 확정하라» 다. 그것을 삼키면 치던 글자가 사라진다.
+        if (window.firstResponder as? NSTextView)?.hasMarkedText() == true { return false }
+
+        let editing = isEditingSearch
+        guard let intent = DrawerKeys.intent(
+            characters: event.charactersIgnoringModifiers,
+            modifiers: event.modifierFlags,
+            isEditing: editing
+        ) else { return false }
+
+        switch intent {
+        case .search:
+            model.inviteSearch()
+            return true
+        case .back:
+            // 글 상자에 커서가 있고 더 벗길 겹이 없으면 **커서를 무더기로
+            // 돌려준다.** 여기서 서랍을 닫아 버리면 「상자에서 빠져나오려던
+            // esc」 한 번이 서랍을 통째로 접는다.
+            if editing, model.escapeWouldClose {
+                model.releaseSearch()
+                return true
+            }
+            return model.handle(intent)
+        default:
+            return model.handle(intent)
+        }
+    }
+
+    /// 지금 찾기 상자에 커서가 있는가 — **글자 키를 삼키지 않기 위해** 본다.
+    ///
+    /// 뷰가 적어 준 값을 먼저 믿는다 (`DrawerModel.isEditingSearch`) — `@FocusState`
+    /// 만이 커서의 자리를 확실히 안다. 응답 사슬은 그 다음이다: SwiftUI 가 글
+    /// 상자를 무엇으로 만드는지는 판마다 다르고, 둘 중 하나만 맞아도 «찾는 중» 은
+    /// 참이다. 틀렸을 때의 값이 비싸다 — 질의에 띄어쓰기를 넣는 스페이스가
+    /// **종이를 고르는 키**가 된다.
+    private var isEditingSearch: Bool {
+        model.isEditingSearch || window?.firstResponder is NSTextView
     }
 
     // MARK: 눈으로 확인할 수 없는 것 (§14.9)

@@ -55,7 +55,7 @@ struct CalendarLayout: Equatable {
     /// 밀치고 있었고, 누르는 자리는 글자만 했다 — 「9월」을 누르려다 「8월」의
     /// 여백을 누르는 일이 잦았다. 조작 하나가 `Theme.touch` 를 지키려면
     /// 머리도 그만큼은 있어야 한다.
-    static let headerHeight: CGFloat = 42
+    static let headerHeight: CGFloat = 64
     /// 요일 줄의 높이 (아래 여백까지 포함).
     ///
     /// 9.5pt 짜리 요일은 격자가 커질수록 잔글씨로 남았다. 이 줄은 달을
@@ -85,7 +85,7 @@ struct CalendarLayout: Equatable {
     ///
     /// 절반을 조금 넘긴다. 달을 보는 것이 이 창의 첫 일이지만, 아래가 서너 줄
     /// 밖에 못 들어가면 조작하는 면이 아니라 미리보기가 된다.
-    private static let gridShare: CGFloat = 0.58
+    private static let gridShare: CGFloat = 0.52
     /// 세로 판형의 주 높이 범위. 아래쪽은 겨냥의 한계(끌어다 놓기가 조준
     /// 게임이 되는 높이), 위쪽은 달이 성겨 보이기 시작하는 높이다.
     ///
@@ -130,7 +130,10 @@ struct CalendarLayout: Equatable {
             size.height - headerHeight - weekdayHeight - creaseBlock,
             weeks * weekRange.lowerBound
         )
-        let week = clamp(free * gridShare / weeks, to: weekRange)
+        // 여섯 주 달도 최소 터치 높이를 갖도록 같은 달 영역을 예약한다.
+        // 헤더가 커져도 월을 넘길 때 아래 일정 영역이 위아래로 뛰지 않는다.
+        let gridHeight = max(free * gridShare, 6 * weekRange.lowerBound)
+        let week = clamp(gridHeight / weeks, to: weekRange)
         return CalendarLayout(shape: .tall, weekHeight: week, panelWidth: 0, in: size)
     }
 

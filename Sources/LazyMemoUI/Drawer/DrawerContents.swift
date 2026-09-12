@@ -68,4 +68,19 @@ enum DrawerContents {
         guard hidden > 0 else { return nil }
         return "그리고 \(hidden)장 더"
     }
+
+    /// 고른 장이 몇 장인지. **없으면 아무 말도 하지 않는다.**
+    ///
+    /// 「0장 골랐습니다」는 말이 아니라 빈칸이다. 고르지 않은 사람에게 고르기의
+    /// 존재를 알릴 자리는 여기가 아니다 (철학 1 — 완성을 요구하지 않는다).
+    static func picked(count: Int) -> String? {
+        count > 0 ? "\(count)장 골랐습니다" : nil
+    }
+
+    /// **한 번에 더 펼칠 장수.** 「더 보기」를 누르면 이만큼씩 늘어난다.
+    ///
+    /// 한꺼번에 전부 펼치지 않는 이유는 창이 화면을 넘기 때문이다. 여덟 장씩
+    /// 늘리면 늘어난 만큼이 눈에 보이고, 창이 화면 끝에 닿으면 거기서 멈춘다
+    /// (`DrawerGeometry.limit(fitting:)`).
+    static let page = 8
 }

@@ -1,56 +1,9 @@
 import LazyMemoCore
 import SwiftUI
 
-/// 「달력」 — 바탕화면에 놓인, **손으로 만지는** 달 (설계문서 §10).
-///
-/// 앞선 판은 아래로 흐르는 목록이었고 조작이 하나도 없었다. 게으른 사람이
-/// 달력에 하는 일은 셋뿐인데 — **보고, 옮기고, 미룬다** — 그 셋 중 어느 것도
-/// 할 수 없는 화면이었다는 뜻이다. 그래서 통째로 바꿨다.
-///
-/// 화면은 두 층이다. 위는 **조망**(어느 날이 붐비는가), 아래는 **조작**(그 날의
-/// 일을 집어 옮긴다). 두 층이 한 창에 있어야 "31일로 옮기기" 가 한 동작이 된다 —
-/// 목록만 있으면 날짜를 글자로 쳐야 하고, 격자만 있으면 무엇을 옮기는지 알 수 없다.
-///
-/// 격자가 빈칸을 보여주는 것은 철학 1("완성을 요구하지 않는다")과 부딪히지
-/// 않는다. **빈칸이 아니라 바탕이다** — 15일이 무슨 요일인지는 그 사이 빈 칸들이
-/// 말해 준다. 채우라고 말하는 것은 빈 칸이 아니라 "일정 없음" 같은 글자와
-/// 칸마다 붙은 ＋ 표시이고, 그런 것은 여기에 하나도 없다.
-///
-/// ## 생김새를 다시 지었다 — 부품이 아니라 펜 자국
-///
-/// 동사는 맞게 서 있었는데 **생김새가 남의 것이었다.** 채운 원(오늘), 테두리
-/// 원(고른 날), 캡슐 점(밀도), `‹ ›`(달 이동), 1px 실선(두 층의 경계) — 전부
-/// 맞는 표시였고 전부 **어느 앱에나 있는 표시**였다. 이 앱은 재질이 하나(좋은
-/// 종이)인데 그 위에 놓인 표시만 UI 부품이면 달력만 남의 물건으로 읽힌다.
-///
-/// 그래서 달력이 쓰는 낱말을 종이 위의 몸짓으로 다시 적었다 (`PenMarks`).
-///
-/// | 뜻 | 버린 것 | 지금 |
-/// |---|---|---|
-/// | 오늘 | 채운 노란 원 + 검은 숫자 | 손으로 그린 동그라미 + 안쪽에 스민 호박색 |
-/// | 고른 날 | 회색 원 + 테두리 | 밑줄 |
-/// | 놓을 자리 | 작은 파란 고리 | 칸 전체가 눌린다 (착지 판정 범위와 같다) |
-/// | 붐비는 날 | 캡슐 점 셋, 넷부터는 막대 | 숫자 아래에 번진 잉크 |
-/// | 달 이동 | `‹ ›` | 이웃 달의 **이름** (`MonthStrip`) |
-/// | 두 층의 경계 | 1px 실선 | 접힌 자리 (`PaperCrease`) — 한 장임을 말한다 |
-/// | 다음 한 줄 | `＋ 이 날에 적기` | 비워 둔 줄 |
-/// | 지난 날 | 일괄 55% | 하루씩 마른다 (`InkDrying`) |
-///
-/// ## 판형이 둘이다 — 세로로 선 창, 가로로 누운 창
-///
-/// 배치가 하나뿐이면 **창 크기가 장식이 된다.** 세로로 늘려도 격자는 창 위에
-/// 붙은 작은 표로 남았고(주 높이가 36pt 로 못 박혀 있었다), 가로로 넓히면
-/// 칸만 납작하게 늘어나면서 정작 조작하는 면은 창 아래 눌린 띠였다 — 폭은
-/// 남아도는데 목록은 좁은 그대로다.
-///
-/// 그래서 창이 충분히 넓으면 **두 면을 나란히** 놓는다. 왼쪽은 달, 오른쪽은
-/// 그 날이고, 접힌 자리도 함께 세로로 선다 — 종이를 반으로 접을 때 긴 쪽을
-/// 따라 접는 것과 같다. 주 높이·펜 자국·숫자 크기는 두 판형 모두에서 창을
-/// 따라 자란다 (`CalendarLayout`).
-///
-/// 값이 싸진 것도 있다. 얼룩은 칸마다 도형을 두지 않고 격자 전체에 `Canvas`
-/// 한 장으로 그리므로(`InkBleedLayer`) 앞선 판의 캡슐 점보다 **레이어가 적다**
-/// (설계문서 §14.8).
+/// 달력과 선택한 날의 일정을 함께 보여 준다.
+/// 큰 월 제목, 초록색 오늘 표시와 일정 영역으로 시각적 위계를 만든다.
+/// 클릭·드래그·미루기와 넓은 창의 두 열 배치는 동일하게 유지한다.
 struct CalendarView: View {
     @Bindable var model: CalendarModel
     var onClose: () -> Void
@@ -87,8 +40,8 @@ struct CalendarView: View {
     /// 목록 한 줄의 글자. 종이의 꼬리(`Theme.label`)보다 반 포인트 크다 —
     /// 여기는 **나가기 전에 마지막으로 읽는 줄**이고, 창을 키운 사람이 제일
     /// 먼저 기대하는 것도 이 줄이 읽기 쉬워지는 것이다.
-    private static let rowFont = Font.system(size: 11.5)
-    private static let clockFont = Font.system(size: 10.5, design: .monospaced)
+    private static let rowFont = Font.system(size: 12.5)
+    private static let clockFont = Font.system(size: 11, design: .rounded).monospacedDigit()
 
     struct Staged {
         var hoveredRow: ULID?
@@ -191,14 +144,11 @@ struct CalendarView: View {
     /// 세로로 선 창에서는 그 칸의 열을, 가로로 누운 창에서는 그 칸의 행을
     /// 가리킨다.
     private func crease(_ axis: PaperCrease.Axis) -> some View {
-        PaperCrease(
-            axis: axis,
-            // 접힌 자리는 제 지역 좌표로 그린다. 세로로 설 때는 머리 아래에서
-            // 시작하므로, 격자에서 잰 y 에서 그만큼을 빼야 자리가 맞는다.
-            pointer: axis == .horizontal
-                ? selectedCell?.midX
-                : selectedCell.map { $0.midY - creaseOrigin }
-        )
+        Rectangle()
+        .fill(Paper.ink.opacity(0.08))
+        .frame(width: axis == .vertical ? 1 : nil, height: axis == .horizontal ? 1 : nil)
+        .frame(width: axis == .vertical ? PaperCrease.thickness : nil,
+               height: axis == .horizontal ? PaperCrease.thickness : nil)
         .onGeometryChange(for: CGFloat.self) { proxy in
             proxy.frame(in: .named(Self.space)).minY
         } action: { origin in
@@ -208,47 +158,25 @@ struct CalendarView: View {
 
     // MARK: 머리
 
-    /// 머리 — **달 이름이 곧 이동 버튼이다.**
-    ///
-    /// `‹ ›` 를 버렸다. 어느 앱에나 있는 부품이라 이 창이 무엇으로 만들어졌는지
-    /// 말해 주지 않고, 무엇보다 **어디로 가는지 이름을 대지 않는다.** 이웃 달을
-    /// 옅게 적어 두면 시간이 양옆으로 뻗어 있는 것이 그대로 보이고, 누르는
-    /// 자리가 곧 도착지의 이름이 된다 (철학 2 — 시간이 유일한 구조).
+    /// 월 제목과 항상 보이는 탐색 도구. 도움말에는 이동할 월을 명시한다.
     private var header: some View {
-        HStack(spacing: 0) {
-            monthStep(-1)
-
-            // **달과 해는 한 덩어리다.** 해를 창 오른쪽 끝에 따로 적어 두었더니
-            // 달을 넘기다 해가 바뀌어도 눈이 거기까지 가지 않았고, 그 네 글자는
-            // 머리 오른쪽에 떠 있는 부스러기로 남았다. 달 옆에 붙여 두면
-            // "언제를 보고 있는가" 가 한 자리에서 끝난다.
-            HStack(alignment: .firstTextBaseline, spacing: 5) {
-                Text("\(model.grid.month)월")
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(Paper.ink)
-                    .contentTransition(.numericText())
-
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(verbatim: "\(model.grid.year)")
                     .font(.system(size: 10, weight: .medium).monospacedDigit())
-                    .foregroundStyle(Paper.ink.opacity(0.32))
+                    .foregroundStyle(Theme.secondaryInk)
+                Text("\(model.grid.month)월")
+                    .font(.system(size: 25, weight: .bold, design: .rounded))
+                    .foregroundStyle(Paper.ink)
+                    .contentTransition(.numericText())
             }
-            .padding(.horizontal, Theme.tight)
-            .fixedSize()
-
-            monthStep(1)
-
-            Spacer(minLength: Theme.tight)
-
-            // 오늘로 돌아오는 길은 길을 잃었을 때만 나타난다.
-            if !model.isOnToday { todayButton }
-
-            if isHovering {
-                QuietButton(symbol: "xmark", help: "치우기 — 달력을 닫습니다", action: onClose)
-            }
+            Spacer(minLength: 4)
+            todayButton
+            HStack(spacing: 0) { monthStep(-1); monthStep(1) }
+                .background(Theme.softAccent, in: RoundedRectangle(cornerRadius: 9))
+            QuietButton(symbol: "xmark", help: "치우기 — 달력을 닫습니다", action: onClose)
         }
-        .padding(.horizontal, Theme.tight)
-        // 판형이 셈에 쓴 높이를 화면이 그대로 지킨다. 여기가 몇 pt 어긋나면
-        // 격자가 창을 넘고, 넘은 만큼은 잘려서 안 보인다.
+        .padding(.horizontal, 18)
         .frame(height: CalendarLayout.headerHeight)
     }
 
@@ -262,15 +190,10 @@ struct CalendarView: View {
     private func monthStep(_ delta: Int) -> some View {
         let month = MonthStrip.neighbor(of: model.grid.month, by: delta)
         return Button { model.stepMonth(delta) } label: {
-            Text("\(month)월")
-                .font(.system(size: 11.5))
-                .foregroundStyle(Paper.ink.opacity(isHovering ? 0.46 : 0.22))
-                .padding(.horizontal, Theme.snug)
-                .frame(height: Theme.touch)
-                .background {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(Paper.ink.opacity(isHovering ? 0.05 : 0))
-                }
+            Image(systemName: delta < 0 ? "chevron.left" : "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.accentInk)
+                .frame(width: 28, height: 28)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -282,10 +205,10 @@ struct CalendarView: View {
         Button { model.goToday() } label: {
             Text("오늘")
                 .font(.system(size: 10.5, weight: .semibold))
-                .foregroundStyle(Theme.highlightInk)
+                .foregroundStyle(Theme.accentInk)
                 .padding(.horizontal, Theme.snug)
                 .frame(height: Theme.touchRow)
-                .background(Capsule().fill(Theme.highlightWash))
+                .background(Capsule().fill(Theme.softAccent))
                 .contentShape(.capsule)
         }
         .buttonStyle(.plain)
@@ -343,7 +266,7 @@ struct CalendarView: View {
         // 붐비는 날의 얼룩은 칸이 아니라 **격자 전체에 한 장으로** 그린다
         // (`InkBleedLayer`). 얼룩이 칸 경계를 조금 넘어가는 것도 여기서 온다.
         .background {
-            InkBleedLayer(rows: model.grid.weeks.count, stains: ink.stains, week: ink.week)
+            InkBleedLayer(rows: model.grid.weeks.count, stains: ink.stains, week: nil)
         }
         // 칸마다 자리를 묻지 않고 격자 하나만 잰다 — 나머지는 산수다
         // (`MonthGridGeometry`). 화면에 뷰 42개를 더 만들지 않기 위한 선택이다.
@@ -405,7 +328,7 @@ struct CalendarView: View {
 
         return ZStack {
             if isTarget {
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                RoundedRectangle(cornerRadius: Theme.chipRadius, style: .continuous)
                     // **잉크 쪽 값이다.** 면을 칠하는 딥 네이비를 13% 로 깔면
                     // 어두운 종이에서 아무것도 안 보인다 — 끌고 있는 동안
                     // 가장 중요한 표시가 다크에서만 사라진다.
@@ -414,54 +337,18 @@ struct CalendarView: View {
                     .padding(.vertical, 1.5)
             }
 
-            if isToday {
-                // 동그라미 안쪽에 색이 스며 있다. 획만으로는 흘긋 볼 때
-                // 안 잡히고, 채운 원은 다시 UI 부품이 된다.
-                Ellipse()
-                    .fill(RadialGradient(
-                        stops: [
-                            .init(color: Theme.highlightWash, location: 0),
-                            .init(color: Theme.highlightWash, location: 0.55),
-                            .init(color: Theme.highlightWash.opacity(0), location: 1),
-                        ],
-                        center: .center, startRadius: 0, endRadius: plan.markSize * 0.67
-                    ))
-                    .frame(width: plan.markSize * 1.33, height: plan.markSize * 1.06)
-                // 획의 굵기도 지름을 따라간다. 굵기를 못 박아 두면 큰 칸에서
-                // 동그라미가 가는 철사처럼 보인다.
-                HandRing(
-                    seed: day.date.penSeed,
-                    startWidth: plan.markSize * 0.10,
-                    endWidth: plan.markSize * 0.039
-                )
-                .fill(Theme.highlightInk)
-                .frame(width: plan.markSize * 1.44, height: plan.markSize * 1.17)
+            if isSelected || isToday {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isToday ? Theme.accent : Theme.softAccent)
+                    .frame(width: plan.markSize * 1.48, height: plan.markSize * 1.20)
+                    .offset(y: -3)
             }
 
             Text("\(day.date.day)")
-                .font(
-                    .system(size: plan.numeralSize, weight: isToday ? .semibold : .regular)
-                        .monospacedDigit()
-                )
-                .foregroundStyle(numeralColor(column: column, isTarget: isTarget, presence: presence))
-                .offset(y: -0.5)
-
-            // 오늘이면서 고른 날일 때 — 창을 열면 늘 그렇다 — 밑줄을 겹치지
-            // 않는다. 동그라미가 이미 그 칸을 가리키고 있고, 둘이 겹치면
-            // 꼬리와 밑줄이 엉켜 두 표시가 다 안 읽힌다.
-            if isSelected, !isToday {
-                // 숫자에 **바짝 붙인다.** 아래로 내리면 얼룩과 같은 높이에
-                // 앉아 둘이 한 덩어리로 뭉치고, 그러면 밑줄도 얼룩도 아닌
-                // 검댕이 된다. 폭도 숫자만큼만 — 얼룩보다 좁아야 갈린다.
-                HandUnderline(
-                    seed: day.date.penSeed,
-                    startWidth: plan.markSize * 0.094,
-                    endWidth: plan.markSize * 0.028
-                )
-                .fill(Paper.ink.opacity(0.62))
-                .frame(width: plan.markSize * 0.89, height: plan.markSize * 0.17)
-                .offset(y: plan.markSize * 0.40)
-            }
+                .font(.system(size: plan.numeralSize, weight: isToday || isSelected ? .bold : .medium,
+                              design: .rounded).monospacedDigit())
+                .foregroundStyle(isToday ? Theme.onAccent : numeralColor(column: column, isTarget: isTarget, presence: presence))
+                .offset(y: -3)
         }
         .frame(maxWidth: .infinity)
         .frame(height: plan.weekHeight)
@@ -568,7 +455,7 @@ struct CalendarView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         // 접힌 자리 너머는 **적는 면**이다. 메모가 놓이는 종이와 같은 점
         // 그리드를 깔아, 저쪽은 달을 보는 곳 이쪽은 쓰는 곳이라고 재질로 말한다.
-        .background { DotGrid(color: Paper.ink.opacity(0.10), inset: Theme.snug) }
+        .background(Theme.softAccent.opacity(0.5))
     }
 
     /// 고른 날의 머리 — **판형마다 다른 물건이다.**
@@ -586,9 +473,9 @@ struct CalendarView: View {
         switch plan.shape {
         case .tall:
             Text(dayTitle)
-                .font(.system(size: 11.5, weight: .semibold))
-                .tracking(0.2)
-                .foregroundStyle(Paper.ink.opacity(0.62))
+                .font(.system(size: 13, weight: .semibold))
+                .tracking(-0.2)
+                .foregroundStyle(Theme.accentInk)
                 .padding(.bottom, 7)
 
         case .wide:
@@ -673,7 +560,7 @@ struct CalendarView: View {
             Text(event.isAllDay ? "종일" : clockLabel(event.start))
                 .font(Self.clockFont)
                 .foregroundStyle(.tertiary)
-                .frame(width: 34, alignment: .leading)
+                .frame(width: 38, alignment: .leading)
 
             Text(event.title)
                 .font(Self.rowFont)
@@ -709,7 +596,7 @@ struct CalendarView: View {
             Text(clockLabel(memo))
                 .font(Self.clockFont)
                 .foregroundStyle(.secondary)
-                .frame(width: 34, alignment: .leading)
+                .frame(width: 38, alignment: .leading)
 
             Text(memo.title)
                 .font(Self.rowFont)
@@ -941,11 +828,11 @@ struct CalendarView: View {
             .padding(.vertical, 4)
             // 손에 들려 있는 것이므로 종이 위에 떠 있다 — 맨 종이로 칠하면
             // 다크에서 이 조각이 달력보다 어두워져 구멍처럼 보인다.
-            .background { RaisedSurface(ink: MemoColor.gray.ink, radius: 4, shadow: 5, lift: 2) }
-            .overlay(
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .strokeBorder(Paper.ink.opacity(0.14), lineWidth: 0.75)
-            )
+            .background { RaisedSurface(ink: MemoColor.gray.ink, radius: Theme.chipRadius, shadow: 5, lift: 2) }
+            // 손에 들린 조각도 종이다 — 바탕화면의 종이와 같은 가장자리를 쓴다
+            // (`PaperEdge`). 두께 없는 테두리를 두르면 끌고 가는 동안만 그것이
+            // 종이가 아닌 칩으로 보인다 (§14.10).
+            .overlay { Theme.edge(radius: Theme.chipRadius) }
             .fixedSize()
             .position(x: carried.point.x + 6, y: carried.point.y - 13)
             .allowsHitTesting(false)
@@ -975,9 +862,9 @@ struct CalendarView: View {
             // 노트에서 한 줄 더 적을 자리가 그렇게 생겼다.
             Button(action: openWriter) {
                 HStack(spacing: Theme.tight) {
-                    Text("이 날에 적기")
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(Paper.ink.opacity(isHovering ? 0.50 : 0.24))
+                    Label("이 날에 적기", systemImage: "plus")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Theme.accentInk)
                     DashedRule()
                         .stroke(
                             Paper.ink.opacity(isHovering ? 0.22 : 0.11),

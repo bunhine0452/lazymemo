@@ -99,7 +99,9 @@ struct CaptureChipLayoutTests {
     @Test("칩이 사라지면 상자도 도로 줄어든다")
     func theBoxShrinksBackWithoutTheChip() throws {
         let (controller, _) = try makeController()
+        // 빈 화면에는 검색 바로가기가 있으므로 같은 일반 입력 상태와 비교한다.
         controller.resize()
+        controller.typeForTesting("치과")
         let plain = controller.placement.frame.height
 
         controller.typeForTesting("내일")

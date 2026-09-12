@@ -6,6 +6,20 @@ import Testing
 @MainActor
 @Suite("Updater")
 struct UpdaterTests {
+    @Test("App Store 배포본은 수동 요청에도 외부 네트워크를 호출하지 않는다")
+    func appStoreNeverFetches() async {
+        let updater = Updater(settings: settings(), source: .appStore, fetch: { _ in
+            Issue.record("App Store 앱이 외부 업데이트 서버를 호출했습니다")
+            return Data()
+        })
+        updater.setEnabled(true)
+        #expect(!updater.isEnabled)
+        await updater.check()
+        await updater.check(userAsked: true)
+        await updater.install()
+        #expect(updater.state == .idle)
+        #expect(updater.lastChecked == nil)
+    }
     private func settings() -> SettingsStore {
         let directory = URL(filePath: NSTemporaryDirectory(), directoryHint: .isDirectory)
             .appending(path: "lazymemo-updater-\(UUID().uuidString)", directoryHint: .isDirectory)

@@ -105,6 +105,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             // 파일이 정본이므로 화면은 스캔 결과를 따른다 (§4).
             await store.start()
+            let firstLaunch = WelcomeNote.shouldGreet(
+                greeted: settings.current.greeted, memoCount: store.memos.count
+            )
             // 처음 켠 사람에게는 안내서 대신 **메모 한 장**을 놓는다.
             // 창을 세우기 전에 놓아야 그 종이도 함께 바탕화면에 오른다.
             await WelcomeNote.place(in: store, settings: settings)
@@ -116,6 +119,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             menuBar.restoreDrawer()
 
             let environment = ProcessInfo.processInfo.environment
+            if firstLaunch && !environment.keys.contains(where: { $0.hasPrefix("LAZYMEMO_") }) {
+                menuBar.showWelcome()
+            }
             if environment["LAZYMEMO_SPIKE"] == "1" {
                 menuBar.openSpike()
             }

@@ -2,53 +2,39 @@ import AppKit
 import LazyMemoCore
 import SwiftUI
 
-/// # lazymemo 디자인 철학 — 「흐릿하게 남는다」
-///
-/// 이 앱은 사용자가 게으르다는 것을 결함이 아니라 **전제**로 삼는다.
-/// 그 전제를 끝까지 밀면 화면은 이렇게 생겨야 한다.
-///
-/// ## 1. 완성을 요구하지 않는다
-///
-/// 쓰다 만 것, 제목 없는 것, 날짜 없는 것이 **정상 상태**다. 빈칸도, 채우라는
-/// 표시도, "저장" 버튼도 두지 않는다. 앱 아이콘의 흘러내리는 둘째 줄이 이
-/// 문장의 그림이다.
-///
-/// ## 2. 시간이 유일한 구조다
-///
-/// 게으른 사람은 폴더도 태그도 유지하지 않는다. 유일하게 받아들이는 구조는
-/// "언제"뿐이다. 그래서 달력은 보는 물건이 아니라 **만지는 물건**이고 —
-/// 집어서 다른 날에 놓고, 한 번 눌러 미룬다 — 빠른 입력은 시간을 가리키는
-/// 말을 스스로 읽는다. 사용자가 형식을 배우게 하지 않는다.
-///
-/// ## 3. 오래된 것은 스스로 물러난다
-///
-/// 정리하지 않는 사람의 바탕화면은 결국 낡은 종이로 덮인다. 그러니 시간이
-/// 지난 것이 조용히 바래야 한다 (`MemoAge`). 사용자가 아무것도 하지 않아도
-/// 화면이 정돈된다. 포인터를 올리면 다시 또렷해진다 — 읽으려는 뜻이 곧
-/// 되살리는 신호다.
-///
-/// ## 4. 앱은 자기를 드러내지 않는다
-///
-/// 기본 상태의 메모는 **글자와 종이뿐**이다. 머리글도, 아이콘 줄도, 색 점도
-/// 없다. 조작 버튼은 포인터가 올 때 내용 위에 겹쳐 뜨고, 자리를 차지하지 않는다.
-///
-/// ## 재질은 하나 — 종이
-///
-/// 유리(`glassEffect`)를 쓰지 않는다. 메모에서, 달력에서, 빠른 입력에서
-/// 차례로 시도했다가 모두 되돌렸다. **반투명한 면 위의 글은 씻겨 나간다.**
-/// 바탕화면 사진이 무엇이든 글은 읽혀야 하는데, 유리는 그 통제권을 배경에
-/// 넘긴다. 빠른 입력처럼 "지금 치고 있는 글자" 가 있는 곳에서는 더더욱 그렇다.
-///
-/// 떠 있다는 느낌은 투명도가 아니라 **그림자와 크기와 자리**가 만든다.
-/// 재질이 하나면 화면 전체가 한 물건으로 읽히기도 한다.
+/// 앱 아이콘의 두 글줄. 작은 크기에서도 같은 브랜드를 사용한다.
+struct MemoBrandMark: View {
+    var body: some View {
+        Canvas { context, size in
+            var first = Path()
+            first.move(to: CGPoint(x: size.width * 0.23, y: size.height * 0.36))
+            first.addLine(to: CGPoint(x: size.width * 0.77, y: size.height * 0.36))
+            context.stroke(first, with: .color(Theme.onAccent), style: StrokeStyle(lineWidth: 2.6, lineCap: .round))
+            var second = Path()
+            second.move(to: CGPoint(x: size.width * 0.23, y: size.height * 0.58))
+            second.addCurve(to: CGPoint(x: size.width * 0.73, y: size.height * 0.73),
+                            control1: CGPoint(x: size.width * 0.62, y: size.height * 0.58),
+                            control2: CGPoint(x: size.width * 0.66, y: size.height * 0.70))
+            context.stroke(second, with: .color(Color(red: 0.70, green: 0.84, blue: 0.60)),
+                           style: StrokeStyle(lineWidth: 2.3, lineCap: .round))
+        }
+        .frame(width: 27, height: 27)
+        .background(Theme.accent, in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityHidden(true)
+    }
+}
+
+/// 크림과 포레스트: 편안한 바탕 위에 행동을 또렷하게 드러낸다.
+/// 메모의 색과 자동 저장은 유지하며, 패널에는 명확한 제목과 조작을 둔다.
+/// 2026-09 전면 개편의 시각 규칙은 docs/VISUAL_DESIGN.md를 따른다.
 enum Theme {
     // MARK: 형태
 
-    /// **종이는 각져 있다.** 둥글릴수록 UI 카드로 보인다. 재단된 종이의
-    /// 모서리가 아주 살짝 무뎌진 정도만 준다.
-    static let cardRadius: CGFloat = 5
-    static let panelRadius: CGFloat = 8
-    static let controlRadius: CGFloat = 7
+    /// 본문 카드와 패널, 작은 조각의 모서리를 크기에 맞춰 구분한다.
+    static let cardRadius: CGFloat = 14
+    static let chipRadius: CGFloat = 8
+    static let panelRadius: CGFloat = 20
+    static let controlRadius: CGFloat = 10
     static let borderWidth: CGFloat = 1.5
 
     // MARK: 여백 — 다섯 단계
@@ -103,20 +89,18 @@ enum Theme {
 
     // MARK: 색
 
-    /// 앱 마크의 판 색. 아이콘과 UI 가 같은 딥 슬레이트 네이비를 쓴다.
+    /// 앱 마크와 주요 행동 버튼이 공유하는 포레스트 색.
     /// **면을 칠하는 색이다** — 글자에 쓰면 안 된다 (아래 `accentInk`).
-    static let accent = Color(red: 0.18, green: 0.26, blue: 0.38)
+    static let accent = Color(red: 0.16, green: 0.32, blue: 0.27)
+    static let onAccent = Color(red: 0.98, green: 0.98, blue: 0.94)
+    static var softAccent: Color { accentInk.opacity(0.09) }
+    static var secondaryInk: Color { Paper.ink.opacity(0.64) }
 
-    /// 같은 네이비를 **글자로 쓸 때.**
-    ///
-    /// 호박색에서 한 번 겪은 일이다 (아래 `highlightInk`) — 면에 맞게 고른 색을
-    /// 글자에 그대로 쓰면 한쪽 외관에서 읽히지 않는다. 딥 네이비는 미색 종이
-    /// 위에서 또렷하지만(11:1) 숯색 종이 위에서는 **바탕에 잠긴다**(1.6:1).
-    /// 「되돌리기」가 안 읽히면 그 줄은 있으나 마나다.
+    /// 작은 글자와 아이콘은 다크 모드에서 밝은 세이지로 바꾼다.
     static let accentInkNSColor = NSColor(name: nil) { appearance in
         appearance.isDark
-            ? NSColor(srgbRed: 0.60, green: 0.72, blue: 0.90, alpha: 1)
-            : NSColor(srgbRed: 0.18, green: 0.26, blue: 0.38, alpha: 1)
+            ? NSColor(srgbRed: 0.65, green: 0.83, blue: 0.73, alpha: 1)
+            : NSColor(srgbRed: 0.16, green: 0.32, blue: 0.27, alpha: 1)
     }
     static var accentInk: Color { Color(nsColor: accentInkNSColor) }
     /// 아이콘의 흘러내리는 획 색. 오늘·지금을 가리킬 때만 쓴다.
@@ -229,7 +213,7 @@ struct PaperSurface: View {
                     //
                     // 숯색 종이에서 조금 더 진한 것은 앞선 판과 같은 이유다:
                     // 어두운 바탕에서 옅은 점은 점이 아니라 잡티로 보인다.
-                    DotGrid(color: tint.opacity(isDark ? 0.26 : 0.22))
+                    DotGrid(color: tint.opacity(isDark ? 0.08 : 0.07))
                 }
             }
             .overlay {
@@ -282,7 +266,7 @@ struct PaperGrain: View {
                 // 알아채지 못할 만큼만. 눈에 띄면 잡티가 아니라 잡음이 된다.
                 // 점을 물린 만큼(`PaperSurface`) 결이 그 몫을 조금 받는다 —
                 // 종이를 물건으로 만드는 것은 격자가 아니라 표면이다.
-                .opacity(0.20)
+                .opacity(0.045)
                 .allowsHitTesting(false)
         }
     }
@@ -315,11 +299,11 @@ struct RaisedSurface: View {
         // 붙는다. 실제 물건은 둘을 동시에 한다 — 닿는 자리에 좁고 진한 그림자가
         // 있고, 그 둘레로 넓고 옅은 그림자가 퍼진다.
         .shadow(
-            color: .black.opacity(colorScheme == .dark ? 0.50 : 0.16),
+            color: .black.opacity(colorScheme == .dark ? 0.20 : 0.06),
             radius: 1, y: 0.5
         )
         .shadow(
-            color: .black.opacity(colorScheme == .dark ? 0.32 : 0.11),
+            color: .black.opacity(colorScheme == .dark ? 0.16 : 0.06),
             radius: shadow * 1.6, y: lift + 1
         )
     }

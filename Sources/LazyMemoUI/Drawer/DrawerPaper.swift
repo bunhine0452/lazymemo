@@ -19,7 +19,7 @@ struct DrawerPaper: View {
     /// 손이 얹혔는가 — 잠깐 커지고 그림자가 깊어진다.
     var lifted: Bool = false
 
-    private var radius: CGFloat { detail ? Theme.cardRadius : 4 }
+    private var radius: CGFloat { detail ? Theme.cardRadius : Theme.chipRadius }
 
     /// 제목을 뺀 나머지 — 원래 크기일 때만 적는다.
     ///
@@ -95,21 +95,31 @@ struct DrawerPaper: View {
         // 벌어진 자리에서 글이 없는 종이가 «빈 종이» 가 아니라 **색 덩어리**로
         // 보였다 — 이 앱의 재질은 종이 하나인데(§14.5) 작은 장만 칩이 된 것이다.
         .background { PaperSurface(tint: memo.color.ink, radius: radius) }
-        .overlay {
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .strokeBorder(Paper.ink.opacity(0.10), lineWidth: 0.75)
-        }
+        // **잘린 가장자리는 크기와 무관하다** (`PaperEdge`). 앞선 판은 여기만
+        // 사방을 같은 세기(잉크 10%)로 둘렀는데, 그것은 바탕화면의 종이가 이미
+        // 버린 그림이다 — 두께 없는 테두리는 종이를 «색칠한 사각형» 으로 만든다.
+        // 같은 종이가 서랍 안에서만 칩으로 보일 이유가 없다 (§14.10).
+        .overlay { Theme.edge(radius: radius) }
         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+        .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 2).fill(memo.color.tint)
+                .frame(width: 3, height: detail ? 26 : 13)
+                .padding(.leading, 1)
+                .frame(maxHeight: .infinity, alignment: .top)
+                .padding(.top, detail ? 16 : 9)
+                .allowsHitTesting(false)
+        }
+        .compositingGroup()
         // 종이는 서랍 바닥에 놓여 있다 — 손이 오면 한 장만 들린다.
         //
         // **닿는 그림자와 퍼지는 그림자를 나눈다** (`RaisedSurface` 와 같은 셈).
         // 한 겹이면 들릴 때 그림자가 «진해지면서 퍼지는데», 실제로는 반대다 —
         // 바닥을 떠나는 순간 닿는 자리의 진한 그림자가 **옅어지고** 주변으로
         // 퍼지는 쪽이 자란다. 그 두 방향이 어긋나야 종이가 들린 것으로 보인다.
-        .shadow(color: .black.opacity(lifted ? 0.14 : 0.22), radius: 1, y: 0.5)
+        .shadow(color: .black.opacity(lifted ? 0.06 : 0.04), radius: 1, y: 0.5)
         .shadow(
-            color: .black.opacity(lifted ? 0.22 : 0.08),
-            radius: lifted ? 11 : 4, y: lifted ? 5 : 1.5
+            color: .black.opacity(lifted ? 0.12 : 0.04),
+            radius: lifted ? 9 : 3, y: lifted ? 4 : 1
         )
     }
 

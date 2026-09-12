@@ -3,13 +3,16 @@
 #
 # 색이나 비례를 바꾸려면 scripts/make-icon.swift 를 고치고 이걸 다시 돌린다.
 # 디자인 파일이 아니라 코드가 원본이라, 변경이 diff 로 남는다.
+#
+# 미리보기(build/icon/comparison.png)는 **시스템이 깎은 뒤의 모습**을 그린다.
+# macOS 26 은 넣은 그림을 그대로 쓰지 않는다 — make-icon.swift 첫머리 참고.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 echo "▸ 아이콘 렌더"
-swift scripts/make-icon.swift --variant "${1:-b}" >/dev/null
+swift scripts/make-icon.swift >/dev/null
 
 echo "▸ .icns 조립"
 iconutil --convert icns build/icon/AppIcon.iconset --output Resources/AppIcon.icns

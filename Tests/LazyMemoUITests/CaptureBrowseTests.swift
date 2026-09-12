@@ -1,4 +1,6 @@
 import Foundation
+import AppKit
+import SwiftUI
 import LazyMemoCore
 import Testing
 @testable import LazyMemoUI
@@ -12,6 +14,20 @@ import Testing
 @MainActor
 @Suite("빠른 입력 — 다른 메모로 가는 길")
 struct CaptureBrowseTests {
+    @Test("메모 스무 장을 펼쳐도 입력창은 화면 높이를 넘지 않는다")
+    func expandedResultsStayBounded() async throws {
+        let store = try makeStore()
+        try await fill(store, (1...24).map { "메모 \($0)" })
+        let model = QuickCaptureModel(store: store)
+        model.prepareForShow()
+        model.expand()
+        let hosting = NSHostingView(rootView: QuickCaptureView(model: model, onCommit: {}, onCancel: {}))
+        hosting.frame.size.width = QuickCaptureController.width
+        hosting.layoutSubtreeIfNeeded()
+        #expect(model.listed.count == 20)
+        #expect(hosting.fittingSize.height <= 550)
+        #expect(hosting.fittingSize.height >= 300)
+    }
     private func makeStore() throws -> MemoStore {
         let root = URL(filePath: NSTemporaryDirectory(), directoryHint: .isDirectory)
             .appending(path: "lazymemo-browse-\(UUID().uuidString)", directoryHint: .isDirectory)
