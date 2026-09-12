@@ -41,12 +41,12 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 - [x] 설정 → 「iCloud 로 동기화」 — 컨테이너 자리 해석(entitlement 있으면 API, 없으면 Mobile Documents 경로) 뒤 VaultRelocation 재사용 {#mac-icloud-sync}
 - [x] vault 가 Mobile Documents 안이면 맥에서도 미다운로드 파일을 내려받는다 (Mac 저장 공간 최적화 대비) {#mac-placeholder}
 - [x] build-app.sh 에 Developer ID 서명·iCloud entitlement·프로비저닝·공증 경로 — 환경변수로 identity, 없으면 지금처럼 ad-hoc {#mac-signing}
-- [ ] README·DESIGN §5.1·§12 에 iOS 앱과 iCloud 컨테이너를 적는다 — 단축어 절은 「앱 없이」 대안으로 남긴다 {#mac-docs}
+- [x] README·DESIGN §5.1·§12 에 iOS 앱과 iCloud 컨테이너를 적는다 — 단축어 절은 「앱 없이」 대안으로 남긴다 {#mac-docs}
 
 ## 손에 쥐어 본다 {#release}
 - [ ] 실기기(아이폰) 설치 + 맥과 왕복 동기화 손검증 — 지연·충돌·오프라인·플레이스홀더 {#release-device}
 - [ ] App Store Connect 앱 레코드 + TestFlight 업로드 {#release-testflight}
-- [ ] 개인정보 처리방침·스토어 개인정보 응답 — README 프라이버시 절을 기준으로 {#release-privacy}
+- [~] 개인정보 처리방침·스토어 개인정보 응답 — README 프라이버시 절을 기준으로 {#release-privacy}
 
 <!-- oculpm:plan-log begin v1 -->
 | 시각 | 항목 | 에이전트 | 변화 | 일지 | 메모 |
@@ -73,4 +73,6 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 | 2026-09-13T03:15:16+09:00 | #ui-calendar | claude-code | ☐→~ | .oculpm/journal/20260913/Features_to_add/0307_feature_phone-ui-first-cut.md | 1차 구현 — 재설계 대기 |
 | 2026-09-13T03:15:21+09:00 | #ui-editor | claude-code | ☐→~ | .oculpm/journal/20260913/Features_to_add/0307_feature_phone-ui-first-cut.md | 1차 구현 — 재설계 대기 |
 | 2026-09-13T03:15:26+09:00 | #ui-trash | claude-code | ☐→~ | .oculpm/journal/20260913/Features_to_add/0307_feature_phone-ui-first-cut.md | 1차 구현 — 재설계 대기 |
+| 2026-09-13T03:19:06+09:00 | #mac-docs | claude-code | ☐→x | .oculpm/journal/20260913/Chores/0318_chore_icloud-ios-docs-and-privacy.md | README·DESIGN §5.1·§12.2·§13 |
+| 2026-09-13T03:19:12+09:00 | #release-privacy | claude-code | ☐→~ | .oculpm/journal/20260913/Chores/0318_chore_icloud-ios-docs-and-privacy.md | docs/PRIVACY.md 초안 — 사용자 확인·site 에 얹기 남음 |
 <!-- oculpm:plan-log end -->

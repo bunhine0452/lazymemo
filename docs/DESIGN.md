@@ -102,6 +102,14 @@ lazymemo 는 macOS 바탕화면에 상주하는 메모 + 캘린더 앱이다.
 - **옮긴 뒤에는 앱을 껐다 켠다.** 저장소·인덱스·파일 감시자·떠 있는 창을 살아 있는 채로 갈아 끼우면 "반쯤 옛 자리를 보고 있는 상태"가 생기고, 저장 버튼이 없는 앱에서 그 상태는 곧 글을 잃는 자리다. 뜨는 데 1초가 안 걸리므로 껐다 켜는 편이 짧고 안전하다. 옮기기 **전에** 적던 글을 전부 파일에 내린다.
 - **적어 둔 폴더가 없어졌으면**(외장 디스크를 안 꽂았거나 iCloud 가 아직 안 내려왔거나) 기본 자리로 돌아가되 **메뉴 첫머리에 그렇게 적는다.** 조용히 되돌아가면 사용자가 보는 것은 "메모가 전부 사라졌다"이다. 설정도 지우지 않는다 — 그 자리가 돌아오면 다시 그리로 간다.
 
+**아이폰과 같은 폴더 — iCloud 컨테이너.** 「폴더를 옮기면 동기화된다」는 약속을 아이폰 앱까지 넓히면 자리는 하나로 정해진다: 앱 전용 iCloud 컨테이너 `iCloud.io.github.bunhine0452.lazymemo` 의 `Documents/`. 두 앱이 같은 entitlement 로 이 하나를 가리키고, 사용자에게는 iCloud Drive 의 「LazyMemo」 폴더로 보인다 (`NSUbiquitousContainerIsDocumentScopePublic`). Finder 로 열어도 텍스트 에디터로 고쳐도 된다는 약속은 그대로다.
+
+- **맥은 설정 → 「iCloud 로 동기화…」로 간다** (`VaultRelocation.planCloud` → `.merge`). 컨테이너의 `Documents/` 는 iCloud 의 것이라 통째로 갈아 끼울 수 없고(지우면 컨테이너가 아니다), 폰이 먼저 적은 메모가 들어 있을 수 있어 **하나씩 들여놓는다** — 같은 이름의 파일은 건너뛰어 어느 쪽도 지우지 않는다. entitlement 없는 빌드(소스·ad-hoc)는 `~/Library/Mobile Documents/` 아래 그 폴더를 보통 폴더로 본다 — 거기 쓰는 것이 누구든 iCloud 가 올려 보낸다.
+- **폰의 자리 차례** (`AppPaths.resolveCloud`): `LAZYMEMO_VAULT`(시험) > 컨테이너 > App Group(iCloud 가 꺼져 있을 때 — 공유 확장이 앱의 샌드박스를 못 보므로) > 로컬. 어느 쪽인지(`usingCloud`)를 들고 나와 화면이 적는다.
+- **iCloud 가 자리만 잡아 둔 파일**(숨은 `.<ulid>.md.icloud`)은 `MemoVault.scan` 이 건너뛰므로 우리가 청하지 않으면 그 메모는 화면에 없다. `reconcile` 이 `startDownloadingUbiquitousItem` 을 청하고, 내려오면 감시가 다시 부른다. 폰은 FSEvents 대신 `NSMetadataQuery` 를 듣는다.
+- **두 기기가 같은 메모를 따로 고치면** iCloud 가 판본을 둘 남긴다. `ConflictSettlement` — `updated` 가 늦은 판본이 자리를 지키고 진 판본은 **새 ULID 로 휴지통에** 간다 (D6 의 연장: 글이 사라지는 길은 없다). 글이 같으면 충돌이 아니다.
+- `NSFileCoordinator` 는 안 쓴다. 원자적 쓰기는 임시 파일 + 이름 바꾸기라 iCloud 가 반쪽을 볼 수 없고, 겹치면 판본이 하나 더 생기는 것이 최악이며 그건 위 정리가 받는다. 실기기 왕복에서 유실·충돌 보고가 오면 그때 감싼다 (`MemoVault.save` 의 표식).
+
 **창 위치를 메모 파일이 아니라 `layout.json` 에 두는 이유:** 메모 파일은 사용자와 LLM 이 읽고 쓰는 대상이다. 창을 드래그할 때마다 정본 파일이 갱신되면 동기화 충돌과 무의미한 diff 가 생기고, LLM 이 파일을 다시 쓰면서 좌표를 날릴 위험이 있다. UI 상태는 기계 영역에 격리한다.
 
 ### 5.2 메모 파일 형식
@@ -586,7 +594,7 @@ brew install --cask lazymemo
 
 떼는 것이 그나마 정당한 근거는 하나뿐이다: **그 zip 이 어디서 나왔는지 누구나 확인할 수 있다.** 같은 저장소의 태그에서 `scripts/package-release.sh` 하나로 만들어지고, 소스에서 빌드해 같은 것이 나오는지 대조할 수 있다.
 
-옳은 답은 **Developer ID + 공증**이다. `notarytool` 은 CommandLineTools 에 이미 있으므로 인증서만 발급받으면 CI 에서 자동화된다. 받는 즉시 `postflight` 블록을 통째로 지우고 이 문단도 지운다.
+옳은 답은 **Developer ID + 공증**이다. 개발자 계정이 생겨 `build-app.sh` 에 그 길이 들어 있다 — `LAZYMEMO_SIGN_IDENTITY` 가 있으면 Developer ID + 강화된 런타임 + 타임스탬프로 안의 `lazymemo-mcp` 부터 서명하고(`--deep` 은 순서를 보장하지 않아 공증에서 걸린다), `LAZYMEMO_PROFILE`(iCloud 컨테이너가 든 Developer ID 프로비저닝 프로필)이 있을 때만 `Resources/LazyMemo.entitlements` 를 붙이며(프로필 없이 제한된 entitlement 를 달면 macOS 가 앱을 열어 주지 않는다), `LAZYMEMO_NOTARY_PROFILE` 이 있으면 `notarytool submit --wait` + `stapler`. 없으면 지금처럼 ad-hoc. 릴리스가 그 길로 나가는 순간 `postflight` 블록을 통째로 지우고 이 문단도 지운다.
 
 ### 12.3 태그를 밀면 그것이 곧 배포다
 
@@ -650,7 +658,8 @@ brew 의 앱을 앱이 바꾸면 **Caskroom 의 장부가 어긋난다.** 옛 �
 
 - EventKit 읽기 연동 도입 시점 (D5 의 후순위)
 - 앱 안에서 LLM 을 부르는 경로 — `claude` CLI 서브프로세스 (F-2)
-- Developer ID 발급과 공증 — 받는 즉시 cask 의 검역 딱지 떼기를 지운다 (§12.2)
+- 공증 자격(`notarytool store-credentials`)과 iCloud 가 든 Developer ID 프로비저닝 프로필 — 개발자 포털에서 만든다. 그 길로 릴리스가 나가면 cask 의 검역 딱지 떼기를 지운다 (§12.2)
+- 아이폰 앱 — 화면 규칙은 [`MOBILE_DESIGN.md`](MOBILE_DESIGN.md), 실행 계획은 `.oculpm/planner/lazymemo-ios-icloud.md`. 실기기 왕복(지연·충돌·플레이스홀더)은 아직 손으로 못 봤다
 - homebrew-core 등록 — 지금은 개인 탭(`bunhine0452/homebrew-lazymemo`)이다. core 는 공증과 사용자 수를 본다
 - 메모 수천 장 규모의 인덱스 갱신 전략 (현재 설계는 수백 장 기준)
 - 창 24개 상한을 사용자가 조절할 수 있게 할 것인가
