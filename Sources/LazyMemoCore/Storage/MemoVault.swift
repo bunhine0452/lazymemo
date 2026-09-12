@@ -98,6 +98,12 @@ public actor MemoVault {
         )
         // 원자적 쓰기 — 저장 도중 죽어도 반쪽짜리 파일이 남지 않는다.
         // 저장 버튼 없이 계속 쓰는 앱이라(§8) 중단 지점이 많다.
+        //
+        // iCloud 컨테이너 안에서도 NSFileCoordinator 없이 이대로 쓴다. 원자적
+        // 쓰기는 임시 파일 + 이름 바꾸기라 iCloud 가 반쪽을 볼 수 없고, iCloud 가
+        // 내려놓는 쪽도 같은 방식이라 우리가 반쪽을 읽을 일이 없다. 두 기기가
+        // 따로 고친 것은 판본으로 남고 `settleConflicts` 가 정리한다.
+        // oculpm-defer: 파일 조정 없음 — 같은 파일을 iCloud 가 내려놓는 순간과 겹치면 판본이 하나 더 생길 수 있다; 실기기 왕복에서 유실·충돌 보고가 오면 coordinate(writingItemAt:) 로 감싼다
         try Data(MemoFile.encode(memo).utf8).write(to: location, options: .atomic)
 
         return SaveResult(
@@ -164,6 +170,49 @@ public actor MemoVault {
             purged.append(id)
         }
         return purged
+    }
+
+    // MARK: 충돌 — iCloud 가 판본을 둘 남겼을 때
+
+    /// 판본이 둘 이상인 파일을 찾아 정리한다 (`ConflictSettlement`). 진 판본은
+    /// 휴지통에 새 메모로 남기고, iCloud 에는 정리했다고 알린다 — 알리지
+    /// 않으면 같은 충돌을 다음에 또 본다.
+    ///
+    /// 돌려주는 것은 휴지통으로 간 것들. 화면이 「다른 기기의 글 한 장을 휴지통에
+    /// 두었습니다」 하고 적을 수 있게.
+    @discardableResult
+    public func settleConflicts(now: Date = Date()) throws -> [Memo] {
+        var retired: [Memo] = []
+
+        for location in try scan(directory: paths.notes) {
+            guard let versions = NSFileVersion.unresolvedConflictVersionsOfItem(at: location),
+                  !versions.isEmpty,
+                  let id = MemoFile.identifier(fromFileName: location.lastPathComponent),
+                  let current = try? read(at: location, id: id)
+            else { continue }
+
+            let others = versions.compactMap { try? read(at: $0.url, id: id) }
+            let outcome = ConflictSettlement.settle(current: current, others: others, now: now)
+
+            for loser in outcome.retired {
+                try retire(loser)
+                retired.append(loser)
+            }
+            if outcome.keep != current { try save(outcome.keep) }
+
+            for version in versions { version.isResolved = true }
+            try? NSFileVersion.removeOtherVersionsOfItem(at: location)
+        }
+
+        return retired
+    }
+
+    /// 휴지통에 **바로** 앉힌다 — 바탕화면을 거치지 않는다. 충돌에서 진 판본이
+    /// 잠깐이라도 종이로 서면 사용자는 같은 메모가 둘로 보인다.
+    func retire(_ memo: Memo) throws {
+        precondition(memo.deleted != nil, "휴지통에 앉히는 메모는 deleted 가 있어야 한다")
+        try fileManager.createDirectory(at: paths.trash, withIntermediateDirectories: true)
+        try Data(MemoFile.encode(memo).utf8).write(to: trashURL(for: memo.id), options: .atomic)
     }
 
     // MARK: 내부

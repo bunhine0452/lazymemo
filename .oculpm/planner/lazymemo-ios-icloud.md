@@ -23,10 +23,10 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 - [x] 시뮬레이터에서 앱이 뜨고 메모 한 장이 파일로 떨어지는 스모크 {#ios-sim-build}
 
 ## iCloud 위에서도 정본이 정직하다 {#sync-core}
-- [ ] iOS 용 VaultWatcher — NSMetadataQuery 로 컨테이너 변경을 받아 같은 handler 인터페이스로 넘긴다 {#sync-watcher-ios}
-- [ ] 아직 안 내려온 파일(.icloud 플레이스홀더)에 다운로드를 요청한다 — 스캔에 안 보이는 메모가 없게 {#sync-placeholder}
-- [ ] 충돌 정책 — updated 가 늦은 쪽이 남고 진 쪽은 새 ULID 로 휴지통에 (글은 절대 안 잃는다, D6 연장) + 테스트 {#sync-conflict}
-- [ ] 컨테이너 안 읽기·쓰기에 NSFileCoordinator 가 필요한지 판단하고 필요한 자리에만 붙인다 {#sync-coordination}
+- [x] iOS 용 VaultWatcher — NSMetadataQuery 로 컨테이너 변경을 받아 같은 handler 인터페이스로 넘긴다 {#sync-watcher-ios}
+- [x] 아직 안 내려온 파일(.icloud 플레이스홀더)에 다운로드를 요청한다 — 스캔에 안 보이는 메모가 없게 {#sync-placeholder}
+- [x] 충돌 정책 — updated 가 늦은 쪽이 남고 진 쪽은 새 ULID 로 휴지통에 (글은 절대 안 잃는다, D6 연장) + 테스트 {#sync-conflict}
+- [x] 컨테이너 안 읽기·쓰기에 NSFileCoordinator 가 필요한지 판단하고 필요한 자리에만 붙인다 {#sync-coordination}
 
 ## 폰 화면 — 빠른 입력·목록·달력·편집 {#ios-ui}
 - [ ] 켜면 바로 키보드 — 빠른 입력. 공용 NaturalDateParser 로 날짜를 읽으면 「달력에 남기기」로 바뀐다 {#ui-capture}
@@ -59,4 +59,8 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 | 2026-09-13T02:21:19+09:00 | #ios-entitlements | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0221_feature_ios-app-project-and-icloud-container.md | App ID·컨테이너 등록됨, 기기 빌드 서명에 박힘 |
 | 2026-09-13T02:21:24+09:00 | #ios-paths | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0221_feature_ios-app-project-and-icloud-container.md | AppPaths.resolveCloud + usingCloud, 테스트 3 |
 | 2026-09-13T02:21:29+09:00 | #ios-sim-build | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0221_feature_ios-app-project-and-icloud-container.md | XCUITest 스모크 통과 — 적으면 파일, 파일이면 목록 |
+| 2026-09-13T02:26:10+09:00 | #sync-watcher-ios | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0226_feature_icloud-watcher-placeholders-conflicts.md | NSMetadataQuery, 실기기 확인은 release-device |
+| 2026-09-13T02:26:15+09:00 | #sync-placeholder | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0226_feature_icloud-watcher-placeholders-conflicts.md | 감시자가 보이는 족족 startDownloadingUbiquitousItem |
+| 2026-09-13T02:26:20+09:00 | #sync-conflict | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0226_feature_icloud-watcher-placeholders-conflicts.md | ConflictSettlement + settleConflicts, 테스트 7 |
+| 2026-09-13T02:26:26+09:00 | #sync-coordination | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0226_feature_icloud-watcher-placeholders-conflicts.md | 안 붙임 — 원자적 쓰기로 충분, oculpm-defer 로 트리거 기록 |
 <!-- oculpm:plan-log end -->

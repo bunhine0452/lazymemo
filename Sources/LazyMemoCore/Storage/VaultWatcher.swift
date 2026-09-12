@@ -77,19 +77,115 @@ public final class VaultWatcher: @unchecked Sendable {
     }
 }
 #else
-/// iOS 에는 FSEvents 가 없다. 컨테이너 변경은 `NSMetadataQuery` 로 받는다 —
-/// 그 구현은 동기화 단계에서 이 자리에 들어온다. 그 전까지는 아무것도 듣지
-/// 않는 빈 감시자라, 앱이 켜질 때의 전체 대조(`MemoStore.reconcile`)만이 밖의
-/// 변경을 보는 길이다.
-// oculpm-defer: 빈 감시자 — 폰이 켜져 있는 동안 맥에서 온 변경을 못 본다; sync-watcher-ios 항목에서 NSMetadataQuery 로 채운다
+/// iOS 에는 FSEvents 가 없다. 대신 Vault 는 iCloud 컨테이너 안이라, iCloud 가
+/// 무엇을 내려받고 무엇이 바뀌었는지 말해 주는 `NSMetadataQuery` 를 듣는다.
+///
+/// 하는 일이 둘이다.
+///
+/// 1. **바뀐 것을 알린다** — 맥에서 적은 메모가 내려오면 `handler` 가 불리고,
+///    `MemoStore` 는 전체를 대조한다(맥의 FSEvents 와 같은 배선).
+/// 2. **안 내려온 것을 내려받는다.** iCloud 는 목록만 먼저 주고 내용은 열 때
+///    가져온다 — 그 자리에는 숨은 `.md.icloud` 가 있고 `MemoVault.scan` 은
+///    숨은 파일을 건너뛴다. 그러니 우리가 청하지 않으면 그 메모는 화면에
+///    **없다.** 여기서 보이는 족족 내려받기를 청하고, 내려오면 1 이 다시 돈다.
+///
+/// Vault 가 컨테이너 밖(로컬 폴백)이면 질의는 아무것도 못 찾고, 그때의 폰은
+/// 쓰는 주체가 앱 하나뿐이라 들을 것도 없다.
 public final class VaultWatcher: @unchecked Sendable {
+    private let directories: [String]
+    private let latency: TimeInterval
+    private let handler: @Sendable ([String]) -> Void
+
+    private var query: NSMetadataQuery?
+    private var observers: [NSObjectProtocol] = []
+
     public init(
         directories: [URL],
-        latency: CFTimeInterval = 0.4,
+        latency: TimeInterval = 0.4,
         handler: @escaping @Sendable ([String]) -> Void
-    ) {}
+    ) {
+        self.directories = directories.map { $0.standardizedFileURL.path(percentEncoded: false) }
+        self.latency = latency
+        self.handler = handler
+    }
 
-    public func start() {}
-    public func stop() {}
+    deinit { stop() }
+
+    public func start() {
+        guard query == nil, !directories.isEmpty else { return }
+
+        let query = NSMetadataQuery()
+        query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
+        query.predicate = NSPredicate(format: "%K LIKE %@", NSMetadataItemFSNameKey, "*.\(MemoFile.fileExtension)")
+        query.notificationBatchingInterval = latency
+
+        let center = NotificationCenter.default
+        observers = [
+            center.addObserver(
+                forName: .NSMetadataQueryDidFinishGathering, object: query, queue: nil
+            ) { [weak self] _ in self?.gathered(query) },
+            center.addObserver(
+                forName: .NSMetadataQueryDidUpdate, object: query, queue: nil
+            ) { [weak self] note in self?.updated(query, note) },
+        ]
+        self.query = query
+
+        // 질의는 런루프가 있는 스레드에서 시작해야 알림이 온다.
+        DispatchQueue.main.async { query.start() }
+    }
+
+    public func stop() {
+        guard let query else { return }
+        query.stop()
+        observers.forEach(NotificationCenter.default.removeObserver)
+        observers = []
+        self.query = nil
+    }
+
+    // MARK: 알림
+
+    /// 첫 목록. 아직 안 내려온 것을 전부 청한다 — 폰을 처음 켰을 때 맥의 메모가
+    /// 「있긴 한데 안 보이는」 상태로 남지 않게.
+    private func gathered(_ query: NSMetadataQuery) {
+        query.disableUpdates()
+        defer { query.enableUpdates() }
+        let items = (0..<query.resultCount).compactMap { query.result(at: $0) as? NSMetadataItem }
+        let paths = items.compactMap(location)
+        requestDownloads(items)
+        if !paths.isEmpty { handler(paths) }
+    }
+
+    private func updated(_ query: NSMetadataQuery, _ note: Notification) {
+        query.disableUpdates()
+        defer { query.enableUpdates() }
+        let keys = [
+            NSMetadataQueryUpdateAddedItemsKey,
+            NSMetadataQueryUpdateChangedItemsKey,
+            NSMetadataQueryUpdateRemovedItemsKey,
+        ]
+        let items = keys.flatMap { note.userInfo?[$0] as? [NSMetadataItem] ?? [] }
+        let paths = items.compactMap(location)
+        requestDownloads(items)
+        if !paths.isEmpty { handler(paths) }
+    }
+
+    /// 감시 중인 폴더 안의 것만. 컨테이너에는 `attachments/` 도 있다.
+    private func location(of item: NSMetadataItem) -> String? {
+        guard let url = item.value(forAttribute: NSMetadataItemURLKey) as? URL else { return nil }
+        let path = url.standardizedFileURL.path(percentEncoded: false)
+        return directories.contains { path.hasPrefix($0) } ? path : nil
+    }
+
+    private func requestDownloads(_ items: [NSMetadataItem]) {
+        for item in items {
+            guard let status = item.value(forAttribute: NSMetadataUbiquitousItemDownloadingStatusKey) as? String,
+                  status == NSMetadataUbiquitousItemDownloadingStatusNotDownloaded,
+                  let url = item.value(forAttribute: NSMetadataItemURLKey) as? URL,
+                  location(of: item) != nil
+            else { continue }
+            // 실패해도 다음 알림에 다시 청한다. 여기서 멈추면 그 한 장이 영영 안 보인다.
+            try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+        }
+    }
 }
 #endif
