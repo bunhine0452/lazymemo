@@ -23,7 +23,7 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
 
     /// 종이의 **포인터**가 서랍 안에 있어야 들어온다.
     ///
-    /// 창끼리 겹치는 것으로 판정하지 않는다. 종이(260×200)는 닫힌 서랍(128×108)
+    /// 창끼리 겹치는 것으로 판정하지 않는다. 종이(260×200)는 닫힌 서랍(168×48)
     /// 보다 훨씬 커서, 겹침으로 재면 서랍 근처를 지나가기만 해도 걸린다.
     /// 사람이 겨누는 것은 언제나 **포인터**이므로 그것을 본다.
     ///
@@ -37,6 +37,7 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
     private let store: MemoStore
     private let layouts: LayoutStore
     private let windows: NoteWindowManager
+    private let settings: SettingsStore
     private var window: DesktopLevelWindow?
 
     /// 닫혔을 때의 자리 — **정본이다.** 펼친 창은 여기서 자라고 여기로 돌아온다.
@@ -59,24 +60,26 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
     /// 새로 적으면 **펼치는 동안 서랍이 제자리에서 조금씩 밀려난다.**
     private var isAnimating = false
 
-    init(store: MemoStore, layouts: LayoutStore, windows: NoteWindowManager) {
+    init(store: MemoStore, layouts: LayoutStore, windows: NoteWindowManager, settings: SettingsStore) {
         self.store = store
         self.layouts = layouts
         self.windows = windows
+        self.settings = settings
         self.anchor = Self.restoredAnchor(layouts: layouts)
         self.model = DrawerModel(
             store: store,
             putAway: { [layouts] id in layouts.layout(for: id)?.hidden == true },
-            paperSize: { [layouts] id in
-                layouts.layout(for: id)?.frame.size ?? DrawerGeometry.paperRoom
-            }
+            folders: settings.current.folders ?? []
         )
         super.init()
 
         model.onToggle = { [weak self] open in self?.animate(open: open) }
         model.onTakeOut = { [weak self] id in self?.takeOut(id) }
         model.onDelete = { [weak self] id in self?.delete(id) }
-        // 찾기로 무더기가 줄거나 「더 보기」로 늘면 창도 따라간다. **빠르게**
+        // 폴더의 차례와 빈 폴더는 설정이 든다 (`Settings.folders`). 어느 메모가
+        // 어느 폴더인지는 파일이 안다.
+        model.onFoldersChanged = { [settings] names in settings.update { $0.folders = names } }
+        // 찾기로 목록이 줄거나 줄을 펼치면 창도 따라간다. **빠르게**
         // 따라가야 한다 — 글자 한 자에 0.3초씩 창이 출렁이면 그것은 「좁혀진다」가
         // 아니라 「창이 튄다」로 보인다.
         model.onLayoutChanged = { [weak self] in self?.resizeIfOpen(duration: 0.14) }
@@ -134,7 +137,7 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
         self.window = window
         lastFrame = frame
         record(frame, isVisible: true)
-        model.setCeiling(DrawerGeometry.limit(fitting: screen.height))
+        model.setCeiling(DrawerGeometry.listCeiling(fitting: screen.height))
         watchKeys()
     }
 
@@ -263,6 +266,19 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
         window.riseBriefly()
     }
 
+    /// 끌어다 놓은 것과 같은 길로 넣는다 — 소개 영상 주행(`DemoTour`)이 부른다.
+    func fileForDemo(_ id: ULID) { file(id) }
+
+    /// 닫힌 탭의 자리를 옮긴다 — 소개 영상 주행(`DemoTour`)이 무대 안으로 부른다.
+    /// 자리는 이 창이 만들어질 때 좌표 파일에서 한 번 읽으므로, 그 뒤에 심은
+    /// 무대는 여기로 알려야 한다.
+    func placeForDemo(at origin: CGPoint) {
+        anchor = CGRect(origin: origin, size: DrawerGeometry.closedSize)
+        // 무대에는 탭이 보여야 한다 — 「보이던 대로 되돌린다」가 이 값을 읽는다.
+        record(anchor, isVisible: true)
+        if let window, !model.isOpen { window.setFrame(anchor, display: true) }
+    }
+
     private func takeOut(_ id: ULID) {
         windows.unfile(id)
         model.refresh()
@@ -368,7 +384,7 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
         let returned = " 되돌아옴=\(Self.text(back))"
         let flags = " 모서리고정=\(anchored) 제자리복귀=\(restored) 계획크기=\(sized)"
         let planned = Self.text(CGRect(origin: .zero, size: plan.size))
-        let shape = " (계획 \(planned), \(plan.stacked)장 겹침, 스크롤=\(plan.scrolls))"
+        let shape = " (계획 \(planned), \(plan.rows)줄, 폴더=\(model.folders.count), 스크롤=\(plan.scrolls))"
         return frames + returned + flags + shape
     }
 

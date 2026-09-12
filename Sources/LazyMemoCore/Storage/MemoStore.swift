@@ -138,12 +138,13 @@ public final class MemoStore {
         place: String? = nil,
         geo: Coordinate? = nil,
         tags: [String] = [],
-        color: MemoColor = .default
+        color: MemoColor = .default,
+        folder: String? = nil
     ) async throws -> Memo {
         let memo = try await recording("메모를 만들지 못했습니다") {
             try await service.create(
                 body: body, due: due, at: at, every: every, surface: surface, place: place, geo: geo,
-                tags: tags, color: color
+                tags: tags, color: color, folder: folder
             )
         }
         insertOrReplace(memo)
@@ -162,12 +163,13 @@ public final class MemoStore {
         geo: Coordinate?? = nil,
         tags: [String]? = nil,
         color: MemoColor? = nil,
-        pinned: Bool? = nil
+        pinned: Bool? = nil,
+        folder: String?? = nil
     ) async throws -> Memo {
         let memo = try await recording("메모를 저장하지 못했습니다") {
             try await service.update(
                 id, body: body, due: due, at: at, every: every, surface: surface, place: place, geo: geo,
-                tags: tags, color: color, pinned: pinned
+                tags: tags, color: color, pinned: pinned, folder: folder
             )
         }
         insertOrReplace(memo)

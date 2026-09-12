@@ -82,6 +82,14 @@ public struct Settings: Codable, Sendable, Equatable {
     /// 안내가 아니라 치울 거리이므로, 종이를 만들기 **전에** 적는다.
     public var greeted: Bool?
 
+    /// 서랍의 폴더 이름들 — **차례와 빈 폴더를 위한 것이다** (`MemoFolders`).
+    ///
+    /// 어느 메모가 어느 폴더에 있는지는 파일이 안다 (`Memo.folder`). 여기
+    /// 적는 것은 그 파일들만으로는 알 수 없는 둘뿐이다: 사람이 폴더를 어떤
+    /// 차례로 두었는가, 그리고 아직 아무것도 안 넣은 폴더가 있는가. 이 값을
+    /// 잃어도 메모는 제 폴더 이름표를 그대로 달고 있으므로 폴더는 되살아난다.
+    public var folders: [String]?
+
     public init(
         hotkeyKeyCode: UInt32? = nil,
         hotkeyModifiers: UInt32? = nil,
@@ -95,7 +103,8 @@ public struct Settings: Codable, Sendable, Equatable {
         briefMemoID: String? = nil,
         showsSystemEvents: Bool? = nil,
         checksForUpdates: Bool? = nil,
-        greeted: Bool? = nil
+        greeted: Bool? = nil,
+        folders: [String]? = nil
     ) {
         self.hotkeyKeyCode = hotkeyKeyCode
         self.hotkeyModifiers = hotkeyModifiers
@@ -110,6 +119,7 @@ public struct Settings: Codable, Sendable, Equatable {
         self.showsSystemEvents = showsSystemEvents
         self.checksForUpdates = checksForUpdates
         self.greeted = greeted
+        self.folders = folders
     }
 
     public static let `default` = Settings()

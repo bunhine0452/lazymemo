@@ -70,7 +70,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         )
         self.updater = Updater(settings: settings)
         self.brief = MorningBrief(store: store, settings: settings, windows: windows)
-        self.capture = QuickCaptureController(store: store, windows: windows)
+        self.capture = QuickCaptureController(
+            store: store, windows: windows,
+            // 적던 글은 앱이 죽어도 남는다 — 판을 갈 때 앱이 스스로 닫혔다 뜨므로
+            // 여기 없으면 「새 판으로 바꾸기」가 초안을 지우는 버튼이 된다.
+            draft: CaptureDraftStore(location: paths.captureDraft)
+        )
         let door = InboundDoor(store: store, windows: windows)
         self.door = door
         self.clipboardCapture = ClipboardCapture(store: store, windows: windows, door: door)
@@ -86,9 +91,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // 서랍은 밀어 둔 종이가 가는 자리다 (`DrawerContents`). 창 관리자를
         // 그대로 받는다 — 넣고 꺼내는 것이 전부 종이 창을 여닫는 일이라,
         // 서랍이 좌표 파일을 따로 만지면 규칙이 두 곳에 살게 된다.
-        self.drawer = DrawerWindowController(store: store, layouts: layouts, windows: windows)
+        self.drawer = DrawerWindowController(
+            store: store, layouts: layouts, windows: windows, settings: settings
+        )
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
+
+        // 종이의 우클릭 메뉴가 「폴더에 넣기」를 적을 때 폴더 이름은 서랍이 안다.
+        windows.folderNames = { [weak self] in self?.drawer.model.folders ?? [] }
 
         configureButton()
         menu.delegate = self
@@ -164,6 +174,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// 서랍이 실제 창에서 약속대로 자라고 접히는가 (`verify-drawer.sh`).
     func drawerDiagnostics() async -> String { await drawer.diagnostics() }
 
+    /// 소개 영상 주행 (`scripts/record-demo.sh`). 창들은 여기만 들고 있으므로 여기서 짓는다.
+    func demoTour(in region: CGRect, layouts: LayoutStore) -> DemoTour {
+        DemoTour(
+            region: region, store: store, layouts: layouts, settings: settings,
+            windows: windows, capture: capture, calendar: calendar, drawer: drawer
+        )
+    }
+
     /// 하루가 바뀌었다 (`DayClock`). 달력 창은 여기만 들고 있다.
     func dayChanged(to day: CalendarDate) { calendar.dayChanged(to: day) }
 
@@ -175,6 +193,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     func closeCapture() { capture.close(returningFocus: false) }
+
+    /// 종료 직전 — 빠른 입력이 들고 있던 글을 파일에 남긴다.
+    func flushCaptureDraft() { capture.flushDraft() }
 
     /// `verify-capture.sh` 가 읽는 진단 문자열.
     var captureDiagnostics: String { capture.diagnostics }

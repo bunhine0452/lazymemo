@@ -271,6 +271,15 @@ final class NoteModel {
         memo = (try? await store.update(memo.id, pinned: !memo.pinned)) ?? memo
     }
 
+    /// 서랍의 폴더 이름들. 창 관리자가 넣어 준다 (`NoteWindowManager.folderNames`).
+    var folderNames: () -> [String] = { [] }
+
+    /// 이 종이에 폴더 이름표를 단다. `nil` 이면 뗀다. **자리는 바꾸지 않는다** —
+    /// 서랍에 넣는 것은 부르는 쪽(×와 같은 길)이 한다 (`MemoFolders`).
+    func setFolder(_ folder: String?) async {
+        memo = (try? await store.update(memo.id, folder: .some(folder))) ?? memo
+    }
+
     /// 이 종이를 지운다. **창은 그 자리에 남아 되돌리는 줄을 든다.**
     // MARK: Claude 가 다듬기 (`{#claude-tidy-action}`)
 

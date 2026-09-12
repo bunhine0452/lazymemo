@@ -65,12 +65,13 @@ final class QuickCaptureController {
     /// 두 번 붙지 않는다.
     private var editingKeyMonitor: Any?
 
-    init(store: MemoStore, windows: NoteWindowManager) {
+    init(store: MemoStore, windows: NoteWindowManager, draft: CaptureDraftStore? = nil) {
         self.store = store
         self.windows = windows
         self.model = QuickCaptureModel(
             store: store,
-            lastOpened: { [weak windows] id in windows?.lastOpened(id) }
+            lastOpened: { [weak windows] id in windows?.lastOpened(id) },
+            draft: draft
         )
 
         let initialSize = NSSize(width: Self.width, height: 120)
@@ -121,6 +122,12 @@ final class QuickCaptureController {
     /// 지금 상자에 붙어 있는 사진.
     var imagesForTesting: [AttachedImage] { model.images }
 
+    /// 앱이 끝나기 직전 — 들고 있던 글을 기다리지 않고 적는다.
+    func flushDraft() { model.flushDraft() }
+
+    /// ⌘⏎ 를 누른 것과 같다 — 소개 영상 주행(`DemoTour`)이 부른다.
+    func commitForDemo() { commit() }
+
     /// 표준 편집 단축키가 실제로 글 쓰는 곳까지 닿는지 확인한다.
     ///
     /// 메인 메뉴가 없으면 ⌘A 는 어디에도 도달하지 못한다 (`StandardMenu`).
@@ -147,7 +154,7 @@ final class QuickCaptureController {
     var diagnostics: String {
         "visible=\(panel.isVisible) key=\(panel.isKeyWindow) level=\(panel.level.rawValue) "
             + "hidesOnDeactivate=\(panel.hidesOnDeactivate) appActive=\(NSApp.isActive) "
-            + "frame=\(NSStringFromRect(panel.frame))"
+            + "frame=\(NSStringFromRect(panel.frame)) draft=\(model.query.count)자"
     }
 
     func toggle() {
@@ -465,6 +472,8 @@ final class QuickCaptureController {
         CaptureTrace.log("close 돌려줌=\(returningFocus) visible=\(panel.isVisible)")
         stopWatchingOutsideClicks()
         panel.orderOut(nil)
+        // 닫는 순간이 곧 «기억한다» 의 순간이다. 미뤄 둔 쓰기를 지금 한다.
+        model.flushDraft()
         if returningFocus, NSApp.isActive { NSApp.deactivate() }
     }
 

@@ -45,6 +45,21 @@ struct MemoFileTests {
         #expect(again.created == decoded.created)
     }
 
+    @Test("폴더 이름표는 파일에 적히고 그대로 돌아온다")
+    func roundTripsFolder() throws {
+        let memo = Memo(body: "우유", folder: " 장보기 ")
+        #expect(memo.folder == "장보기")
+
+        let encoded = MemoFile.encode(memo)
+        #expect(encoded.contains("folder: 장보기"))
+        #expect(try MemoFile.decode(encoded).folder == "장보기")
+
+        // 이름표가 없으면 줄도 없다 — 파일에 빈 칸을 남기지 않는다.
+        let plain = MemoFile.encode(Memo(body: "우유"))
+        #expect(!plain.contains("folder:"))
+        #expect(try MemoFile.decode(plain).folder == nil)
+    }
+
     @Test("모르는 frontmatter 키를 지우지 않는다")
     func preservesUnknownKeys() throws {
         let text = """

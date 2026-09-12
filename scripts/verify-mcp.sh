@@ -35,6 +35,9 @@ OUT="$(LAZYMEMO_VAULT="$VAULT" "$BIN" 2>/dev/null <<'JSONL'
 {"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"list_memos","arguments":{"from":"2026-09-10","to":"2026-09-10"}}}
 {"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"create_memo","arguments":{"text":"분리수거","due":"2026-09-08","every":"매주"}}}
 {"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"create_memo","arguments":{"text":"가끔","every":"이따금"}}}
+{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"create_memo","arguments":{"text":"우산 새로 사기","folder":" 장보기 "}}}
+{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"list_folders","arguments":{}}}
+{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"list_memos","arguments":{"folder":"장보기"}}}
 JSONL
 )"
 
@@ -60,8 +63,8 @@ echo "▸ MCP 대화 검증"
 
 check "initialize 가 프로토콜 버전을 되돌려준다" \
     "by_id[1]['result']['protocolVersion']=='2025-06-18'"
-check "tools/list 가 도구 7개를 노출한다" \
-    "len(by_id[2]['result']['tools'])==7"
+check "tools/list 가 도구 8개를 노출한다" \
+    "len(by_id[2]['result']['tools'])==8"
 check "나올 시각을 정하는 도구가 있다" \
     "any(t['name']=='surface_memo' for t in by_id[2]['result']['tools'])"
 check "하드 삭제 도구가 없다 (D6)" \
@@ -81,7 +84,7 @@ check "없는 도구도 isError 로 돌려준다" \
 check "모르는 메서드는 JSON-RPC 오류다" \
     "by_id[10]['error']['code']==-32601"
 check "알림에는 응답하지 않는다" \
-    "len(lines)==20"
+    "len(lines)==23"
 check "되풀이하는 일의 주기를 낱말로 돌려준다" \
     "json.loads(by_id[19]['result']['content'][0]['text'])[0]['every']=='매주'"
 check "모르는 주기는 isError 로 돌려준다" \
@@ -114,6 +117,12 @@ check "장소는 자리를 바꾸지 않는다 — 날짜 없는 메모는 일�
     "'at' not in json.loads(by_id[11]['result']['content'][0]['text'])[0] and 'due' not in json.loads(by_id[11]['result']['content'][0]['text'])[0]"
 check "읽을 수 없는 좌표는 isError 로 돌려준다" \
     "by_id[13]['result']['isError'] is True"
+check "폴더 이름표는 앞뒤 공백을 걷어 내고 그대로 돌아온다" \
+    "json.loads(by_id[21]['result']['content'][0]['text'])[0]['folder']=='장보기'"
+check "list_folders 가 폴더와 장수를 센다" \
+    "json.loads(by_id[22]['result']['content'][0]['text'])==[{'name':'장보기','count':1}]"
+check "폴더 필터가 그 칸의 것만 돌려준다" \
+    "[m['text'] for m in json.loads(by_id[23]['result']['content'][0]['text'])]==['우산 새로 사기']"
 
 # 삭제 → 휴지통 → 복원 왕복
 MEMO_ID="$(echo "$OUT" | /usr/bin/python3 -c "
@@ -136,9 +145,9 @@ OUT="$OUT2"
 check "delete_memo 후 휴지통에 남아 있다" \
     "len(json.loads(by_id[3]['result']['content'][0]['text']))==1"
 check "삭제한 메모는 목록에서 빠진다" \
-    "len(json.loads(by_id[4]['result']['content'][0]['text']))==4"
+    "len(json.loads(by_id[4]['result']['content'][0]['text']))==5"
 check "restore_memo 로 되돌아온다" \
-    "len(json.loads(by_id[6]['result']['content'][0]['text']))==5"
+    "len(json.loads(by_id[6]['result']['content'][0]['text']))==6"
 
 # 파일이 실제로 남아 있는지 (하드 삭제가 아니었음을 파일 시스템에서 확인)
 if [ -n "$(find "$VAULT/vault" -name '*.md' | head -1)" ]; then

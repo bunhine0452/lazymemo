@@ -57,6 +57,15 @@ public struct Memo: Sendable, Equatable, Identifiable {
     public var pinned: Bool
     public var body: String
 
+    /// 어느 폴더에 넣어 두었는가 (`MemoFolders`). 없으면 폴더 밖이다.
+    ///
+    /// **폴더는 서랍의 칸이다.** 날짜가 자리를 정하는 것(§7.2)과 달리 폴더는
+    /// 종이가 서랍에 들어갔을 때 어느 칸에 놓이는지만 말한다 — 바탕화면에
+    /// 나와 있는 종이도 이 이름표를 달고 있을 수 있고, 다시 넣으면 그 칸으로
+    /// 돌아간다. 이름표는 파일에 적는다: 폴더를 옮겨도, Claude 가 MCP 로
+    /// 읽어도 같은 것을 본다.
+    public var folder: String?
+
     /// trash 에 있는 동안에만 채워진다 (D6). 보존 기간 계산의 근거이며,
     /// 인덱스가 아니라 파일에 두는 이유는 인덱스를 지워도 살아남아야 하기 때문이다.
     public var deleted: Date?
@@ -75,7 +84,7 @@ public struct Memo: Sendable, Equatable, Identifiable {
     /// 앱이 해석하는 키 — 나머지는 전부 `preserved` 로 간다.
     public static let knownKeys: Set<String> = [
         "id", "created", "updated", "due", "at", "every", "surface", "place", "geo",
-        "tags", "color", "pinned", "deleted", "tidied",
+        "tags", "color", "pinned", "folder", "deleted", "tidied",
     ]
 
     public init(
@@ -92,6 +101,7 @@ public struct Memo: Sendable, Equatable, Identifiable {
         color: MemoColor = .default,
         pinned: Bool = false,
         body: String = "",
+        folder: String? = nil,
         deleted: Date? = nil,
         tidied: Date? = nil,
         preserved: [Frontmatter.Entry] = []
@@ -111,6 +121,7 @@ public struct Memo: Sendable, Equatable, Identifiable {
         self.color = color
         self.pinned = pinned
         self.body = body
+        self.folder = MemoFolders.normalized(folder)
         self.deleted = deleted
         self.tidied = tidied
         self.preserved = preserved

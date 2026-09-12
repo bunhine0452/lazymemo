@@ -151,6 +151,9 @@ public final class LayoutStore {
         scheduleSave()
     }
 
+    /// 좌표를 가진 메모 전부. 캘린더·서랍 같은 ULID 아닌 키는 뺀다.
+    public var memoIDs: [ULID] { layouts.keys.compactMap(ULID.init) }
+
     /// 인덱스와 마찬가지로 파생물이다 — 사라진 메모의 좌표는 남겨둘 이유가 없다.
     public func prune(keeping ids: Set<ULID>) {
         let alive = Set(ids.map(\.stringValue))

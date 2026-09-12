@@ -26,6 +26,7 @@ struct MemoTools {
                         "query": ["type": "string", "description": "본문 검색어"],
                         "tag": ["type": "string", "description": "이 태그를 가진 메모만"],
                         "place": ["type": "string", "description": "장소 이름에 이 말이 들어간 메모만 (예: 강남)"],
+                        "folder": ["type": "string", "description": "이 폴더에 넣어 둔 메모만. 폴더 이름은 list_folders 로 얻는다"],
                         "from": ["type": "string", "description": "일정 시작일 YYYY-MM-DD"],
                         "to": ["type": "string", "description": "일정 종료일 YYYY-MM-DD"],
                         "limit": ["type": "integer", "description": "최대 개수 (기본 30)"],
@@ -63,6 +64,10 @@ struct MemoTools {
                             "type": "string",
                             "enum": MemoColor.allCases.map(\.rawValue),
                         ],
+                        "folder": [
+                            "type": "string",
+                            "description": "서랍의 폴더 이름. 넣으면 메모가 바탕화면 대신 서랍의 그 칸으로 간다. 없는 이름이면 폴더가 새로 생긴다",
+                        ],
                     ],
                 ],
             ],
@@ -87,8 +92,14 @@ struct MemoTools {
                         "tags": ["type": "array", "items": ["type": "string"]],
                         "color": ["type": "string", "enum": MemoColor.allCases.map(\.rawValue)],
                         "pinned": ["type": "boolean"],
+                        "folder": ["type": "string", "description": "서랍의 폴더 이름. 빈 문자열이면 폴더에서 뺀다"],
                     ],
                 ],
+            ],
+            [
+                "name": "list_folders",
+                "description": "서랍의 폴더 이름과 각 폴더에 든 메모 수를 나열한다. create_memo·update_memo 의 folder 에 넘길 이름을 여기서 얻는다.",
+                "inputSchema": ["type": "object", "properties": [:]],
             ],
             [
                 "name": "surface_memo",
@@ -164,6 +175,7 @@ struct MemoTools {
         case "delete_memo": try await deleteMemo(arguments)
         case "restore_memo": try await restoreMemo(arguments)
         case "list_trash": try await listTrash()
+        case "list_folders": try await listFolders()
         default: throw Failure.unknownTool(name)
         }
     }
@@ -190,6 +202,9 @@ struct MemoTools {
         if let place = arguments["place"] as? String, !place.isEmpty {
             memos = memos.filter { $0.place?.localizedCaseInsensitiveContains(place) ?? false }
         }
+        if let folder = MemoFolders.normalized(arguments["folder"] as? String) {
+            memos = MemoFolders.filter(memos, folder: folder)
+        }
 
         return encode(Array(memos.prefix(limit)))
     }
@@ -206,7 +221,8 @@ struct MemoTools {
             place: (arguments["place"] as? String).flatMap { $0.isEmpty ? nil : $0 },
             geo: try coordinate(arguments["geo"], field: "geo") ?? nil,
             tags: arguments["tags"] as? [String] ?? [],
-            color: (arguments["color"] as? String).flatMap(MemoColor.init(rawValue:)) ?? .default
+            color: (arguments["color"] as? String).flatMap(MemoColor.init(rawValue:)) ?? .default,
+            folder: MemoFolders.normalized(arguments["folder"] as? String)
         )
         return encode([memo])
     }
@@ -225,7 +241,8 @@ struct MemoTools {
             geo: try coordinate(arguments["geo"], field: "geo"),
             tags: arguments["tags"] as? [String],
             color: (arguments["color"] as? String).flatMap(MemoColor.init(rawValue:)),
-            pinned: arguments["pinned"] as? Bool
+            pinned: arguments["pinned"] as? Bool,
+            folder: optionalText(arguments["folder"])
         )
         return encode([memo])
     }
@@ -252,6 +269,21 @@ struct MemoTools {
 
     private func listTrash() async throws -> String {
         encode(try await service.trashed())
+    }
+
+    /// 폴더는 메모의 이름표에서 읽는다 (`MemoFolders`). 차례와 빈 폴더는
+    /// 앱의 설정이 알지만 여기서는 파일이 아는 것만 말한다 — 이 프로세스는
+    /// 설정 파일을 열지 않는다.
+    private func listFolders() async throws -> String {
+        let memos = try await service.all()
+        let counts = MemoFolders.counts(in: memos)
+        let objects: [[String: Any]] = MemoFolders.names(listed: nil, memos: memos).map {
+            ["name": $0, "count": counts[$0] ?? 0]
+        }
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: objects, options: [.prettyPrinted, .withoutEscapingSlashes]
+        ), let text = String(data: data, encoding: .utf8) else { return "[]" }
+        return text
     }
 
     // MARK: 인자 해석
@@ -317,6 +349,7 @@ struct MemoTools {
             if let place = memo.place { object["place"] = place }
             if let geo = memo.geo { object["geo"] = geo.description }
             if !memo.tags.isEmpty { object["tags"] = memo.tags }
+            if let folder = memo.folder { object["folder"] = folder }
             if let deleted = memo.deleted { object["deleted"] = Timestamp.string(from: deleted) }
             return object
         }

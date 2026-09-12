@@ -24,9 +24,18 @@ import AppKit
 /// 그것은 곧 앱이 없어지는 것이다 (`QuickCapturePanel` 이 같은 함정을 겪었다).
 final class DesktopLevelWindow: NSPanel {
     /// 바탕화면 아이콘 바로 위. Finder 아이콘을 가리지만 일반 앱 창에는 덮인다.
-    static let desktopLevel = NSWindow.Level(
+    static var desktopLevel: NSWindow.Level { stageLevel ?? standardDesktopLevel }
+
+    private static let standardDesktopLevel = NSWindow.Level(
         rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1
     )
+
+    /// **무대 위에서는 다른 자리다** — 소개 영상 주행(`DemoTour`)만 쓴다.
+    ///
+    /// 바탕화면 높이의 창은 다른 앱의 창과 위젯 뒤에 눕는다. 그것이 이 앱의
+    /// 뜻이지만, 화면을 찍는 동안에는 찍히는 것이 남의 창이 된다. 그래서 주행
+    /// 중에만 눕는 자리를 일반 창 위로 올린다. 값이 있으면 그것이 «바탕» 이다.
+    static var stageLevel: NSWindow.Level?
 
     /// 손이 닿은 동안 올라서는 자리.
     ///

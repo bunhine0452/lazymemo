@@ -14,6 +14,18 @@
 /// 「☑ 우유」와 「☑우유」의 차이를 렌더에서 판별할 수 없다.
 enum DrawerText {
 
+    /// 펼친 줄이 본문을 몇 줄 보여 주는가 — 제목을 뺀 줄 수, 1~6.
+    /// 판형이 이 수로 펼친 줄의 높이를 정한다 (`DrawerGeometry.expandedExtra(lines:)`).
+    static let maximumBodyLines = 6
+
+    static func bodyLines(of body: String) -> Int {
+        let lines = body.split(separator: "\n", omittingEmptySubsequences: false)
+        guard let first = lines.firstIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty })
+        else { return 1 }
+        let rest = lines[(first + 1)...].filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        return min(max(rest.count, 1), maximumBodyLines)
+    }
+
     /// 한 줄에서 목록 기호와 체크상자를 사람이 읽는 모양으로 바꾼다.
     static func plain(_ line: some StringProtocol) -> String {
         let text = String(line)

@@ -28,6 +28,9 @@ final class QuickCaptureModel {
             // 목록이므로 접지 않는다.
             isExpanded = false
             scheduleSearch()
+            // 껐다 켜도 남게 적어 둔다 (`CaptureDraftStore`). 상자가 기억한다는
+            // 약속은 프로세스가 죽어도 지켜져야 한다.
+            draft?.remember(query)
         }
     }
 
@@ -137,6 +140,8 @@ final class QuickCaptureModel {
     private let store: MemoStore
     /// 그 메모를 마지막으로 **연** 때. 없으면 열어 본 적이 없다는 뜻이다.
     private let lastOpened: (ULID) -> Date?
+    /// 적던 글을 파일에 남기는 곳. 없으면 이번 실행 동안만 기억한다 (시험·렌더).
+    private let draft: CaptureDraftStore?
     private var searchTask: Task<Void, Never>?
 
     /// 타자마다 인덱스를 때리지 않는다. 사람이 한 글자 더 치는 시간보다 짧게 둔다.
@@ -151,10 +156,23 @@ final class QuickCaptureModel {
     /// 넓혔을 때의 줄 수. 이보다 길면 상자가 화면을 덮는다.
     static let expandedLimit = 20
 
-    init(store: MemoStore, lastOpened: @escaping (ULID) -> Date? = { _ in nil }) {
+    init(
+        store: MemoStore,
+        lastOpened: @escaping (ULID) -> Date? = { _ in nil },
+        draft: CaptureDraftStore? = nil
+    ) {
         self.store = store
         self.lastOpened = lastOpened
+        self.draft = draft
+        // 지난 실행이 들고 있던 글을 도로 든다. 검색은 상자를 열 때 다시
+        // 돈다(`prepareForShow`) — 지금은 메모를 아직 안 읽었을 수 있다.
+        if let remembered = draft?.restored, !remembered.isEmpty {
+            query = remembered
+        }
     }
+
+    /// 기다릴 수 없을 때(상자를 닫을 때, 앱이 끝날 때) 초안을 즉시 적는다.
+    func flushDraft() { draft?.flush() }
 
     /// 적은 것을 지우고 처음으로 되돌린다. **확정한 뒤에만 부른다.**
     func clear() {
@@ -166,6 +184,7 @@ final class QuickCaptureModel {
         pointed = nil
         images = []
         lastDeleted = nil
+        draft?.forget()
         showRecent()
     }
 
@@ -201,7 +220,15 @@ final class QuickCaptureModel {
         // 지난번에 연 뒤로 메모가 늘거나 지워졌을 수 있다. 목록은 파일을
         // 다시 읽지 않고 이미 메모리에 있는 것을 훑을 뿐이라 여기서 해도
         // 표시 예산(§11)을 건드리지 않는다.
-        if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { showRecent() }
+        //
+        // 글을 들고 있었으면 **그 글로 다시 찾는다.** 지난번 목록을 그대로
+        // 보여 주면 그 사이 적힌 메모가 빠지고, 껐다 켠 직후라면 목록이
+        // 아예 비어 있다 — 상자가 든 글과 그 아래 목록은 늘 같은 때의 것이어야 한다.
+        if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            showRecent()
+        } else {
+            scheduleSearch()
+        }
     }
 
     /// 빈 상자가 들고 있는 것 — 고정한 것이 먼저, 그 다음 최근에 손댄 순
@@ -292,12 +319,30 @@ final class QuickCaptureModel {
     private func find(_ text: String) async {
         let condition = MemoFilter.read(text)
         let words = condition.words.trimmingCharacters(in: .whitespacesAndNewlines)
-        let found = await store.search(words, limit: Self.searchCeiling)
+        let found = await search(words)
         guard !Task.isCancelled else { return }
 
         listing = .found
         pool = condition.narrows ? found.filter { condition.matches($0) } : found
         dropSelectionIfGone()
+    }
+
+    /// 낱말로 찾는다. **첫소리면 인덱스를 거치지 않는다.**
+    ///
+    /// 「ㅈㅂㄱ」가 「장보기」를 찾는 것은 서랍에서 먼저 됐다 (`HangulInitials`).
+    /// 같은 앱의 찾는 상자가 둘인데 한쪽에서만 되면, 사람은 어느 쪽에서
+    /// 되는지를 외워야 한다. 인덱스는 글자만 알고 첫소리를 모르므로 이때는
+    /// 이미 메모리에 있는 메모를 훑는다 — 수백 장이면 인덱스만큼 빠르고,
+    /// 차례는 인덱스와 같다(고정한 것 먼저, 그 다음 최근순).
+    private func search(_ words: String) async -> [Memo] {
+        guard HangulInitials.isInitialsQuery(words) else {
+            return await store.search(words, limit: Self.searchCeiling)
+        }
+        return Array(
+            store.memos
+                .filter { HangulInitials.matches($0.title + "\n" + $0.body, query: words) }
+                .prefix(Self.searchCeiling)
+        )
     }
 
     /// 목록을 지금 상태로 다시 짓는다. **한 박자도 늦으면 안 된다** — 지운

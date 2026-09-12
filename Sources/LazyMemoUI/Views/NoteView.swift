@@ -245,6 +245,35 @@ struct NoteView: View {
             }
         }
         Divider()
+        // **폴더에 넣기 = 서랍에 넣기 + 이름표.** 이름표만 달고 종이를 그대로
+        // 두면 사람은 아무 일도 안 일어난 것으로 본다 — 폴더는 서랍의 칸이므로
+        // (`MemoFolders`) 넣는 순간 종이는 서랍으로 간다.
+        Menu("서랍에 넣기") {
+            Button("폴더 없이") { onClose() }
+            let folders = model.folderNames()
+            if !folders.isEmpty {
+                Divider()
+                ForEach(folders, id: \.self) { name in
+                    Button {
+                        Task {
+                            await model.setFolder(name)
+                            onClose()
+                        }
+                    } label: {
+                        if name == model.memo.folder {
+                            Label(name, systemImage: "checkmark")
+                        } else {
+                            Text(name)
+                        }
+                    }
+                }
+            }
+            if model.memo.folder != nil {
+                Divider()
+                Button("폴더 이름표 떼기") { Task { await model.setFolder(nil) } }
+            }
+        }
+        Divider()
         Button("지우기", role: .destructive) { Task { await model.delete() } }
     }
 

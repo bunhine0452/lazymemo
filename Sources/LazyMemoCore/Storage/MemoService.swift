@@ -106,12 +106,13 @@ public actor MemoService {
         geo: Coordinate? = nil,
         tags: [String] = [],
         color: MemoColor = .default,
+        folder: String? = nil,
         now: Date = Date()
     ) async throws -> Memo {
         let memo = Memo(
             id: ULID(timestamp: now), created: now, updated: now,
             due: due, at: at, every: every, surface: surface, place: place, geo: geo,
-            tags: tags, color: color, body: body
+            tags: tags, color: color, body: body, folder: folder
         )
         return try await persist(memo)
     }
@@ -130,6 +131,7 @@ public actor MemoService {
         tags: [String]? = nil,
         color: MemoColor? = nil,
         pinned: Bool? = nil,
+        folder: String?? = nil,
         now: Date = Date()
     ) async throws -> Memo {
         var memo = try await vault.load(id)
@@ -144,6 +146,7 @@ public actor MemoService {
         if let tags { memo.tags = tags }
         if let color { memo.color = color }
         if let pinned { memo.pinned = pinned }
+        if let folder { memo.folder = MemoFolders.normalized(folder) }
         memo.updated = now.truncatingSubsecond
         // 손댄 것은 다시 산 것이다. 치워 둔 메모를 고쳤는데 여전히 목록에
         // 없으면, 사람은 자기가 고친 글이 어디로 갔는지 알 길이 없다.

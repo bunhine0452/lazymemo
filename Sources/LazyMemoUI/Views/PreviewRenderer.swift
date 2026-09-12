@@ -242,35 +242,38 @@ enum PreviewRenderer {
         await renderDrawer(store: store, into: directory)
     }
 
-    /// 「서랍」 — **네 모습이 다 손을 타야만 나타난다.**
+    /// 「서랍」 — **여섯 모습이 다 손을 타야만 나타난다.**
     ///
-    /// 닫힌 폴더는 그냥 열어 두면 보이지만, 펼친 격자도·되돌린 한 장도·종이가
+    /// 닫힌 탭은 그냥 열어 두면 보이지만, 펼친 목록도·펼친 줄도·종이가
     /// 위에 떠 있는 순간도 전부 포인터가 있어야 생긴다. 렌더에서 연출하지
     /// 않으면 이 화면에서 새로 만든 것이 통째로 미확인으로 남는다 (§14.9).
     private static func renderDrawer(store: MemoStore, into directory: URL) async {
         // 서랍은 «밀어 둔 종이» 를 담는다. 표본 창고의 메모는 대부분 일정이라
         // (일정은 달력이 맡는다 — `DrawerContents`) 날짜 없는 종이를 몇 장 만든다.
-        let filed: [(String, MemoColor)] = [
-            ("장보기 목록\n- [x] 우유\n- [x] 계란\n- [x] 세제", .green),
-            ("읽다 만 것 — 「종이의 물성」\n3장까지 읽었다", .blue),
-            ("환불 신청 번호\n8821-0043", .yellow),
-            ("겨울옷 정리", .purple),
-            ("명함 사진 찍어 두기", .pink),
-            ("이사 견적 세 군데\n한아름 / 무지개 / 다섯별", .gray),
-            // 여기서부터는 무더기에 자리가 없다 — 바닥 한 줄이 「그리고 N장 더」
-            // 라고 말하는지는 넘쳐 봐야만 확인된다 (`DrawerContents.overflow`).
-            ("자전거 공기압", .blue),
-            ("도서관 반납", .yellow),
-            ("우산 새로 사기", .green),
+        // 폴더는 셋 — 「전체」와 폴더 칸이 함께 보여야 폴더 띠가 무엇인지 안다.
+        let filed: [(String, MemoColor, String?)] = [
+            ("장보기 목록\n- [x] 우유\n- [x] 계란\n- [ ] 세제", .green, "장보기"),
+            ("읽다 만 것 — 「종이의 물성」\n3장까지 읽었다", .blue, "읽을 것"),
+            ("환불 신청 번호\n8821-0043", .yellow, nil),
+            ("겨울옷 정리", .purple, "집"),
+            ("명함 사진 찍어 두기", .pink, nil),
+            ("이사 견적 세 군데\n한아름 / 무지개 / 다섯별", .gray, "집"),
+            ("자전거 공기압", .blue, nil),
+            ("도서관 반납\n「종이의 물성」 · 「게으름의 기술」", .yellow, "읽을 것"),
+            ("우산 새로 사기", .green, "장보기"),
+            ("전구 40W 두 개", .yellow, "장보기"),
+            ("커튼 세탁", .purple, "집"),
         ]
-        for (body, color) in filed {
-            _ = try? await store.create(body: body, color: color)
+        for (body, color, folder) in filed {
+            _ = try? await store.create(body: body, color: color, folder: folder)
         }
 
         // 좌표 파일이 없는 렌더에서는 「사람이 치웠는가」를 물을 곳이 없다.
         // 전부 치운 것으로 친다 — 일정은 `DrawerContents` 가 알아서 뺀다.
-        let drawer = DrawerModel(store: store, putAway: { _ in true })
-        log("drawer.papers=\(drawer.count)")
+        let drawer = DrawerModel(
+            store: store, putAway: { _ in true }, folders: ["장보기", "읽을 것", "집"]
+        )
+        log("drawer.papers=\(drawer.count) folders=\(drawer.folders)")
 
         await render(
             name: "drawer",
@@ -290,9 +293,7 @@ enum PreviewRenderer {
         )
 
         let plan = drawer.geometry()
-        // 손은 **무더기 가운데**에 얹는다. 맨 위 한 장에 얹으면 위아래로
-        // 벌어지는 모습이 반쪽만 나온다 — 이 동작이 위엣것을 가리지 않는지는
-        // 가운데에서 봐야 안다.
+        // 손은 **목록 가운데** 줄에 얹는다 — 조작 셋이 시각 자리를 대신하는지 본다.
         drawer.staged = DrawerModel.Staged(isOpen: true, hovered: drawer.papers[safe: 3]?.id)
         await render(
             name: "drawer-open",
@@ -301,24 +302,40 @@ enum PreviewRenderer {
             into: directory
         )
 
-        // 한 장을 원래 크기로 되돌린 모습. 되돌린 종이가 서랍 안에 들어가는지,
-        // 뒤에 깔린 격자와 갈리는지는 나란히 놓고 봐야 안다.
+        // 한 줄을 펼친 모습. 줄이 아래로 자라 본문과 조작이 나오는지.
         if let first = drawer.papers.first {
             drawer.staged = DrawerModel.Staged(
-                isOpen: true, zoomed: first.id, lastFiled: drawer.papers.last
+                isOpen: true, expanded: first.id, lastFiled: drawer.papers.last
             )
             await render(
-                name: "drawer-zoomed",
-                size: plan.size,
+                name: "drawer-expanded",
+                size: DrawerGeometry(count: drawer.count, expanded: true).size,
                 content: DrawerView(model: drawer),
                 into: directory
             )
         }
 
+        // **폴더 하나를 보는 중.** 띠에서 고른 칸이 채워지고 목록이 그 칸의
+        // 것만 남는지, 줄에서 폴더 이름표가 사라지는지.
+        drawer.staged = DrawerModel.Staged(isOpen: true, folder: "장보기")
+        await render(
+            name: "drawer-folder",
+            size: DrawerGeometry(count: drawer.counts["장보기"] ?? 0).size,
+            content: DrawerView(model: drawer),
+            into: directory
+        )
+
+        // **새 폴더 이름을 적는 중.**
+        drawer.staged = DrawerModel.Staged(isOpen: true, naming: true)
+        await render(
+            name: "drawer-naming",
+            size: plan.size,
+            content: DrawerView(model: drawer),
+            into: directory
+        )
+
         // **찾는 중.** 글 상자에 커서를 놓을 수 없으므로 연출값으로 세운다
-        // (`DrawerModel.Staged.query`). 이 그림이 답하는 것은 하나다 —
-        // 여덟 장이 두 장으로 줄었을 때 판이 «좁혀졌다» 로 보이는가, 아니면
-        // 아래가 텅 빈 채로 남는가 (§16.3 — 빈자리는 공짜가 아니다).
+        // (`DrawerModel.Staged.query`).
         drawer.staged = DrawerModel.Staged(isOpen: true, query: "ㅈ")
         await render(
             name: "drawer-searching",
@@ -337,8 +354,7 @@ enum PreviewRenderer {
             into: directory
         )
 
-        // **여러 장을 골라 둔 모습.** 고른 장이 무더기에서 빠져나온 채로 남는지,
-        // 바닥 한 줄이 조작을 내놓는지는 이 그림에서만 확인된다.
+        // **여러 장을 골라 둔 모습.** 바닥 한 줄이 조작을 내놓는지.
         drawer.staged = DrawerModel.Staged(
             isOpen: true,
             picked: Set(drawer.papers.prefix(3).map(\.id))

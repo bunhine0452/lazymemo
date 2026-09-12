@@ -44,6 +44,14 @@ final class NoteWindowManager {
     /// 종이가 끌리고 있다. 서랍이 그 위에 있는지 보고 받아 든다 (`DrawerWindowController`).
     var onNoteDragged: (ULID, CGRect) -> Void = { _, _ in }
 
+    /// 서랍의 폴더 이름들 — 종이의 우클릭 메뉴가 「폴더에 넣기」에 적는다.
+    /// 폴더는 서랍이 알고, 여기는 물어볼 뿐이다.
+    var folderNames: () -> [String] = { [] }
+
+    /// 새 종이가 계단으로 내려앉는 무대. `nil` 이면 주 화면이다 — 소개 영상
+    /// 주행(`DemoTour`)만 화면의 한 구역으로 좁힌다.
+    var stage: CGRect?
+
     private let store: MemoStore
     private let layouts: LayoutStore
     private let previews: LinkPreviewStore
@@ -107,9 +115,47 @@ final class NoteWindowManager {
             if returned.contains(memo.id) { controllers[memo.id]?.announce() }
         }
 
-        // **휴지통에 있는 것의 자리도 남긴다.** 되돌리면 있던 자리로 돌아와야
-        // 하는데, 지우는 순간 자리를 지워 버리면 되살린 종이가 엉뚱한 곳에 뜬다.
-        layouts.prune(keeping: Set(store.memos.map(\.id)).union(store.trash.map(\.id)))
+        pruneStaleLayouts()
+    }
+
+    /// 좌표를 지우기 전에 이만큼은 기다린다.
+    ///
+    /// **한 번 안 보였다고 지우면 안 된다.** 파일 감시가 여러 장이 한꺼번에
+    /// 들어오는 도중(아이폰 단축어·MCP·소개 영상 주행)에 발화하면, 그 순간
+    /// 아직 다 쓰이지 않은 파일은 읽히지 않아 목록에서 한 박자 빠진다. 그때
+    /// 좌표를 지우면 그 메모가 돌아왔을 때 «치워 둔 것» 이라는 사실이 함께
+    /// 사라지고, 서랍에 있어야 할 종이가 바탕화면에 선다 — 실제로 그렇게 났다.
+    nonisolated static let pruneGrace: TimeInterval = 10
+    /// 언제부터 안 보였는가. 도로 보이면 잊는다.
+    private var absentSince: [ULID: Date] = [:]
+
+    /// **휴지통에 있는 것의 자리도 남긴다.** 되돌리면 있던 자리로 돌아와야
+    /// 하는데, 지우는 순간 자리를 지워 버리면 되살린 종이가 엉뚱한 곳에 뜬다.
+    private func pruneStaleLayouts(now: Date = Date()) {
+        let alive = Set(store.memos.map(\.id)).union(store.trash.map(\.id))
+        let verdict = Self.staleLayouts(
+            known: layouts.memoIDs, alive: alive, absentSince: absentSince, now: now
+        )
+        absentSince = verdict.absentSince
+        layouts.prune(keeping: Set(layouts.memoIDs).subtracting(verdict.drop))
+    }
+
+    /// 어느 좌표를 지울지 — 유예를 넘긴 것만. 뷰 밖의 순수 함수라 시험이 시계를 쥔다.
+    nonisolated static func staleLayouts(
+        known: [ULID], alive: Set<ULID>, absentSince: [ULID: Date], now: Date,
+        grace: TimeInterval = pruneGrace
+    ) -> (drop: Set<ULID>, absentSince: [ULID: Date]) {
+        var drop: Set<ULID> = []
+        var waiting: [ULID: Date] = [:]
+        for id in known where !alive.contains(id) {
+            let since = absentSince[id] ?? now
+            if now.timeIntervalSince(since) >= grace {
+                drop.insert(id)
+            } else {
+                waiting[id] = since
+            }
+        }
+        return (drop, waiting)
     }
 
     /// **자리가 바뀐 메모를 따라 종이를 옮긴다** (설계문서 §7.2).
@@ -242,6 +288,7 @@ final class NoteWindowManager {
         )
         // 되돌리는 줄이 스스로 물러나면 그때 창을 거둔다 (`NoteModel`).
         controller.model.onDeletionSettled = { [weak self] in self?.sync() }
+        controller.model.folderNames = { [weak self] in self?.folderNames() ?? [] }
         controllers[memo.id] = controller
         recordFrame(frame, for: memo.id)
         if recording { layouts.setHidden(false, for: memo.id) }
@@ -414,7 +461,7 @@ final class NoteWindowManager {
         let fallback = NSScreen.main?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1440, height: 900)
 
         guard let saved = layouts.layout(for: memo.id) else {
-            return cascadedFrame(on: fallback)
+            return cascadedFrame(on: stage ?? fallback)
         }
         return FrameClamping.restore(saved.frame, onto: screens, fallback: fallback)
     }

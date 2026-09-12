@@ -73,6 +73,7 @@ public enum MemoFile {
             color: frontmatter.string("color").flatMap(MemoColor.init(rawValue:)) ?? .default,
             pinned: frontmatter.bool("pinned") ?? false,
             body: body,
+            folder: frontmatter.string("folder"),
             deleted: frontmatter.string("deleted").flatMap(Timestamp.date(from:)),
             tidied: frontmatter.string("tidied").flatMap(Timestamp.date(from:)),
             preserved: frontmatter.excluding(known)
@@ -113,6 +114,9 @@ public enum MemoFile {
         }
         lines.append(Frontmatter.line(key: "color", scalar: memo.color.rawValue))
         lines.append(Frontmatter.line(key: "pinned", scalar: memo.pinned ? "true" : "false"))
+        if let folder = memo.folder {
+            lines.append(Frontmatter.line(key: "folder", scalar: folder))
+        }
         if let deleted = memo.deleted {
             lines.append(Frontmatter.line(key: "deleted", scalar: Timestamp.string(from: deleted, timeZone: timeZone)))
         }

@@ -29,6 +29,9 @@ public struct AppPaths: Sendable, Equatable {
     /// 창 위치·크기·디스플레이. 정본 파일에 섞지 않는다 (설계문서 §5.1).
     public var layout: URL { support.appending(path: "layout.json", directoryHint: .notDirectory) }
     public var settings: URL { support.appending(path: "settings.json", directoryHint: .notDirectory) }
+    /// 빠른 입력이 들고 있던 글 (`CaptureDraftStore`). 메모가 아니라 초안이라
+    /// 정본에 두지 않는다 — 확정하는 순간 없어진다.
+    public var captureDraft: URL { support.appending(path: "capture-draft.txt", directoryHint: .notDirectory) }
 
     // MARK: 생성
 

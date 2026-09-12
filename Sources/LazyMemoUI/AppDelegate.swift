@@ -105,6 +105,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             // 파일이 정본이므로 화면은 스캔 결과를 따른다 (§4).
             await store.start()
+            // 소개 영상 주행 — 창을 세우기 전에 무대를 심는다 (`DemoTour`).
+            let demo = ProcessInfo.processInfo.environment["LAZYMEMO_DEMO"]
+                .flatMap(DemoTour.region(from:))
+                .map { menuBar.demoTour(in: $0, layouts: layouts) }
+            if let demo { await demo.seed() }
             let firstLaunch = WelcomeNote.shouldGreet(
                 greeted: settings.current.greeted, memoCount: store.memos.count
             )
@@ -121,6 +126,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             let environment = ProcessInfo.processInfo.environment
             if firstLaunch && !environment.keys.contains(where: { $0.hasPrefix("LAZYMEMO_") }) {
                 menuBar.showWelcome()
+            }
+            if let demo {
+                await demo.run()
+                exit(0)
             }
             if environment["LAZYMEMO_SPIKE"] == "1" {
                 menuBar.openSpike()
@@ -189,6 +198,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         clock.stop()
         dueClock?.stop()
+        // 빠른 입력의 초안은 미뤄 둔 쓰기가 있을 수 있다 — 기다리지 않고 적는다.
+        menuBar?.flushCaptureDraft()
         guard let windows else { return .terminateNow }
         Task {
             await windows.flushAll()
