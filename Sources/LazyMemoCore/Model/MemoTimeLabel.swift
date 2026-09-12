@@ -37,8 +37,9 @@ public enum MemoTimeLabel {
         }
     }
 
-    /// 지나간 날. 일정이 없는 메모는 마지막으로 손댄 때를 보인다.
-    private static func elapsed(_ date: Date, now: Date, calendar: Calendar) -> String {
+    /// 지나간 날. 일정이 없는 메모는 마지막으로 손댄 때를 보인다. 휴지통은
+    /// 「N일 전 지움」에 같은 낱말을 쓴다.
+    public static func elapsed(_ date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
         let target = CalendarDate(date, calendar: calendar)
         guard let offset = dayOffset(target, from: now, calendar: calendar) else {
             return short(target)

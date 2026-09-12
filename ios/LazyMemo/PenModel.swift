@@ -1,0 +1,188 @@
+import Foundation
+import LazyMemoCore
+import Observation
+
+/// 펜 — 화면 바닥의 적는 칸. 적기와 찾기를 겸한다 (MOBILE_DESIGN §3).
+///
+/// 맥의 `QuickCaptureModel` 과 같은 규칙을 같은 부품으로 돈다: 읽는 것은
+/// `NoteReader`, 거르는 것은 `MemoFilter` + `HangulInitials` + 인덱스. 여기서
+/// 새 규칙을 만들지 않는다.
+@Observable
+final class PenModel {
+    let store: MemoStore
+    private let draft: CaptureDraftStore
+
+    /// 치는 글. 바뀔 때마다 초안에 남기고(껐다 켜도 남는다) 무더기를 거른다.
+    var text: String {
+        didSet {
+            guard text != oldValue else { return }
+            draft.remember(text)
+            reschedule()
+        }
+    }
+
+    /// 달력 탭이 미리 물린 날. 적은 글에 날짜가 있으면 그쪽이 이긴다 (`QuickSchedule`).
+    var presetDay: CalendarDate?
+    /// 폴더 칩을 골라 둔 채 적으면 그 폴더로 간다 (맥의 「펼쳐 둔 채 놓으면」).
+    var folder: String?
+
+    /// 칩을 눌러 끈 해석. 글은 그대로, 읽기만 않는다.
+    var readsDate = true
+    var readsPlace = true
+
+    /// 열 때마다 바뀌는 안내 문구.
+    private(set) var prompt: String
+
+    /// 찾은 것. `nil` 이면 찾는 중이 아니다 (빈 펜).
+    private(set) var found: [Memo]?
+    private var searchTask: Task<Void, Never>?
+
+    /// 「지금 여기」가 물린 장소.
+    var here: Here?
+
+    /// 밖에서 펜을 올려 달라는 신호 — 값이 바뀌면 `PenBar` 가 포커스를 준다.
+    var focusRequest = 0
+    func requestFocus() { focusRequest += 1 }
+    struct Here: Equatable {
+        var place: String
+        var geo: Coordinate?
+    }
+
+    init(store: MemoStore, draft: CaptureDraftStore) {
+        self.store = store
+        self.draft = draft
+        self.text = draft.restored
+        self.prompt = CapturePrompt.next(after: nil)
+        if !text.isEmpty { reschedule() }
+    }
+
+    // MARK: 읽기 — 누르기 전에 무엇을 읽었는지 보인다
+
+    /// 글에서 읽어 낸 것. 끈 칩은 빼고 돌려준다.
+    var reading: ParsedNote {
+        guard let inbound = InboundNote.make(text: text, place: here?.place) else {
+            return ParsedNote(body: "")
+        }
+        var note = NoteReader.read(inbound)
+        if !readsDate { note.due = nil; note.at = nil; note.every = nil }
+        if !readsPlace, here == nil { note.place = nil }
+        return note
+    }
+
+    var canLeave: Bool { InboundNote.make(text: text) != nil }
+
+    /// 날짜가 읽혔으면(또는 달력이 물렸으면) 단추가 그렇게 말한다.
+    var leaveLabel: String {
+        let note = reading
+        let dated = note.due != nil || note.at != nil || presetDay != nil
+        return dated ? "달력에 남기기" : "메모 남기기"
+    }
+
+    /// 칩 하나 — 날짜.
+    var dateChip: String? {
+        let note = reading
+        if let at = note.at { return "\(DayWords.long(CalendarDate(at))) \(DayWords.clock(at)) · 달력으로" }
+        if let due = note.due { return "\(DayWords.long(due)) · 달력으로" }
+        if readsDate, let presetDay { return "\(DayWords.long(presetDay)) · 달력으로" }
+        return nil
+    }
+
+    var placeChip: String? {
+        guard let place = reading.place else { return nil }
+        return "@" + place
+    }
+
+    var everyChip: String? {
+        reading.every.map(\.label)
+    }
+
+    // MARK: 적기 끝
+
+    /// `store.create` — 새 줄이 펜 바로 위로 들어온다. 글 칸은 비고 키보드는 남는다.
+    @discardableResult
+    func leave() async -> Memo? {
+        guard canLeave else { return nil }
+        let note = reading
+        var schedule = Schedule(due: note.due, at: note.at)
+        var body = note.body
+        if readsDate, let presetDay, schedule.isEmpty {
+            let drafted = QuickSchedule.make(from: body, on: presetDay)
+            schedule = drafted.schedule
+            body = drafted.body
+        }
+
+        let memo = try? await store.create(
+            body: body, due: schedule.due, at: schedule.at, every: note.every,
+            place: note.place, geo: here?.geo, folder: folder
+        )
+        guard memo != nil else { return nil }
+
+        text = ""
+        draft.forget()
+        here = nil
+        readsDate = true
+        readsPlace = true
+        prompt = CapturePrompt.next(after: prompt)
+        return memo
+    }
+
+    /// 뒤로 물러날 때 적던 글을 파일에 내린다.
+    func flush() { draft.flush() }
+
+    // MARK: 찾기 — 한 글자부터 무더기가 찾은 것으로 바뀐다
+
+    private static let searchDelay: Duration = .milliseconds(100)
+    static let searchCeiling = 20
+
+    private func reschedule() {
+        searchTask?.cancel()
+        let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            found = nil
+            return
+        }
+        searchTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.searchDelay)
+            guard !Task.isCancelled, let self else { return }
+            await self.find(query)
+        }
+    }
+
+    /// 두 걸음 — 인덱스는 낱말만 알고, 생김새·장소·날짜는 메모를 손에 쥐어야
+    /// 볼 수 있다 (`QuickCaptureModel.find` 와 같다).
+    private func find(_ query: String) async {
+        let condition = MemoFilter.read(query)
+        let words = condition.words.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pool: [Memo]
+        if HangulInitials.isInitialsQuery(words) {
+            // 첫소리는 인덱스가 모른다 — 메모리를 훑는다.
+            pool = store.memos.filter { HangulInitials.matches($0.title + "\n" + $0.body, query: words) }
+        } else {
+            pool = await store.search(words, limit: Self.searchCeiling)
+        }
+        guard !Task.isCancelled else { return }
+        found = condition.narrows ? pool.filter { condition.matches($0) } : pool
+    }
+
+    /// 목록을 지금 상태로 다시 짓는다 — 지운 직후처럼 기다릴 이유가 없을 때.
+    func refresh() async {
+        let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { found = nil; return }
+        await find(query)
+    }
+}
+
+/// 칩과 머리글에 적는 날의 낱말. `MemoTimeLabel` 은 목록의 짧은 조각이고,
+/// 여기는 「9월 14일 (일)」처럼 조금 더 긴 자리다.
+enum DayWords {
+    static func long(_ day: CalendarDate, calendar: Calendar = .current) -> String {
+        guard let date = day.startOfDay(calendar: calendar) else { return day.description }
+        let weekday = calendar.shortWeekdaySymbols[calendar.component(.weekday, from: date) - 1]
+        return "\(day.month)월 \(day.day)일 (\(weekday))"
+    }
+
+    static func clock(_ date: Date, calendar: Calendar = .current) -> String {
+        let parts = calendar.dateComponents([.hour, .minute], from: date)
+        return String(format: "%d:%02d", parts.hour ?? 0, parts.minute ?? 0)
+    }
+}

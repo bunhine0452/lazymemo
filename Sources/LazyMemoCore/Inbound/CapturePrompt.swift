@@ -14,8 +14,10 @@ import Foundation
 ///
 /// 긴 말은 못 쓴다. 19pt 로 한 줄에 들어가야 하고, 사용자가 첫 글자를 치는
 /// 순간 사라질 글이라 읽는 데 반 초를 넘기면 안 된다.
-enum CapturePrompt {
-    static let all: [String] = [
+///
+/// 맥의 빠른 입력과 폰의 펜이 같은 문구를 쓴다 — 그래서 Core 에 있다.
+public enum CapturePrompt {
+    public static let all: [String] = [
         "지금 머리에 걸린 것",
         "잊기 전에, 한 줄",
         "적어 두고 잊어버리세요",
@@ -40,7 +42,7 @@ enum CapturePrompt {
 
     /// 다음에 보일 문구. **방금 본 것은 다시 뽑지 않는다** — 두 번 연속
     /// 같은 말이 나오면 "바뀐다" 는 사실 자체가 전달되지 않는다.
-    static func next(after previous: String?) -> String {
+    public static func next(after previous: String?) -> String {
         let pool = all.filter { $0 != previous }
         return pool.randomElement() ?? all[0]
     }
