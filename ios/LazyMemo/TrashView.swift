@@ -5,21 +5,21 @@ import SwiftUI
 /// 영구 삭제는 보존 기간이 지난 뒤 앱만 한다 (D6, 규칙이 아니라 배선).
 struct TrashView: View {
     let store: MemoStore
-    let undo: UndoModel
+    let reveal: Reveal
+
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         List {
             ForEach(store.trash) { memo in
                 HStack(spacing: 8) {
-                    MemoRowView(memo: memo, faded: true)
+                    MemoRowView(memo: memo, retired: true)
                     Button("되돌리기") { restore(memo) }
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.accentInk)
                         .frame(minHeight: 44)
-                        .padding(.trailing, 12)
                         .accessibilityIdentifier("restore")
                 }
-                .listRowInsets(EdgeInsets())
+                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 .swipeActions(edge: .leading) {
@@ -29,17 +29,17 @@ struct TrashView: View {
                 .overlay(alignment: .bottomTrailing) {
                     if let deleted = memo.deleted {
                         Text("\(MemoTimeLabel.elapsed(deleted)) 지움")
-                            .font(.caption2).foregroundStyle(Paper.fadedInk)
-                            .padding(.trailing, 100).padding(.bottom, 2)
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .padding(.trailing, 96).padding(.bottom, 2)
                     }
                 }
             }
             if store.trash.isEmpty {
-                Text("비었습니다").font(.subheadline).foregroundStyle(Paper.fadedInk)
+                Text("비었습니다").font(.subheadline).foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .listRowBackground(Color.clear).listRowSeparator(.hidden)
             } else {
-                Text("30일이 지나면 스스로 비웁니다").font(.caption).foregroundStyle(Paper.fadedInk)
+                Text("30일이 지나면 스스로 비웁니다").font(.caption).foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .listRowBackground(Color.clear).listRowSeparator(.hidden)
             }
@@ -52,7 +52,11 @@ struct TrashView: View {
         .toolbar(.hidden, for: .tabBar)
     }
 
+    /// 돌아온 줄을 목록이 보이게 — 돌아가서 그리로 스크롤하고 밝힌다.
     private func restore(_ memo: Memo) {
-        Task { try? await store.restore(memo.id) }
+        Task {
+            try? await store.restore(memo.id)
+            reveal.show(memo.id)
+        }
     }
 }

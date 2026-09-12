@@ -1,24 +1,24 @@
 import LazyMemoCore
 import SwiftUI
 
-/// 편집 — 화면 전체가 종이 + 꼬리 한 줄 (MOBILE_DESIGN §5).
+/// 편집 — 화면 전체가 종이, 꼬리는 표준 바닥 툴바 (MOBILE_DESIGN §5).
 ///
 /// 저장 버튼은 없다. 글자가 바뀌면 600ms 뒤에 파일로 가고, 뒤로 갈 때는 즉시.
-/// 맥에서 같은 파일을 고치면 화면이 따라온다 — 조합 중이 아니고, 내가 고치던
-/// 중이 아닐 때만 (`PaperTextView`).
+/// 맥에서 같은 파일을 고치면 화면이 따라온다 (`PaperTextView`). 키보드는
+/// 열 때 올라오지 않는다 — Notes 도 그렇다.
 struct MemoEditorView: View {
     let store: MemoStore
     let id: ULID
-    let undo: UndoModel
+    let reveal: Reveal
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.undoManager) private var undoManager
     @State private var text = ""
     @State private var lastSaved = ""
     @State private var loaded = false
     @State private var saveTask: Task<Void, Never>?
     @State private var datePicking = false
     @State private var folderPicking = false
-    @State private var colorPicking = false
     @State private var newFolder = ""
 
     private static let autosaveDelay: Duration = .milliseconds(600)
@@ -27,9 +27,8 @@ struct MemoEditorView: View {
 
     var body: some View {
         Group {
-            if let memo {
+            if memo != nil {
                 PaperTextView(text: $text)
-                    .safeAreaInset(edge: .bottom, spacing: 0) { tail(memo) }
             } else {
                 // 지워졌거나 다른 기기에서 옮겨 갔다. 빈 종이를 보여 주지 않는다.
                 ContentUnavailableView("이 메모는 이제 없습니다", systemImage: "doc")
@@ -38,6 +37,7 @@ struct MemoEditorView: View {
         .background(Paper.surface)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
+        .toolbar { if let memo { tail(memo) } }
         .onAppear {
             guard !loaded, let memo else { return }
             text = memo.body
@@ -82,100 +82,72 @@ struct MemoEditorView: View {
         }
     }
 
-    // MARK: 꼬리 — 날짜 · 장소 · 폴더 · 색 · 고정 | 지우기
+    // MARK: 꼬리 — 무엇(날짜·장소·폴더) | 생김새(색·고정) | 끝(지우기)
 
-    private func tail(_ memo: Memo) -> some View {
-        HStack(spacing: 4) {
+    @ToolbarContentBuilder
+    private func tail(_ memo: Memo) -> some ToolbarContent {
+        ToolbarItemGroup(placement: .bottomBar) {
             Button { datePicking = true } label: {
                 if memo.due != nil || memo.at != nil {
                     Text(MemoTimeLabel.text(for: memo))
                         .font(.footnote.monospacedDigit().weight(.medium))
                         .foregroundStyle(Theme.highlightInk)
-                        .padding(.horizontal, 8)
-                        .frame(minHeight: 32)
-                        .background(Theme.highlightWash, in: RoundedRectangle(cornerRadius: Theme.chipRadius))
                 } else {
-                    Image(systemName: "calendar")
-                        .foregroundStyle(Theme.accentInk.opacity(0.4))
+                    Label("달력에 놓기", systemImage: "calendar")
                 }
             }
-            .frame(minWidth: 44, minHeight: 44)
             .accessibilityLabel(memo.due != nil || memo.at != nil ? "날짜 \(MemoTimeLabel.text(for: memo))" : "달력에 놓기")
             .accessibilityIdentifier("tail-date")
 
             if let place = memo.place {
                 Menu {
-                    if let url = MapLink.url(for: memo) {
-                        Link("지도 열기", destination: url)
-                    }
+                    if let url = MapLink.url(for: memo) { Link("지도 열기", destination: url) }
                     Button("장소 떼기", role: .destructive) {
                         Task { _ = try? await store.update(id, place: .some(nil), geo: .some(nil)) }
                     }
                 } label: {
-                    Text("@" + place)
-                        .font(.footnote)
-                        .foregroundStyle(Paper.fadedInk)
-                        .lineLimit(1)
-                        .frame(minHeight: 44)
+                    Text("@" + place).font(.footnote).lineLimit(1)
                 }
             }
 
             Button { folderPicking = true } label: {
                 if let folder = memo.folder {
-                    Text(folder).font(.footnote).foregroundStyle(Paper.fadedInk).lineLimit(1)
+                    Text(folder).font(.footnote).lineLimit(1)
                 } else {
-                    Image(systemName: "folder").foregroundStyle(Theme.accentInk.opacity(0.4))
+                    Label("폴더에 넣기", systemImage: "folder")
                 }
             }
-            .frame(minWidth: 44, minHeight: 44)
             .accessibilityLabel(memo.folder.map { "폴더 \($0)" } ?? "폴더에 넣기")
-
-            colorDots(memo)
+        }
+        ToolbarSpacer(.fixed, placement: .bottomBar)
+        ToolbarItemGroup(placement: .bottomBar) {
+            Menu {
+                Picker("색", selection: Binding(
+                    get: { memo.color },
+                    set: { color in Task { _ = try? await store.update(id, color: color) } }
+                )) {
+                    ForEach(MemoColor.allCases, id: \.self) { color in
+                        Text(color.label).tag(color)
+                    }
+                }
+                .pickerStyle(.inline)
+            } label: {
+                Circle().fill(memo.color.ink).frame(width: 14, height: 14)
+                    .overlay(Circle().stroke(Color.secondary.opacity(0.4), lineWidth: 1))
+            }
+            .accessibilityLabel("색 \(memo.color.label)")
 
             Button {
                 Task { _ = try? await store.update(id, pinned: !memo.pinned) }
             } label: {
-                Image(systemName: memo.pinned ? "pin.fill" : "pin")
-                    .foregroundStyle(memo.pinned ? Theme.accentInk : Theme.accentInk.opacity(0.4))
-            }
-            .frame(width: 44, height: 44)
-            .accessibilityLabel(memo.pinned ? "고정 해제" : "고정")
-
-            Spacer(minLength: 0)
-
-            Button { delete(memo) } label: {
-                Image(systemName: "trash").foregroundStyle(Theme.danger.opacity(0.8))
-            }
-            .frame(width: 44, height: 44)
-            .accessibilityLabel("지우기")
-            .accessibilityIdentifier("tail-delete")
-        }
-        .padding(.horizontal, 12)
-        .background(Paper.surface)
-        .overlay(alignment: .top) { Rectangle().fill(Paper.ink.opacity(0.12)).frame(height: 0.5) }
-    }
-
-    /// 색 — 점 하나. 누르면 그 자리에서 여섯 점이 펼쳐진다.
-    private func colorDots(_ memo: Memo) -> some View {
-        HStack(spacing: 2) {
-            ForEach(colorPicking ? MemoColor.allCases : [memo.color], id: \.self) { color in
-                Button {
-                    if colorPicking {
-                        Task { _ = try? await store.update(id, color: color) }
-                    }
-                    colorPicking.toggle()
-                } label: {
-                    Circle()
-                        .fill(color.ink)
-                        .frame(width: color == memo.color ? 14 : 11, height: color == memo.color ? 14 : 11)
-                        .overlay(Circle().stroke(Paper.ink.opacity(color == memo.color ? 0.35 : 0), lineWidth: 1))
-                        .frame(width: colorPicking ? 30 : 44, height: 44)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(colorPicking ? color.label : "색 \(memo.color.label)")
+                Label(memo.pinned ? "고정 해제" : "고정", systemImage: memo.pinned ? "pin.fill" : "pin")
             }
         }
-        .animation(.snappy(duration: 0.15), value: colorPicking)
+        ToolbarSpacer(.flexible, placement: .bottomBar)
+        ToolbarItem(placement: .bottomBar) {
+            Button(role: .destructive) { delete(memo) } label: { Label("지우기", systemImage: "trash") }
+                .accessibilityIdentifier("tail-delete")
+        }
     }
 
     // MARK: 저장 — 손이 멈춘 뒤에, 뒤로 갈 때는 즉시
@@ -207,7 +179,7 @@ struct MemoEditorView: View {
     private func clearDate(_ memo: Memo) {
         Task {
             _ = try? await store.update(id, due: .some(nil), at: .some(nil))
-            undo.offer("날짜를 뗐습니다") {
+            Undo.register("날짜 떼기", on: undoManager, reveal: reveal, id: id) {
                 _ = try? await store.update(id, due: .some(memo.due), at: .some(memo.at))
             }
         }
@@ -218,7 +190,7 @@ struct MemoEditorView: View {
         Task {
             try? await store.delete(id)
             dismiss()
-            undo.offer("지웠습니다") { try? await store.restore(id) }
+            Undo.register("지우기", on: undoManager, reveal: reveal, id: id) { try? await store.restore(id) }
         }
     }
 }

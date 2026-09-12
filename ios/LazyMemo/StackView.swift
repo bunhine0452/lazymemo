@@ -1,17 +1,19 @@
 import LazyMemoCore
 import SwiftUI
 
-/// 무더기 — 펜 위로 쌓이는 한 목록 (MOBILE_DESIGN §4).
-///
-/// 고정한 것이 펜에 가장 가깝고, 그 위로 최근순. 찾는 중이면 가장 맞는 것이
-/// 펜에 가장 가깝다. 배열을 뒤집고 바닥에 닻을 내려 그렇게 만든다.
+/// 목록 — 위에서 아래로, 고정 → 최근순 (MOBILE_DESIGN §4). 큰 제목 「메모」,
+/// 부제는 저장 자리. 새로 적은 줄은 맨 위에 생기고 화면이 그리로 가며 잠깐 밝아진다.
 struct StackView: View {
     let session: AppModel.Session
     let pen: PenModel
-    let undo: UndoModel
     let folders: FolderModel
+    let reveal: Reveal
 
+    @Environment(\.undoManager) private var undoManager
+    @Environment(\.openURL) private var openURL
     @State private var opened: ULID?
+    @State private var dating: Memo?
+    @State private var showsTrash = false
     @State private var namingFolder = false
     @State private var newFolderName = ""
     @State private var renaming: String?
@@ -19,32 +21,113 @@ struct StackView: View {
 
     private var store: MemoStore { session.store }
 
-    /// 첫째가 펜에 가장 가깝다 — 고정한 것, 그 다음 최근순 (`store.active` 의 차례
-    /// 그대로). 찾는 중이면 가장 맞는 것이 첫째다.
     private var listed: [Memo] {
         MemoFolders.filter(pen.found ?? store.active, folder: folders.selected)
     }
 
     private var searching: Bool { pen.found != nil }
 
+    private var subtitle: String {
+        session.usingCloud ? "iCloud · \(store.active.count)장" : "이 기기에만 · iCloud 꺼짐"
+    }
+
     var body: some View {
-        // 펜 위로 쌓는다: 목록을 세로로 뒤집고 줄마다 도로 뒤집는다. 그래야 몇 장
-        // 안 될 때도 줄이 펜 바로 위에 앉고, 새 줄이 펜 옆으로 들어온다.
-        // 안전 영역은 손으로 준다 — 뒤집힌 목록에는 위아래가 바뀌어 들어가므로.
-        GeometryReader { proxy in
-            let insets = proxy.safeAreaInsets
-            stack
-                .scaleEffect(x: 1, y: -1)
-                .ignoresSafeArea()
-                .contentMargins(.top, insets.bottom + 8, for: .scrollContent)
-                .contentMargins(.bottom, insets.top + 8, for: .scrollContent)
+        ScrollViewReader { proxy in
+            List {
+                // 폴더 띠는 목록의 머리다 — 큰 제목 밑에서 내용과 함께 스크롤된다.
+                // 안전 영역 인셋으로 두면 큰 제목이 그려지지 않는다.
+                folderBand
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+
+                if searching {
+                    // 찾기의 범위를 적는다 — "Clearly display the current scope of a search".
+                    Text(listed.isEmpty ? "\(store.active.count)장 중 없다" : "\(store.active.count)장 중 \(listed.count)장")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .accessibilityIdentifier("scope")
+                }
+
+                ForEach(listed) { memo in
+                    Button { open(memo) } label: {
+                        MemoRowView(memo: memo)
+                    }
+                    .buttonStyle(.plain)
+                    .id(memo.id)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                    .listRowBackground(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(reveal.target == memo.id ? Color.accentColor.opacity(0.14) : .clear)
+                            .padding(.horizontal, 8)
+                            .animation(.easeOut(duration: 0.6), value: reveal.target)
+                    )
+                    .listRowSeparator(.hidden)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) { delete(memo) } label: { Label("지우기", systemImage: "trash") }
+                    }
+                    .swipeActions(edge: .leading) {
+                        Button { pin(memo) } label: {
+                            Label(memo.pinned ? "고정 해제" : "고정", systemImage: memo.pinned ? "pin.slash" : "pin")
+                        }
+                        .tint(Theme.accent)
+                    }
+                    .contextMenu {
+                        Button { pin(memo) } label: {
+                            Label(memo.pinned ? "고정 해제" : "고정", systemImage: memo.pinned ? "pin.slash" : "pin")
+                        }
+                        if !folders.names.isEmpty || memo.folder != nil {
+                            Menu {
+                                ForEach(folders.names, id: \.self) { name in Button(name) { move(memo, to: name) } }
+                                if memo.folder != nil { Button("폴더에서 빼기") { move(memo, to: nil) } }
+                            } label: { Label("폴더에 넣기", systemImage: "folder") }
+                        }
+                        Button { dating = memo } label: { Label("달력에 놓기", systemImage: "calendar") }
+                        Divider()
+                        Button(role: .destructive) { delete(memo) } label: { Label("지우기", systemImage: "trash") }
+                    } preview: {
+                        MemoRowView(memo: memo).padding(16).frame(width: 340).background(Paper.surface)
+                    }
+                    .accessibilityActions {
+                        Button(memo.pinned ? "고정 해제" : "고정") { pin(memo) }
+                        Button("달력에 놓기") { dating = memo }
+                        Button("지우기") { delete(memo) }
+                    }
+                }
+
+                if listed.isEmpty, !searching {
+                    Text("적은 것이 여기 쌓입니다")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center).padding(.vertical, 12)
+                        .listRowBackground(Color.clear).listRowSeparator(.hidden)
+                        .accessibilityIdentifier("stack-empty")
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Paper.surface)
+            // 목록이 짧아 스크롤이 안 될 때도 쓸어 내리면 키보드가 내려가야 한다 —
+            // 켜면 키보드가 올라와 탭바를 덮으므로, 이것이 탭바로 가는 길이다.
+            .scrollDismissesKeyboard(.immediately)
+            .onChange(of: reveal.target) { _, target in
+                guard let target else { return }
+                withAnimation(.snappy) { proxy.scrollTo(target, anchor: .top) }
+            }
         }
-        .background(Paper.surface)
-        .safeAreaInset(edge: .top, spacing: 0) { folderBand }
         .navigationTitle("메모")
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(item: $opened) { id in
-            MemoEditorView(store: store, id: id, undo: undo)
+        .navigationSubtitle(subtitle)
+        .toolbarTitleDisplayMode(.large)
+        .toolbar { toolbar }
+        .navigationDestination(item: $opened) { id in MemoEditorView(store: store, id: id, reveal: reveal) }
+        .navigationDestination(isPresented: $showsTrash) { TrashView(store: store, reveal: reveal) }
+        .sheet(item: $dating) { memo in
+            DateSheet(schedule: Schedule(memo), onChange: { schedule in
+                Task { _ = try? await store.update(memo.id, due: .some(schedule.due), at: .some(schedule.at)) }
+            }, onClear: {
+                Task { _ = try? await store.update(memo.id, due: .some(nil), at: .some(nil)) }
+            })
         }
         .alert("새 폴더", isPresented: $namingFolder) {
             TextField("이름", text: $newFolderName)
@@ -62,87 +145,31 @@ struct StackView: View {
         .onChange(of: folders.selected) { _, selected in pen.folder = selected }
     }
 
-    private var stack: some View {
-        List {
-            if listed.isEmpty {
-                Text(searching ? "\(store.active.count)장 중 없다" : "적은 것이 여기 쌓입니다")
-                    .font(.subheadline)
-                    .foregroundStyle(Paper.fadedInk)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 12)
-                    .flipped()
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .accessibilityIdentifier("stack-empty")
-            }
+    // MARK: 툴바 — 휴지통은 늘, More 는 있을 때만
 
-            ForEach(listed) { memo in
-                // 줄에 › 를 달지 않는다 — 점·제목·시각뿐이다.
-                Button { open(memo) } label: {
-                    MemoRowView(memo: memo).flipped()
-                }
-                .buttonStyle(.plain)
-                .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button(role: .destructive) { delete(memo) } label: {
-                        Label("지우기", systemImage: "trash")
-                    }
-                    .tint(Theme.danger)
-                }
-                .swipeActions(edge: .leading) {
-                    Button { pin(memo) } label: {
-                        Label(memo.pinned ? "고정 해제" : "고정", systemImage: memo.pinned ? "pin.slash" : "pin")
-                    }
-                    .tint(Theme.accent)
-                }
-                .contextMenu {
-                    Button { pin(memo) } label: {
-                        Label(memo.pinned ? "고정 해제" : "고정", systemImage: memo.pinned ? "pin.slash" : "pin")
-                    }
-                    if !folders.names.isEmpty || memo.folder != nil {
-                        Menu {
-                            ForEach(folders.names, id: \.self) { name in
-                                Button(name) { move(memo, to: name) }
-                            }
-                            if memo.folder != nil {
-                                Button("폴더에서 빼기") { move(memo, to: nil) }
-                            }
-                        } label: {
-                            Label("폴더에 넣기", systemImage: "folder")
-                        }
-                    }
-                    Button(role: .destructive) { delete(memo) } label: {
-                        Label("지우기", systemImage: "trash")
-                    }
-                } preview: {
-                    // 뒤집힌 줄의 스냅샷이 아니라 바로 선 종이를 보인다.
-                    MemoRowView(memo: memo)
-                        .padding(.vertical, 12)
-                        .frame(width: 340)
-                        .background(Paper.surface)
-                }
-            }
-
-            if session.usingCloud, !searching {
-                // 무더기 머리 — 끝까지 올려야 보인다. 잘 될 때는 조용하다.
-                Text("iCloud 의 LazyMemo 폴더를 맥과 함께 봅니다 · \(store.active.count)장")
-                    .font(.caption)
-                    .foregroundStyle(Paper.fadedInk)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .flipped()
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .accessibilityIdentifier("cloud-head")
-            }
+    @ToolbarContentBuilder
+    private var toolbar: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button { showsTrash = true } label: { Label("휴지통", systemImage: "trash") }
+                .accessibilityIdentifier("trash-button")
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .scrollIndicators(.hidden)
-        .scrollDismissesKeyboard(.immediately)
-        // 뒤집힌 목록에 유리 바의 가장자리 번짐이 잘못 얹혀 줄 전체가 바래 보인다.
-        .scrollEdgeEffectHidden(true, for: .all)
+        // More 에는 「새 폴더」가 늘 있으므로 늘 보인다. 나머지 둘은 있을 때만.
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                if !store.tidiedMemos.isEmpty {
+                    Button { Task { await store.untidyAll() } } label: {
+                        Label("치워 둔 \(store.tidiedMemos.count)장 도로 꺼내기", systemImage: "tray.and.arrow.up")
+                    }
+                }
+                if !session.usingCloud, let settings = URL(string: UIApplication.openSettingsURLString) {
+                    Button { openURL(settings) } label: { Label("iCloud 설정 열기", systemImage: "icloud") }
+                }
+                Button { namingFolder = true } label: { Label("새 폴더", systemImage: "folder.badge.plus") }
+            } label: {
+                Label("더 보기", systemImage: "ellipsis.circle")
+            }
+            .accessibilityIdentifier("more")
+        }
     }
 
     // MARK: 폴더 띠 — 폴더가 하나도 없으면 띠 자체가 없다
@@ -163,30 +190,23 @@ struct StackView: View {
                             Button("폴더 지우기", role: .destructive) { Task { await folders.remove(name) } }
                         }
                     }
-                    folderChip("＋", selected: false) { namingFolder = true }
+                    Button { namingFolder = true } label: { Image(systemName: "plus") }
+                        .buttonStyle(.bordered).buttonBorderShape(.capsule)
                         .accessibilityLabel("새 폴더")
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
             }
-            .background(Paper.surface)
         }
     }
 
+    @ViewBuilder
     private func folderChip(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.subheadline.weight(selected ? .semibold : .regular))
-                .foregroundStyle(selected ? Theme.onAccent : Theme.accentInk)
-                .padding(.horizontal, 12)
-                .frame(minHeight: 32)
-                .background(
-                    RoundedRectangle(cornerRadius: Theme.chipRadius)
-                        .fill(selected ? Theme.accent : Theme.accentInk.opacity(0.09))
-                )
-                .frame(minHeight: 44)
+        if selected {
+            Button(label, action: action).buttonStyle(.borderedProminent).buttonBorderShape(.capsule).tint(Theme.accent)
+        } else {
+            Button(label, action: action).buttonStyle(.bordered).buttonBorderShape(.capsule)
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: 손짓
@@ -201,7 +221,7 @@ struct StackView: View {
         Task {
             try? await store.delete(memo.id)
             await pen.refresh()
-            undo.offer("지웠습니다") {
+            Undo.register("지우기", on: undoManager, reveal: reveal, id: memo.id) {
                 try? await store.restore(memo.id)
                 await pen.refresh()
             }
@@ -215,9 +235,4 @@ struct StackView: View {
     private func move(_ memo: Memo, to folder: String?) {
         Task { _ = try? await store.update(memo.id, folder: .some(folder)) }
     }
-}
-
-private extension View {
-    /// 뒤집힌 목록 안에서 줄을 도로 세운다.
-    func flipped() -> some View { scaleEffect(x: 1, y: -1) }
 }

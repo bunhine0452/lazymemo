@@ -3,8 +3,9 @@ import SwiftUI
 
 /// 날짜 시트 — 묻는 상자가 아니라 달력 위에서 가리킨다 (MOBILE_DESIGN §5).
 ///
-/// 칸을 누르면 그 날 (`Schedule.moved(to:)` — 시:분은 지킨다). 아래 한 줄이
-/// 시각: 「없음 · 09:00 · 14:00 · 직접…」, 그리고 「날짜 떼기」.
+/// 비모달이다: 누르는 즉시 반영되므로 「취소」는 없고 「완료」만. medium 에
+/// 격자가, large 에 시각 휠까지. 「날짜 떼기」는 Cancel 자리가 아니라 내용 안의
+/// destructive 단추 — Cancel 자리는 「바꾼 것을 버린다」는 뜻이다. 유리 시트 그대로.
 struct DateSheet: View {
     let schedule: Schedule
     var onChange: (Schedule) -> Void
@@ -28,45 +29,46 @@ struct DateSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                MonthGridView(
-                    grid: grid,
-                    selected: day,
-                    onPick: { picked in onChange(schedule.moved(to: picked)) },
-                    onStep: { grid = grid.advanced(by: $0) },
-                    onToday: {
-                        grid = MonthGrid.current()
-                        onChange(schedule.moved(to: CalendarDate(Date())))
+            ScrollView {
+                VStack(spacing: 16) {
+                    MonthGridView(
+                        grid: grid,
+                        selected: day,
+                        onPick: { picked in onChange(schedule.moved(to: picked)) },
+                        onStep: { grid = grid.advanced(by: $0) },
+                        onToday: {
+                            grid = MonthGrid.current()
+                            onChange(schedule.moved(to: CalendarDate(Date())))
+                        }
+                    )
+                    timeRow
+                    if custom {
+                        DatePicker("시각", selection: $customTime, displayedComponents: .hourAndMinute)
+                            .datePickerStyle(.wheel)
+                            .labelsHidden()
+                            .onChange(of: customTime) { _, time in set(time: time) }
                     }
-                )
-                timeRow
-                if custom {
-                    DatePicker("시각", selection: $customTime, displayedComponents: .hourAndMinute)
-                        .datePickerStyle(.wheel)
-                        .labelsHidden()
-                        .onChange(of: customTime) { _, time in set(time: time) }
+                    if !schedule.isEmpty {
+                        Button("날짜 떼기", role: .destructive) { onClear(); dismiss() }
+                            .frame(minHeight: 44)
+                            .accessibilityIdentifier("clear-date")
+                    }
                 }
-                Spacer()
+                .padding(.top, 8)
             }
-            .padding(.top, 8)
-            .background(Paper.surface)
             .navigationTitle(day.map { DayWords.long($0) } ?? "날짜")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("닫기") { dismiss() } }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("날짜 떼기", role: .destructive) { onClear(); dismiss() }
-                        .disabled(schedule.isEmpty)
-                        .accessibilityIdentifier("clear-date")
-                }
+                ToolbarItem(placement: .confirmationAction) { Button("완료") { dismiss() } }
             }
         }
-        .presentationDetents([.large])
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 
     private var timeRow: some View {
         HStack(spacing: 8) {
-            Text("시각").font(.subheadline).foregroundStyle(Paper.fadedInk)
+            Text("시각").font(.subheadline).foregroundStyle(.secondary)
             timeChip("없음", on: schedule.at == nil) { clearTime() }
             timeChip("09:00", on: hour == 9) { set(hour: 9) }
             timeChip("14:00", on: hour == 14) { set(hour: 14) }
@@ -82,17 +84,15 @@ struct DateSheet: View {
         schedule.at.map { Calendar.current.component(.hour, from: $0) }
     }
 
+    @ViewBuilder
     private func timeChip(_ label: String, on: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.subheadline.monospacedDigit().weight(on ? .semibold : .regular))
-                .foregroundStyle(on ? Theme.onAccent : Theme.accentInk)
-                .padding(.horizontal, 12)
-                .frame(minHeight: 32)
-                .background(RoundedRectangle(cornerRadius: Theme.chipRadius).fill(on ? Theme.accent : Theme.accentInk.opacity(0.09)))
-                .frame(minHeight: 44)
+        if on {
+            Button(label, action: action).buttonStyle(.borderedProminent).buttonBorderShape(.capsule).tint(Theme.accent)
+                .font(.subheadline.monospacedDigit())
+        } else {
+            Button(label, action: action).buttonStyle(.bordered).buttonBorderShape(.capsule)
+                .font(.subheadline.monospacedDigit())
         }
-        .buttonStyle(.plain)
     }
 
     private func set(hour: Int) {

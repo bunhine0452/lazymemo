@@ -29,11 +29,11 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 - [x] 컨테이너 안 읽기·쓰기에 NSFileCoordinator 가 필요한지 판단하고 필요한 자리에만 붙인다 {#sync-coordination}
 
 ## 폰 화면 — 빠른 입력·목록·달력·편집 {#ios-ui}
-- [~] 켜면 바로 키보드 — 빠른 입력. 공용 NaturalDateParser 로 날짜를 읽으면 「달력에 남기기」로 바뀐다 {#ui-capture}
-- [~] 목록 — 최근순, 찾기(첫소리 HangulInitials), 폴더 칩, 밀어서 지우기 + 되돌리기 {#ui-list}
-- [~] 달력 — 달 격자(MonthGrid) + 그 날 일정(DayAgenda), 미루기·종이로·지우기 {#ui-calendar}
-- [~] 편집 — 저장 버튼 없이 글자가 바뀌면 파일로, 바깥(맥)에서 바뀌면 화면이 따라온다 {#ui-editor}
-- [~] 휴지통 — 최근 삭제 목록·되돌리기 {#ui-trash}
+- [x] 켜면 바로 키보드 — 빠른 입력. 공용 NaturalDateParser 로 날짜를 읽으면 「달력에 남기기」로 바뀐다 {#ui-capture}
+- [x] 목록 — 최근순, 찾기(첫소리 HangulInitials), 폴더 칩, 밀어서 지우기 + 되돌리기 {#ui-list}
+- [x] 달력 — 달 격자(MonthGrid) + 그 날 일정(DayAgenda), 미루기·종이로·지우기 {#ui-calendar}
+- [x] 편집 — 저장 버튼 없이 글자가 바뀌면 파일로, 바깥(맥)에서 바뀌면 화면이 따라온다 {#ui-editor}
+- [x] 휴지통 — 최근 삭제 목록·되돌리기 {#ui-trash}
 - [x] 공유 시트 확장 「lazymemo 에 적기」 — InboundNote 를 거쳐 컨테이너에 파일 하나 {#ui-share-ext}
 - [x] 빠른 입력의 「지금 여기」 — 누를 때만 위치를 재고 place·geo 를 붙인다 (첫 실행에 묻지 않는다) {#ui-location}
 
@@ -76,4 +76,9 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 | 2026-09-13T03:19:06+09:00 | #mac-docs | claude-code | ☐→x | .oculpm/journal/20260913/Chores/0318_chore_icloud-ios-docs-and-privacy.md | README·DESIGN §5.1·§12.2·§13 |
 | 2026-09-13T03:19:12+09:00 | #release-privacy | claude-code | ☐→~ | .oculpm/journal/20260913/Chores/0318_chore_icloud-ios-docs-and-privacy.md | docs/PRIVACY.md 초안 — 사용자 확인·site 에 얹기 남음 |
 | 2026-09-13T03:20:26+09:00 | #release-testflight | claude-code | ☐→~ |  | archive.sh + ExportOptions 준비, 아카이브 성공 — ASC 앱 레코드는 사용자가 |
+| 2026-09-13T04:00:41+09:00 | #ui-capture | claude-code | ~→x | .oculpm/journal/20260913/Features_to_add/0400_feature_phone-ui-second-edition.md | 2판 — 유리 펜, 칩, ⊗, LocationButton |
+| 2026-09-13T04:00:46+09:00 | #ui-list | claude-code | ~→x | .oculpm/journal/20260913/Features_to_add/0400_feature_phone-ui-second-edition.md | 2판 — 위에서 아래, 큰 제목·부제, 범위 줄, 시스템 되돌리기 |
+| 2026-09-13T04:00:52+09:00 | #ui-calendar | claude-code | ~→x | .oculpm/journal/20260913/Features_to_add/0400_feature_phone-ui-second-edition.md | 2판 — 시스템 끌기, 날짜 시트 |
+| 2026-09-13T04:00:57+09:00 | #ui-editor | claude-code | ~→x | .oculpm/journal/20260913/Features_to_add/0400_feature_phone-ui-second-edition.md | 2판 — 바닥 툴바 꼬리, 색 메뉴, detent 시트 |
+| 2026-09-13T04:01:03+09:00 | #ui-trash | claude-code | ~→x | .oculpm/journal/20260913/Features_to_add/0400_feature_phone-ui-second-edition.md | 2판 — 툴바 단추로 한 번에, 되돌린 줄 보이기 |
 <!-- oculpm:plan-log end -->

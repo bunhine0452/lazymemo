@@ -33,6 +33,7 @@ final class SmokeTests: XCTestCase {
         leave.tap()
 
         XCTAssertTrue(row(in: app, startingWith: "dentist").waitForExistence(timeout: 5), "줄이 안 보인다")
+        XCTAssertTrue(app.staticTexts["이 기기에만 · iCloud 꺼짐"].exists, "저장 자리가 부제에 있어야 한다")
         // 빈 칸의 value 는 안내 문구다 — 적은 글이 남아 있지 않으면 된다.
         XCTAssertFalse((capture.value as? String ?? "").contains("dentist"), "적기 끝에 글 칸이 비어야 한다")
 
@@ -60,11 +61,15 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(row(in: app, startingWith: "치과 예약").waitForExistence(timeout: 5), "첫소리로 찾아야 한다")
         XCTAssertFalse(row(in: app, startingWith: "장보기").exists, "안 맞는 것은 빠져야 한다")
         XCTAssertEqual(app.buttons["leave"].label, "메모 남기기", "찾는 중에도 남기기는 살아 있다")
+        XCTAssertEqual(app.staticTexts["scope"].label, "5장 중 1장", "찾기의 범위를 적어야 한다")
+
+        app.buttons["clear"].tap()
+        XCTAssertTrue(row(in: app, startingWith: "장보기").waitForExistence(timeout: 3), "⊗ 로 비우면 목록이 돌아온다")
     }
 
-    // MARK: 지우기 — 되돌리기 띠가 펜 위에 뜬다
+    // MARK: 지우기 — 휴지통에서 돌아온다
 
-    func testSwipeDeleteOffersUndo() throws {
+    func testDeletedMemoReturnsFromTrash() throws {
         try seed()
         let app = launch()
         let target = row(in: app, startingWith: "집 — 전구 갈기")
@@ -74,12 +79,14 @@ final class SmokeTests: XCTestCase {
         let delete = app.buttons["지우기"]
         XCTAssertTrue(delete.waitForExistence(timeout: 3))
         delete.tap()
+        XCTAssertFalse(row(in: app, startingWith: "집 — 전구 갈기").waitForExistence(timeout: 1))
 
-        let undo = app.buttons["undo"].firstMatch
-        XCTAssertTrue(undo.waitForExistence(timeout: 3), "되돌리기 띠가 없다")
-        XCTAssertFalse(row(in: app, startingWith: "집 — 전구 갈기").exists)
-        undo.tap()
-        XCTAssertTrue(row(in: app, startingWith: "집 — 전구 갈기").waitForExistence(timeout: 3), "되돌린 줄이 안 돌아왔다")
+        app.buttons["trash-button"].tap()
+        let restore = app.buttons["restore"].firstMatch
+        XCTAssertTrue(restore.waitForExistence(timeout: 5), "휴지통에 없다")
+        restore.tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(row(in: app, startingWith: "집 — 전구 갈기").waitForExistence(timeout: 5), "되돌린 줄이 안 돌아왔다")
     }
 
     // MARK: 편집 — 저장 버튼 없이 파일이 바뀐다
@@ -111,7 +118,11 @@ final class SmokeTests: XCTestCase {
         try seed()
         let app = launch()
         XCTAssertTrue(app.descendants(matching: .any)["capture"].waitForExistence(timeout: 10))
-        app.tabBars.buttons["달력"].tap()
+        // 켜면 키보드가 올라와 탭바를 덮는다 — 목록을 쓸어 내려 키보드를 내린다 (사람도 그렇게 한다).
+        dismissKeyboard(app)
+        let calendarTab = app.tabBars.buttons["달력"]
+        XCTAssertTrue(calendarTab.waitForExistence(timeout: 3) && calendarTab.isHittable, "키보드가 내려가야 탭바가 닿는다")
+        calendarTab.tap()
 
         // 15일 칸을 누르면 그 날의 둘이 선다.
         let cell = app.buttons.matching(NSPredicate(format: "label BEGINSWITH '15일'")).firstMatch
@@ -130,7 +141,10 @@ final class SmokeTests: XCTestCase {
 
         // 권한과 자리는 ios/scripts/uitest.sh 가 simctl 로 미리 준다 — 시스템 권한
         // 창을 시험이 기다리지 않게. 실기기의 첫 누름은 그 창을 진짜로 띄운다.
-        app.buttons["here"].tap()
+        // 시스템 위치 단추는 식별자를 받지 않아 이름으로 찾는다.
+        let here = app.descendants(matching: .any)["here"]
+        XCTAssertTrue(here.waitForExistence(timeout: 5), "위치 단추가 없다")
+        here.tap()
 
         let chip = app.descendants(matching: .any)["chip-place"]
         let trouble = app.descendants(matching: .any)["here-trouble"]
@@ -147,6 +161,18 @@ final class SmokeTests: XCTestCase {
         app.launchEnvironment["LAZYMEMO_VAULT"] = root.path(percentEncoded: false)
         app.launch()
         return app
+    }
+
+    /// 켜면 키보드가 올라와 탭바를 덮는다. 목록을 쓸어 내리면 내려간다 — 사람도 그렇게 한다.
+    private func dismissKeyboard(_ app: XCUIApplication) {
+        guard app.keyboards.count > 0 else { return }
+        // 목록 위에서 손가락을 천천히 끌어내린다 (빠른 플릭은 시뮬레이터가 스크롤로 안 본다).
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
+        from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)
+        if app.keyboards.count > 0 {
+            try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/lazymemo-kb.png"))
+        }
     }
 
     private func row(in app: XCUIApplication, startingWith title: String) -> XCUIElement {

@@ -43,6 +43,17 @@ final class PenModel {
     /// 밖에서 펜을 올려 달라는 신호 — 값이 바뀌면 `PenBar` 가 포커스를 준다.
     var focusRequest = 0
     func requestFocus() { focusRequest += 1 }
+
+    /// 켤 때의 포커스는 한 번뿐이다.
+    private var launchFocusTaken = false
+    func takeLaunchFocus() -> Bool {
+        guard !launchFocusTaken else { return false }
+        launchFocusTaken = true
+        return true
+    }
+
+    /// 방금 남긴 메모 — 목록이 그리로 간다.
+    private(set) var lastLeft: ULID?
     struct Here: Equatable {
         var place: String
         var geo: Coordinate?
@@ -119,8 +130,9 @@ final class PenModel {
             body: body, due: schedule.due, at: schedule.at, every: note.every,
             place: note.place, geo: here?.geo, folder: folder
         )
-        guard memo != nil else { return nil }
+        guard let memo else { return nil }
 
+        lastLeft = memo.id
         text = ""
         draft.forget()
         here = nil

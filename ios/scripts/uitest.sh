@@ -3,6 +3,7 @@
 #
 #   ./ios/scripts/uitest.sh                 # 전부
 #   ./ios/scripts/uitest.sh testHerePin…    # 하나 (이름 일부)
+#   ./ios/scripts/uitest.sh --shots         # 화면을 찍는다 → /tmp/shot-*.png (LAZYMEMO_DARK=1 이면 다크)
 #
 # 시뮬레이터에 자리와 위치 권한을 미리 준다 — 「지금 여기」 시험이 시스템의
 # 권한 창을 기다리지 않게. 실기기의 첫 누름은 그 창을 진짜로 띄운다.
@@ -19,12 +20,17 @@ xcrun simctl location "$DEVICE" set 37.4979,127.0276
 xcrun simctl privacy "$DEVICE" grant location "$BUNDLE" 2>/dev/null || true
 
 FILTER=()
-if [[ -n "$ONLY" ]]; then
+SHOTS=0
+if [[ "$ONLY" == "--shots" ]]; then
+    SHOTS=1
+    FILTER=(-only-testing:"LazyMemoUITests/ShotTests")
+    xcrun simctl ui "$DEVICE" appearance "${LAZYMEMO_DARK:+dark}${LAZYMEMO_DARK:-light}"
+elif [[ -n "$ONLY" ]]; then
     FILTER=(-only-testing:"LazyMemoUITests/SmokeTests/$ONLY")
 fi
 
 cd "$ROOT/ios"
-xcodebuild test \
+TEST_RUNNER_LAZYMEMO_SHOTS="$SHOTS" xcodebuild test \
     -project LazyMemo.xcodeproj -scheme LazyMemo-iOS \
     -destination "platform=iOS Simulator,name=$DEVICE" \
     -derivedDataPath "${LAZYMEMO_DERIVED:-$ROOT/.build/ios}" \

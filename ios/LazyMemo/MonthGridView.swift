@@ -12,11 +12,11 @@ struct MonthGridView: View {
     /// 날짜별 일정 수 — 잉크의 세기.
     var marks: [CalendarDate: Int] = [:]
     var today: CalendarDate = CalendarDate(Date())
-    /// 「들고 기다리는」 중 — 머리글이 바뀌고 격자가 놓을 곳을 묻는다.
-    var holding = false
     var onPick: (CalendarDate) -> Void
     var onStep: (Int) -> Void
     var onToday: () -> Void
+    /// 줄을 끌어다 칸에 놓았을 때 — 메모 id 문자열들. `nil` 이면 놓을 수 없는 격자(시트).
+    var onDrop: ((CalendarDate, [String]) -> Bool)?
 
     private static let cell: CGFloat = 44
     private let weekdays = ["일", "월", "화", "수", "목", "금", "토"]
@@ -52,18 +52,12 @@ struct MonthGridView: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
-            if holding {
-                Text("놓을 날을 누르세요")
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(Theme.accentInk)
-            } else {
-                Text("\(grid.month)월")
-                    .font(.largeTitle.weight(.bold))
-                    .foregroundStyle(Paper.ink)
-                Text(String(grid.year))
-                    .font(.title3)
-                    .foregroundStyle(Paper.fadedInk)
-            }
+            Text("\(grid.month)월")
+                .font(.largeTitle.weight(.bold))
+                .foregroundStyle(Paper.ink)
+            Text(String(grid.year))
+                .font(.title3)
+                .foregroundStyle(.secondary)
             Spacer()
             Button { onStep(-1) } label: {
                 Image(systemName: "chevron.left").frame(width: 44, height: 44)
@@ -82,7 +76,16 @@ struct MonthGridView: View {
         .accessibilityElement(children: .contain)
     }
 
+    @ViewBuilder
     private func cell(_ day: MonthGrid.Day) -> some View {
+        if let onDrop {
+            cellButton(day).dropDestination(for: String.self) { items, _ in onDrop(day.date, items) }
+        } else {
+            cellButton(day)
+        }
+    }
+
+    private func cellButton(_ day: MonthGrid.Day) -> some View {
         let isToday = day.date == today
         let isSelected = day.date == selected
         let count = marks[day.date] ?? 0
@@ -117,9 +120,9 @@ struct MonthGridView: View {
 
     private func weekdayInk(_ index: Int) -> Color {
         switch index {
-        case 0: Color(red: 0.76, green: 0.36, blue: 0.34)
-        case 6: Color(red: 0.36, green: 0.55, blue: 0.72)
-        default: Paper.fadedInk
+        case 0: Theme.sundayInk
+        case 6: Theme.saturdayInk
+        default: .secondary
         }
     }
 

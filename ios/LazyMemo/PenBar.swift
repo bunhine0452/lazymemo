@@ -1,57 +1,72 @@
+import CoreLocationUI
 import LazyMemoCore
 import SwiftUI
 
-/// 화면 바닥의 펜 — 칩 줄 · 되돌리기 띠 · 펜 줄 (MOBILE_DESIGN §3).
+/// 유리 위의 펜 (MOBILE_DESIGN §3).
 ///
-/// 바탕은 종이다. 탭바는 시스템 유리지만 **적는 면은 종이여야 한다** (§14.5).
+/// 조작은 유리, 종이는 콘텐츠 층이다. 그래서 여기에는 종이색도 윗변 선도 없다 —
+/// 유리 조각들과 scroll edge effect 가 경계를 만든다. 틴트는 「남기기」 하나뿐이다.
+/// 탭바 액세서리로 앉히면(`.inline`) 「적기…」 한 줄 알약이 되지만, 액세서리는
+/// 키보드 위로 오르지 않아 지금은 `safeAreaInset` 에 앉는다 (`HomeView`).
 struct PenBar: View {
     let pen: PenModel
-    let undo: UndoModel
-    let usingCloud: Bool
     var fixing = false
     /// 「위치를 못 잡았습니다」 — 칩 자리에 한 번.
     var hereTrouble: String?
     var onHere: () -> Void = {}
 
+    @Environment(\.tabViewBottomAccessoryPlacement) private var placement
     @FocusState private var focused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            if !usingCloud {
-                band("이 기기에만 남습니다 · iCloud 가 꺼져 있습니다", tint: Theme.highlightInk)
-                    .accessibilityIdentifier("local-band")
+        Group {
+            if placement == .inline {
+                compact
+            } else {
+                expanded
             }
-            if let offer = undo.offer {
-                HStack {
-                    Text(offer.message).font(.subheadline)
-                    Spacer()
-                    Button("되돌리기") { Task { await undo.take() } }
-                        .font(.subheadline.weight(.semibold))
-                        .accessibilityIdentifier("undo")
-                }
-                .foregroundStyle(Theme.accentInk)
-                .padding(.horizontal, 20)
-                .frame(minHeight: 44)
-                .background(Theme.accentInk.opacity(0.09))
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-            chips
-            penRow
         }
-        .background(Paper.surface)
-        .overlay(alignment: .top) {
-            Rectangle().fill(Paper.ink.opacity(0.12)).frame(height: 0.5)
-        }
-        .animation(.snappy(duration: 0.2), value: undo.offer?.id)
         .task {
-            // 켜면 펜이다 — 키보드가 이미 올라와 있다.
+            // 켜면 펜이다 — 키보드가 이미 올라와 있다. **켤 때 한 번만.** 메모를
+            // 읽고 돌아올 때마다 키보드가 튀어 오르면 그건 펜이 아니라 방해다.
+            guard pen.takeLaunchFocus() else { return }
             try? await Task.sleep(for: .milliseconds(80))
             focused = true
         }
         .onChange(of: pen.focusRequest) { _, _ in focused = true }
     }
 
-    // MARK: 칩 — 누르기 전에 무엇을 읽었는지 보인다
+    /// 접힌 탭바 옆의 한 줄. 누르면 펜을 올린다.
+    private var compact: some View {
+        Button {
+            pen.requestFocus()
+        } label: {
+            HStack {
+                Image(systemName: "pencil.line")
+                Text(pen.text.isEmpty ? "적기…" : pen.text.split(separator: "\n").first.map(String.init) ?? "적기…")
+                    .lineLimit(1)
+                    .foregroundStyle(pen.text.isEmpty ? .secondary : .primary)
+                Spacer()
+            }
+            .font(.body)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("적기")
+        .accessibilityIdentifier("capture-compact")
+    }
+
+    private var expanded: some View {
+        VStack(spacing: 6) {
+            chips
+            penRow
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+    }
+
+    // MARK: 칩 — 읽은 것을 누르기 전에 보인다
 
     @ViewBuilder
     private var chips: some View {
@@ -64,7 +79,7 @@ struct PenBar: View {
                     if let hereTrouble, pen.here == nil {
                         Text(hereTrouble)
                             .font(.footnote)
-                            .foregroundStyle(Paper.fadedInk)
+                            .foregroundStyle(.secondary)
                             .frame(minHeight: 32)
                             .accessibilityIdentifier("here-trouble")
                     }
@@ -82,27 +97,21 @@ struct PenBar: View {
                         .accessibilityIdentifier("chip-place")
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
+                .padding(.horizontal, 4)
             }
         }
     }
 
+    /// 켜진 칩은 바탕 + 글, 꺼진 칩은 테두리만 — 눌리게 생겨야 한다.
     private func chip(_ label: String, on: Bool, hint: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
                 .font(.footnote.weight(.medium).monospacedDigit())
-                .foregroundStyle(on ? Theme.highlightInk : Paper.fadedInk)
+                .foregroundStyle(on ? Theme.highlightInk : .secondary)
                 .padding(.horizontal, 10)
                 .frame(minHeight: 32)
-                .background(
-                    RoundedRectangle(cornerRadius: Theme.chipRadius)
-                        .fill(on ? Theme.highlightWash : .clear)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.chipRadius)
-                        .stroke(on ? .clear : Paper.fadedInk.opacity(0.5), lineWidth: 1)
-                )
+                .background(RoundedRectangle(cornerRadius: Theme.chipRadius).fill(on ? Theme.highlightWash : .clear))
+                .overlay(RoundedRectangle(cornerRadius: Theme.chipRadius).stroke(on ? .clear : Color.secondary.opacity(0.6), lineWidth: 1))
                 .frame(minHeight: 44)
         }
         .buttonStyle(.plain)
@@ -110,58 +119,62 @@ struct PenBar: View {
         .accessibilityHint(hint)
     }
 
-    // MARK: 펜 줄 — 핀 · 글 칸 · 남기기
+    // MARK: 펜 줄 — 위치 단추 · 글 칸 · 남기기
 
     private var penRow: some View {
-        HStack(alignment: .bottom, spacing: 10) {
-            Button(action: onHere) {
-                if fixing {
-                    ProgressView().frame(width: 44, height: 44)
-                } else {
-                    Image(systemName: "mappin")
-                        .font(.system(size: 18))
-                        .foregroundStyle(pen.here == nil ? Theme.accentInk.opacity(0.4) : Theme.accentInk)
-                        .frame(width: 44, height: 44)
+        HStack(alignment: .bottom, spacing: 8) {
+            if fixing {
+                ProgressView().frame(width: 44, height: 44)
+            } else {
+                // 시스템 위치 단추 — 생김새를 바꾸지 않는다. 누르는 순간 한 번 허용.
+                LocationButton(.currentLocation, action: onHere)
+                    .labelStyle(.iconOnly)
+                    .symbolVariant(.fill)
+                    .tint(pen.here == nil ? .secondary : Theme.accentInk)
+                    .foregroundStyle(.white)
+                    .clipShape(Circle())
+                    .frame(width: 44, height: 44)
+                    .accessibilityLabel("지금 여기")
+                    .accessibilityIdentifier("here")
+            }
+
+            HStack(alignment: .bottom, spacing: 4) {
+                TextField(pen.prompt, text: Bindable(pen).text, axis: .vertical)
+                    .font(.body)
+                    .lineLimit(1...5)
+                    .focused($focused)
+                    .frame(minHeight: 36)
+                    .accessibilityLabel("적기")
+                    .accessibilityIdentifier("capture")
+                if !pen.text.isEmpty {
+                    Button {
+                        pen.text = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                            .frame(width: 32, height: 36)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("지우기")
+                    .accessibilityIdentifier("clear")
                 }
             }
-            .buttonStyle(.plain)
-            .disabled(fixing)
-            .accessibilityLabel("지금 여기")
-            .accessibilityHint("이 자리의 주소를 메모에 붙입니다")
-            .accessibilityIdentifier("here")
-
-            TextField(pen.prompt, text: Bindable(pen).text, axis: .vertical)
-                .font(.title2.weight(.light))
-                .foregroundStyle(Paper.ink)
-                .lineLimit(1...5)
-                .focused($focused)
-                .frame(minHeight: 44)
-                .accessibilityLabel("적기")
-                .accessibilityIdentifier("capture")
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18))
 
             Button(action: { Task { await pen.leave() } }) {
                 Text(pen.leaveLabel)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.onAccent)
-                    .padding(.horizontal, 14)
-                    .frame(height: 44)
-                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                    .padding(.horizontal, 4)
+                    .frame(minHeight: 36)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.glassProminent)
+            .tint(Theme.accent)
+            .foregroundStyle(Theme.onAccent)
             .disabled(!pen.canLeave)
-            .opacity(pen.canLeave ? 1 : 0.45)
             .accessibilityIdentifier("leave")
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-    }
-
-    private func band(_ text: String, tint: Color) -> some View {
-        Text(text)
-            .font(.caption)
-            .foregroundStyle(tint)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-            .background(tint.opacity(0.1))
     }
 }
