@@ -197,4 +197,87 @@ struct VaultRelocationTests {
         #expect(resolved.paths.vault.lastPathComponent == "vault")
         #expect(resolved.missingVault == nil)
     }
+
+    // MARK: iCloud 컨테이너 — 폰과 같은 폴더로
+
+    @Test("컨테이너로 가는 계획은 그 Documents 에 합치는 것이고, 이미 있는 메모 수를 들고 온다")
+    func cloudPlanMergesIntoDocuments() throws {
+        let root = try makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let current = root.appending(path: "Documents/lazymemo", directoryHint: .isDirectory)
+        let container = root.appending(path: "iCloud~lazymemo", directoryHint: .isDirectory)
+        try makeVault(at: current)
+        try makeVault(at: container.appending(path: "Documents", directoryHint: .isDirectory), note: "폰에서 적음")
+
+        let plan = VaultRelocation.planCloud(container: container, current: current)
+
+        #expect(plan == .merge(into: container.appending(path: "Documents", directoryHint: .isDirectory), existing: 1))
+    }
+
+    @Test("이미 컨테이너 안이면 할 일이 없다")
+    func alreadyInCloud() throws {
+        let root = try makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let container = root.appending(path: "iCloud~lazymemo", directoryHint: .isDirectory)
+        let current = container.appending(path: "Documents", directoryHint: .isDirectory)
+        try makeVault(at: current)
+
+        #expect(VaultRelocation.planCloud(container: container, current: current) == .alreadyThere)
+    }
+
+    @Test("합치면 양쪽 메모가 한 폴더에 모이고 옛 껍데기는 없어진다")
+    func mergeUnitesBothSides() throws {
+        let root = try makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let current = root.appending(path: "Documents/lazymemo", directoryHint: .isDirectory)
+        let container = root.appending(path: "iCloud~lazymemo", directoryHint: .isDirectory)
+        let target = container.appending(path: "Documents", directoryHint: .isDirectory)
+        try makeVault(at: current, note: "맥")
+        // 폰 것은 다른 달 폴더에, 그리고 사진 폴더도 하나.
+        let phoneNotes = target.appending(path: "notes/2026/09", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: phoneNotes, withIntermediateDirectories: true)
+        try "폰".write(to: phoneNotes.appending(path: "two.md"), atomically: true, encoding: .utf8)
+        let attachments = current.appending(path: "attachments", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: attachments, withIntermediateDirectories: true)
+        try Data([1, 2, 3]).write(to: attachments.appending(path: "pic.png"))
+
+        let plan = VaultRelocation.planCloud(container: container, current: current)
+        let vault = try VaultRelocation.perform(plan, from: current)
+
+        #expect(vault == target)
+        #expect(try String(contentsOf: target.appending(path: "notes/2026/08/one.md"), encoding: .utf8) == "맥")
+        #expect(try String(contentsOf: target.appending(path: "notes/2026/09/two.md"), encoding: .utf8) == "폰")
+        #expect(FileManager.default.fileExists(atPath: target.appending(path: "attachments/pic.png").path(percentEncoded: false)))
+        #expect(!FileManager.default.fileExists(atPath: current.path(percentEncoded: false)), "옛 껍데기가 남으면 다음에 또 옮기려 든다")
+    }
+
+    @Test("같은 이름의 파일이 양쪽에 있으면 어느 쪽도 지우지 않는다")
+    func mergeNeverOverwrites() throws {
+        let root = try makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let current = root.appending(path: "Documents/lazymemo", directoryHint: .isDirectory)
+        let container = root.appending(path: "iCloud~lazymemo", directoryHint: .isDirectory)
+        let target = container.appending(path: "Documents", directoryHint: .isDirectory)
+        try makeVault(at: current, note: "맥의 one")
+        try makeVault(at: target, note: "폰의 one")
+
+        try VaultRelocation.perform(VaultRelocation.planCloud(container: container, current: current), from: current)
+
+        #expect(try String(contentsOf: target.appending(path: "notes/2026/08/one.md"), encoding: .utf8) == "폰의 one")
+        #expect(try String(contentsOf: current.appending(path: "notes/2026/08/one.md"), encoding: .utf8) == "맥의 one", "옛 자리에 그대로 남아야 한다")
+    }
+
+    @Test("entitlement 없는 빌드는 Mobile Documents 의 폴더가 있을 때만 컨테이너를 본다")
+    func containerOnDiskOnlyWhenPresent() throws {
+        let home = try makeRoot()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let homePath = home.path(percentEncoded: false)
+
+        #expect(AppPaths.cloudContainerOnDisk(home: homePath) == nil)
+
+        let folder = home.appending(path: "Library/Mobile Documents/iCloud~io~github~bunhine0452~lazymemo", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+
+        #expect(AppPaths.cloudContainerOnDisk(home: homePath)?.standardizedFileURL == folder.standardizedFileURL)
+    }
 }

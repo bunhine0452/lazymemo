@@ -12,8 +12,8 @@ struct RootView: View {
             ProgressView()
         case .failed(let reason):
             ContentUnavailableView(reason, systemImage: "folder.badge.questionmark")
-        case .ready(let store, let usingCloud):
-            MemoListView(store: store, usingCloud: usingCloud)
+        case .ready(let session):
+            MemoListView(store: session.store, usingCloud: session.usingCloud)
         }
     }
 }

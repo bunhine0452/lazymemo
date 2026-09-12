@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 아이폰의 lazymemo 와 같은 컨테이너. Developer ID 서명 + 이 컨테이너가
+	     든 프로비저닝 프로필(embedded.provisionprofile)이 있을 때만 붙는다 —
+	     프로필 없이 제한된 entitlement 를 달면 macOS 가 앱을 열어 주지 않는다.
+	     (ios/Config/LazyMemo.entitlements 와 같은 셋) -->
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.io.github.bunhine0452.lazymemo</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudDocuments</string>
+	</array>
+	<key>com.apple.developer.ubiquity-container-identifiers</key>
+	<array>
+		<string>iCloud.io.github.bunhine0452.lazymemo</string>
+	</array>
+</dict>
+</plist>

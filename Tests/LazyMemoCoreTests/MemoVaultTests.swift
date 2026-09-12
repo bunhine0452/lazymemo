@@ -221,4 +221,26 @@ struct MemoServiceTests {
         #expect(cleared.due == nil)
         #expect(cleared.tags == ["병원"])
     }
+
+    // MARK: iCloud 가 자리만 잡아 둔 파일
+
+    @Test("숨은 .icloud 자리에서 진짜 파일 이름을 되읽는다")
+    func placeholderRevealsRealFile() {
+        let directory = URL(filePath: "/v/notes/2026/09", directoryHint: .isDirectory)
+        let placeholder = directory.appending(path: ".01K4ZQ8F7N2R4M6X8B0V5T9WQY.md.icloud")
+
+        #expect(MemoVault.realFile(behindPlaceholder: placeholder) == directory.appending(path: "01K4ZQ8F7N2R4M6X8B0V5T9WQY.md"))
+        #expect(MemoVault.realFile(behindPlaceholder: directory.appending(path: "01K4ZQ8F7N2R4M6X8B0V5T9WQY.md")) == nil)
+        #expect(MemoVault.realFile(behindPlaceholder: directory.appending(path: ".pic.png.icloud")) == nil, "메모가 아닌 것은 청하지 않는다")
+    }
+
+    @Test("보통 폴더에는 청할 것이 없다")
+    func nothingToDownloadLocally() async throws {
+        let paths = try makeTemporaryPaths()
+        defer { remove(paths) }
+        let vault = MemoVault(paths: paths)
+        try await vault.save(Memo(body: "여기 있는 것"))
+
+        #expect(await vault.requestMissingDownloads() == 0)
+    }
 }

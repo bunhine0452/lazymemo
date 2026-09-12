@@ -38,9 +38,9 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 - [ ] 빠른 입력의 「지금 여기」 — 누를 때만 위치를 재고 place·geo 를 붙인다 (첫 실행에 묻지 않는다) {#ui-location}
 
 ## 맥이 iCloud 를 같이 본다 {#mac-side}
-- [ ] 설정 → 「iCloud 로 동기화」 — 컨테이너 자리 해석(entitlement 있으면 API, 없으면 Mobile Documents 경로) 뒤 VaultRelocation 재사용 {#mac-icloud-sync}
-- [ ] vault 가 Mobile Documents 안이면 맥에서도 미다운로드 파일을 내려받는다 (Mac 저장 공간 최적화 대비) {#mac-placeholder}
-- [ ] build-app.sh 에 Developer ID 서명·iCloud entitlement·프로비저닝·공증 경로 — 환경변수로 identity, 없으면 지금처럼 ad-hoc {#mac-signing}
+- [x] 설정 → 「iCloud 로 동기화」 — 컨테이너 자리 해석(entitlement 있으면 API, 없으면 Mobile Documents 경로) 뒤 VaultRelocation 재사용 {#mac-icloud-sync}
+- [x] vault 가 Mobile Documents 안이면 맥에서도 미다운로드 파일을 내려받는다 (Mac 저장 공간 최적화 대비) {#mac-placeholder}
+- [x] build-app.sh 에 Developer ID 서명·iCloud entitlement·프로비저닝·공증 경로 — 환경변수로 identity, 없으면 지금처럼 ad-hoc {#mac-signing}
 - [ ] README·DESIGN §5.1·§12 에 iOS 앱과 iCloud 컨테이너를 적는다 — 단축어 절은 「앱 없이」 대안으로 남긴다 {#mac-docs}
 
 ## 손에 쥐어 본다 {#release}
@@ -63,4 +63,7 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 | 2026-09-13T02:26:15+09:00 | #sync-placeholder | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0226_feature_icloud-watcher-placeholders-conflicts.md | 감시자가 보이는 족족 startDownloadingUbiquitousItem |
 | 2026-09-13T02:26:20+09:00 | #sync-conflict | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0226_feature_icloud-watcher-placeholders-conflicts.md | ConflictSettlement + settleConflicts, 테스트 7 |
 | 2026-09-13T02:26:26+09:00 | #sync-coordination | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0226_feature_icloud-watcher-placeholders-conflicts.md | 안 붙임 — 원자적 쓰기로 충분, oculpm-defer 로 트리거 기록 |
+| 2026-09-13T02:39:40+09:00 | #mac-icloud-sync | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0239_feature_mac-icloud-sync-and-developer-id.md | planCloud → merge, 메뉴 항목, 실컨테이너는 release-device 에서 |
+| 2026-09-13T02:39:45+09:00 | #mac-placeholder | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0239_feature_mac-icloud-sync-and-developer-id.md | requestMissingDownloads in reconcile (양쪽 플랫폼) |
+| 2026-09-13T02:39:50+09:00 | #mac-signing | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0239_feature_mac-icloud-sync-and-developer-id.md | Developer ID 서명 확인됨; 프로필·공증 자격은 사용자가 포털에서 |
 <!-- oculpm:plan-log end -->

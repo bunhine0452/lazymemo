@@ -29,6 +29,8 @@ public actor MemoService {
         // 밖에서 떨어진 낯선 이름의 파일을 먼저 받아 앉힌다. 이 한 줄이
         // 아이폰 단축어·Hazel·Finder 끌어놓기를 전부 입력 경로로 만든다.
         try? await vault.adopt()
+        // iCloud 가 자리만 잡아 둔 파일은 내려받기를 청한다. 내려오면 감시가 다시 부른다.
+        await vault.requestMissingDownloads()
         // 두 기기가 따로 고친 것이 만났으면 정리한다 — 진 쪽은 휴지통에 남는다.
         try? await vault.settleConflicts()
 

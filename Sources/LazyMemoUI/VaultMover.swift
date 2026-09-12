@@ -40,8 +40,36 @@ final class VaultMover {
         Task { await apply(chosen) }
     }
 
+    /// 「iCloud 로 동기화…」 — 폰과 같은 컨테이너의 `Documents/` 로 간다 (§5.1).
+    ///
+    /// 컨테이너는 두 길로 찾는다. entitlement 가 있는 빌드는 iCloud 에 직접 묻고,
+    /// 없는 빌드(소스 빌드·ad-hoc)는 폰이 만들어 둔 `~/Library/Mobile Documents/`
+    /// 아래 폴더를 본다. 둘 다 없으면 **왜 안 되는지를 적는다** — 조용히 아무
+    /// 일도 안 하면 사용자는 버튼이 고장 난 줄 안다.
+    func beginCloud() {
+        Task {
+            // 첫 호출이 iCloud 데몬과 이야기하는 막히는 호출이라 메인 밖에서.
+            let container = await Task.detached(priority: .userInitiated) {
+                AppPaths.ubiquityContainer() ?? AppPaths.cloudContainerOnDisk()
+            }.value
+            guard let container else {
+                tell(
+                    "iCloud 컨테이너를 찾지 못했습니다",
+                    detail: "시스템 설정에서 iCloud Drive 가 켜져 있는지 보세요. "
+                        + "소스에서 지은 lazymemo 는 아이폰의 lazymemo 가 한 번 켜진 뒤에야 그 폴더가 생깁니다.",
+                    critical: true
+                )
+                return
+            }
+            await apply(VaultRelocation.planCloud(container: container, current: paths.vault))
+        }
+    }
+
     private func apply(_ chosen: URL) async {
-        let plan = VaultRelocation.plan(choosing: chosen, current: paths.vault)
+        await apply(VaultRelocation.plan(choosing: chosen, current: paths.vault))
+    }
+
+    private func apply(_ plan: VaultRelocation.Plan) async {
         switch plan {
         case .alreadyThere:
             tell("이미 그 폴더를 쓰고 있습니다", detail: readable(paths.vault))
@@ -60,6 +88,15 @@ final class VaultMover {
                 "메모 폴더를 옮깁니다",
                 detail: "\(readable(paths.vault))\n→ \(readable(target))\n\n"
                     + "메모 파일과 사진이 통째로 옮겨집니다. lazymemo 가 다시 열립니다."
+            ) else { return }
+            await settle(plan, to: target)
+        case .merge(let target, let existing):
+            let already = existing > 0 ? "거기 이미 있는 \(existing)장과 합쳐집니다. " : ""
+            guard confirm(
+                "iCloud 의 LazyMemo 폴더로 옮깁니다",
+                detail: "\(readable(paths.vault))\n→ \(readable(target))\n\n"
+                    + "메모 파일과 사진이 그 폴더로 들어갑니다. \(already)"
+                    + "아이폰의 lazymemo 와 같은 폴더입니다. lazymemo 가 다시 열립니다."
             ) else { return }
             await settle(plan, to: target)
         }

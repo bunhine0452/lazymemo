@@ -8,6 +8,16 @@
 # LAZYMEMO_OSIZE=1 을 주면 코드 크기 우선(-Osize)으로 컴파일한다. 실행 파일이
 # 약 225KB 더 줄지만 속도를 내주는 거래라, 켠 뒤에는 반드시
 # ./scripts/measure-capture.sh 로 150ms 예산을 다시 재야 한다 (설계문서 §11).
+#
+# 서명은 셋 중 하나다 (설계문서 §12).
+#   (없음)                    ad-hoc. 본인 실행용. 내려받은 앱에는 검역 딱지가 붙는다.
+#   LAZYMEMO_SIGN_IDENTITY    "Developer ID Application: …" — 강화된 런타임으로 서명.
+#     + LAZYMEMO_PROFILE      iCloud 컨테이너가 든 Developer ID 프로비저닝 프로필(.provisionprofile).
+#                             있을 때만 Resources/LazyMemo.entitlements 가 붙는다 — 프로필 없이
+#                             제한된 entitlement 를 달면 macOS 가 앱을 열어 주지 않는다.
+#     + LAZYMEMO_NOTARY_PROFILE  `xcrun notarytool store-credentials` 로 저장한 이름.
+#                             있으면 공증하고 스테이플한다. 이것까지 되면 cask 의
+#                             검역 딱지 떼기(§12.2)가 필요 없어진다.
 set -euo pipefail
 
 CONFIG="${1:-release}"
@@ -50,10 +60,41 @@ if [[ "$CONFIG" == "release" ]]; then
     done
 fi
 
-# ad-hoc 서명. 유료 개발자 계정 없이 로컬 실행에 필요한 전부다 (설계문서 §12).
-echo "▸ ad-hoc 서명"
-codesign --force --sign - "$APP"
+IDENTITY="${LAZYMEMO_SIGN_IDENTITY:-}"
+PROFILE="${LAZYMEMO_PROFILE:-}"
+NOTARY="${LAZYMEMO_NOTARY_PROFILE:-}"
+
+if [[ -z "$IDENTITY" ]]; then
+    # ad-hoc 서명. 유료 개발자 계정 없이 로컬 실행에 필요한 전부다 (설계문서 §12).
+    echo "▸ ad-hoc 서명"
+    codesign --force --sign - "$APP"
+else
+    echo "▸ Developer ID 서명: $IDENTITY"
+    ENTITLEMENT_FLAGS=()
+    if [[ -n "$PROFILE" ]]; then
+        cp "$PROFILE" "$APP/Contents/embedded.provisionprofile"
+        ENTITLEMENT_FLAGS=(--entitlements "$ROOT/Resources/LazyMemo.entitlements")
+        echo "  프로필 포함 → iCloud 컨테이너 entitlement 를 붙인다"
+    else
+        echo "  프로필 없음 → iCloud entitlement 없이 서명한다 (Mobile Documents 폴더로는 여전히 동기화된다)"
+    fi
+    # 안에 든 실행 파일부터. --deep 은 순서를 보장하지 않아 공증에서 걸린다.
+    codesign --force --options runtime --timestamp --sign "$IDENTITY" \
+        "$APP/Contents/MacOS/lazymemo-mcp"
+    codesign --force --options runtime --timestamp --sign "$IDENTITY" \
+        ${ENTITLEMENT_FLAGS[@]+"${ENTITLEMENT_FLAGS[@]}"} "$APP"
+fi
 codesign --verify --verbose=1 "$APP"
+
+if [[ -n "$IDENTITY" && -n "$NOTARY" ]]; then
+    echo "▸ 공증 (notarytool: $NOTARY)"
+    NOTARY_ZIP="$(mktemp -d)/LazyMemo.zip"
+    ditto -c -k --keepParent "$APP" "$NOTARY_ZIP"
+    xcrun notarytool submit "$NOTARY_ZIP" --keychain-profile "$NOTARY" --wait
+    xcrun stapler staple "$APP"
+    spctl -a -t exec -vv "$APP"
+    rm -f "$NOTARY_ZIP"
+fi
 
 echo
 echo "✓ $APP  ($(du -sh "$APP" | cut -f1))"

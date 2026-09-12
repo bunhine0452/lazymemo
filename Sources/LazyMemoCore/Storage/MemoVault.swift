@@ -172,6 +172,39 @@ public actor MemoVault {
         return purged
     }
 
+    // MARK: 아직 안 내려온 파일 — iCloud 가 자리만 잡아 둔 것
+
+    /// iCloud 는 목록만 먼저 주고 내용은 열 때 가져온다. 그 자리에는 숨은
+    /// `.<이름>.md.icloud` 가 있고 `scan` 은 숨은 파일을 건너뛰므로, 우리가 청하지
+    /// 않으면 그 메모는 화면에 **없다** — 맥의 「Mac 저장 공간 최적화」가 오래된
+    /// 메모를 치웠을 때, 폰이 먼저 적은 메모가 맥에 처음 올 때.
+    ///
+    /// 돌려주는 것은 청한 수. 내려오면 파일 감시가 발화해 `reconcile` 이 다시 돈다.
+    @discardableResult
+    public func requestMissingDownloads() -> Int {
+        var requested = 0
+        for directory in [paths.notes, paths.trash] {
+            guard let enumerator = fileManager.enumerator(
+                at: directory, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsPackageDescendants]
+            ) else { continue }
+            for case let url as URL in enumerator {
+                guard let real = Self.realFile(behindPlaceholder: url) else { continue }
+                // 실패해도 다음 대조에 다시 청한다. 여기서 멈추면 그 한 장이 영영 안 보인다.
+                if (try? fileManager.startDownloadingUbiquitousItem(at: real)) != nil { requested += 1 }
+            }
+        }
+        return requested
+    }
+
+    /// `.<ulid>.md.icloud` → `<ulid>.md`. 그 모양이 아니면 `nil`.
+    static func realFile(behindPlaceholder url: URL) -> URL? {
+        let name = url.lastPathComponent
+        guard url.pathExtension == "icloud", name.hasPrefix(".") else { return nil }
+        let real = String(name.dropFirst().dropLast(".icloud".count))
+        guard real.hasSuffix("." + MemoFile.fileExtension) else { return nil }
+        return url.deletingLastPathComponent().appending(path: real, directoryHint: .notDirectory)
+    }
+
     // MARK: 충돌 — iCloud 가 판본을 둘 남겼을 때
 
     /// 판본이 둘 이상인 파일을 찾아 정리한다 (`ConflictSettlement`). 진 판본은

@@ -573,6 +573,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         submenu.addItem(.separator())
         submenu.addItem(vaultLocationItem())
+        submenu.addItem(cloudSyncItem())
 
         submenu.addItem(.separator())
         // `claude` 가 없으면 이 줄들도 없다 — 없는 사람에게는 존재하지 않는 기능이다.
@@ -640,6 +641,21 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let entry = item(title: "메모 폴더 옮기기…", action: #selector(moveVault), key: "")
         entry.subtitle = "지금은 \(shortVaultPath)"
         entry.toolTip = "고른 폴더에 이미 메모가 있으면 옮기지 않고 그것을 씁니다"
+        return entry
+    }
+
+    /// 아이폰과 같은 폴더를 보는 길. 이미 그 안이면 그렇다고 적고 누를 것이 없다.
+    private func cloudSyncItem() -> NSMenuItem {
+        if AppPaths.cloudContainerOnDisk().map({ AppPaths.cloudVault(inContainer: $0) })
+            .map({ $0.standardizedFileURL.path(percentEncoded: false) })
+            == paths.vault.standardizedFileURL.path(percentEncoded: false) {
+            let entry = disabled("iCloud 로 동기화 중")
+            entry.subtitle = "아이폰의 lazymemo 와 같은 폴더를 봅니다"
+            return entry
+        }
+        let entry = item(title: "iCloud 로 동기화…", action: #selector(syncToCloud), key: "")
+        entry.subtitle = "iCloud Drive 의 LazyMemo 폴더로 옮깁니다 — 아이폰과 같은 자리"
+        entry.toolTip = "별도 계정 없이 iCloud 가 옮깁니다. 이미 거기 메모가 있으면 합칩니다"
         return entry
     }
 
@@ -746,6 +762,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func moveVault() { mover.begin() }
+    @objc private func syncToCloud() { mover.beginCloud() }
 
     @objc private func checkForUpdates() {
         Task { await updater.check(userAsked: true) }

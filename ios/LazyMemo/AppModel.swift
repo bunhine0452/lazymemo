@@ -12,9 +12,17 @@ import Observation
 final class AppModel {
     enum Phase {
         case opening
-        case ready(MemoStore, usingCloud: Bool)
+        case ready(Session)
         /// 저장소를 열지 못했다. 사람의 말로.
         case failed(String)
+    }
+
+    /// 열린 뒤 화면이 손에 쥐는 것 전부.
+    struct Session {
+        let store: MemoStore
+        let settings: SettingsStore
+        let draft: CaptureDraftStore
+        let usingCloud: Bool
     }
 
     private(set) var phase: Phase = .opening
@@ -33,9 +41,26 @@ final class AppModel {
             try resolved.paths.createDirectories()
             let store = try MemoStore(paths: resolved.paths)
             await store.start()
-            phase = .ready(store, usingCloud: resolved.usingCloud)
+            phase = .ready(Session(
+                store: store,
+                settings: SettingsStore(location: resolved.paths.settings),
+                draft: CaptureDraftStore(location: resolved.paths.captureDraft),
+                usingCloud: resolved.usingCloud
+            ))
         } catch {
             phase = .failed("메모 폴더를 열지 못했습니다 — \(error)")
         }
+    }
+
+    /// 앱이 뒤로 물러날 때. 적던 글은 파일에 내려 두고, 다시 앞으로 올 때는
+    /// 밖에서 온 변경을 한 번 대조한다 — 폰이 자는 동안 맥에서 적은 것.
+    func background() {
+        guard case .ready(let session) = phase else { return }
+        session.draft.flush()
+    }
+
+    func foreground() async {
+        guard case .ready(let session) = phase else { return }
+        await session.store.reconcile()
     }
 }

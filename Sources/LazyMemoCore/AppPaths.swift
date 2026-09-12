@@ -121,6 +121,21 @@ public struct AppPaths: Sendable, Equatable {
         fileManager.url(forUbiquityContainerIdentifier: ubiquityContainerIdentifier)
     }
 
+    /// entitlement 없는 빌드(소스 빌드·ad-hoc)가 컨테이너에 닿는 길. iCloud 는
+    /// 컨테이너를 `~/Library/Mobile Documents/` 아래 보통 폴더로 두고, 거기에
+    /// 쓰는 것이 누구든 올려 보낸다 — 폰이 한 번 만들어 두면 맥의 어떤 빌드든
+    /// 같은 폴더를 본다. **폴더가 있을 때만** 값이 있다. 없는 자리를 가리켜
+    /// 빈 폴더를 만들면 iCloud 는 그것을 컨테이너로 치지 않는다.
+    public static func cloudContainerOnDisk(
+        home: String = NSHomeDirectory(), fileManager: FileManager = .default
+    ) -> URL? {
+        let folder = ubiquityContainerIdentifier.replacingOccurrences(of: ".", with: "~")
+        let url = URL(filePath: home, directoryHint: .isDirectory)
+            .appending(path: "Library/Mobile Documents", directoryHint: .isDirectory)
+            .appending(path: folder, directoryHint: .isDirectory)
+        return isDirectory(url, fileManager: fileManager) ? url : nil
+    }
+
     /// 컨테이너가 있으면 그 `Documents/`, 없으면 기본 자리 — **어느 쪽이었는지를
     /// 함께 들고 나온다.** 조용히 로컬로 떨어지면 사용자는 「맥에 안 나타난다」만
     /// 보고 왜인지는 영영 모른다 (`missingVault` 와 같은 이유).
