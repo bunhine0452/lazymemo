@@ -35,14 +35,26 @@ private struct ShareSheet: View {
                     .scrollContentBackground(.hidden)
                     .padding(12)
                     .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                    .frame(maxHeight: 220)
+                // 펜과 같은 얼굴 — 읽은 것이 있으면 칩으로 보인다 (MOBILE_DESIGN §8).
+                if let chip = readChip {
+                    Text(chip)
+                        .font(.footnote.weight(.medium).monospacedDigit())
+                        .foregroundStyle(Color(red: 0.56, green: 0.37, blue: 0.05))
+                        .padding(.horizontal, 10)
+                        .frame(minHeight: 32)
+                        .background(Color(red: 0.97, green: 0.72, blue: 0.24).opacity(0.38), in: RoundedRectangle(cornerRadius: 8))
+                }
                 if let trouble {
                     Text(trouble).font(.footnote).foregroundStyle(.red)
                 }
+                Spacer(minLength: 0)
             }
             .padding()
             .navigationTitle("lazymemo 에 적기")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // Cancel 은 왼쪽, 확정은 오른쪽 — 시트의 관용구.
                 ToolbarItem(placement: .cancellationAction) {
                     Button("그만두기") {
                         context?.cancelRequest(withError: CocoaError(.userCancelled))
@@ -50,6 +62,8 @@ private struct ShareSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(leaveLabel, action: leave)
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color(red: 0.16, green: 0.32, blue: 0.27))
                         .disabled(InboundNote.make(text: text) == nil)
                 }
             }
@@ -60,7 +74,23 @@ private struct ShareSheet: View {
         }
     }
 
-    /// 날짜가 읽혔으면 단추가 그렇게 말한다 — 앱의 빠른 입력과 같다.
+    /// 읽은 것 한 조각 — 날짜(와 장소).
+    private var readChip: String? {
+        guard let inbound = InboundNote.make(text: text) else { return nil }
+        let note = NoteReader.read(inbound)
+        var parts: [String] = []
+        if let at = note.at {
+            let day = CalendarDate(at)
+            let parts2 = Calendar.current.dateComponents([.hour, .minute], from: at)
+            parts.append("\(day.month)월 \(day.day)일 \(String(format: "%d:%02d", parts2.hour ?? 0, parts2.minute ?? 0)) · 달력으로")
+        } else if let due = note.due {
+            parts.append("\(due.month)월 \(due.day)일 · 달력으로")
+        }
+        if let place = note.place { parts.append("@" + place) }
+        return parts.isEmpty ? nil : parts.joined(separator: "   ")
+    }
+
+    /// 날짜가 읽혔으면 단추가 그렇게 말한다 — 앱의 펜과 같다.
     private var leaveLabel: String {
         guard let inbound = InboundNote.make(text: text) else { return "메모 남기기" }
         let note = NoteReader.read(inbound)
