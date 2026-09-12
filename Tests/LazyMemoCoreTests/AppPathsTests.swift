@@ -54,4 +54,34 @@ struct AppPathsTests {
         #expect(FileManager.default.fileExists(atPath: subject.trash.path(percentEncoded: false)))
         #expect(FileManager.default.fileExists(atPath: subject.support.path(percentEncoded: false)))
     }
+
+    // MARK: iCloud 컨테이너
+
+    private let container = URL(filePath: "/tmp/lazymemo-test/iCloud~lazymemo", directoryHint: .isDirectory)
+
+    @Test("컨테이너가 있으면 그 Documents 가 Vault 가 되고 파생물은 제자리에 남는다")
+    func cloudContainerBecomesVault() {
+        let resolved = AppPaths.resolveCloud(container: container, environment: [:])
+
+        #expect(resolved.usingCloud)
+        #expect(resolved.paths.vault.path(percentEncoded: false) == "/tmp/lazymemo-test/iCloud~lazymemo/Documents/")
+        #expect(resolved.paths.support == AppPaths.resolve(environment: [:]).paths.support)
+    }
+
+    @Test("컨테이너가 없으면 기본 자리로 가되 그 사실을 들고 나온다")
+    func noContainerFallsBackHonestly() {
+        let resolved = AppPaths.resolveCloud(container: nil, environment: [:])
+
+        #expect(!resolved.usingCloud)
+        #expect(resolved.paths == AppPaths.resolve(environment: [:]).paths)
+    }
+
+    @Test("LAZYMEMO_VAULT 는 컨테이너보다 세다 — 시험이 진짜 iCloud 를 건드리면 안 된다")
+    func environmentOverrideBeatsContainer() {
+        let environment = [AppPaths.vaultEnvironmentKey: "/tmp/lazymemo-test/override"]
+        let resolved = AppPaths.resolveCloud(container: container, environment: environment)
+
+        #expect(!resolved.usingCloud)
+        #expect(resolved.paths.vault.path(percentEncoded: false) == "/tmp/lazymemo-test/override/vault/")
+    }
 }

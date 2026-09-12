@@ -95,6 +95,62 @@ public struct AppPaths: Sendable, Equatable {
         )
     }
 
+    // MARK: iCloud 컨테이너 — 폰과 맥이 같이 보는 자리
+
+    /// 앱 전용 iCloud 컨테이너. 두 앱이 같은 entitlement 로 이 하나를 가리키면
+    /// 그 `Documents/` 가 곧 공유 Vault 다 — 백엔드도 계정도 없이 (D4 의 연장).
+    ///
+    /// 사용자에게는 iCloud Drive 의 「LazyMemo」 폴더로 보인다
+    /// (`NSUbiquitousContainerIsDocumentScopePublic`). Finder 로 열어도, 텍스트
+    /// 에디터로 고쳐도 된다는 약속은 그대로다.
+    public static let ubiquityContainerIdentifier = "iCloud.io.github.bunhine0452.lazymemo"
+
+    /// 컨테이너 안에서 Vault 가 되는 폴더. 컨테이너 자체가 아니라 `Documents/` 인
+    /// 이유는 iCloud 가 사용자에게 보여 주는 것이 그 안이기 때문이다 — 그 위에
+    /// 두면 파일 앱·Finder 에 나타나지 않는다.
+    public static func cloudVault(inContainer container: URL) -> URL {
+        container.appending(path: "Documents", directoryHint: .isDirectory)
+    }
+
+    /// 이 프로세스가 닿을 수 있는 컨테이너. **막히는 호출이다** — 첫 호출에 iCloud
+    /// 데몬과 이야기하므로 메인에서 부르지 말 것.
+    ///
+    /// entitlement 가 없거나(ad-hoc 빌드) iCloud 가 꺼져 있으면 `nil`. 그때의 폰은
+    /// 자기 샌드박스 안 Documents 를 쓰고, 맥은 지금처럼 폴더를 고른다.
+    public static func ubiquityContainer(fileManager: FileManager = .default) -> URL? {
+        fileManager.url(forUbiquityContainerIdentifier: ubiquityContainerIdentifier)
+    }
+
+    /// 컨테이너가 있으면 그 `Documents/`, 없으면 기본 자리 — **어느 쪽이었는지를
+    /// 함께 들고 나온다.** 조용히 로컬로 떨어지면 사용자는 「맥에 안 나타난다」만
+    /// 보고 왜인지는 영영 모른다 (`missingVault` 와 같은 이유).
+    ///
+    /// `LAZYMEMO_VAULT` 는 여기서도 가장 세다 — 시험·검증이 실제 컨테이너를
+    /// 건드리지 않아야 한다.
+    public struct CloudResolution: Sendable, Equatable {
+        public let paths: AppPaths
+        /// 컨테이너를 찾아 그 안을 쓰고 있는가.
+        public let usingCloud: Bool
+    }
+
+    public static func resolveCloud(
+        container: URL?,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        fileManager: FileManager = .default
+    ) -> CloudResolution {
+        let home = resolve(environment: environment, fileManager: fileManager).paths
+        if environment[vaultEnvironmentKey]?.isEmpty == false {
+            return CloudResolution(paths: home, usingCloud: false)
+        }
+        guard let container else {
+            return CloudResolution(paths: home, usingCloud: false)
+        }
+        return CloudResolution(
+            paths: AppPaths(vault: cloudVault(inContainer: container), support: home.support),
+            usingCloud: true
+        )
+    }
+
     static func isDirectory(_ url: URL, fileManager: FileManager = .default) -> Bool {
         var directory: ObjCBool = false
         let exists = fileManager.fileExists(

@@ -23,8 +23,12 @@
 .swiftpm/xcode/xcshareddata/*
 !.swiftpm/xcode/xcshareddata/xcschemes/
 Packages/
+# iOS 앱의 프로젝트는 손으로 쓴 것이라 들여오고, Xcode 가 남기는 개인 상태만 뺀다.
 *.xcodeproj
 *.xcworkspace
+!ios/LazyMemo.xcodeproj
+ios/LazyMemo.xcodeproj/xcuserdata/
+ios/LazyMemo.xcodeproj/project.xcworkspace/
 
 # 빌드 산출물
 dist/

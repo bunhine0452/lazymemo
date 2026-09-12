@@ -17,10 +17,10 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 - [x] LazyMemoCoreTests 를 iOS 시뮬레이터에서 돌려 통과 (macOS `swift test` 도 그대로 그린) {#core-tests-ios}
 
 ## Xcode 앱 프로젝트와 iCloud 컨테이너 {#ios-project}
-- [ ] ios/LazyMemo.xcodeproj — 로컬 패키지(LazyMemoCore) 참조, 파일 시스템 동기화 그룹, 생성 Info.plist, 같은 번들 id {#ios-xcodeproj}
-- [ ] iCloud Documents 컨테이너 entitlement + NSUbiquitousContainers 공개 — 파일 앱·Finder 에 「LazyMemo」 폴더로 보인다 {#ios-entitlements}
-- [ ] AppPaths 의 iOS 자리 — vault = 컨테이너 Documents, support = 앱 Application Support; 컨테이너가 없으면(iCloud 꺼짐) 로컬 Documents 로 폴백하고 그 사실을 들고 나온다 {#ios-paths}
-- [ ] 시뮬레이터에서 앱이 뜨고 메모 한 장이 파일로 떨어지는 스모크 {#ios-sim-build}
+- [x] ios/LazyMemo.xcodeproj — 로컬 패키지(LazyMemoCore) 참조, 파일 시스템 동기화 그룹, 생성 Info.plist, 같은 번들 id {#ios-xcodeproj}
+- [x] iCloud Documents 컨테이너 entitlement + NSUbiquitousContainers 공개 — 파일 앱·Finder 에 「LazyMemo」 폴더로 보인다 {#ios-entitlements}
+- [x] AppPaths 의 iOS 자리 — vault = 컨테이너 Documents, support = 앱 Application Support; 컨테이너가 없으면(iCloud 꺼짐) 로컬 Documents 로 폴백하고 그 사실을 들고 나온다 {#ios-paths}
+- [x] 시뮬레이터에서 앱이 뜨고 메모 한 장이 파일로 떨어지는 스모크 {#ios-sim-build}
 
 ## iCloud 위에서도 정본이 정직하다 {#sync-core}
 - [ ] iOS 용 VaultWatcher — NSMetadataQuery 로 컨테이너 변경을 받아 같은 handler 인터페이스로 넘긴다 {#sync-watcher-ios}
@@ -55,4 +55,8 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 | 2026-09-13T02:06:20+09:00 | #core-fence-macos | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0206_feature_core-compiles-for-ios.md | VaultWatcher iOS 빈 감시자, Runner/Installer 파일 전체 |
 | 2026-09-13T02:06:26+09:00 | #core-ios-build | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0206_feature_core-compiles-for-ios.md | generic/platform=iOS Simulator BUILD SUCCEEDED |
 | 2026-09-13T02:06:30+09:00 | #core-tests-ios | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0206_feature_core-compiles-for-ios.md | 343 통과 (iPhone 17 시뮬레이터), 맥 361 그대로 |
+| 2026-09-13T02:21:14+09:00 | #ios-xcodeproj | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0221_feature_ios-app-project-and-icloud-container.md | 손으로 쓴 pbxproj, 타깃 LazyMemo-iOS, UI 시험 타깃 포함 |
+| 2026-09-13T02:21:19+09:00 | #ios-entitlements | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0221_feature_ios-app-project-and-icloud-container.md | App ID·컨테이너 등록됨, 기기 빌드 서명에 박힘 |
+| 2026-09-13T02:21:24+09:00 | #ios-paths | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0221_feature_ios-app-project-and-icloud-container.md | AppPaths.resolveCloud + usingCloud, 테스트 3 |
+| 2026-09-13T02:21:29+09:00 | #ios-sim-build | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/0221_feature_ios-app-project-and-icloud-container.md | XCUITest 스모크 통과 — 적으면 파일, 파일이면 목록 |
 <!-- oculpm:plan-log end -->
