@@ -14,7 +14,14 @@
 
 # Swift / SPM
 .build/
-.swiftpm/
+# .swiftpm 은 Xcode 의 개인 상태라 빼되, 공유 스킴(iOS 시뮬레이터에서 Core 를
+# 시험하는 LazyMemoCoreTests)만 들여온다 — 부모가 빠지면 자식을 못 살리므로 층층이 연다.
+.swiftpm/*
+!.swiftpm/xcode/
+.swiftpm/xcode/*
+!.swiftpm/xcode/xcshareddata/
+.swiftpm/xcode/xcshareddata/*
+!.swiftpm/xcode/xcshareddata/xcschemes/
 Packages/
 *.xcodeproj
 *.xcworkspace

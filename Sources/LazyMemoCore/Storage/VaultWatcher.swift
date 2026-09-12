@@ -8,6 +8,7 @@ import Foundation
 ///
 /// 하위 디렉터리(`notes/2026/08/`)까지 봐야 하므로 vnode 감시로는 부족하고
 /// FSEvents 를 쓴다.
+#if os(macOS)
 public final class VaultWatcher: @unchecked Sendable {
     private let directories: [URL]
     private let latency: CFTimeInterval
@@ -75,3 +76,20 @@ public final class VaultWatcher: @unchecked Sendable {
         self.stream = nil
     }
 }
+#else
+/// iOS 에는 FSEvents 가 없다. 컨테이너 변경은 `NSMetadataQuery` 로 받는다 —
+/// 그 구현은 동기화 단계에서 이 자리에 들어온다. 그 전까지는 아무것도 듣지
+/// 않는 빈 감시자라, 앱이 켜질 때의 전체 대조(`MemoStore.reconcile`)만이 밖의
+/// 변경을 보는 길이다.
+// oculpm-defer: 빈 감시자 — 폰이 켜져 있는 동안 맥에서 온 변경을 못 본다; sync-watcher-ios 항목에서 NSMetadataQuery 로 채운다
+public final class VaultWatcher: @unchecked Sendable {
+    public init(
+        directories: [URL],
+        latency: CFTimeInterval = 0.4,
+        handler: @escaping @Sendable ([String]) -> Void
+    ) {}
+
+    public func start() {}
+    public func stop() {}
+}
+#endif

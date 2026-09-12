@@ -1,5 +1,7 @@
 import Foundation
 
+// `Process` 는 macOS 에만 있다. 폰에는 `claude` CLI 도 없으니 이 파일 전체가 맥의 것이다.
+#if os(macOS)
 /// `claude` 를 한 번 부르고 답을 받는다.
 ///
 /// **이 앱이 처음 갖는 「기다리는 상태」가 여기서 온다** (`{#claude-wait-state}`).
@@ -91,6 +93,7 @@ public struct ClaudeRunner: Sendable {
         return String(decoding: data, as: UTF8.self)
     }
 }
+#endif
 
 /// Claude 에게 시키는 말. **문장이 곧 제품이다** (`MemoPrompts` 와 같은 자리).
 public enum ClaudePrompts {

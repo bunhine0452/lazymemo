@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "LazyMemo",
-    platforms: [.macOS(.v26)],
+    platforms: [.macOS(.v26), .iOS(.v26)],
     products: [
         .executable(name: "LazyMemo", targets: ["LazyMemo"]),
         .executable(name: "lazymemo-mcp", targets: ["LazyMemoMCP"]),

@@ -2,6 +2,8 @@ import Foundation
 import Testing
 @testable import LazyMemoCore
 
+// 시험 대상이 macOS 에만 있다 (`Process`).
+#if os(macOS)
 /// 서브프로세스 배선 — stdin·상한·종료 코드.
 ///
 /// **진짜 `claude` 를 부르지 않는다.** 시험이 사용자의 토큰을 쓰면 안 되고,
@@ -68,3 +70,4 @@ struct ClaudeRunnerTests {
         }
     }
 }
+#endif

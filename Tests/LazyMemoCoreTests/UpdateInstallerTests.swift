@@ -2,6 +2,8 @@ import Foundation
 import Testing
 @testable import LazyMemoCore
 
+// 시험 대상이 macOS 에만 있다 (`Process`).
+#if os(macOS)
 @Suite("UpdateInstaller")
 struct UpdateInstallerTests {
     private let release = Release(
@@ -208,3 +210,4 @@ struct UpdateInstallerTests {
             == "LazyMemo.app")
     }
 }
+#endif

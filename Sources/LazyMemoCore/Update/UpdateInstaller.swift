@@ -1,6 +1,8 @@
 import CryptoKit
 import Foundation
 
+// `Process` 는 macOS 에만 있다. 폰의 판 갈이는 스토어의 몫이라 이 파일 전체가 맥의 것이다.
+#if os(macOS)
 /// 내려받은 새 판으로 이 앱을 바꾼다.
 ///
 /// **자기를 바꾸는 일이라, 실패했을 때 앱이 없어지면 안 된다.** 그래서 순서가
@@ -169,3 +171,4 @@ public struct UpdateInstaller: Sendable {
         return process.terminationStatus
     }
 }
+#endif
