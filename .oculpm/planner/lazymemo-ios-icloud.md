@@ -45,7 +45,7 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 
 ## 손에 쥐어 본다 {#release}
 - [ ] 실기기(아이폰) 설치 + 맥과 왕복 동기화 손검증 — 지연·충돌·오프라인·플레이스홀더 {#release-device}
-- [ ] App Store Connect 앱 레코드 + TestFlight 업로드 {#release-testflight}
+- [~] App Store Connect 앱 레코드 + TestFlight 업로드 {#release-testflight}
 - [~] 개인정보 처리방침·스토어 개인정보 응답 — README 프라이버시 절을 기준으로 {#release-privacy}
 
 <!-- oculpm:plan-log begin v1 -->
@@ -75,4 +75,5 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 | 2026-09-13T03:15:26+09:00 | #ui-trash | claude-code | ☐→~ | .oculpm/journal/20260913/Features_to_add/0307_feature_phone-ui-first-cut.md | 1차 구현 — 재설계 대기 |
 | 2026-09-13T03:19:06+09:00 | #mac-docs | claude-code | ☐→x | .oculpm/journal/20260913/Chores/0318_chore_icloud-ios-docs-and-privacy.md | README·DESIGN §5.1·§12.2·§13 |
 | 2026-09-13T03:19:12+09:00 | #release-privacy | claude-code | ☐→~ | .oculpm/journal/20260913/Chores/0318_chore_icloud-ios-docs-and-privacy.md | docs/PRIVACY.md 초안 — 사용자 확인·site 에 얹기 남음 |
+| 2026-09-13T03:20:26+09:00 | #release-testflight | claude-code | ☐→~ |  | archive.sh + ExportOptions 준비, 아카이브 성공 — ASC 앱 레코드는 사용자가 |
 <!-- oculpm:plan-log end -->
