@@ -17,6 +17,9 @@ swift scripts/make-icon.swift >/dev/null
 echo "▸ .icns 조립"
 iconutil --convert icns build/icon/AppIcon.iconset --output Resources/AppIcon.icns
 
+echo "▸ 아이폰 아이콘 (알파 없음)"
+swift scripts/make-icon.swift --ios >/dev/null
+
 echo "▸ 종이 결"
 swift scripts/make-icon.swift --texture >/dev/null
 
@@ -28,11 +31,13 @@ swift scripts/make-icon.swift --sheet >/dev/null
 echo "▸ 무손실 재압축"
 ./scripts/shrink-png.py \
     Resources/AppIcon.icns \
+    ios/LazyMemo/Assets.xcassets/AppIcon.appiconset/AppIcon.png \
     Sources/LazyMemoUI/Resources/PaperGrain.png \
     Sources/LazyMemoUI/Resources/MenuBarIcon.png
 
 echo
 echo "✓ Resources/AppIcon.icns"
+echo "✓ ios/LazyMemo/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
 echo "✓ Sources/LazyMemoUI/Resources/MenuBarIcon.png"
 echo "✓ Sources/LazyMemoUI/Resources/PaperGrain.png"
 echo "  미리보기: build/icon/comparison.png"

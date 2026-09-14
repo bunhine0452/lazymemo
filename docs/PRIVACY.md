@@ -107,4 +107,5 @@ GitHub: https://github.com/bunhine0452/lazymemo/issues
 - **Data Not Collected** — 개발자에게 오는 데이터가 없다. 위치는 기기 안에서 쓰이고 애플 지오코딩에만 좌표가 가며, 메모는 사용자의 iCloud 로 간다(애플 정의의 「수집」— 개발자 서버로 전송 — 이 아니다).
 - 추적(Tracking): 없음.
 - 서드파티 SDK: 없음.
-- 개인정보 처리방침 URL: 이 문서를 `site/` 에 얹은 주소 (GitHub Pages).
+- 개인정보 처리방침 URL: https://bunhine0452.github.io/lazymemo/privacy/ (`site/privacy/index.html` — 이 문서를 그대로 얹은 것. 둘은 같이 고친다).
+- 지원 URL: https://github.com/bunhine0452/lazymemo/issues · 마케팅 URL: https://bunhine0452.github.io/lazymemo/ko/

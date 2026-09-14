@@ -18,6 +18,9 @@ xcrun simctl boot "$DEVICE" 2>/dev/null || true
 xcrun simctl bootstatus "$DEVICE" -b >/dev/null
 xcrun simctl location "$DEVICE" set 37.4979,127.0276
 xcrun simctl privacy "$DEVICE" grant location "$BUNDLE" 2>/dev/null || true
+# 새 시뮬레이터는 첫 타이핑에 「밀어서 입력」 안내를 키보드 위에 덮는다 — 스크린샷에
+# 그것이 찍힌다. 이미 봤다고 적어 둔다.
+xcrun simctl spawn "$DEVICE" defaults write com.apple.keyboard.preferences DidShowContinuousPathIntroduction -bool true 2>/dev/null || true
 
 FILTER=()
 SHOTS=0

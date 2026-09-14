@@ -6,6 +6,7 @@
 //   swift scripts/make-icon.swift            # .iconset + 메뉴바 템플릿
 //   swift scripts/make-icon.swift --sheet    # 시스템이 깎은 모습으로 미리보기
 //   swift scripts/make-icon.swift --texture  # 종이 결
+//   swift scripts/make-icon.swift --ios      # 아이폰 앱의 1024 (알파 없음)
 //
 // 크림과 포레스트 리브랜딩. 기존 두 글줄 실루엣을 유지하고 색과 명암을 정리한다.
 // macOS 26의 시스템 마스크가 실루엣을 만들므로 캔버스를 끝까지 채운다.
@@ -542,6 +543,25 @@ if arguments.contains("--texture") {
     let url = URL(filePath: FileManager.default.currentDirectoryPath)
         .appending(path: "Sources/LazyMemoUI/Resources/PaperGrain.png")
     try write(grain, to: url)
+    print(url.path(percentEncoded: false))
+    exit(0)
+}
+
+// 아이폰 아이콘. 같은 그림이지만 **알파 채널이 없어야 한다** — App Store 는
+// 투명도가 든 iOS 아이콘을 거절한다. 캔버스를 끝까지 채우니 잃는 픽셀은 없다.
+if arguments.contains("--ios") {
+    guard let context = CGContext(
+        data: nil, width: 1024, height: 1024, bitsPerComponent: 8, bytesPerRow: 0,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+    ) else { exit(1) }
+    context.setAllowsAntialiasing(true)
+    context.interpolationQuality = .high
+    drawIcon(context, size: 1024)
+    guard let image = context.makeImage() else { exit(1) }
+    let url = URL(filePath: FileManager.default.currentDirectoryPath)
+        .appending(path: "ios/LazyMemo/Assets.xcassets/AppIcon.appiconset/AppIcon.png")
+    try write(image, to: url)
     print(url.path(percentEncoded: false))
     exit(0)
 }

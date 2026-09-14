@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>lazymemo — 개인정보 처리방침 · Privacy Policy</title>
+<meta name="description" content="lazymemo 는 서버가 없고, 계정이 없고, 당신에 대해 아무것도 모으지 않습니다. lazymemo has no server, no accounts, and collects nothing about you.">
+<link rel="canonical" href="https://bunhine0452.github.io/lazymemo/privacy/">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23295245'/><path d='M8 11.5h16' stroke='%23FAF7EC' stroke-width='2.6' stroke-linecap='round'/><path d='M8 18.5c8 0 11.5 1.5 15 4' stroke='%23B3D69A' stroke-width='2.3' stroke-linecap='round' fill='none'/></svg>">
+<style>
+/* 소개 페이지와 같은 크림과 포레스트. 바깥으로 나가는 요청은 여기도 없습니다. */
+:root {
+  --paper: #faf7f0;
+  --paper-warm: #f4efe3;
+  --ink: #24221c;
+  --ink-soft: rgba(36, 34, 28, .66);
+  --ink-faint: rgba(36, 34, 28, .42);
+  --rule: rgba(36, 34, 28, .12);
+  --forest: #295245;
+  --forest-ink: #295245;
+  --on-forest: #faf7ec;
+  --sage-wash: rgba(41, 82, 69, .09);
+  --dot: rgba(36, 34, 28, .13);
+  --shell: rgba(41, 82, 69, .07);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #1f1e1b;
+    --paper-warm: #262521;
+    --ink: #e8e3d9;
+    --ink-soft: rgba(232, 227, 217, .66);
+    --ink-faint: rgba(232, 227, 217, .42);
+    --rule: rgba(232, 227, 217, .14);
+    --forest: #2f5c4d;
+    --forest-ink: #a6d4ba;
+    --on-forest: #f2f5ea;
+    --sage-wash: rgba(166, 212, 186, .10);
+    --dot: rgba(232, 227, 217, .10);
+    --shell: rgba(166, 212, 186, .08);
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+  background-size: 23px 23px;
+  color: var(--ink);
+  font: 16px/1.8 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+        "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+  letter-spacing: -.005em;
+}
+.wrap { max-width: 760px; margin: 0 auto; padding: 0 28px; }
+@media (max-width: 520px) { .wrap { padding: 0 20px; } }
+a { color: var(--forest-ink); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--forest-ink); outline-offset: 3px; border-radius: 3px; }
+
+.topbar { display: flex; align-items: center; gap: 12px; padding-top: 24px; font-size: 13.5px; }
+.topbar .brand { display: flex; align-items: center; gap: 9px; text-decoration: none; color: var(--ink); }
+.topbar .name { font-weight: 700; letter-spacing: -.02em; font-size: 15px; }
+.topbar nav { margin-left: auto; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.topbar nav a { color: var(--ink-soft); text-decoration: none; }
+.topbar nav a:hover { color: var(--ink); text-decoration: underline; }
+.mark { width: 30px; height: 30px; border-radius: 8px; display: inline-block; flex: 0 0 auto; }
+
+main { padding: 56px 0 24px; }
+h1 { font-size: 34px; line-height: 1.25; margin: 0 0 6px; letter-spacing: -.03em; font-weight: 800; }
+@media (max-width: 520px) { h1 { font-size: 27px; } }
+.dateline { color: var(--ink-faint); font-size: 13.5px; margin: 0 0 32px; }
+h2 { font-size: 19px; margin: 40px 0 10px; letter-spacing: -.02em; font-weight: 700; }
+p { margin: 0 0 14px; max-width: 42em; }
+.one { font-size: 19px; line-height: 1.65; padding: 16px 20px; border-left: 3px solid var(--forest); background: var(--sage-wash); border-radius: 0 10px 10px 0; max-width: none; }
+ul { padding-left: 1.2em; margin: 0 0 14px; }
+li { margin-bottom: 6px; }
+code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: .9em; background: var(--shell); border-radius: 4px; padding: .1em .35em; }
+
+.tablewrap { overflow-x: auto; margin: 0 0 14px; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; line-height: 1.6; min-width: 560px; }
+th, td { text-align: left; vertical-align: top; padding: 9px 10px; border-bottom: 1px solid var(--rule); }
+th { font-size: 12.5px; letter-spacing: .03em; color: var(--ink-faint); font-weight: 600; }
+td:first-child { font-weight: 600; white-space: nowrap; }
+
+.lang-split { margin: 64px 0 0; padding-top: 40px; border-top: 1px solid var(--rule); }
+footer { padding: 40px 0 76px; border-top: 1px solid var(--rule); font-size: 13.5px; color: var(--ink-faint); line-height: 1.9; }
+footer .links { margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 8px 20px; }
+footer .links a { color: var(--forest-ink); }
+</style>
+</head>
+<body>
+
+<div class="topbar wrap">
+  <a class="brand" href="../ko/" aria-label="lazymemo">
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#295245"/><path d="M8 11.5h16" stroke="#FAF7EC" stroke-width="2.6" stroke-linecap="round"/><path d="M8 18.5c8 0 11.5 1.5 15 4" stroke="#B3D69A" stroke-width="2.3" stroke-linecap="round" fill="none"/></svg>
+    <span class="name">lazymemo</span>
+  </a>
+  <nav>
+    <a href="#ko">한국어</a>
+    <a href="#en" lang="en">English</a>
+    <a href="https://github.com/bunhine0452/lazymemo">GitHub</a>
+  </nav>
+</div>
+
+<main class="wrap">
+
+<section id="ko">
+<h1>개인정보 처리방침</h1>
+<p class="dateline">2026-09-13 · 맥 0.4.0 · 아이폰 0.1.0. 이 문서는 코드보다 더 많이 약속하지 않습니다.</p>
+
+<p class="one"><strong>lazymemo 는 서버가 없고, 계정이 없고, 당신에 대해 아무것도 모으지 않습니다.</strong>
+메모는 당신 기기의 마크다운 파일이고, 두 기기 사이를 오가는 것은 당신의 iCloud 입니다.</p>
+
+<h2>무엇이 어디로 가나</h2>
+<p>기본 상태의 lazymemo 는 아무 데도 접속하지 않습니다. 아래는 그 기본에서 벗어나는 전부이고, 하나도 빠짐없이 적습니다.</p>
+<div class="tablewrap">
+<table>
+  <thead><tr><th>무엇</th><th>나가는 것</th><th>어디로</th><th>언제</th></tr></thead>
+  <tbody>
+    <tr><td>iCloud 동기화</td><td>메모 파일 전부 (본문·날짜·장소·사진)</td><td><strong>당신의 iCloud</strong> — 애플이 옮기고 보관합니다</td><td>맥에서 「iCloud 로 동기화…」를 <strong>직접 누를 때</strong>. 아이폰은 iCloud Drive 가 켜져 있을 때</td></tr>
+    <tr><td>지금 여기 (맥 <code>⌥⌘L</code> · 폰의 핀)</td><td>좌표 하나</td><td>애플 지오코딩 (주소로 바꾸려고)</td><td><strong>누를 때마다</strong>, 그때만</td></tr>
+    <tr><td>링크를 카드로 펼치기 (맥)</td><td>주소 하나</td><td>그 주소</td><td>기본 켜짐 · 끌 수 있습니다</td></tr>
+    <tr><td>새 판 확인 (맥, GitHub 판만)</td><td>주소 하나 (판 번호도 안 보냅니다)</td><td>GitHub</td><td>기본 켜짐 · 끌 수 있습니다 · <strong>App Store 판에는 없습니다</strong></td></tr>
+    <tr><td>Claude 연동 (맥, GitHub 판만)</td><td>메모 본문</td><td>Claude</td><td><code>claude_desktop_config.json</code> 에 <strong>직접 등록</strong>했을 때 · <strong>App Store 판에는 없습니다</strong></td></tr>
+    <tr><td>종이 위 ✧ 다듬기 · 아침 브리핑 (맥, GitHub 판만)</td><td>그 메모 본문 · 메모 제목과 시각</td><td>Claude</td><td><code>claude</code> 가 깔려 있고 누를 때 · 설정에서 직접 켤 때만 · <strong>App Store 판에는 없습니다</strong></td></tr>
+  </tbody>
+</table>
+</div>
+<p><strong>우리에게 오는 것은 없습니다.</strong> 분석 도구도, 추적기도, 광고 식별자도, 크래시 리포터도 없습니다. 이 페이지도 바깥 요청이 하나도 없습니다.</p>
+
+<h2>권한</h2>
+<p>첫 실행에는 하나도 묻지 않습니다.</p>
+<ul>
+  <li><strong>위치 (사용 중)</strong> — 맥의 <code>⌥⌘L</code> 이나 폰의 핀을 <strong>처음 누를 때</strong> 한 번. 한 번 재고 끊습니다. 거절하면 다시 묻지 않습니다. 폰은 「항상」 권한을 요구하지 않습니다.</li>
+  <li><strong>위치 (항상, 맥만)</strong> — 「가면 떠오르게 하기」를 설정에서 <strong>직접 켤 때만.</strong> 좌표가 이미 적힌 메모 근처에 도착했다는 사실만 받고, 위치를 저장하지도 내보내지도 않습니다.</li>
+  <li><strong>캘린더 (읽기, 맥만)</strong> — 달력 창을 처음 열 때 한 번. lazymemo 는 캘린더에 아무것도 쓰지 않습니다.</li>
+  <li><strong>알림</strong> — 요구하지 않습니다.</li>
+</ul>
+
+<h2>어디에 저장되나</h2>
+<ul>
+  <li>맥: <code>~/Documents/lazymemo/</code> 또는 당신이 고른 폴더. App Store 판은 iCloud Drive 의 「LazyMemo」 폴더가 기본입니다. 파생물(인덱스·창 위치·설정)은 앱의 Application Support 안.</li>
+  <li>아이폰: iCloud Drive 의 「LazyMemo」 폴더 (컨테이너 <code>iCloud.io.github.bunhine0452.lazymemo</code>). iCloud 가 꺼져 있으면 기기 안에만.</li>
+  <li>삭제한 메모는 <code>.trash/</code> 에 30일 남았다가 앱이 지웁니다. <strong>lazymemo 를 지워도 메모 파일은 남습니다.</strong></li>
+</ul>
+
+<h2>어린이</h2>
+<p>lazymemo 는 나이를 묻지 않고 아무것도 모으지 않습니다.</p>
+
+<h2>바뀌면</h2>
+<p>이 문서와 <a href="https://github.com/bunhine0452/lazymemo/blob/main/docs/PRIVACY.md">저장소의 원본</a>이 같이 바뀌고, 릴리스 노트에 적습니다.</p>
+
+<h2>연락</h2>
+<p><a href="https://github.com/bunhine0452/lazymemo/issues">github.com/bunhine0452/lazymemo/issues</a></p>
+</section>
+
+<section id="en" lang="en" class="lang-split">
+<h1>Privacy Policy</h1>
+<p class="dateline">2026-09-13 · Mac 0.4.0 · iPhone 0.1.0. This document promises no more than the code does.</p>
+
+<p class="one"><strong>lazymemo has no server, no accounts, and collects nothing about you.</strong>
+Your memos are Markdown files on your device; what travels between your devices is your own iCloud.</p>
+
+<h2>What leaves the device, and where it goes</h2>
+<p>By default lazymemo connects to nothing. The table below is the complete list of exceptions.</p>
+<div class="tablewrap">
+<table>
+  <thead><tr><th>What</th><th>Data sent</th><th>To</th><th>When</th></tr></thead>
+  <tbody>
+    <tr><td>iCloud sync</td><td>your memo files (text, dates, places, photos)</td><td><strong>your iCloud</strong> — Apple transports and stores them</td><td>on Mac only after you choose “Sync to iCloud…”; on iPhone whenever iCloud Drive is on</td></tr>
+    <tr><td>“Here” (Mac <code>⌥⌘L</code> · the pin on iPhone)</td><td>one coordinate</td><td>Apple geocoding (to turn it into an address)</td><td>each time you press it, and only then</td></tr>
+    <tr><td>Link cards (Mac)</td><td>one URL</td><td>that site</td><td>on by default; can be turned off</td></tr>
+    <tr><td>Update check (Mac, GitHub build only)</td><td>one URL (not even the version)</td><td>GitHub</td><td>on by default; can be turned off · <strong>absent from the App Store build</strong></td></tr>
+    <tr><td>Claude integration (Mac, GitHub build only)</td><td>memo text</td><td>Claude</td><td>only after you register it in <code>claude_desktop_config.json</code> yourself · <strong>absent from the App Store build</strong></td></tr>
+    <tr><td>✧ Tidy · Morning brief (Mac, GitHub build only)</td><td>that memo’s text · memo titles and times</td><td>Claude</td><td>only if the <code>claude</code> CLI is installed and you press it · only if you turn it on in Settings · <strong>absent from the App Store build</strong></td></tr>
+  </tbody>
+</table>
+</div>
+<p><strong>Nothing comes to us.</strong> No analytics, no trackers, no advertising identifiers, no crash reporter. This page makes no external requests either.</p>
+
+<h2>Permissions</h2>
+<p>Nothing is asked at first launch.</p>
+<ul>
+  <li><strong>Location (When In Use)</strong> — asked once, the first time you press <code>⌥⌘L</code> (Mac) or the pin (iPhone). One fix, then off. If you decline, it never asks again. The iPhone app never requests “Always”.</li>
+  <li><strong>Location (Always, Mac only)</strong> — only if you enable “Surface when I get there” in Settings yourself. It only receives the fact that you arrived near a memo that already has coordinates; it neither stores nor sends your location.</li>
+  <li><strong>Calendar (read, Mac only)</strong> — once, the first time you open the calendar window. lazymemo never writes to your calendar.</li>
+  <li><strong>Notifications</strong> — never requested.</li>
+</ul>
+
+<h2>Where data lives</h2>
+<ul>
+  <li>Mac: <code>~/Documents/lazymemo/</code> or a folder you choose. The App Store build defaults to the “LazyMemo” folder in iCloud Drive. Derived data (index, window layout, settings) lives in the app’s Application Support.</li>
+  <li>iPhone: the “LazyMemo” folder in iCloud Drive (container <code>iCloud.io.github.bunhine0452.lazymemo</code>). With iCloud off, on-device only.</li>
+  <li>Deleted memos stay in <code>.trash/</code> for 30 days, then the app removes them. <strong>Uninstalling lazymemo leaves your memo files in place.</strong></li>
+</ul>
+
+<h2>Children</h2>
+<p>lazymemo does not ask for age and collects nothing.</p>
+
+<h2>Changes</h2>
+<p>This page and <a href="https://github.com/bunhine0452/lazymemo/blob/main/docs/PRIVACY.md">the source in the repository</a> change together, and release notes say so.</p>
+
+<h2>Contact</h2>
+<p><a href="https://github.com/bunhine0452/lazymemo/issues">github.com/bunhine0452/lazymemo/issues</a></p>
+</section>
+
+</main>
+
+<footer class="wrap">
+  <div class="links">
+    <a href="../ko/">소개</a>
+    <a href="../" lang="en">Overview</a>
+    <a href="https://github.com/bunhine0452/lazymemo">GitHub</a>
+  </div>
+  MIT © 2026 Kim Hyunbin
+</footer>
+
+</body>
+</html>
