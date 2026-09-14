@@ -137,7 +137,7 @@ TabView                             (tabBarMinimizeBehavior: .onScrollDown)
 
 ### 「지금」 — 목록 위의 최대 세 장
 
-폴더 띠 아래, 목록 위에 **오늘 다시 볼 것 → 오늘 일정 → 고정** 차례로 최대 세 장 (`Recall.nowCards`, `NowBand`). 카드마다 **이유와 시각**이 먼저다 — 「다시 보기 · 15:00」·「오늘 일정 · 15:00 지남」·「오늘 일정」·「고정」 — 이유가 보이지 않는 카드는 앱이 골라 준 것이고, 보이는 카드는 내가 정해 둔 것이다. 아래 목록에도 같은 줄이 있다; 띠는 걸러 낸 결과가 아니라 오늘의 머리다. **찾는 중이거나 폴더를 골랐으면 없다** — 범위가 좁혀진 화면 위에 범위 밖의 카드가 서면 그 화면이 무엇인지 흐려진다 ("Clearly display the current scope"). 분이 바뀌면 다시 재고 자정을 넘기면 「오늘」이 바뀐다. 카드는 종이(`Paper.card`)에 포레스트 테두리, 이유는 `accentInk`, 큰 글자에서는 제목이 세 줄까지, VoiceOver 는 「고정, 읽을 것: 설계 문서」로 읽는다.
+폴더 띠 아래, 목록 위에 최대 세 장 (`Recall.nowCards`, `NowBand`) — 오늘 다시 볼 것·오늘 일정·고정 중에서 **다가오는 시각이 먼저**, 그다음 방금 지난 것, 그다음 시각이 없는 것(날짜만 있는 오늘 일정 → 고정). 이유별로 줄을 세우면 아침에 지나간 셋이 오후에 곧 올 하나를 밀어낸다 — 그건 「지금」이 아니라 「오늘 아침」이다. 카드마다 **이유와 시각**이 먼저다 — 「다시 보기 · 15:00」·「오늘 일정 · 15:00 지남」·「오늘 일정」·「고정」 — 이유가 보이지 않는 카드는 앱이 골라 준 것이고, 보이는 카드는 내가 정해 둔 것이다. **띠에 오른 것은 아래 목록에서 빠지고** 아래는 「나머지 N장」이라는 머리를 단다 — 같은 줄이 두 번 서면 화면이 무겁다. 대신 카드도 줄이 하는 일(고정·지우기 쓸어 넘기기, 길게 눌러 메뉴)을 전부 한다. 카드의 **「봤어요」**가 카드를 내려놓는다 — 지난 시각의 카드는 놓친 사람을 위해 남지만 본 사람에게는 치울 거리라서. 내려놓은 것은 이 기기만 기억하고(`NowSeen`, 파일에 적지 않는다 — 폰에서 봤다고 맥의 종이가 물러날 이유는 없다), 그 등장의 이름표(`Card.stamp` — 시각, 없으면 오늘)가 같은 동안만 빠진다: 시각을 미루거나 날이 바뀌면 다시 오른다. **찾는 중이거나 폴더를 골랐으면 없다** — 범위가 좁혀진 화면 위에 범위 밖의 카드가 서면 그 화면이 무엇인지 흐려진다 ("Clearly display the current scope"). 분이 바뀌면 다시 재고 자정을 넘기면 「오늘」이 바뀐다. 카드는 종이(`Paper.card`)에 포레스트 테두리, 이유는 `accentInk`, 큰 글자에서는 제목이 세 줄까지, VoiceOver 는 「고정, 읽을 것: 설계 문서」로 읽는다.
 
 그 아래에 **조용히 지나가면 안 되는 실패** 한 줄(`NoticeRow`) — 저장소의 `trouble` 과 알림의 `trouble`. 맥은 메뉴 첫머리가 읽고 폰은 목록의 머리가 읽는다. 저장 버튼이 없는 앱에서 저장 실패가 안 보이면 사용자는 영영 모른다.
 
@@ -154,10 +154,11 @@ TabView                             (tabBarMinimizeBehavior: .onScrollDown)
 |---|---|---|
 | 점 | 종이 색. 8pt. 치워 둔 것(찾았을 때만)은 빈 점 | `MemoColor.ink` |
 | 제목 | `Memo.title` 한 줄, 큰 글자에서 두 줄 | `.body` semibold, `Paper.ink` |
-| 둘째 줄 | 본문의 둘째 비어 있지 않은 줄. 없으면 없다 | `.subheadline`, **`.secondary`** |
+| 둘째 줄 | 제목 다음의 **글** 한 줄 (`Memo.previewLine`). 사진 참조는 글이 아니라 건너뛴다. 없으면 없다 | `.subheadline`, **`.secondary`** |
 | 시각 | `MemoTimeLabel.text` | `.caption` monospacedDigit. 날짜 있는 것 `Theme.highlightInk`, 없는 것 `.secondary` |
 | 고정 | 제목 앞 작은 핀 | `Theme.accentInk` |
 | 장소 | 시각 아래 「@강남역」 | `.caption2`, `.secondary` |
+| 사진 | 붙인 사진은 경로가 아니라 「사진 1장」 (`Memo.photoCount`). 사진만 붙인 메모는 제목도 「사진 1장」 | `.caption`, `.secondary`, `photo` |
 
 줄 높이 56 이상, 좌우 여백 20, 구분선 없음, › 없음(Notes 와 같다 — 열면 편집이지 계층이 아니다 → 노트 §5 Lists). **큰 글자(accessibility 크기)에서는 시각 조각이 제목 아래로 내려간다** — "consider using a stacked layout where text appears above secondary items" (→ 노트 §6).
 
@@ -208,7 +209,7 @@ TabView                             (tabBarMinimizeBehavior: .onScrollDown)
 "Try to include all actions in the toolbar if possible, and only add [More] if you really need it" (→ 노트 §5 Toolbars).
 
 - **휴지통** 단추 (`trash` 심볼) — 자주는 아니어도 「어디 갔지」의 답이라 보여야 한다.
-- **More** (`ellipsis.circle`) — 있을 때만 나오는 것들: 「치워 둔 N장 도로 꺼내기」, 「iCloud 설정 열기」(로컬일 때), 「새 폴더」. 그리고 늘 있는 **「알림」** — 「이 기기에서 알림 받기」 시트(`ReminderSettingsView`). 켜기 전에 잠금 화면에 제목이 보인다는 것과 기기별이라는 것을 읽고, 켜는 순간에만 시스템이 묻는다. 걸어 둔 수·한도 초과·걸지 못한 것과 「다시 시도」가 같은 시트에 있다.
+- **More** (`ellipsis.circle`) — 있을 때만 나오는 것들: 「치워 둔 N장 도로 꺼내기」, 「iCloud 설정 열기」(로컬일 때), 「새 폴더」. 그리고 늘 있는 **「알림」** — 「이 기기에서 알림 받기」 시트(`ReminderSettingsView`). 켜기 전에 잠금 화면에 제목이 보인다는 것과 기기별이라는 것을 읽고, 켜는 순간에만 시스템이 묻는다. 걸어 둔 수·한도 초과·걸지 못한 것과 「다시 시도」가 같은 시트에 있다. **켜고 나면 설명은 접힌다** — 켜짐과 걸어 둔 수만 남고, 잠금 화면·기기별·집중 모드 안내는 「기기별 알림 안내」를 펼쳐야 보인다. 이미 켠 사람에게 같은 문단이 매번 서 있으면 다시 보기 시트에서 시각을 고르는 손이 그것을 밀어내야 한다.
 
 툴바 색은 모노크롬 — "Avoid applying a similar color to toolbar item labels and content layer backgrounds… prefer using the default monochromatic appearance" (→ 노트 §5).
 

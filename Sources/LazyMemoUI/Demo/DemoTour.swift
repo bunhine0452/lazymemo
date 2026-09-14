@@ -1,5 +1,6 @@
 import AppKit
 import LazyMemoCore
+import LazyMemoReminders
 import SwiftUI
 
 /// 앱이 **스스로 한 바퀴 돈다** — 소개 영상을 찍기 위한 주행 (`scripts/record-demo.sh`).
@@ -112,6 +113,8 @@ final class DemoTour {
         // 빠른 입력은 무대 위쪽 한가운데에 매단다 — 메뉴바 아이콘은 무대 밖이다.
         let anchor = CGRect(x: region.midX - 10, y: region.maxY - 6, width: 20, height: 6)
         capture.anchorProvider = { anchor }
+        // 다시 보기 창도 무대 안, 종이 위에.
+        RecallWindow.demo = (region, .floating)
     }
 
     // MARK: 한 바퀴
@@ -144,6 +147,20 @@ final class DemoTour {
         await pause(0.7)
         capture.commitForDemo()
         await pause(1.8)
+
+        // 2½. 다시 보기 — 달력이 맡은 치과 메모를 **이 종이가 나올 시각**에 꺼낸다.
+        // 회의는 3시, 종이는 2시 30분. 시각은 이 주행이 끝나갈 무렵으로 잡아,
+        // 서랍을 다 보고 돌아온 바탕화면에 그 종이가 스스로 올라와 있게 한다.
+        var risesAt: Date?
+        if let dentist = store.memos.first(where: { $0.at != nil }) {
+            let moment = Date().addingTimeInterval(Self.recallLead)
+            _ = try? await store.update(dentist.id, surface: .some(moment))
+            risesAt = moment
+            RecallWindow.show(store: store, id: dentist.id)
+            await pause(2.8)
+            RecallWindow.close()
+            await pause(0.8)
+        }
 
         // 3. 그 종이를 서랍에 넣는다 — 날아 들어간다.
         guard let umbrella = store.memos.first(where: { $0.title == L("우산 새로 사기") }) else { return }
@@ -190,8 +207,18 @@ final class DemoTour {
             await pause(1.8)
         }
         drawer.model.setOpen(false)
-        await pause(1.4)
+        await pause(1.0)
+
+        // 9. 시각이 되었다 — 달력에 있던 종이가 바탕화면으로 나온다 (`DueClock`).
+        if let risesAt {
+            let wait = risesAt.timeIntervalSinceNow + 0.6
+            if wait > 0 { await pause(wait) }
+            await pause(2.6)
+        }
     }
+
+    /// 다시 보기 창을 연 순간부터 종이가 나오기까지 — 서랍 장면들의 길이와 같다.
+    private static let recallLead: TimeInterval = 23.0
 
     // MARK: 스토어 스크린샷
 

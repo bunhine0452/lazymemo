@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 소개 영상을 찍는다 — 실제 앱을 화면의 한 구역에 세우고 스스로 한 바퀴 돌게 한 뒤
-# (`DemoTour`), 그 구역만 화면 기록으로 담는다.
+# (`DemoTour`), 그 구역만 화면 기록으로 담는다. 폰 쪽은 `ios/scripts/record-demo.sh`.
 #
 #   ./scripts/record-demo.sh            # → site/media/demo.mp4 · demo.gif · demo-poster.jpg
 #
@@ -21,9 +21,15 @@ mkdir -p "$VAULT/vault/notes"
 trap 'rm -rf "$VAULT"' EXIT
 
 command -v ffmpeg >/dev/null || { echo "✗ ffmpeg 가 필요합니다 (brew install ffmpeg)"; exit 1; }
+# 잠긴 화면은 잠금 화면이 찍힌다 — 앱은 돌지만 보이지 않는다.
+if ioreg -n Root -d1 -a 2>/dev/null | grep -A1 CGSSessionScreenIsLocked | grep -q '<true/>'; then
+    echo "✗ 화면이 잠겨 있습니다 — 잠금을 풀고 다시 돌리세요"; exit 1
+fi
 
-swift build >/dev/null
-BIN="$(swift build --show-bin-path)/LazyMemo"
+# 번들로 짓는다 — 다시 보기 창의 알림 절은 번들 안에서만 「켤 수 있는」 모양이다
+# (`ReminderCenter.available`). 켜지는 않으므로 권한 창은 뜨지 않는다.
+./scripts/build-app.sh >/dev/null
+BIN="$ROOT/dist/LazyMemo.app/Contents/MacOS/LazyMemo"
 pkill -f "$BIN" 2>/dev/null || true
 
 # 무대 — 화면 위쪽 한가운데 1280×800 (포인트). 화면 기록은 왼쪽 위 원점,
@@ -38,7 +44,7 @@ Y=$(( SH - TOP - H ))
 
 RAW="$VAULT/raw.mov"
 echo "▸ 무대 ${W}×${H} @ ${X},${TOP} (화면 ${SW}×${SH}) — 녹화 시작"
-screencapture -x -V 42 -R "$X,$TOP,$W,$H" "$RAW" &
+screencapture -x -V 55 -R "$X,$TOP,$W,$H" "$RAW" &
 REC_PID=$!
 sleep 1.0
 

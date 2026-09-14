@@ -10,6 +10,10 @@ import SwiftUI
 @MainActor public enum RecallWindow {
     private static var window: NSWindow?
 
+    /// 소개 영상 주행(`DemoTour`)의 무대 — 창을 이 구역 한가운데, 이 층에 세운다.
+    /// 무대의 바탕이 일반 창보다 위에 깔리므로 보통 층의 창은 그 뒤에 숨는다.
+    public static var demo: (stage: CGRect, level: NSWindow.Level)?
+
     public static func show(store: MemoStore, id: ULID) {
         present(RecallEditor(store: store, id: id), title: L("다시 보기 · lazymemo"))
     }
@@ -27,11 +31,25 @@ import SwiftUI
         next.isReleasedWhenClosed = false
         next.center()
         window = next
+        if let demo {
+            next.level = demo.level
+            // 크기는 SwiftUI 가 화면에 올린 **다음 턴**에야 정한다 — 그 전의 frame 으로
+            // 자리를 잡으면 위가 무대 밖으로 잘린다. 자리를 잡을 때까지는 보이지 않게.
+            next.alphaValue = 0
+            DispatchQueue.main.async {
+                DispatchQueue.main.async {
+                    let size = next.frame.size
+                    let y = max(demo.stage.minY + 16, min(demo.stage.midY - size.height / 2, demo.stage.maxY - size.height - 16))
+                    next.setFrameOrigin(CGPoint(x: demo.stage.midX - size.width / 2, y: y))
+                    next.alphaValue = 1
+                }
+            }
+        }
         NSApp.activate()
         next.makeKeyAndOrderFront(nil)
     }
 
-    static func close() {
+    public static func close() {
         window?.close()
         window = nil
     }

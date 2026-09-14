@@ -14,13 +14,8 @@ struct MemoRowView: View {
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.dynamicTypeSize) private var typeSize
 
-    private var secondLine: String? {
-        let lines = memo.body.split(separator: "\n", omittingEmptySubsequences: false)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-        guard lines.count > 1 else { return nil }
-        return lines[1].trimmingCharacters(in: CharacterSet(charactersIn: "#-*> "))
-    }
+    /// 제목 다음의 글 한 줄. 사진 참조는 글이 아니라 아래 「사진 1장」으로 센다 (`Memo.previewLine`).
+    private var secondLine: String? { memo.previewLine }
 
     private var scheduled: Bool { memo.due != nil || memo.at != nil }
 
@@ -77,10 +72,20 @@ struct MemoRowView: View {
 
     private var when: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) { timeLabel; placeLabel }
-            VStack(alignment: .leading, spacing: 6) { timeLabel; placeLabel }
+            HStack(spacing: 12) { timeLabel; placeLabel; photoLabel }
+            VStack(alignment: .leading, spacing: 6) { timeLabel; placeLabel; photoLabel }
         }
         .font(.caption)
+    }
+
+    /// 붙인 사진은 경로가 아니라 수로 — 목록에서 `![](attachments/…)` 를 읽는 사람은 없다.
+    @ViewBuilder
+    private var photoLabel: some View {
+        let photos = memo.photoCount
+        if photos > 0 {
+            Label(String(localized: "사진 \(photos)장"), systemImage: "photo")
+                .foregroundStyle(.secondary)
+        }
     }
 
     /// 휴지통에서는 「언제 지웠나」가 유일하게 쓸모 있는 시각이다 — 30일 뒤에
@@ -110,6 +115,7 @@ struct MemoRowView: View {
         var parts = [memo.title, timeText, memo.color.label]
         if memo.pinned { parts.append(String(localized: "고정됨")) }
         if let place = memo.place { parts.append(place) }
+        if memo.photoCount > 0 { parts.append(String(localized: "사진 \(memo.photoCount)장")) }
         return parts.joined(separator: ", ")
     }
 }

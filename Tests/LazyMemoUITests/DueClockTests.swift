@@ -200,4 +200,26 @@ struct DueClockTests {
 
         #expect(risen == [daily.id, daily.id])
     }
+
+    @Test("같은 날 다시 볼 시각을 미루면 새 시각에 다시 꺼낸다 — 배너와 종이가 같은 답")
+    func postponedSameDayRingsAgain() async throws {
+        let (store, paths) = try makeStore()
+        defer { cleanUp(paths) }
+        let calendar = seoul()
+        let memo = try await store.create(body: "회의 자료", at: at(calendar, hour: 14))
+
+        var now = at(calendar, hour: 14, minute: 1)
+        var risen: [ULID] = []
+        let clock = DueClock(store: store, now: { now }, calendar: calendar)
+        clock.onDue = { risen.append($0) }
+        clock.start()
+        #expect(risen == [memo.id])
+
+        // 「한 시간 뒤에 다시」 — 같은 날, 같은 메모, 다른 시각.
+        _ = try await store.update(memo.id, surface: .some(at(calendar, hour: 15)))
+        now = at(calendar, hour: 15, minute: 1)
+        clock.fire()
+
+        #expect(risen == [memo.id, memo.id])
+    }
 }

@@ -119,3 +119,7 @@
 "펼쳐 봅니다" = "Opens it full screen";
 "iCloud 에서 내려받는 중" = "Downloading from iCloud";
 "아직 없는 사진 — 다른 기기가 올리면 보여요" = "Photo not here yet — it appears once the other device uploads it";
+"사진 %lld장" = "%lld photos";
+"봤어요" = "Seen";
+"나머지 %lld장" = "%lld more";
+"「지금」에서 내려놓습니다" = "Puts it down from Now";

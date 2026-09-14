@@ -163,6 +163,27 @@ h1 { font-size: 46px; line-height: 1.12; margin: 0 0 18px; letter-spacing: -.035
   display: flex; align-items: center; justify-content: center;
 }
 
+/* ── Phone ────────────────────────────── */
+.phone { display: grid; gap: 28px 40px; grid-template-columns: minmax(200px, 280px) 1fr; align-items: center; margin: 0 auto 26px; }
+@media (max-width: 640px) { .phone { grid-template-columns: 1fr; justify-items: center; } }
+.phone .frame {
+  border-radius: 34px; overflow: hidden; border: 1px solid var(--rule); box-shadow: var(--shadow);
+  background: var(--paper-deep); width: 100%; max-width: 280px;
+}
+.phone video, .phone img { display: block; width: 100%; height: auto; }
+.phone .copy p { margin: 0 0 12px; font-size: 15px; line-height: 1.8; color: var(--ink-soft); max-width: 40em; }
+.phone .copy h2 { margin: 0 0 12px; }
+.phone .copy .steps { display: grid; gap: 8px 18px; grid-template-columns: 1fr 1fr; margin: 16px 0 0; padding: 0; list-style: none; counter-reset: step; }
+.phone .copy .steps li { font-size: 13px; color: var(--ink-soft); line-height: 1.6; padding-left: 26px; position: relative; }
+.phone .copy .steps li b { display: block; color: var(--ink); font-weight: 700; }
+.phone .copy .steps li::before {
+  content: counter(step); counter-increment: step;
+  position: absolute; left: 0; top: .15em; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--forest); color: var(--on-forest); font-size: 10.5px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.phone figcaption { grid-column: 1 / -1; font-size: 13.5px; color: var(--ink-faint); line-height: 1.7; max-width: 46em; margin: 0; }
+
 /* ── Install ──────────────────────────── */
 .install { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin: 44px 0 16px; }
 @media (max-width: 640px) { .install { grid-template-columns: 1fr; } }
@@ -311,18 +332,43 @@ footer .links a { color: var(--forest-ink); }
   <div class="frame">
     <video autoplay muted loop playsinline poster="media/demo-poster.jpg"
            width="1280" height="800"
-           aria-label="lazymemo going round once: a line typed into quick capture, a date handed to the calendar, a note flying into the drawer, and the drawer sorted into folders.">
+           aria-label="lazymemo going round once: a line typed into quick capture, a date handed to the calendar, a revisit time set on that note, the drawer sorted into folders, and the note rising back onto the desktop when its time comes.">
       <source src="media/demo.mp4" type="video/mp4">
       <img src="media/demo.gif" alt="lazymemo going round once" width="1280" height="800">
     </video>
   </div>
   <ol class="steps">
-    <li><b>Write</b> One line into ⌥⌘N. If a date is in it, a chip appears.</li>
-    <li><b>The calendar takes it</b> Anything dated goes to the calendar, not the desktop.</li>
-    <li><b>Into the drawer</b> A sheet flies into the drawer tab in the corner.</li>
-    <li><b>Sort into folders</b> Open it, view one folder, move sheets, take one back out.</li>
+    <li><b>Write</b> One line into ⌥⌘N. If a date is in it, a chip appears and the calendar takes it.</li>
+    <li><b>Revisit</b> Right-click a note, choose when to see it again. The event stays where it is.</li>
+    <li><b>The drawer</b> A sheet flies into the corner tab; open it, sort into folders, take one back out.</li>
+    <li><b>It comes back</b> When the time arrives the note rises onto the desktop by itself — and stays.</li>
   </ol>
   <figcaption>A screen recording of the real app. The hands were the app's own, and everything on screen is a real window.</figcaption>
+</figure>
+
+<figure class="phone wrap" id="phone">
+  <div class="frame">
+    <video autoplay muted loop playsinline poster="media/phone-poster.jpg"
+           width="590" height="1282"
+           aria-label="lazymemo on iPhone: a line typed with a date, a revisit time set with one tap, the note standing at the top under Now, notifications turned on, and a banner that opens the note.">
+      <source src="media/phone.mp4" type="video/mp4">
+      <img src="media/phone.gif" alt="lazymemo on iPhone going round once" width="360" height="780">
+    </video>
+  </div>
+  <div class="copy">
+    <h2>The same notes, on your phone</h2>
+    <p>The iPhone app reads the same Markdown files through iCloud — no account of ours, nothing to sync
+       by hand. Write it roughly, pick when you want it back, and the phone brings it back:
+       a <strong>Now</strong> band above the list with at most three sheets, and a notification
+       on the device you turned it on for.</p>
+    <ol class="steps">
+      <li><b>Write</b> The date is read for you; one tap leaves it on the calendar.</li>
+      <li><b>Revisit</b> The bell on a note: in an hour, tomorrow morning, or any time you like.</li>
+      <li><b>Now</b> What's coming up stands on top. Tap <em>Seen</em> to put a sheet down.</li>
+      <li><b>The banner</b> Turn notifications on once; tapping the banner opens that very note.</li>
+    </ol>
+  </div>
+  <figcaption>Recorded in the iOS Simulator with the app driving itself. The iPhone app is in TestFlight and being prepared for the App Store.</figcaption>
 </figure>
 
 <div class="wrap" id="install">

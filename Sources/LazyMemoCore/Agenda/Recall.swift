@@ -70,44 +70,76 @@ public enum Recall {
         public let reason: Reason
         /// 이유에 붙는 시각 — 다시 볼 시각이거나 일정 시각. 날짜만 있는 일정과 고정에는 없다.
         public let moment: Date?
+        /// **이 등장의 이름표.** 시각이 있으면 그 시각, 없으면 오늘의 시작. 「봤어요」는
+        /// 이것을 적어 두고, 이름표가 같은 동안만 내려놓은 채로 있다 — 시각을 미루면
+        /// 다른 이름표라 다시 오르고, 날이 바뀌어도 그렇다.
+        public let stamp: Date
         public var id: ULID { memo.id }
 
-        public init(memo: Memo, reason: Reason, moment: Date?) {
+        public init(memo: Memo, reason: Reason, moment: Date?, stamp: Date) {
             self.memo = memo
             self.reason = reason
             self.moment = moment
+            self.stamp = stamp
         }
     }
 
-    /// 지금 펼쳐 둘 최대 세 장 — 오늘 다시 볼 것 → 오늘 일정 → 고정.
+    /// 지금 펼쳐 둘 최대 세 장.
     ///
-    /// 같은 이유 안에서는 시각이 가까운 것, 시각이 없으면 최근에 손댄 것이 먼저다.
-    /// 자정이 지나면 「오늘」이 바뀌므로 부르는 쪽이 시계를 다시 대야 한다.
+    /// **다가오는 것이 먼저다.** 아침에 지나간 셋이 오후에 곧 올 하나를 밀어내면
+    /// 띠는 「지금」이 아니라 「오늘 아침」이다. 그래서 차례는 시각이 정한다 —
+    /// 앞으로 올 것은 가까운 순, 그다음 지나간 것은 방금 지난 순, 시각이 없는 것
+    /// (날짜만 있는 오늘 일정·고정)은 이유 순에 최근 손댄 순. 같은 자리면 이유
+    /// (다시 보기 → 오늘 일정 → 고정), 그래도 같으면 id.
+    ///
+    /// `seen` 은 「봤어요」로 내려놓은 것 — 메모 id 마다 그때의 `stamp`. 이름표가
+    /// 같은 동안만 빠진다. 자정이 지나면 「오늘」이 바뀌므로 부르는 쪽이 시계를 다시 대야 한다.
     public static func nowCards(
-        _ memos: [Memo], now: Date = Date(), calendar: Calendar = .current, limit: Int = nowLimit
+        _ memos: [Memo], now: Date = Date(), calendar: Calendar = .current, limit: Int = nowLimit,
+        seen: [ULID: Date] = [:]
     ) -> [Card] {
         let today = CalendarDate(now, calendar: calendar)
+        let dayStart = calendar.startOfDay(for: now)
         return memos.compactMap { memo -> Card? in
             guard eligible(memo) else { return nil }
+            let card: Card
             if let surface = memo.surface, CalendarDate(surface, calendar: calendar) == today {
-                return Card(memo: memo, reason: .revisit, moment: surface)
+                card = Card(memo: memo, reason: .revisit, moment: surface, stamp: surface)
+            } else if memo.scheduledDate(calendar: calendar) == today {
+                card = Card(memo: memo, reason: .today, moment: memo.at, stamp: memo.at ?? dayStart)
+            } else if memo.pinned {
+                card = Card(memo: memo, reason: .pinned, moment: nil, stamp: dayStart)
+            } else {
+                return nil
             }
-            if memo.scheduledDate(calendar: calendar) == today {
-                return Card(memo: memo, reason: .today, moment: memo.at)
-            }
-            if memo.pinned { return Card(memo: memo, reason: .pinned, moment: nil) }
-            return nil
+            return seen[memo.id] == card.stamp ? nil : card
         }
         .sorted { left, right in
+            let (lb, rb) = (band(left, now: now), band(right, now: now))
+            if lb != rb { return lb < rb }
+            switch lb {
+            case 0:
+                // 다가오는 것 — 가까운 순.
+                if left.moment != right.moment { return (left.moment ?? .distantFuture) < (right.moment ?? .distantFuture) }
+            case 1:
+                // 지나간 것 — 방금 지난 순.
+                if left.moment != right.moment { return (left.moment ?? .distantPast) > (right.moment ?? .distantPast) }
+            default:
+                break
+            }
             let (lp, rp) = (priority(left.reason), priority(right.reason))
             if lp != rp { return lp < rp }
-            let (lm, rm) = (left.moment ?? .distantFuture, right.moment ?? .distantFuture)
-            if lm != rm { return lm < rm }
             if left.memo.updated != right.memo.updated { return left.memo.updated > right.memo.updated }
             return left.id < right.id
         }
         .prefix(max(0, limit))
         .map { $0 }
+    }
+
+    /// 0 다가오는 것 · 1 지나간 것 · 2 시각이 없는 것.
+    private static func band(_ card: Card, now: Date) -> Int {
+        guard let moment = card.moment else { return 2 }
+        return moment > now ? 0 : 1
     }
 
     private static func priority(_ reason: Reason) -> Int {

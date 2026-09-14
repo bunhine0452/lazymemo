@@ -43,8 +43,12 @@ final class DueClock {
     private let now: () -> Date
     private let calendar: Calendar
     private var task: Task<Void, Never>?
-    /// 이미 꺼내 준 것. 같은 일정을 두 번 꺼내지 않는다.
-    private var announced: Set<ULID> = []
+    /// 이미 꺼내 준 것 — **어느 시각으로** 꺼냈는지까지. 같은 일정을 두 번 꺼내지 않는다.
+    ///
+    /// id 만 기억하면 같은 날 다시 볼 시각을 미룬 종이가 영영 안 나온다 — 시스템
+    /// 배너(`ReminderCenter`)는 새 시각에 다시 울리는데 종이는 조용한 날이 온다.
+    /// 시각이 바뀌면 다른 약속이다.
+    private var announced: [ULID: Date] = [:]
 
     init(store: MemoStore, now: @escaping () -> Date = { Date() }, calendar: Calendar = .current) {
         self.store = store
@@ -100,7 +104,7 @@ final class DueClock {
 
         // 지나간 것은 전부 "알린 것" 으로 친다 — 꺼내지 않은 것까지 포함해서.
         // 안 그러면 잠시 뒤 `arm` 이 그것들을 다시 지금 울릴 것으로 읽는다.
-        for memo in passed { announced.insert(memo.id) }
+        for memo in passed { announced[memo.id] = memo.surfacesAt }
         for memo in passed.prefix(Self.catchUpLimit).reversed() { onDue(memo.id) }
     }
 
@@ -126,13 +130,13 @@ final class DueClock {
         let moment = now()
         let due = store.memos
             .filter { memo in
-                guard let at = memo.surfacesAt, !announced.contains(memo.id) else { return false }
+                guard let at = memo.surfacesAt, !isAnnounced(memo) else { return false }
                 return at <= moment
             }
             .sorted { ($0.surfacesAt ?? .distantPast) < ($1.surfacesAt ?? .distantPast) }
 
         for memo in due {
-            announced.insert(memo.id)
+            announced[memo.id] = memo.surfacesAt
             onDue(memo.id)
         }
         arm()
@@ -142,9 +146,14 @@ final class DueClock {
     private func upcoming(after moment: Date) -> Memo? {
         store.memos
             .filter { memo in
-                guard let at = memo.surfacesAt, !announced.contains(memo.id) else { return false }
+                guard let at = memo.surfacesAt, !isAnnounced(memo) else { return false }
                 return at > moment
             }
             .min { ($0.surfacesAt ?? .distantFuture) < ($1.surfacesAt ?? .distantFuture) }
+    }
+
+    /// 이 메모를 **지금 적힌 시각으로** 이미 꺼냈는가. 시각을 미뤘으면 아니다.
+    private func isAnnounced(_ memo: Memo) -> Bool {
+        announced[memo.id] == memo.surfacesAt
     }
 }

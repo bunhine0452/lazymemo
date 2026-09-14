@@ -317,7 +317,34 @@ final class SmokeTests: XCTestCase {
         XCTAssertFalse(after.contains("\nsurface: "), "해제하면 파일에서 빠져야 한다: \(after)")
     }
 
-    // MARK: 사진 — 맥이 붙인 사진이 폰의 종이 머리에 선다
+    // MARK: 「지금」 — 띠에 오른 것은 목록에 없고, 「봤어요」로 내려놓으면 「나머지」로 돌아간다
+
+    func testSeenPutsTheCardDownIntoTheRest() throws {
+        try seed()
+        let app = launch()
+        let cards = app.descendants(matching: .any).matching(identifier: "now-card")
+        XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 10), "「지금」 띠가 없다")
+        let pinned = cards.matching(NSPredicate(format: "label CONTAINS %@", "읽을 것")).firstMatch
+        XCTAssertTrue(pinned.exists)
+        let rest = app.staticTexts["rest"]
+        XCTAssertTrue(rest.exists, "띠 아래는 「나머지」다")
+        // 씨앗 여섯 장 중 띠에 오른 만큼 빠진다 — 오늘 일정이 몇인지는 오늘이 정한다.
+        let risen = cards.count
+        XCTAssertEqual(rest.label, "나머지 \(6 - risen)장", "띠에 오른 것은 아래에서 빠져야 한다: \(rest.label)")
+        // 목록의 줄로는 없다 — 카드로만 있다 (줄의 말은 「…, 고정됨」으로 끝난다).
+        XCTAssertEqual(app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@ AND label CONTAINS %@", "읽을 것", "고정됨")).count, 0)
+
+        // 고정 카드의 「봤어요」 — 카드 안의 단추라 카드와 같은 자리에서 찾는다.
+        let inside = pinned.buttons["now-seen"]
+        let seen = inside.exists ? inside : app.buttons.matching(identifier: "now-seen").element(boundBy: risen - 1)
+        XCTAssertTrue(seen.exists, "카드 위에 「봤어요」가 보여야 한다")
+        seen.tap()
+        XCTAssertTrue(pinned.waitForNonExistence(timeout: 3), "내려놓은 카드는 띠에서 빠진다")
+        XCTAssertTrue(app.staticTexts["나머지 \(7 - risen)장"].waitForExistence(timeout: 3), "내려놓은 것은 목록으로 돌아간다")
+        XCTAssertTrue(scrolledRow(in: app, startingWith: "읽을 것").exists, "목록의 줄로 돌아와야 한다")
+    }
+
+    // MARK: 사진 — 맥이 붙인 사진이 폰의 종이 머리에 선다, 줄에는 경로가 아니라 「사진 1장」
 
     func testPhotoFromMacShowsOnThePaper() throws {
         try seed()
@@ -325,6 +352,8 @@ final class SmokeTests: XCTestCase {
         let app = launch()
         let target = row(in: app, startingWith: "명함 사진")
         XCTAssertTrue(target.waitForExistence(timeout: 10))
+        XCTAssertFalse(target.label.contains("attachments/"), "줄에 파일 경로가 보이면 안 된다: \(target.label)")
+        XCTAssertTrue(target.label.contains("사진 1장"), "붙인 사진은 수로 적는다: \(target.label)")
         target.tap()
 
         let photo = app.descendants(matching: .any)["photo"].firstMatch

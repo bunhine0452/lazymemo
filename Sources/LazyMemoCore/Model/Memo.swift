@@ -152,13 +152,32 @@ public struct Memo: Sendable, Equatable, Identifiable {
         return due
     }
 
-    /// 목록·창 제목에 쓸 한 줄. 본문 첫 비어 있지 않은 줄에서 마크다운 장식을 걷어낸다.
+    /// 목록·창 제목에 쓸 한 줄. 본문에서 **글이 있는** 첫 줄의 마크다운 장식을 걷어낸다.
+    ///
+    /// 사진 참조(`![](attachments/…)`)는 글이 아니다 — 사진만 붙인 메모의 제목이
+    /// 파일 경로여서는 안 된다. 그런 메모는 「사진 1장」이다.
     public var title: String {
-        let line = body
-            .split(separator: "\n", omittingEmptySubsequences: false)
-            .first { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-            .map(String.init) ?? ""
-        let stripped = line.trimmingCharacters(in: CharacterSet(charactersIn: "# \t-*>"))
-        return stripped.isEmpty ? L("빈 메모") : stripped
+        let first = Self.textLines(of: body).first
+        if let first { return first }
+        let photos = photoCount
+        return photos > 0 ? L("사진 \(photos)장") : L("빈 메모")
+    }
+
+    /// 목록의 둘째 줄 — 제목 다음에 오는 글. 사진 참조는 건너뛴다.
+    public var previewLine: String? {
+        Self.textLines(of: body).dropFirst().first
+    }
+
+    /// 본문이 물고 있는 사진 수.
+    public var photoCount: Int { MarkdownScanner.imagePaths(in: body).count }
+
+    /// 글이 있는 줄만, 사진 참조와 줄머리 장식을 걷어낸 채로.
+    static func textLines(of body: String) -> [String] {
+        body.split(separator: "\n", omittingEmptySubsequences: false).compactMap { line in
+            let stripped = String(line)
+                .replacing(/!\[[^\]]*\]\([^)]*\)/, with: "")
+                .trimmingCharacters(in: CharacterSet(charactersIn: "# \t-*>"))
+            return stripped.isEmpty ? nil : stripped
+        }
     }
 }

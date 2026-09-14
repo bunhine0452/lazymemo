@@ -25,19 +25,24 @@ struct StackView: View {
     @State private var reminders = ReminderCenter.shared
     /// 「지금」 띠의 시계. 분이 바뀌면 다시 재고, 자정을 넘기면 「오늘」이 바뀐다.
     @State private var clock = Date()
+    /// 「봤어요」로 내려놓은 카드 — 이 기기의 기억 (`NowSeen`).
+    @State private var seen: [ULID: Date] = NowSeen.load()
 
     private var store: MemoStore { session.store }
-
-    private var listed: [Memo] {
-        MemoFolders.filter(pen.found ?? store.active, folder: folders.selected)
-    }
 
     private var searching: Bool { pen.found != nil }
 
     /// 찾는 중이거나 폴더를 골랐으면 없다 — 범위 밖의 카드가 범위를 흐린다.
     private var nowCards: [Recall.Card] {
         guard !searching, folders.selected == nil else { return [] }
-        return Recall.nowCards(store.memos, now: clock)
+        return Recall.nowCards(store.memos, now: clock, seen: seen)
+    }
+
+    /// 「지금」에 오른 것은 목록에서 뺀다 — 같은 줄이 두 번 서면 화면이 무겁다.
+    private var listed: [Memo] {
+        let all = MemoFolders.filter(pen.found ?? store.active, folder: folders.selected)
+        let risen = Set(nowCards.map(\.id))
+        return risen.isEmpty ? all : all.filter { !risen.contains($0.id) }
     }
 
     private var subtitle: String {
@@ -55,10 +60,7 @@ struct StackView: View {
                     .listRowSeparator(.hidden)
 
                 if !nowCards.isEmpty {
-                    NowBand(cards: nowCards, now: clock) { open($0) }
-                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 10, trailing: 16))
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
+                    NowBand(cards: nowCards, now: clock, open: open, putDown: putDown, pin: pin, delete: delete)
                 }
 
                 // 조용히 지나가면 안 되는 실패 — 저장이 안 되고 있으면 여기 선다.
@@ -89,6 +91,19 @@ struct StackView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .accessibilityIdentifier(listed.isEmpty ? "search-empty" : "scope")
+                }
+
+                // 띠가 서 있으면 아래는 「나머지」다 — 머리와 몸이 다른 것임을 한 줄이 적는다.
+                if !nowCards.isEmpty, !listed.isEmpty {
+                    Text("나머지 \(listed.count)장")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 4)
+                        .accessibilityAddTraits(.isHeader)
+                        .accessibilityIdentifier("rest")
+                        .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 2, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                 }
 
                 ForEach(listed) { memo in
@@ -137,7 +152,7 @@ struct StackView: View {
                     }
                 }
 
-                if listed.isEmpty, !searching {
+                if listed.isEmpty, !searching, nowCards.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "square.and.pencil")
                             .font(.system(size: 28, weight: .light))
@@ -335,6 +350,12 @@ struct StackView: View {
 
     private func pin(_ memo: Memo) {
         Task { _ = try? await store.update(memo.id, pinned: !memo.pinned) }
+    }
+
+    /// 「봤어요」 — 이 등장의 이름표를 적어 둔다. 시각을 미루거나 날이 바뀌면 다시 오른다.
+    private func putDown(_ card: Recall.Card) {
+        withAnimation(.snappy) { seen[card.id] = card.stamp }
+        NowSeen.save(seen, now: clock)
     }
 
     private func move(_ memo: Memo, to folder: String?) {

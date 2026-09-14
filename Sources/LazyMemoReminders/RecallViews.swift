@@ -12,16 +12,26 @@ import UIKit
 /// **켜기 전에 잠금 화면에 제목이 보인다고 적는다.** 알림은 메모의 첫 줄을
 /// 그대로 들고 나가므로, 그것을 켠 뒤에 알게 되면 늦다. 다른 기기의 변경이
 /// 언제 반영되는지도 켜기 전에 읽는다 — 완벽한 동기화를 약속하지 않는다.
+///
+/// **켜고 나면 설명은 접힌다.** 이미 켠 사람에게 같은 문단이 매번 서 있으면
+/// 시각을 고르는 손이 그것을 밀어내야 한다. 켜짐·걸어 둔 수만 남기고, 기기별
+/// 안내는 펼쳐야 보인다 (`folded`).
 public struct ReminderSettingsView: View {
     @State private var center = ReminderCenter.shared
     @State private var requesting = false
+    @State private var showsGuide = false
     public init() {}
+
+    /// 켜져 있고 탈이 없으면 설명이 접힌다.
+    private var folded: Bool { center.enabled && !center.denied && center.trouble == nil }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label(L("필요할 때 알림"), systemImage: "bell").font(.headline)
-            Text(L("이 기기에서 일정 시각과 다시 볼 시각에 알려드려요. 잠금 화면에 메모 제목이 표시됩니다."))
-                .font(.subheadline).foregroundStyle(.secondary)
+            if !folded {
+                Text(L("이 기기에서 일정 시각과 다시 볼 시각에 알려드려요. 잠금 화면에 메모 제목이 표시됩니다."))
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
             Toggle(L("이 기기에서 알림 받기"), isOn: Binding(
                 get: { center.enabled },
                 set: { value in
@@ -53,10 +63,27 @@ public struct ReminderSettingsView: View {
                     .accessibilityIdentifier("recall-trouble")
                 Button(L("다시 시도")) { center.refresh() }
             }
-            Text(L("다른 기기에서 바꾼 것은 이 앱이 그 파일을 읽은 뒤에 반영돼요. 양쪽 기기에서 켜면 양쪽에서 울릴 수 있어요. 집중 모드와 시스템 설정에 따라 전달이 달라져요."))
-                .font(.caption).foregroundStyle(.secondary)
+            if folded {
+                DisclosureGroup(isExpanded: $showsGuide) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L("이 기기에서 일정 시각과 다시 볼 시각에 알려드려요. 잠금 화면에 메모 제목이 표시됩니다."))
+                        guide
+                    }
+                    .padding(.top, 6)
+                } label: {
+                    Text(L("기기별 알림 안내")).font(.footnote).foregroundStyle(.secondary)
+                }
+                .accessibilityIdentifier("recall-guide")
+            } else {
+                guide
+            }
         }
         .task { center.refresh() }
+    }
+
+    private var guide: some View {
+        Text(L("다른 기기에서 바꾼 것은 이 앱이 그 파일을 읽은 뒤에 반영돼요. 양쪽 기기에서 켜면 양쪽에서 울릴 수 있어요. 집중 모드와 시스템 설정에 따라 전달이 달라져요."))
+            .font(.caption).foregroundStyle(.secondary)
     }
 
     private func openSystemSettings() {

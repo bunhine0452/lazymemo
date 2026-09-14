@@ -115,7 +115,40 @@ struct RecallTests {
         #expect(cards.first?.moment == at(14, 18))
     }
 
-    @Test("같은 이유 안에서는 가까운 시각, 시각이 없으면 최근에 손댄 것")
+    @Test("다가오는 것이 지나간 것보다 먼저 — 아침 셋이 오후 하나를 밀어내지 않는다")
+    func upcomingBeatsPassed() {
+        let morning = (8...10).map { memo("아침 \($0)", surface: at(14, $0)) }
+        let afternoon = memo("오후 회의", at: at(14, 15))
+
+        let cards = Recall.nowCards(morning + [afternoon], now: now, calendar: calendar)
+        #expect(cards.first?.memo.title == "오후 회의")
+        // 지나간 것끼리는 방금 지난 것이 먼저.
+        #expect(cards.map(\.memo.title) == ["오후 회의", "아침 10", "아침 9"])
+    }
+
+    @Test("「봤어요」로 내려놓으면 빠지고, 시각을 미루거나 날이 바뀌면 다시 오른다")
+    func seenPutsDownUntilTheStampChanges() {
+        let passed = memo("아침 회의", surface: at(14, 9))
+        let pinned = memo("고정", pinned: true)
+        let all = [passed, pinned]
+        let cards = Recall.nowCards(all, now: now, calendar: calendar)
+        #expect(cards.count == 2)
+        #expect(cards.first?.stamp == at(14, 9))
+        #expect(cards.last?.stamp == calendar.startOfDay(for: now))
+
+        var seen: [ULID: Date] = [:]
+        for card in cards { seen[card.id] = card.stamp }
+        #expect(Recall.nowCards(all, now: now, calendar: calendar, seen: seen).isEmpty)
+
+        // 미뤘다 — 다른 이름표.
+        var postponed = passed; postponed.surface = at(14, 15)
+        #expect(Recall.nowCards([postponed], now: now, calendar: calendar, seen: seen).count == 1)
+        // 다음 날 — 고정은 다시 오른다.
+        let tomorrow = at(15, 8)
+        #expect(Recall.nowCards([pinned], now: tomorrow, calendar: calendar, seen: seen).count == 1)
+    }
+
+    @Test("같은 자리에서는 가까운 시각, 시각이 없으면 최근에 손댄 것")
     func tieBreaks() {
         let late = memo("늦은 일정", at: at(14, 20))
         let early = memo("이른 일정", at: at(14, 13))

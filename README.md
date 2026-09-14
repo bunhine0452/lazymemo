@@ -8,9 +8,13 @@
 
 메모는 당신 컴퓨터의 마크다운 파일이다. **가입도 계정도 없고, lazymemo 를 지워도 메모는 남는다.**
 
-![lazymemo 가 한 바퀴 도는 모습 — 빠른 입력에 적고, 날짜가 달력으로 가고, 종이가 서랍에 들어가고, 폴더로 나뉜다](site/media/demo.gif)
+![lazymemo 가 한 바퀴 도는 모습 — 빠른 입력에 적고, 날짜가 달력으로 가고, 다시 볼 시각을 정하고, 서랍을 폴더로 나누고, 시각이 되자 종이가 바탕화면으로 올라온다](site/media/demo.gif)
 
 > 실제 앱을 화면 기록한 것이다. 손은 앱이 스스로 움직였고(`scripts/record-demo.sh`), 화면의 창은 전부 진짜다. [mp4](site/media/demo.mp4)
+
+<img src="site/media/phone.gif" width="300" alt="아이폰의 lazymemo — 날짜가 든 한 줄을 적고, 다시 볼 시각을 정하고, 「지금」에 오르고, 알림을 켜고, 배너를 누르면 그 메모가 열린다">
+
+> 폰은 시뮬레이터에서 앱이 스스로 움직인 것을 기록했다(`ios/scripts/record-demo.sh`). [mp4](site/media/phone.mp4)
 
 ## 이번 판 — 0.4.0
 
@@ -110,7 +114,7 @@ swift run LazyMemo
 
 그 시각에 맥은 종이를 앞으로 꺼낸다. **시스템 알림은 켠 기기에서만** — 「이 기기에서 알림 받기」를 켜면 그때 한 번 권한을 묻고, 그 뒤로 일정 시각과 다시 볼 시각에 알림이 오며 누르면 그 메모가 열린다. 잠금 화면에 메모 제목이 보인다는 것을 켜기 전에 적어 둔다. 날짜만 있는 메모에는 아침 알림을 지어내지 않고, 지운 것·치워 둔 것·다 체크한 목록은 걸지 않는다. 알림은 이 앱이 파일을 읽은 기기에서 걸리므로 — 폰이 꺼진 동안 맥에서 적은 것은 폰이 다시 읽은 뒤에 걸린다. 양쪽에서 켜면 양쪽에서 울릴 수 있고, 집중 모드와 시스템 설정에 따라 전달이 달라진다. 서버가 없으니 기기 간 알림 동기화를 약속하지 않는다.
 
-폰의 목록 위에는 **「지금」** 최대 세 장 — 오늘 다시 볼 것 → 오늘 일정 → 고정한 것. 이유와 시각이 함께 적히고, 찾는 중이거나 폴더를 골랐을 때는 사라진다. 계획과 경계는 [docs/RECALL_PLAN.md](docs/RECALL_PLAN.md).
+폰의 목록 위에는 **「지금」** 최대 세 장 — 오늘 다시 볼 것·오늘 일정·고정한 것 중에서 **다가오는 시각부터**, 그다음 방금 지난 것, 그다음 시각이 없는 것. 이유와 시각이 함께 적히고, 띠에 오른 것은 아래 「나머지」 목록에서 빠진다. 「봤어요」로 내려놓으면 이 기기에서만 사라지고, 시각을 미루거나 날이 바뀌면 다시 오른다. 찾는 중이거나 폴더를 골랐을 때는 띠가 없다. 계획과 경계는 [docs/RECALL_PLAN.md](docs/RECALL_PLAN.md).
 
 ### 서랍 — 밀어 둔 종이가 가는 자리, 그리고 폴더
 
@@ -326,7 +330,8 @@ Claude 가 메모를 지울 수 있으므로, **영구 삭제하는 도구를 �
 ./scripts/verify-performance.sh    # 메모리·CPU 예산
 ./scripts/measure-capture.sh       # 단축키에서 커서까지 150ms 실측
 ./scripts/render-ui.sh             # UI 를 PNG 로 렌더
-./scripts/record-demo.sh           # 소개 영상 녹화 → site/media/ (화면 기록 권한 필요)
+./scripts/record-demo.sh           # 맥 소개 영상 녹화 → site/media/demo.* (화면 기록 권한, 잠금 해제 상태)
+./ios/scripts/record-demo.sh       # 폰 소개 영상 녹화 → site/media/phone.* (시뮬레이터, 배너까지)
 ./scripts/make-icon.sh             # 아이콘 다시 그리기
 ./scripts/package-release.sh       # 배포용 zip + sha256 (cask 가 쓰는 값)
 ./scripts/clean.sh                 # 빌드 캐시 회수 (--all 이면 .build 통째로)
