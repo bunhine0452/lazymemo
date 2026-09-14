@@ -359,6 +359,7 @@ Sources/
 - [설계문서](docs/DESIGN.md) — 무엇을 만드는가, 실측 결과, 기각한 안
 - [시각 규칙](docs/VISUAL_DESIGN.md) — 크림과 포레스트
 - [App Store 점검](docs/APP_STORE_READINESS.md) — 제출 전에 남은 것
+- [App Store 등록 정보](docs/STORE_LISTING.md) — 스토어에 그대로 옮겨 적는 원고 (설명·키워드·심사 메모)
 - [결정 근거](.oculpm/discussion/lazymemo-계획서/discussion.md) — 왜 이 결정인가
 
 | | 결정 |
