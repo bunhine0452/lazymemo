@@ -26,11 +26,14 @@ struct MemoEditorView: View {
     @State private var datePicking = false
     @State private var folderPicking = false
     @State private var newFolder = ""
+    /// 자리 카드 — 지도와 가는 길. 자리가 없는 메모에는 없다.
+    @State private var resolver = PlaceResolver()
 
     private static let autosaveDelay: Duration = .milliseconds(600)
 
     private var memo: Memo? { store.memo(id) }
     private var folderNames: [String] { MemoFolders.names(listed: listedFolders, memos: store.memos) }
+    private var places: [MemoPlaces.Place] { memo.map(MemoPlaces.of) ?? [] }
 
     var body: some View {
         Group {
@@ -42,6 +45,22 @@ struct MemoEditorView: View {
             }
         }
         .background(Paper.surface)
+        // 자리 카드는 종이 머리에 앉는다 — 지도가 먼저 보이고 글은 그 아래로 이어진다.
+        // 키보드가 올라와 있는 동안은 접는다: 지도 밑에 글 칸이 세 줄 남으면 적을 수 없다.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if !editing, !places.isEmpty {
+                PlaceCardsView(resolver: resolver)
+            }
+        }
+        // 이름이 바뀔 때만 다시 짓는다. 좌표는 카드가 스스로 알아내 파일에 적는 것이라
+        // 그것까지 열쇠에 넣으면 적는 순간 자기 자신을 다시 시작한다.
+        .task(id: places.map(\.name)) {
+            guard !places.isEmpty else { return }
+            await resolver.load(places: places) { geo in
+                // 첫 자리의 좌표를 파일에 적어 둔다 — 다음엔 묻지 않고, 맥도 같은 점을 본다.
+                Task { _ = try? await store.update(id, geo: .some(geo)) }
+            }
+        }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .toolbar { if let memo { tail(memo) } }

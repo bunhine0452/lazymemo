@@ -61,7 +61,7 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(row(in: app, startingWith: "치과 예약").waitForExistence(timeout: 5), "첫소리로 찾아야 한다")
         XCTAssertFalse(row(in: app, startingWith: "장보기").exists, "안 맞는 것은 빠져야 한다")
         XCTAssertEqual(app.buttons["leave"].label, "메모 남기기", "찾는 중에도 남기기는 살아 있다")
-        XCTAssertEqual(app.staticTexts["scope"].label, "5장 중 1장", "찾기의 범위를 적어야 한다")
+        XCTAssertEqual(app.staticTexts["scope"].label, "6장 중 1장", "찾기의 범위를 적어야 한다")
 
         app.buttons["clear"].tap()
         XCTAssertTrue(row(in: app, startingWith: "장보기").waitForExistence(timeout: 3), "⊗ 로 비우면 목록이 돌아온다")
@@ -110,6 +110,28 @@ final class SmokeTests: XCTestCase {
         let file = root.appending(path: "vault/notes/2026/09/\(Self.ulid(day: 14, tail: "AE")).md")
         let saved = try String(contentsOf: file, encoding: .utf8)
         XCTAssertTrue(saved.contains("(10W)"), "파일이 안 바뀌었다: \(saved)")
+    }
+
+    // MARK: 자리 카드 — 칸의 자리와 본문의 @낱말이 카드 두 장, 쓸어 넘긴다
+
+    func testTwoPlacesMakeTwoCards() throws {
+        try seed()
+        let app = launch()
+        let target = row(in: app, startingWith: "동선")
+        XCTAssertTrue(target.waitForExistence(timeout: 10))
+        target.tap()
+
+        let cards = app.descendants(matching: .any).matching(identifier: "place-card")
+        XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 5), "자리 카드가 없다")
+        XCTAssertEqual(cards.count, 2, "칸의 강남역과 본문의 홍대입구, 두 장이어야 한다")
+        XCTAssertEqual(cards.element(boundBy: 0).label, "자리 강남역", "칸의 자리가 첫 장이다")
+        XCTAssertEqual(cards.element(boundBy: 1).label, "자리 홍대입구")
+
+        let strip = app.descendants(matching: .any).matching(identifier: "place-cards").firstMatch
+        strip.swipeLeft()
+        XCTAssertTrue(cards.element(boundBy: 1).isHittable, "쓸어 넘기면 둘째 장이 손에 닿는다")
+        // 종이 위에 카드가 앉아도 글은 보인다 — 카드가 화면을 먹으면 이것이 잡는다.
+        XCTAssertTrue(app.textViews["paper"].isHittable, "종이가 카드에 가렸다")
     }
 
     // MARK: 편집 — 키보드가 꼬리를 덮는 동안 「완료」가 위에 선다
@@ -278,6 +300,7 @@ final class SmokeTests: XCTestCase {
             (Self.ulid(day: 12, tail: "AC"), "회의 자료 보내기", "due: 2026-09-15\n", "green", false, "일"),
             (Self.ulid(day: 13, tail: "AD"), "읽을 것: 설계 문서", "", "gray", true, "읽을 것"),
             (Self.ulid(day: 14, tail: "AE"), "집 — 전구 갈기", "", "pink", false, "집"),
+            (Self.ulid(day: 9, tail: "AF"), "동선 — 먼저 보고 @홍대입구 로 이동", "place: 강남역\n", "purple", false, nil),
         ]
         for (index, memo) in memos.enumerated() {
             let stamp = String(format: "2026-09-%02dT10:00:00+09:00", 10 + index)

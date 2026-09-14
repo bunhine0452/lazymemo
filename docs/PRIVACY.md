@@ -14,6 +14,8 @@
 |---|---|---|---|
 | **iCloud 동기화** | 메모 파일 전부(본문·날짜·장소·사진) | **당신의 iCloud** (애플이 옮기고 보관한다) | 맥에서 「iCloud 로 동기화…」를 **직접 누를 때**, 아이폰은 iCloud Drive 가 켜져 있을 때 |
 | 지금 여기 (맥 `⌥⌘L` · 폰의 핀) | 좌표 하나 | 애플 지오코딩 (주소로 바꾸려고) | **누를 때마다**, 그때만 |
+| 자리 카드 (폰) | 장소 이름 하나 | 애플 지도 검색 (좌표로 바꾸려고) | 장소가 붙은 메모를 **열 때** — 파일에 좌표가 있으면 안 나간다 |
+| 「가는 길」 (폰) | 좌표와 이름 | 누른 지도 앱 (카카오맵·네이버 지도·애플 지도) | **누를 때마다** |
 | Claude 연동 (맥, MCP) | 메모 본문 | Claude | `claude_desktop_config.json` 에 **직접 등록**했을 때 |
 | 종이 위 ✧ 다듬기 (맥) | 그 메모 본문 | Claude | `claude` 가 깔려 있고 **누를 때마다** |
 | 아침 브리핑 (맥) | 메모 제목과 시각 | Claude | 설정에서 **직접 켤 때만** (기본 꺼짐) |
@@ -65,6 +67,8 @@ By default lazymemo connects to nothing. The table below is the complete list of
 |---|---|---|---|
 | **iCloud sync** | your memo files (text, dates, places, photos) | **your iCloud** (Apple transports and stores them) | on Mac only after you choose "Sync to iCloud…"; on iPhone whenever iCloud Drive is on |
 | "Here" (Mac `⌥⌘L` · the pin on iPhone) | one coordinate | Apple geocoding (to turn it into an address) | each time you press it, and only then |
+| Place cards (iPhone) | one place name | Apple Maps search (to turn it into a coordinate) | when you open a memo that has a place; not sent if the file already holds a coordinate |
+| "Directions" (iPhone) | a coordinate and a name | the map app you tap (Kakao Map, Naver Map, Apple Maps) | each time you press it |
 | Claude integration (Mac, MCP) | memo text | Claude | only after you register it in `claude_desktop_config.json` yourself |
 | ✧ Tidy on a note (Mac) | that memo's text | Claude | only if the `claude` CLI is installed, each time you press it |
 | Morning brief (Mac) | memo titles and times | Claude | only if you turn it on in Settings (off by default) |

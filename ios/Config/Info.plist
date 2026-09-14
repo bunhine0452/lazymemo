@@ -9,6 +9,14 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 
+	<!-- 자리 카드의 「가는 길」— 카카오맵·네이버 지도가 깔려 있는지 물어보려면 여기
+	     적어 둬야 한다 (canOpenURL). 깔린 앱만 단추로 선다. -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>kakaomap</string>
+		<string>nmap</string>
+	</array>
+
 	<!-- 사전형이라 설정으로 못 적는다 — 컨테이너를 파일 앱·Finder 에 「LazyMemo」 폴더로
 	     보이게 하는 선언. 이것이 없으면 동기화는 되어도 사용자 눈에는 안 보인다
 	     (D4 의 「Finder 로 열어도 된다」가 깨진다). -->

@@ -40,6 +40,14 @@ public enum PlaceParser {
 
     /// 산문 안의 `@낱말`. 없으면 `nil` — 짐작하지 않는다.
     public static func parse(_ text: String) -> Result? {
+        parseAll(text).first
+    }
+
+    /// 산문 안의 `@낱말` **전부**, 적힌 차례대로. 「@강남역에서 만나 @홍대입구로」처럼
+    /// 한 메모에 자리가 여럿일 때 — 첫째는 파일의 `place:` 가 되고 나머지는
+    /// 본문에 그대로 남아 카드로 선다 (`MemoPlaces`). 같은 낱말은 한 번만.
+    public static func parseAll(_ text: String) -> [Result] {
+        var found: [Result] = []
         let characters = Array(text)
         var index = 0
 
@@ -65,9 +73,12 @@ public enum PlaceParser {
                 continue
             }
             // 덜어낼 조각은 문장부호까지 포함한 원문 그대로여야 본문이 깨끗해진다.
-            return Result(place: name, phrases: ["@" + word])
+            if !found.contains(where: { $0.place == name }) {
+                found.append(Result(place: name, phrases: ["@" + word]))
+            }
+            index = end
         }
-        return nil
+        return found
     }
 
     /// 문자열이 **통째로** 주소일 때만 그 주소를 돌려준다.
