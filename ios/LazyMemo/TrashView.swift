@@ -7,7 +7,9 @@ struct TrashView: View {
     let store: MemoStore
     let reveal: Reveal
 
-    @Environment(\.dismiss) private var dismiss
+    /// 마지막으로 되돌린 줄. 휴지통을 나갈 때 목록이 그리로 간다 — 되돌리는
+    /// 순간 밝히면 여기서는 안 보이고, 돌아갈 즈음엔 이미 꺼져 있다.
+    @State private var lastRestored: ULID?
 
     var body: some View {
         List {
@@ -50,13 +52,14 @@ struct TrashView: View {
         .navigationTitle("휴지통")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
+        .onDisappear { if let lastRestored { reveal.show(lastRestored) } }
     }
 
     /// 돌아온 줄을 목록이 보이게 — 돌아가서 그리로 스크롤하고 밝힌다.
     private func restore(_ memo: Memo) {
         Task {
             try? await store.restore(memo.id)
-            reveal.show(memo.id)
+            lastRestored = memo.id
         }
     }
 }

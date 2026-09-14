@@ -19,6 +19,9 @@ struct MemoEditorView: View {
     @State private var text = ""
     @State private var lastSaved = ""
     @State private var loaded = false
+    /// 키보드가 올라와 있다. 그동안은 위에 「완료」 — 키보드가 바닥 꼬리를 덮으니
+    /// 내려 보낼 길이 하나는 손에 잡혀야 한다 (Notes 와 같다).
+    @State private var editing = false
     @State private var saveTask: Task<Void, Never>?
     @State private var datePicking = false
     @State private var folderPicking = false
@@ -32,7 +35,7 @@ struct MemoEditorView: View {
     var body: some View {
         Group {
             if memo != nil {
-                PaperTextView(text: $text)
+                PaperTextView(text: $text, editing: $editing)
             } else {
                 // 지워졌거나 다른 기기에서 옮겨 갔다. 빈 종이를 보여 주지 않는다.
                 ContentUnavailableView("이 메모는 이제 없습니다", systemImage: "doc")
@@ -42,6 +45,15 @@ struct MemoEditorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .toolbar { if let memo { tail(memo) } }
+        .toolbar {
+            if editing {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("완료") { editing = false }
+                        .fontWeight(.semibold)
+                        .accessibilityIdentifier("done-editing")
+                }
+            }
+        }
         .onAppear {
             guard !loaded, let memo else { return }
             text = memo.body
@@ -68,7 +80,8 @@ struct MemoEditorView: View {
                     onChange: { schedule in
                         Task { _ = try? await store.update(id, due: .some(schedule.due), at: .some(schedule.at)) }
                     },
-                    onClear: { clearDate(memo) }
+                    // 시트가 열린 뒤 바뀐 자리를 되돌리려면 그때의 메모를 봐야 한다.
+                    onClear: { if let live = store.memo(id) { clearDate(live) } }
                 )
             }
         }
@@ -206,8 +219,11 @@ struct MemoEditorView: View {
     }
 
     private func delete(_ memo: Memo) {
-        flush()
+        // 적던 글을 먼저 **기다려서** 내린다 — 따로 던지면 지운 뒤에 도착해
+        // 휴지통의 글과 되돌린 글이 어긋난다.
+        saveTask?.cancel()
         Task {
+            await save()
             try? await store.delete(id)
             dismiss()
             Undo.register("지우기", on: undoManager, reveal: reveal, id: id) { try? await store.restore(id) }

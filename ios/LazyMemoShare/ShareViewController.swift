@@ -24,6 +24,9 @@ private struct ShareSheet: View {
 
     @State private var text = ""
     @State private var trouble: String?
+    /// 떨구는 중. iCloud 컨테이너를 찾는 데 한 박자 걸리는데, 그 사이 한 번 더
+    /// 누르면 같은 글이 두 장 된다.
+    @State private var leaving = false
     @FocusState private var editing: Bool
 
     var body: some View {
@@ -64,7 +67,7 @@ private struct ShareSheet: View {
                     Button(leaveLabel, action: leave)
                         .buttonStyle(.borderedProminent)
                         .tint(Color(red: 0.16, green: 0.32, blue: 0.27))
-                        .disabled(InboundNote.make(text: text) == nil)
+                        .disabled(leaving || InboundNote.make(text: text) == nil)
                 }
             }
         }
@@ -98,8 +101,10 @@ private struct ShareSheet: View {
     }
 
     private func leave() {
-        guard let inbound = InboundNote.make(text: text) else { return }
+        guard !leaving, let inbound = InboundNote.make(text: text) else { return }
+        leaving = true
         Task {
+            defer { leaving = false }
             let container = await Task.detached(priority: .userInitiated) {
                 AppPaths.ubiquityContainer()
             }.value

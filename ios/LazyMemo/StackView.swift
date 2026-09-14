@@ -45,7 +45,9 @@ struct StackView: View {
 
                 if searching {
                     // 찾기의 범위를 적는다 — "Clearly display the current scope of a search".
-                    Text(listed.isEmpty ? "\(store.active.count)장 중 없다" : "\(store.active.count)장 중 \(listed.count)장")
+                    // 폴더를 골라 두었으면 그 폴더 안에서 센다.
+                    let scope = MemoFolders.filter(store.active, folder: folders.selected).count
+                    Text(listed.isEmpty ? "\(scope)장 중 없다" : "\(scope)장 중 \(listed.count)장")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .listRowBackground(Color.clear)

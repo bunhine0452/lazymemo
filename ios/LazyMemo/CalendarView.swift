@@ -56,9 +56,12 @@ struct CalendarView: View {
         // 시각이 사라진다. 메모는 살아 있는 채로 본다 (`StackView` 와 같다).
         .sheet(isPresented: Binding(get: { dating != nil }, set: { if !$0 { dating = nil } })) {
             if let id = dating, let memo = store.memo(id) {
+                // 닫힌 채 잡힌 `memo` 는 첫 누름 전의 값이다 — 둘째 누름부터는 그때의
+                // 메모를 다시 집어야 「같은 자리」 판정과 되돌리기가 맞는다.
                 DateSheet(schedule: Schedule(memo), onChange: { schedule in
-                    reschedule(memo, to: schedule, name: schedule.day().map { "\($0.month)월 \($0.day)일로 옮기기" } ?? "날짜 바꾸기")
-                }, onClear: { unschedule(memo) })
+                    guard let live = store.memo(id) else { return }
+                    reschedule(live, to: schedule, name: schedule.day().map { "\($0.month)월 \($0.day)일로 옮기기" } ?? "날짜 바꾸기")
+                }, onClear: { if let live = store.memo(id) { unschedule(live) } })
             }
         }
         .task(id: grid) { await load() }
@@ -136,6 +139,8 @@ struct CalendarView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        // 「이 날에 적기」로 올라온 키보드가 탭바를 덮는다 — 목록을 쓸어 내리면 내려간다 (메모 탭과 같다).
+        .scrollDismissesKeyboard(.immediately)
     }
 
     // MARK: 손짓

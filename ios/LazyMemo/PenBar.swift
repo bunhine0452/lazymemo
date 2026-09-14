@@ -88,7 +88,11 @@ struct PenBar: View {
                             .accessibilityIdentifier("chip-date")
                     }
                     if let every {
-                        chip(every, on: pen.readsDate, hint: "누르면 되풀이로 읽지 않습니다") { pen.readsDate.toggle() }
+                        chip(every, on: pen.readsDate && pen.readsEvery, hint: "누르면 되풀이로 읽지 않습니다") {
+                            // 날짜가 꺼져 있으면 되풀이도 꺼져 보인다 — 누르면 둘 다 켠다.
+                            if !pen.readsDate { pen.readsDate = true; pen.readsEvery = true } else { pen.readsEvery.toggle() }
+                        }
+                        .accessibilityIdentifier("chip-every")
                     }
                     if let place {
                         chip(place, on: pen.readsPlace || pen.here != nil, hint: "누르면 장소로 읽지 않습니다") {

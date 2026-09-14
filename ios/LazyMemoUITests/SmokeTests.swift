@@ -112,6 +112,47 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(saved.contains("(10W)"), "파일이 안 바뀌었다: \(saved)")
     }
 
+    // MARK: 편집 — 키보드가 꼬리를 덮는 동안 「완료」가 위에 선다
+
+    func testDoneLowersTheKeyboardInTheEditor() throws {
+        try seed()
+        let app = launch()
+        let target = row(in: app, startingWith: "집 — 전구 갈기")
+        XCTAssertTrue(target.waitForExistence(timeout: 10))
+        target.tap()
+
+        let paper = app.textViews["paper"]
+        XCTAssertTrue(paper.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["done-editing"].exists, "열 때는 키보드도 「완료」도 없다")
+        paper.tap()
+        let done = app.buttons["done-editing"]
+        XCTAssertTrue(done.waitForExistence(timeout: 3), "적는 동안 「완료」가 있어야 한다")
+        XCTAssertGreaterThan(app.keyboards.count, 0)
+        done.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 3), "「완료」가 키보드를 안 내렸다")
+        XCTAssertFalse(done.exists)
+        XCTAssertTrue(app.buttons["tail-date"].isHittable, "키보드가 내려가면 꼬리가 손에 잡혀야 한다")
+    }
+
+    // MARK: 날짜 시트 — 붙어 있는 시각을 말하고, 고른 시각이 제목에 따라온다
+
+    func testDateSheetShowsTheClock() throws {
+        try seed()
+        let app = launch()
+        let target = row(in: app, startingWith: "치과 예약")
+        XCTAssertTrue(target.waitForExistence(timeout: 10))
+        target.tap()
+
+        let tail = app.buttons["tail-date"]
+        XCTAssertTrue(tail.waitForExistence(timeout: 5))
+        tail.tap()
+        let title = app.navigationBars.staticTexts.matching(NSPredicate(format: "label CONTAINS '15:00'")).firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 3), "시트 제목에 시각이 없다")
+        app.buttons["09:00"].tap()
+        let moved = app.navigationBars.staticTexts.matching(NSPredicate(format: "label CONTAINS '9:00'")).firstMatch
+        XCTAssertTrue(moved.waitForExistence(timeout: 3), "고른 시각이 제목에 안 따라왔다")
+    }
+
     // MARK: 달력 — 그 날에 선다
 
     func testCalendarShowsTheDay() throws {

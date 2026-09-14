@@ -23,9 +23,26 @@ struct DateSheet: View {
         let anchor = schedule.day().flatMap { $0.startOfDay() } ?? Date()
         _grid = State(initialValue: MonthGrid.current(anchor))
         _customTime = State(initialValue: schedule.at ?? Date())
+        // 10:30 처럼 준비된 칩에 없는 시각이면 휠을 편 채 연다 — 안 그러면 시각이
+        // 있는데 어느 칩도 켜져 있지 않아 「시각 없음」으로 읽힌다.
+        _custom = State(initialValue: Self.ownTime(schedule))
     }
 
     private var day: CalendarDate? { schedule.day() }
+
+    /// 한 번에 누르는 시각. 정각만 — 9:30 은 「09:00」 칩이 켜지지 않는다.
+    private static let presets = [9, 14]
+
+    private static func clock(_ schedule: Schedule) -> Int? {
+        guard let time = schedule.timeOfDay(), time.minute == 0 else { return nil }
+        return time.hour
+    }
+
+    private var title: String {
+        guard let day else { return "날짜" }
+        guard let at = schedule.at else { return DayWords.long(day) }
+        return "\(DayWords.long(day)) \(DayWords.clock(at))"
+    }
 
     var body: some View {
         NavigationStack {
@@ -34,7 +51,13 @@ struct DateSheet: View {
                     MonthGridView(
                         grid: grid,
                         selected: day,
-                        onPick: { picked in onChange(schedule.moved(to: picked)) },
+                        onPick: { picked in
+                            // 이웃 달의 칸을 누르면 격자도 그 달로 — 달력 탭과 같다.
+                            if picked.year != grid.year || picked.month != grid.month {
+                                grid = MonthGrid.make(year: picked.year, month: picked.month)
+                            }
+                            onChange(schedule.moved(to: picked))
+                        },
                         onStep: { grid = grid.advanced(by: $0) },
                         onToday: {
                             grid = MonthGrid.current()
@@ -56,7 +79,7 @@ struct DateSheet: View {
                 }
                 .padding(.top, 8)
             }
-            .navigationTitle(day.map { DayWords.long($0) } ?? "날짜")
+            .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("완료") { dismiss() } }
@@ -70,9 +93,10 @@ struct DateSheet: View {
         HStack(spacing: 8) {
             Text("시각").font(.subheadline).foregroundStyle(.secondary)
             timeChip("없음", on: schedule.at == nil) { clearTime() }
-            timeChip("09:00", on: hour == 9) { set(hour: 9) }
-            timeChip("14:00", on: hour == 14) { set(hour: 14) }
-            timeChip("직접…", on: custom) { custom.toggle() }
+            ForEach(Self.presets, id: \.self) { hour in
+                timeChip(String(format: "%02d:00", hour), on: Self.clock(schedule) == hour) { set(hour: hour) }
+            }
+            timeChip("직접…", on: custom || Self.ownTime(schedule)) { toggleCustom() }
             Spacer()
         }
         .padding(.horizontal, 20)
@@ -80,8 +104,16 @@ struct DateSheet: View {
         .opacity(day == nil ? 0.4 : 1)
     }
 
-    private var hour: Int? {
-        schedule.at.map { Calendar.current.component(.hour, from: $0) }
+    /// 준비된 칩에 없는 시각이 붙어 있다 — 휠을 접어도 「직접…」이 켜져 있어야 한다.
+    private static func ownTime(_ schedule: Schedule) -> Bool {
+        schedule.at != nil && !presets.contains { clock(schedule) == $0 }
+    }
+
+    /// 휠을 펴는 순간 시각이 없으면 휠이 가리키는 시각이 붙는다 — 펴 놓고 돌리지
+    /// 않으면 아무 시각도 안 붙던 것. 접는 것은 휠만 접는다.
+    private func toggleCustom() {
+        custom.toggle()
+        if custom, schedule.at == nil { set(time: customTime) }
     }
 
     @ViewBuilder

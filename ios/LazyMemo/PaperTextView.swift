@@ -8,9 +8,11 @@ import UIKit
 /// 제자리에 두는 것. 맥의 `MemoTextSync` 세 규칙을 그대로 지키려면 이게 필요하다.
 struct PaperTextView: UIViewRepresentable {
     @Binding var text: String
+    /// 키보드가 올라와 있는지. 글 칸이 올리고 내리며, 바깥이 `false` 로 놓으면
+    /// 키보드를 내린다 — 편집의 「완료」가 이 길로 내린다.
+    @Binding var editing: Bool
     /// 열 때 키보드를 올릴지. 열어서 읽는 일이 적는 일만큼 많아 기본은 아니다.
     var focusesOnAppear = false
-    var onEditingChanged: (Bool) -> Void = { _ in }
 
     func makeUIView(context: Context) -> UITextView {
         let view = UITextView()
@@ -32,7 +34,13 @@ struct PaperTextView: UIViewRepresentable {
     }
 
     func updateUIView(_ view: UITextView, context: Context) {
+        context.coordinator.parent = self
         // 모델 → 뷰. 조합 중이면 되밀지 않고, 같으면 대입하지 않고, 커서는 되돌린다.
+        // 바깥이 키보드를 내리라고 했다. 올리는 쪽은 사람의 손(탭)만 — 열 때 튀어
+        // 오르지 않는다는 규칙을 지킨다.
+        if !editing, view.isFirstResponder {
+            DispatchQueue.main.async { view.resignFirstResponder() }
+        }
         guard view.markedTextRange == nil, view.text != text else { return }
         let caret = view.selectedRange.location
         view.text = text
@@ -51,10 +59,10 @@ struct PaperTextView: UIViewRepresentable {
             parent.text = view.text
         }
 
-        func textViewDidBeginEditing(_ view: UITextView) { parent.onEditingChanged(true) }
+        func textViewDidBeginEditing(_ view: UITextView) { parent.editing = true }
         func textViewDidEndEditing(_ view: UITextView) {
             parent.text = view.text
-            parent.onEditingChanged(false)
+            parent.editing = false
         }
     }
 }
