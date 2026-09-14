@@ -1,5 +1,6 @@
 import LazyMemoCore
 import LazyMemoPlaces
+import LazyMemoReminders
 import SwiftUI
 
 /// 편집 — 화면 전체가 종이, 꼬리는 표준 바닥 툴바 (MOBILE_DESIGN §5).
@@ -25,6 +26,7 @@ struct MemoEditorView: View {
     @State private var editing = false
     @State private var saveTask: Task<Void, Never>?
     @State private var datePicking = false
+    @State private var recallPicking = false
     @State private var folderPicking = false
     @State private var newFolder = ""
     /// 자리 카드 — 지도와 가는 길. 자리가 없는 메모에는 없다.
@@ -66,6 +68,14 @@ struct MemoEditorView: View {
         .toolbar(.hidden, for: .tabBar)
         .toolbar { if let memo { tail(memo) } }
         .toolbar {
+            // 다시 보기 — 일정은 두고 이 메모를 다시 펼칠 시각. 정해 두었으면 종이 있는 종.
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { recallPicking = true } label: {
+                    Label("다시 보기", systemImage: memo?.surface == nil ? "bell" : "bell.badge.fill")
+                }
+                .accessibilityLabel(memo?.surface.map { String(localized: "다시 보기 \($0.formatted(date: .abbreviated, time: .shortened))") } ?? String(localized: "다시 보기"))
+                .accessibilityIdentifier("recall-button")
+            }
             if editing {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("완료") { editing = false }
@@ -105,6 +115,7 @@ struct MemoEditorView: View {
                 )
             }
         }
+        .sheet(isPresented: $recallPicking) { RecallEditor(store: store, id: id) }
         .alert("새 폴더", isPresented: $folderPicking) {
             TextField("이름", text: $newFolder)
             Button("만들고 넣기") {

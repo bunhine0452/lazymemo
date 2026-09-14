@@ -103,3 +103,15 @@
 "시작하기" = "Get started";
 "다음" = "Next";
 "건너뛰기" = "Skip";
+"닫기" = "Close";
+"알림" = "Notifications";
+"지금" = "Now";
+"다시 보기" = "Revisit";
+"다시 보기 %@" = "Revisit %@";
+"다시 보기 · %@" = "Revisit · %@";
+"다시 보기 · %@ 지남" = "Revisit · %@ passed";
+"오늘 일정 · %@" = "Today · %@";
+"오늘 일정 · %@ 지남" = "Today · %@ passed";
+"오늘 일정" = "Today";
+"메모를 엽니다" = "Opens the note";
+"다시 시도" = "Try again";

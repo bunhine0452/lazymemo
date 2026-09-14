@@ -1,5 +1,6 @@
 import Foundation
 import LazyMemoCore
+import LazyMemoReminders
 import Observation
 
 /// 폰이 켜질 때 하는 일 — 자리를 정하고 저장소를 연다.
@@ -26,6 +27,8 @@ final class AppModel {
     }
 
     private(set) var phase: Phase = .opening
+    /// 이 기기의 알림. delegate 는 `PhoneDelegate` 가 먼저 세웠다.
+    private let reminders = ReminderCenter.shared
 
     func start() async {
         guard case .opening = phase else { return }
@@ -43,6 +46,8 @@ final class AppModel {
             try resolved.paths.createDirectories()
             let store = try MemoStore(paths: resolved.paths)
             await store.start()
+            // 메모를 다 읽은 뒤에 붙인다 — 빈 목록에 대조하면 걸어 둔 것을 전부 지운다.
+            reminders.start(store: store)
             phase = .ready(Session(
                 store: store,
                 settings: SettingsStore(location: resolved.paths.settings),
@@ -64,5 +69,6 @@ final class AppModel {
     func foreground() async {
         guard case .ready(let session) = phase else { return }
         await session.store.reconcile()
+        reminders.refresh()
     }
 }

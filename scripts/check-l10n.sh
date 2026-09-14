@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 영어 표가 코드를 다 덮는지 본다 — 한국어 열쇠 중 en.lproj 에 없는 것, 코드에서 사라진 열쇠.
 #
-#   ./scripts/check-l10n.sh            # 패키지 셋(Core·UI·MCP)
+#   ./scripts/check-l10n.sh            # 패키지 넷(Core·UI·MCP·Reminders)
 #   ./scripts/check-l10n.sh --ios      # + 아이폰 앱·공유 확장 (시뮬레이터 빌드가 한 번 돈다)
 #
 # 열쇠는 손으로 긁지 않고 컴파일러에게 묻는다(-emit-localized-strings) — 보간의 %lld·%@ 와
@@ -16,7 +16,7 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 echo "▸ 패키지 열쇠 추출"
-for TARGET in LazyMemoCore LazyMemoUI LazyMemoMCP; do
+for TARGET in LazyMemoCore LazyMemoUI LazyMemoMCP LazyMemoReminders; do
     mkdir -p "$WORK/$TARGET"
     # 이미 지어진 파일은 다시 안 짓는다 — 손대서 전부 다시 짓게 한다.
     find "Sources/$TARGET" -name '*.swift' -exec touch {} +
@@ -68,6 +68,7 @@ modules = [
     ("LazyMemoCore", f"{work}/LazyMemoCore/*.stringsdata", "/Sources/LazyMemoCore/", "Sources/LazyMemoCore/Resources"),
     ("LazyMemoUI",   f"{work}/LazyMemoUI/*.stringsdata",   "/Sources/LazyMemoUI/",   "Sources/LazyMemoUI/Resources"),
     ("LazyMemoMCP",  f"{work}/LazyMemoMCP/*.stringsdata",  "/Sources/LazyMemoMCP/",  "Sources/LazyMemoMCP/Resources"),
+    ("LazyMemoReminders", f"{work}/LazyMemoReminders/*.stringsdata", "/Sources/LazyMemoReminders/", "Sources/LazyMemoReminders/Resources"),
 ]
 if ios:
     modules += [

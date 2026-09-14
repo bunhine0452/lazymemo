@@ -265,6 +265,75 @@ final class SmokeTests: XCTestCase {
     // MARK: 도우미
 
     /// 첫 실행 안내는 따로 시험한다 — 나머지는 「본 것」으로 켠다.
+    // MARK: 다시 보기 — 「지금」 띠가 서고, 종을 누르면 시각이 파일에 적힌다
+
+    func testRevisitWritesSurfaceAndNowBandShowsPinned() throws {
+        try seed()
+        let app = launch()
+
+        // 고정한 메모는 날짜와 상관없이 「지금」에 오른다 — 씨앗의 「읽을 것: 설계 문서」.
+        let band = app.descendants(matching: .any)["now-band"]
+        XCTAssertTrue(band.waitForExistence(timeout: 10), "「지금」 띠가 없다")
+        let cards = app.descendants(matching: .any).matching(identifier: "now-card")
+        let card = cards.matching(NSPredicate(format: "label CONTAINS %@", "읽을 것")).firstMatch
+        XCTAssertTrue(card.exists, "고정한 메모가 카드로 서야 한다")
+        XCTAssertTrue(card.label.hasPrefix("고정"), "이유가 먼저 읽혀야 한다: \(card.label)")
+        XCTAssertLessThanOrEqual(cards.count, 3, "셋을 넘으면 띠가 아니라 목록이다")
+
+        // 찾는 중에는 띠가 없다 — 범위를 흐리지 않는다.
+        let capture = app.descendants(matching: .any)["capture"]
+        capture.tap()
+        capture.typeText("전구")
+        XCTAssertTrue(row(in: app, startingWith: "집 — 전구 갈기").waitForExistence(timeout: 5))
+        XCTAssertFalse(band.exists, "찾는 중에는 「지금」이 사라져야 한다")
+        app.buttons["clear"].tap()
+        XCTAssertTrue(band.waitForExistence(timeout: 3), "찾기를 비우면 띠가 돌아온다")
+        dismissKeyboard(app)
+
+        // 종을 누르면 시트, 기본 시각은 한 시간 뒤라 바로 저장할 수 있다.
+        row(in: app, startingWith: "집 — 전구 갈기").tap()
+        let bell = app.buttons["recall-button"]
+        XCTAssertTrue(bell.waitForExistence(timeout: 5), "편집 화면에 다시 보기 종이 없다")
+        bell.tap()
+        let save = app.buttons["recall-save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5), "다시 보기 시트가 안 떴다")
+        XCTAssertTrue(app.descendants(matching: .any)["recall-enable"].exists, "기기 알림 켜기가 같은 시트에 있어야 한다")
+        save.tap()
+        XCTAssertTrue(save.waitForNonExistence(timeout: 5), "저장하면 시트가 닫혀야 한다")
+
+        // 파일에 surface 가 적혔고, 종은 「정해 둠」으로 바뀐다.
+        let files = try markdownFiles(under: root.appending(path: "vault/notes", directoryHint: .isDirectory))
+        let file = try XCTUnwrap(files.first { (try? String(contentsOf: $0, encoding: .utf8))?.contains("전구 갈기") == true })
+        let text = try String(contentsOf: file, encoding: .utf8)
+        XCTAssertTrue(text.contains("\nsurface: "), "다시 볼 시각이 파일에 안 적혔다: \(text)")
+        XCTAssertTrue(bell.label.contains("다시 보기"), bell.label)
+        bell.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["recall-current"].waitForExistence(timeout: 5), "정해 둔 시각이 시트에 보여야 한다")
+        let clear = app.buttons["recall-clear"]
+        XCTAssertTrue(clear.exists, "해제 단추가 있어야 한다")
+        clear.tap()
+        XCTAssertTrue(clear.waitForNonExistence(timeout: 5))
+        let after = try String(contentsOf: file, encoding: .utf8)
+        XCTAssertFalse(after.contains("\nsurface: "), "해제하면 파일에서 빠져야 한다: \(after)")
+    }
+
+    // MARK: 알림 설정 — More 메뉴에서 닿고, 켜기 전에 잠금 화면 표시를 읽는다
+
+    func testRemindersSheetOpensFromMore() throws {
+        try seed()
+        let app = launch()
+        XCTAssertTrue(app.buttons["more"].waitForExistence(timeout: 10))
+        app.buttons["more"].tap()
+        let item = app.buttons["reminders-button"]
+        XCTAssertTrue(item.waitForExistence(timeout: 3), "More 에 「알림」이 없다")
+        item.tap()
+        let toggle = app.descendants(matching: .any)["recall-enable"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5), "알림 시트가 안 떴다")
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "잠금 화면")).firstMatch.exists,
+                      "켜기 전에 잠금 화면에 제목이 보인다고 적어야 한다")
+        XCTAssertEqual(toggle.value as? String, "0", "첫 실행에는 꺼져 있어야 한다")
+    }
+
     private func launch(tutorialSeen: Bool = true) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["LAZYMEMO_VAULT"] = root.path(percentEncoded: false)

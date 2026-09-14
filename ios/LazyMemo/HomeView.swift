@@ -1,4 +1,5 @@
 import LazyMemoCore
+import LazyMemoReminders
 import SwiftUI
 
 /// 탭 둘(메모·달력)과 그 위의 펜 (MOBILE_DESIGN §2).
@@ -17,10 +18,16 @@ struct HomeView: View {
     @State private var reveal = Reveal()
     @State private var here = HereFix()
     @State private var tab: Tab = .memos
+    @State private var reminders = ReminderCenter.shared
+    /// 알림을 눌러 열 메모. 시트로 띄운다 — 어느 탭에 있든, 무엇을 보고 있든 같은 길.
+    @State private var notified: NotifiedMemo?
     /// 첫 실행의 안내. 본 뒤로는 More 메뉴의 「사용법」으로만.
     @State private var showsTutorial = false
 
     enum Tab: Hashable { case memos, calendar }
+
+    /// `sheet(item:)` 은 `Identifiable` 을 원하고 `ULID` 는 값이라 — 얇게 감싼다.
+    private struct NotifiedMemo: Identifiable { let id: ULID }
 
     init(session: AppModel.Session) {
         self.session = session
@@ -52,6 +59,21 @@ struct HomeView: View {
             }
         }
         .tint(Theme.accentInk)
+        .sheet(item: $notified) { item in
+            NavigationStack {
+                MemoEditorView(store: session.store, id: item.id, reveal: reveal, listedFolders: folders.names)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) { Button("닫기") { notified = nil } }
+                    }
+            }
+        }
+        // 꺼진 채 눌렀으면 화면이 생기기 전에 담겨 있다 (`initial`). 열면 비운다.
+        .onChange(of: reminders.opened, initial: true) { _, id in
+            guard let id else { return }
+            showsTutorial = false
+            notified = NotifiedMemo(id: id)
+            reminders.opened = nil
+        }
         // 남기면 손끝에 한 번 — 글 칸이 비는 것 말고도 「됐다」는 신호가 있어야 한다.
         .sensoryFeedback(.success, trigger: pen.lastLeft) { _, new in new != nil }
         .onAppear { if !Tutorial.seen { showsTutorial = true } }

@@ -1,5 +1,6 @@
 import AppKit
 import LazyMemoCore
+import LazyMemoReminders
 
 /// 메뉴바 상주 아이콘과 그 메뉴.
 ///
@@ -573,6 +574,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private func settingsItem() -> NSMenuItem {
         let parent = NSMenuItem(title: L("설정"), action: nil, keyEquivalent: "")
         let submenu = NSMenu()
+        submenu.addItem(item(title: L("알림…"), action: #selector(showReminders), key: ""))
+        submenu.addItem(.separator())
 
         let shortcut = item(title: L("단축키 바꾸기…"), action: #selector(changeHotkey), key: "")
         shortcut.subtitle = L("지금은 \(hotkey.current.displayName)")
@@ -645,6 +648,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         parent.submenu = submenu
         return parent
     }
+
+    /// 이 기기의 알림 — 켜기 전에 잠금 화면 표시와 기기별 동의를 읽는 창 (`ReminderSettingsView`).
+    @objc private func showReminders() { RecallWindow.settings() }
 
     /// 메모가 어디에 있는지, 그리고 옮기는 길 (설계문서 §5.1).
     ///

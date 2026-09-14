@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import LazyMemoCore
+import LazyMemoReminders
 import LazyMemoPlaces
 import Observation
 
@@ -91,6 +92,9 @@ final class NoteModel {
     private var retriesLeft = NoteModel.retryBudget
 
     private let store: MemoStore
+
+    /// 다시 볼 시각을 정하는 창. 창은 하나뿐이라 다른 종이의 것을 닫고 연다.
+    func showRecall() { RecallWindow.show(store: store, id: memo.id) }
     /// `claude` 가 이 컴퓨터에 있으면 그것을 부르는 길. 없으면 `nil` 이다.
     ///
     /// 찾는 데 로그인 셸을 한 번 띄울 수 있어 **기동보다 늦게 정해질 수 있다.**

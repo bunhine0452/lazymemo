@@ -1,7 +1,7 @@
 import XCTest
 
 /// 눈으로 보려고 찍는다 — 맥의 `render-ui.sh` 자리. `./ios/scripts/uitest.sh --shots` 로만 돈다.
-/// 결과는 /tmp/shot-{pen,list,editor,datesheet,calendar}.png.
+/// 결과는 /tmp/shot-{pen,list,editor,recall,datesheet,calendar}.png.
 final class ShotTests: XCTestCase {
     func testShots() throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["LAZYMEMO_SHOTS"] == "1", "찍을 때만")
@@ -43,6 +43,11 @@ final class ShotTests: XCTestCase {
         app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH '치과 예약'")).firstMatch.tap()
         sleep(1)
         try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/shot-editor.png"))
+        app.buttons["recall-button"].tap()
+        sleep(1)
+        try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/shot-recall.png"))
+        app.buttons["닫기"].firstMatch.tap()
+        sleep(1)
         app.descendants(matching: .any)["tail-date"].firstMatch.tap()
         sleep(1)
         try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/shot-datesheet.png"))

@@ -1,8 +1,11 @@
+import LazyMemoReminders
 import SwiftUI
+import UIKit
 
 /// 진입점만. 화면은 `RootView`, 자리와 저장소는 `AppModel` 이 맡는다.
 @main
 struct LazyMemoApp: App {
+    @UIApplicationDelegateAdaptor(PhoneDelegate.self) private var delegate
     @Environment(\.scenePhase) private var scenePhase
     @State private var model = AppModel()
 
@@ -20,5 +23,17 @@ struct LazyMemoApp: App {
             default: break
             }
         }
+    }
+}
+
+/// 알림 delegate 를 **앱이 뜨기 전에** 세운다. 그래야 꺼진 채 누른 알림이 어느 메모인지 도착한다
+/// (`ReminderCenter.opened`). 그 밖의 일은 없다 — 화면은 SwiftUI 가 맡는다.
+final class PhoneDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        _ = ReminderCenter.shared
+        return true
     }
 }

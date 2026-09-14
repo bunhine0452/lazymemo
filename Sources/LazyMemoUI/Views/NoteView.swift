@@ -261,6 +261,9 @@ struct NoteView: View {
     /// «여기서는 못 지우나» 가 되면 안 된다 — 한 길만 있는 것보다 두 길이
     /// 같은 것을 하는 편이 낫다.
     @ViewBuilder private var paperMenu: some View {
+        // 다시 보기 — 일정은 두고 이 종이를 다시 펼칠 시각. 알림 켜기도 같은 창에 있다.
+        Button { model.showRecall() } label: { Label(L("다시 보기…"), systemImage: "bell") }
+        Divider()
         if model.canTidy {
             Button(L("다듬기")) { Task { await model.tidyWithClaude() } }
         }

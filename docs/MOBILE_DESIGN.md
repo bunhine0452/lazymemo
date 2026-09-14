@@ -135,6 +135,12 @@ TabView                             (tabBarMinimizeBehavior: .onScrollDown)
 
 **고정한 것** 구역이 먼저, 그 아래 **최근순**. 「시간이 유일한 구조」(§14.2) — 옛것은 아래로 가라앉는다. 구역 제목은 붙이지 않는다 — 고정 줄은 핀 그림이 말한다.
 
+### 「지금」 — 목록 위의 최대 세 장
+
+폴더 띠 아래, 목록 위에 **오늘 다시 볼 것 → 오늘 일정 → 고정** 차례로 최대 세 장 (`Recall.nowCards`, `NowBand`). 카드마다 **이유와 시각**이 먼저다 — 「다시 보기 · 15:00」·「오늘 일정 · 15:00 지남」·「오늘 일정」·「고정」 — 이유가 보이지 않는 카드는 앱이 골라 준 것이고, 보이는 카드는 내가 정해 둔 것이다. 아래 목록에도 같은 줄이 있다; 띠는 걸러 낸 결과가 아니라 오늘의 머리다. **찾는 중이거나 폴더를 골랐으면 없다** — 범위가 좁혀진 화면 위에 범위 밖의 카드가 서면 그 화면이 무엇인지 흐려진다 ("Clearly display the current scope"). 분이 바뀌면 다시 재고 자정을 넘기면 「오늘」이 바뀐다. 카드는 종이(`Paper.card`)에 포레스트 테두리, 이유는 `accentInk`, 큰 글자에서는 제목이 세 줄까지, VoiceOver 는 「고정, 읽을 것: 설계 문서」로 읽는다.
+
+그 아래에 **조용히 지나가면 안 되는 실패** 한 줄(`NoticeRow`) — 저장소의 `trouble` 과 알림의 `trouble`. 맥은 메뉴 첫머리가 읽고 폰은 목록의 머리가 읽는다. 저장 버튼이 없는 앱에서 저장 실패가 안 보이면 사용자는 영영 모른다.
+
 ### 줄
 
 맥 메뉴 목록과 **같은 낱말**이다 (§14.10): 점 · 제목 · 시각 한 조각.
@@ -202,7 +208,7 @@ TabView                             (tabBarMinimizeBehavior: .onScrollDown)
 "Try to include all actions in the toolbar if possible, and only add [More] if you really need it" (→ 노트 §5 Toolbars).
 
 - **휴지통** 단추 (`trash` 심볼) — 자주는 아니어도 「어디 갔지」의 답이라 보여야 한다.
-- **More** (`ellipsis.circle`) — 있을 때만 나오는 것들: 「치워 둔 N장 도로 꺼내기」, 「iCloud 설정 열기」(로컬일 때), 「새 폴더」.
+- **More** (`ellipsis.circle`) — 있을 때만 나오는 것들: 「치워 둔 N장 도로 꺼내기」, 「iCloud 설정 열기」(로컬일 때), 「새 폴더」. 그리고 늘 있는 **「알림」** — 「이 기기에서 알림 받기」 시트(`ReminderSettingsView`). 켜기 전에 잠금 화면에 제목이 보인다는 것과 기기별이라는 것을 읽고, 켜는 순간에만 시스템이 묻는다. 걸어 둔 수·한도 초과·걸지 못한 것과 「다시 시도」가 같은 시트에 있다.
 
 툴바 색은 모노크롬 — "Avoid applying a similar color to toolbar item labels and content layer backgrounds… prefer using the default monochromatic appearance" (→ 노트 §5).
 
@@ -242,6 +248,8 @@ TabView                             (tabBarMinimizeBehavior: .onScrollDown)
 | 끝 | 지우기 | 휴지통 | | 휴지통으로 → 뒤로 간다. `UndoManager` 에 「지우기」 |
 
 색은 「그 자리에서 여섯 점이 펼쳐지는」 커스텀 대신 **메뉴**다 — "Prefer using standard components in a toolbar" (→ 노트 §5). 지우기는 맨 끝에 따로, destructive.
+
+**다시 보기는 위 오른쪽의 종이다** (`recall-button`). 바닥 꼬리는 「무엇·생김새·끝」으로 이미 차 있고, 다시 보기는 메모의 속성이 아니라 「나에게 언제 돌아오나」라 위에 둔다. 정해 두었으면 종에 점이 붙고(`bell.badge.fill`) VoiceOver 가 시각까지 읽는다. 누르면 `RecallEditor` 시트 — 지금 정해 둔 시각·일정 시각·날짜 시각 고르기·「한 시간 뒤」·「내일 아침 9시」·해제, 그리고 아래에 기기 알림 켜기. 해제해도 일정 시각에는 알린다고 적는다. 알림을 눌러 앱이 열리면 어느 탭에 있든 그 메모가 **시트**로 뜬다 (`HomeView`).
 
 ### 날짜 시트 — 달력 위에서 가리킨다
 
@@ -456,4 +464,4 @@ TabView                             (tabBarMinimizeBehavior: .onScrollDown)
 | 사진 붙이기·공유 | 다음 판 |
 | 시스템 캘린더 읽기 | 다음 판 |
 | 가면 떠오르기 | 종이가 없고 알림 권한이 필요하다 |
-| 위젯·잠금 화면 | 이 계획 밖. 다만 「앱을 열지 않고 적는」 길은 결국 이것이다 |
+| 위젯·잠금 화면 | 이 계획 밖. 다만 「앱을 열지 않고 적는」 길은 결국 이것이다 — `docs/RECALL_PLAN.md` 의 다음 실험 |

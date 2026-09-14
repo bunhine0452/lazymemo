@@ -1,5 +1,6 @@
 import AppKit
 import LazyMemoCore
+import LazyMemoReminders
 
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -12,7 +13,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 앱이 뜨기 전에 두드린 주소. 문이 열리면 그때 들여보낸다.
     private var pendingURLs: [URL] = []
 
-    public override init() { super.init() }
+    public override init() {
+        super.init()
+        // 알림 delegate 는 앱이 뜨기 전에 서 있어야 꺼진 채 누른 알림이 도착한다.
+        _ = ReminderCenter.shared
+    }
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
         // Dock 아이콘도 메뉴 막대도 차지하지 않는 상주 앱.
@@ -132,6 +137,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             windows.start()
             // 메모를 다 읽은 **뒤에** 건다 — 빈 목록에 걸면 울릴 것이 없다.
             dueClock.start()
+            // 알림을 누르면 그 종이를 앞으로 — 보는 일이지 자리를 옮기는 일이 아니다 (keepingPlace).
+            ReminderCenter.shared.onOpen = { [weak windows] id in windows?.reveal(id, keepingPlace: true) }
+            ReminderCenter.shared.start(store: store)
+            if let id = ReminderCenter.shared.opened {
+                ReminderCenter.shared.opened = nil
+                windows.reveal(id, keepingPlace: true)
+            }
             // 일정은 달력에서만 보이므로(§7.2) 달력의 열림 여부도 복원 대상이다.
             menuBar.restoreCalendar()
             menuBar.restoreDrawer()
@@ -209,6 +221,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 await Self.measureQuickCapture(rounds: rounds, menuBar: menuBar)
             }
         }
+    }
+
+    public func applicationDidBecomeActive(_ notification: Notification) {
+        ReminderCenter.shared.refresh()
     }
 
     /// 정한 자리를 설정에 남긴다.

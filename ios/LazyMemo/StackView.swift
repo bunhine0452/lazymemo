@@ -1,4 +1,5 @@
 import LazyMemoCore
+import LazyMemoReminders
 import SwiftUI
 
 /// 목록 — 위에서 아래로, 고정 → 최근순 (MOBILE_DESIGN §4). 큰 제목 「메모」,
@@ -20,6 +21,10 @@ struct StackView: View {
     @State private var renamedTo = ""
     @State private var removing: String?
     @State private var showsTutorial = false
+    @State private var showsReminders = false
+    @State private var reminders = ReminderCenter.shared
+    /// 「지금」 띠의 시계. 분이 바뀌면 다시 재고, 자정을 넘기면 「오늘」이 바뀐다.
+    @State private var clock = Date()
 
     private var store: MemoStore { session.store }
 
@@ -28,6 +33,12 @@ struct StackView: View {
     }
 
     private var searching: Bool { pen.found != nil }
+
+    /// 찾는 중이거나 폴더를 골랐으면 없다 — 범위 밖의 카드가 범위를 흐린다.
+    private var nowCards: [Recall.Card] {
+        guard !searching, folders.selected == nil else { return [] }
+        return Recall.nowCards(store.memos, now: clock)
+    }
 
     private var subtitle: String {
         session.usingCloud ? String(localized: "iCloud · \(store.active.count)장") : String(localized: "이 기기에만 · iCloud 꺼짐")
@@ -42,6 +53,27 @@ struct StackView: View {
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
+
+                if !nowCards.isEmpty {
+                    NowBand(cards: nowCards, now: clock) { open($0) }
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 10, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+
+                // 조용히 지나가면 안 되는 실패 — 저장이 안 되고 있으면 여기 선다.
+                if let trouble = store.trouble {
+                    NoticeRow(title: trouble.doing, detail: trouble.detail)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+                if reminders.enabled, let trouble = reminders.trouble {
+                    NoticeRow(title: trouble) { reminders.refresh() }
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
 
                 if searching {
                     // 찾기의 범위를 적는다 — "Clearly display the current scope of a search".
@@ -157,6 +189,28 @@ struct StackView: View {
             }
         }
         .sheet(isPresented: $showsTutorial) { TutorialView() }
+        .sheet(isPresented: $showsReminders) {
+            NavigationStack {
+                ScrollView { ReminderSettingsView().padding(20) }
+                    .background(Paper.surface)
+                    .navigationTitle("알림")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) { Button("닫기") { showsReminders = false } }
+                    }
+            }
+            .presentationDetents([.medium, .large])
+        }
+        // 분이 바뀔 때마다 「지금」을 다시 잰다. 앞으로 올 때·시계가 크게 뛸 때도.
+        .task {
+            while !Task.isCancelled {
+                let next = Calendar.current.nextDate(after: Date(), matching: DateComponents(second: 0), matchingPolicy: .nextTime) ?? Date().addingTimeInterval(60)
+                try? await Task.sleep(for: .seconds(max(1, next.timeIntervalSinceNow)))
+                clock = Date()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in clock = Date() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in clock = Date() }
         // 폴더를 지우는 것은 되돌릴 수 없다 (이름표가 떨어진다) — 한 번 묻는다.
         .confirmationDialog(
             String(localized: "「\(removing ?? "")」 폴더를 지울까요?"),
@@ -205,6 +259,8 @@ struct StackView: View {
                 }
                 Button { namingFolder = true } label: { Label("새 폴더", systemImage: "folder.badge.plus") }
                 Divider()
+                Button { showsReminders = true } label: { Label("알림", systemImage: "bell") }
+                    .accessibilityIdentifier("reminders-button")
                 Button { showsTutorial = true } label: { Label("사용법", systemImage: "questionmark.circle") }
                     .accessibilityIdentifier("tutorial-button")
             } label: {
