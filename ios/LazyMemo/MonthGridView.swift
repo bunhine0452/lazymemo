@@ -3,9 +3,10 @@ import SwiftUI
 
 /// 달 격자 — 달력 탭과 날짜 시트가 같은 것을 쓴다 (MOBILE_DESIGN §5·§6).
 ///
-/// 오늘은 포레스트 원, 고른 날은 밑줄 한 획, 일정은 세지 않고 **번진 잉크**로
-/// 세기를 올린다 (§10.4). 여섯 주의 높이를 예약해 5주·6주를 오가도 아래가
-/// 흔들리지 않는다.
+/// 오늘은 포레스트 원, 고른 날은 옅은 원, 일정은 숫자 밑의 **점**이다 — 맥의
+/// 달력과 같은 낱말 (§10.4). 앞선 판은 일정 있는 칸을 네모 바탕으로 물들였는데,
+/// 그 네모가 「고른 날」과 같은 모양이라 두 칸이 골라진 것처럼 읽혔다.
+/// 여섯 주의 높이를 예약해 5주·6주를 오가도 아래가 흔들리지 않는다.
 struct MonthGridView: View {
     let grid: MonthGrid
     let selected: CalendarDate?
@@ -91,23 +92,22 @@ struct MonthGridView: View {
         let count = marks[day.date] ?? 0
         return Button { onPick(day.date) } label: {
             ZStack {
-                if count > 0 {
-                    RoundedRectangle(cornerRadius: Theme.chipRadius)
-                        .fill(Theme.accentInk.opacity(min(0.4, 0.12 * Double(count))))
-                        .padding(4)
-                }
                 if isToday {
-                    Circle().fill(Theme.accent).frame(width: 32, height: 32)
+                    Circle().fill(Theme.accent).frame(width: 34, height: 34)
+                } else if isSelected {
+                    Circle().fill(Theme.accentInk.opacity(0.16)).frame(width: 34, height: 34)
                 }
                 Text(String(day.date.day))
-                    .font(.body.monospacedDigit().weight(isToday ? .semibold : .regular))
+                    .font(.body.monospacedDigit().weight(isToday || isSelected ? .semibold : .regular))
                     .foregroundStyle(isToday ? Theme.onAccent : Paper.ink)
                     .opacity(day.isOverflow ? 0.4 : 1)
-                if isSelected, !isToday {
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(Theme.accentInk)
-                        .frame(width: 18, height: 2)
-                        .offset(y: 14)
+                if count > 0 {
+                    HStack(spacing: 2) {
+                        ForEach(0..<min(count, 3), id: \.self) { _ in
+                            Circle().fill(isToday ? Theme.onAccent : Theme.highlightInk).frame(width: 4, height: 4)
+                        }
+                    }
+                    .offset(y: 13)
                 }
             }
             .frame(maxWidth: .infinity, minHeight: Self.cell)

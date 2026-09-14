@@ -83,8 +83,15 @@ struct MemoRowView: View {
         .font(.caption)
     }
 
+    /// 휴지통에서는 「언제 지웠나」가 유일하게 쓸모 있는 시각이다 — 30일 뒤에
+    /// 사라지는 것이 그 날로부터 세니까.
+    private var timeText: String {
+        if retired, let deleted = memo.deleted { return "\(MemoTimeLabel.elapsed(deleted, now: now)) 지움" }
+        return MemoTimeLabel.text(for: memo, now: now)
+    }
+
     private var timeLabel: some View {
-        Label(MemoTimeLabel.text(for: memo, now: now), systemImage: scheduled ? "calendar" : "clock")
+        Label(timeText, systemImage: retired ? "trash" : scheduled ? "calendar" : "clock")
             .monospacedDigit()
             .foregroundStyle(scheduled && !retired ? Theme.highlightInk : .secondary)
     }
@@ -100,7 +107,7 @@ struct MemoRowView: View {
 
     /// 「장보기, 내일 15시, 노랑, 고정됨」
     private var spoken: String {
-        var parts = [memo.title, MemoTimeLabel.text(for: memo, now: now), memo.color.label]
+        var parts = [memo.title, timeText, memo.color.label]
         if memo.pinned { parts.append("고정됨") }
         if let place = memo.place { parts.append(place) }
         return parts.joined(separator: ", ")

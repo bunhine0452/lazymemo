@@ -15,6 +15,9 @@ struct DateSheet: View {
     @State private var grid: MonthGrid
     @State private var custom = false
     @State private var customTime = Date()
+    /// 처음부터 크게 연다 — 중간 높이에서는 격자 밑의 시각 칩이 접혀 반만 보였다.
+    /// 시각은 날을 고른 다음 손이 바로 가는 자리라 첫 화면에 온전히 있어야 한다.
+    @State private var detent: PresentationDetent = .large
 
     init(schedule: Schedule, onChange: @escaping (Schedule) -> Void, onClear: @escaping () -> Void) {
         self.schedule = schedule
@@ -85,7 +88,7 @@ struct DateSheet: View {
                 ToolbarItem(placement: .confirmationAction) { Button("완료") { dismiss() } }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
     }
 

@@ -89,14 +89,17 @@ struct DrawerRow: View {
                     .foregroundStyle(Paper.ink.opacity(0.92))
                     .lineLimit(1)
                 // 펼친 줄은 둘째 줄을 접는다 — 바로 아래 본문이 전부 나오는데
-                // 같은 글을 위에 한 번 더 적으면 두 번 읽힌다.
-                if !isExpanded || (showsFolder && memo.folder != nil) {
+                // 같은 글을 위에 한 번 더 적으면 두 번 읽힌다. 둘째 줄이 없는
+                // 메모는 자리를 비운다 — 시각은 오른쪽 끝에 이미 있어, 여기 한 번
+                // 더 적으면 「오늘 … 오늘」이 한 줄에 두 번 선다.
+                let showsSnippet = !isExpanded && !snippet.isEmpty
+                if showsSnippet || (showsFolder && memo.folder != nil) {
                     HStack(spacing: Theme.tight) {
                         if showsFolder, let folder = memo.folder {
                             folderTag(folder)
                         }
-                        if !isExpanded {
-                            Text(snippet.isEmpty ? MemoTimeLabel.text(for: memo) : snippet)
+                        if showsSnippet {
+                            Text(snippet)
                                 .font(.system(size: 11))
                                 .foregroundStyle(Paper.ink.opacity(0.52))
                                 .lineLimit(1)

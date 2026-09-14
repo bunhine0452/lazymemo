@@ -28,13 +28,6 @@ struct TrashView: View {
                     Button { restore(memo) } label: { Label("되돌리기", systemImage: "arrow.uturn.backward") }
                         .tint(Theme.accent)
                 }
-                .overlay(alignment: .bottomTrailing) {
-                    if let deleted = memo.deleted {
-                        Text("\(MemoTimeLabel.elapsed(deleted)) 지움")
-                            .font(.caption2).foregroundStyle(.secondary)
-                            .padding(.trailing, 96).padding(.bottom, 2)
-                    }
-                }
             }
             if store.trash.isEmpty {
                 Text("비었습니다").font(.subheadline).foregroundStyle(.secondary)

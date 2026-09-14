@@ -49,8 +49,11 @@ struct CalendarView: View {
             dayList
         }
         .background(Paper.surface)
+        // 제목은 격자 머리의 「9월 2026」이다. 위에 「달력」을 한 번 더 적으면 탭
+        // 이름과 셋이 같은 말을 한다 — 이 화면의 막대는 비워 둔다. 밀어 들어간
+        // 편집 화면은 제 막대를 따로 가진다.
         .navigationTitle("달력")
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(item: $opened) { id in MemoEditorView(store: store, id: id, reveal: reveal) }
         // 시트가 준 자리를 통째로 쓴다 — 날만 받아 `move` 로 옮기면 시트에서 고른
         // 시각이 사라진다. 메모는 살아 있는 채로 본다 (`StackView` 와 같다).

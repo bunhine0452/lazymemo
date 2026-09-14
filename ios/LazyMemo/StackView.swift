@@ -45,14 +45,18 @@ struct StackView: View {
 
                 if searching {
                     // 찾기의 범위를 적는다 — "Clearly display the current scope of a search".
-                    // 폴더를 골라 두었으면 그 폴더 안에서 센다.
+                    // 폴더를 골라 두었으면 그 폴더 안에서 센다. 하나도 없을 때는 이 한 줄이
+                    // 전부다 — 적는 중에 「없어요」라는 큰 제목이 서면 새 메모를 쓰는 사람이
+                    // 무언가 틀린 것처럼 읽는다. 펜은 적기가 먼저고 찾기는 곁이다.
                     let scope = MemoFolders.filter(store.active, folder: folders.selected).count
-                    Text(listed.isEmpty ? "\(scope)장 중 없다" : "\(scope)장 중 \(listed.count)장")
+                    Text(listed.isEmpty
+                         ? "\(scope)장 중 겹치는 것 없음 · 남기면 새 메모예요"
+                         : "\(scope)장 중 \(listed.count)장")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
-                        .accessibilityIdentifier("scope")
+                        .accessibilityIdentifier(listed.isEmpty ? "search-empty" : "scope")
                 }
 
                 ForEach(listed) { memo in
@@ -101,26 +105,24 @@ struct StackView: View {
                     }
                 }
 
-                if listed.isEmpty {
+                if listed.isEmpty, !searching {
                     VStack(spacing: 12) {
-                        if !searching {
                         Image(systemName: "square.and.pencil")
                             .font(.system(size: 28, weight: .light))
                             .foregroundStyle(Theme.accentInk)
                             .frame(width: 64, height: 64)
                             .background(Theme.accentInk.opacity(0.08), in: RoundedRectangle(cornerRadius: 20))
-                        }
-                        Text(searching ? "찾는 메모가 없어요" : folders.selected == nil ? "가볍게, 한 줄부터" : "아직 비어 있는 폴더예요")
+                        Text(folders.selected == nil ? "가볍게, 한 줄부터" : "아직 비어 있는 폴더예요")
                             .font(.headline).foregroundStyle(Paper.ink)
-                        Text(searching ? "아래의 글을 새 메모로 남겨도 좋아요." : "아래에 적으면 이곳에 차곡차곡 쌓여요.")
+                        Text("아래에 적으면 이곳에 차곡차곡 쌓여요.")
                             .font(.subheadline).foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, searching ? 8 : 28)
+                    .padding(.vertical, 28)
                     .padding(.horizontal, 20)
                     .listRowBackground(Color.clear).listRowSeparator(.hidden)
-                    .accessibilityIdentifier(searching ? "search-empty" : "stack-empty")
+                    .accessibilityIdentifier("stack-empty")
                 }
 
             }
