@@ -193,6 +193,101 @@ final class DemoTour {
         await pause(1.4)
     }
 
+    // MARK: 스토어 스크린샷
+
+    /// 장면을 하나씩 세우고 무대를 찍는다 (`scripts/store-shots.sh`). 영상이 아니라
+    /// **정지한 장면 넷**이다 — 빠른 입력이 날짜를 읽는 순간, 종이와 달력, 서랍,
+    /// 서랍의 폴더 하나. 찍는 것은 `run()` 과 같은 실제 창이다. 마지막 한 장은
+    /// 같은 무대를 어두운 모양으로 — 시스템 설정을 건드리지 않고 이 앱만 바꾼다.
+    func shots(into directory: URL) async {
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        if let screen = NSScreen.main {
+            CGWarpMouseCursorPosition(CGPoint(x: 6, y: screen.frame.height - 6))
+        }
+        // 달력에 보일 일정 — 오늘과 이번 주. 빠른 입력의 「치과 예약」은 장면 1 이 적는다.
+        let today = CalendarDate(Date())
+        let dated: [(String, Int, Int)] = [
+            ("팀 회의\n분기 계획 초안 가져가기", 0, 10),
+            ("저녁 약속 — 현진\n망원동 파스타집", 0, 19),
+            ("전기 요금 납부", 3, 9),
+            ("도서관 반납\n「게으름의 기술」", 6, 14),
+        ]
+        for (body, offset, hour) in dated {
+            let day = today.adding(days: offset)
+            let at = Calendar.current.date(from: DateComponents(
+                year: day.year, month: day.month, day: day.day, hour: hour
+            ))
+            guard let memo = try? await store.create(body: body, due: day, at: at) else { continue }
+            layouts.set(
+                WindowLayout(frame: CGRect(x: region.midX, y: region.midY, width: 260, height: 200), hidden: true),
+                for: memo.id
+            )
+        }
+        await pause(1.2)
+
+        // 1. 빠른 입력이 날짜를 읽는다.
+        capture.show()
+        await pause(0.7)
+        await type("내일 오후 3시 치과 예약")
+        await snap("capture", into: directory)
+        capture.commitForDemo()
+        await pause(1.6)
+
+        // 2. 종이 한 장이 더 서고, 달력이 열려 있다. 빠른 입력으로 적으면 새 종이의
+        //    첫 자리(계단 꼭대기)가 `seed` 의 첫 종이와 겹치므로, 자리를 정해서 세운다.
+        if let umbrella = try? await store.create(body: "우산 새로 사기", color: .yellow) {
+            let paper = CGSize(width: 268, height: 196)
+            layouts.set(
+                WindowLayout(frame: CGRect(
+                    x: region.maxX - paper.width - 40 - 72,
+                    y: region.maxY - paper.height - 40 - 472,
+                    width: paper.width, height: paper.height
+                ), hidden: false),
+                for: umbrella.id
+            )
+        }
+        await pause(1.2)
+        calendar.open()
+        await snap("desk", into: directory)
+
+        // 3. 서랍 — 찾기·폴더·목록.
+        calendar.close()
+        await pause(0.4)
+        drawer.model.setOpen(true)
+        await snap("drawer", into: directory)
+
+        // 4. 폴더 하나만.
+        drawer.model.selectedFolder = "집"
+        await snap("folder", into: directory)
+        drawer.model.selectedFolder = nil
+        drawer.model.setOpen(false)
+        await pause(0.6)
+
+        // 5. 같은 책상, 어두운 모양.
+        calendar.open()
+        NSApp.appearance = NSAppearance(named: .darkAqua)
+        await snap("desk-dark", into: directory)
+        NSApp.appearance = nil
+        calendar.close()
+    }
+
+    /// 무대만 잘라 PNG 로. `screencapture` 는 왼쪽 위 원점이라 세로를 뒤집는다.
+    private func snap(_ name: String, into directory: URL) async {
+        await pause(1.0)
+        guard let screen = NSScreen.main else { return }
+        let top = screen.frame.maxY - region.maxY
+        let process = Process()
+        process.executableURL = URL(filePath: "/usr/sbin/screencapture")
+        process.arguments = [
+            "-x", "-t", "png",
+            "-R", "\(Int(region.minX)),\(Int(top)),\(Int(region.width)),\(Int(region.height))",
+            directory.appending(path: "\(name).png").path,
+        ]
+        try? process.run()
+        process.waitUntilExit()
+        FileHandle.standardError.write(Data("[shots] \(name)\n".utf8))
+    }
+
     /// 사람이 치는 것처럼 한 자씩.
     private func type(_ text: String) async {
         var typed = ""

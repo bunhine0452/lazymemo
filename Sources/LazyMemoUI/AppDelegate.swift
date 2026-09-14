@@ -141,7 +141,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 menuBar.showWelcome()
             }
             if let demo {
-                await demo.run()
+                // 같은 무대에서 영상 대신 정지 장면을 찍을 수도 있다 (`scripts/store-shots.sh`).
+                if let shots = environment["LAZYMEMO_SHOTS"], !shots.isEmpty {
+                    await demo.shots(into: URL(filePath: shots, directoryHint: .isDirectory))
+                } else {
+                    await demo.run()
+                }
                 exit(0)
             }
             if environment["LAZYMEMO_SPIKE"] == "1" {
