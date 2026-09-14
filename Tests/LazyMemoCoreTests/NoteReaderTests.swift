@@ -69,6 +69,39 @@ struct NoteReaderTests {
         #expect(!read("@강남역").body.isEmpty)
     }
 
+    @Test("지도 앱이 공유한 글은 첫 줄이 장소고 본문은 이름표만 뗀다")
+    func readsMapShare() {
+        let note = read("[네이버 지도]\n스타벅스 강남R점\n서울 강남구 강남대로 390\nhttps://naver.me/5abcdef")
+        #expect(note.place == "스타벅스 강남R점")
+        #expect(note.body == "스타벅스 강남R점\n서울 강남구 강남대로 390\nhttps://naver.me/5abcdef")
+        #expect(note.geo == nil)   // 짧은 링크에는 좌표가 없다
+        #expect(note.due == nil)
+    }
+
+    @Test("지도 주소에 적힌 이름과 좌표를 읽고 본문은 그대로 둔다 — 카드가 붙어야 한다")
+    func readsMapURL() {
+        let raw = "https://www.google.com/maps/place/강남역/@37.4979,127.0276,17z"
+        let note = read(raw)
+        #expect(note.place == "강남역")
+        #expect(note.geo == Coordinate("37.4979,127.0276"))
+        #expect(note.body == raw)
+    }
+
+    @Test("손으로 찍은 @장소가 지도 주소의 이름을 이기되 좌표는 가져온다")
+    func atWordBeatsMapName() {
+        let note = read("내일 3시 치과 @강남역 https://maps.apple.com/?ll=37.4979,127.0276&q=Gangnam")
+        #expect(note.place == "강남역")
+        #expect(note.geo == Coordinate("37.4979,127.0276"))
+        #expect(note.at != nil)
+    }
+
+    @Test("밖에서 장소를 주면 지도 주소는 읽지 않는다 — 그 이름과 이 좌표가 다른 곳일 수 있다")
+    func explicitPlaceSkipsMapURL() {
+        let note = read("https://maps.apple.com/?ll=37.4979,127.0276&q=강남역", place: "서울 종로구 세종대로 175")
+        #expect(note.place == "서울 종로구 세종대로 175")
+        #expect(note.geo == nil)
+    }
+
     @Test("들어온 덩이에서도 같은 규칙으로 읽는다")
     func readsInboundNote() {
         let note = NoteReader.read(InboundNote(text: "내일 3시 치과"), now: now)

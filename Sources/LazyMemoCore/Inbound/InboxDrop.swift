@@ -17,7 +17,7 @@ public enum InboxDrop {
         let note = NoteReader.read(inbound, now: now)
         let memo = Memo(
             id: ULID(timestamp: now), created: now, updated: now,
-            due: note.due, at: note.at, every: note.every, place: note.place, body: note.body
+            due: note.due, at: note.at, every: note.every, place: note.place, geo: note.geo, body: note.body
         )
         try paths.createDirectories()
         try await MemoVault(paths: paths).save(memo)

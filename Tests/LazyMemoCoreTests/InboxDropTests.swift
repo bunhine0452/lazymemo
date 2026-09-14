@@ -31,6 +31,23 @@ struct InboxDropTests {
         #expect(loaded == memo)
     }
 
+    @Test("지도 앱이 공유한 장소는 이름과 좌표까지 파일에 실린다")
+    func dropsASharedPlace() async throws {
+        let paths = try makePaths()
+        defer { try? FileManager.default.removeItem(at: paths.vault.deletingLastPathComponent()) }
+
+        let memo = try await InboxDrop.drop(
+            InboundNote(text: "강남역\nhttps://www.google.com/maps/place/강남역/@37.4979,127.0276,17z"),
+            into: paths
+        )
+
+        #expect(memo.place == "강남역")
+        #expect(memo.geo == Coordinate("37.4979,127.0276"))
+        let loaded = try await MemoVault(paths: paths).load(memo.id)
+        #expect(loaded.geo == memo.geo)
+        #expect(MapLink.url(for: loaded)?.query()?.contains("ll=37.4979,127.0276") == true)
+    }
+
     @Test("인덱스는 만들지 않는다 — 그것은 앱의 몫이다")
     func leavesNoIndexBehind() async throws {
         let paths = try makePaths()

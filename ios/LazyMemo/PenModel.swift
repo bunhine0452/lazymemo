@@ -80,7 +80,7 @@ final class PenModel {
         }
         var note = NoteReader.read(inbound)
         if !readsDate { note.due = nil; note.at = nil; note.every = nil }
-        if !readsPlace, here == nil { note.place = nil }
+        if !readsPlace, here == nil { note.place = nil; note.geo = nil }
         return note
     }
 
@@ -128,7 +128,7 @@ final class PenModel {
 
         let memo = try? await store.create(
             body: body, due: schedule.due, at: schedule.at, every: note.every,
-            place: note.place, geo: here?.geo, folder: folder
+            place: note.place, geo: here?.geo ?? note.geo, folder: folder
         )
         guard let memo else { return nil }
 

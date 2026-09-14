@@ -24,7 +24,8 @@ final class InboundDoor: NSObject {
     func receive(_ inbound: InboundNote) async -> Memo? {
         let note = NoteReader.read(inbound)
         guard let memo = try? await store.create(
-            body: note.body, due: note.due, at: note.at, every: note.every, place: note.place
+            body: note.body, due: note.due, at: note.at, every: note.every,
+            place: note.place, geo: note.geo
         ) else { return nil }
         announce(memo)
         return memo

@@ -7,13 +7,16 @@ import Foundation
 /// 잉크 자국 하나이고, 구조는 여전히 시간 하나다 (§14.2). 그래서 이 파서가 채우는
 /// 것은 자리가 아니라 필드 하나뿐이다.
 ///
-/// **읽는 규칙은 둘뿐이고, 둘 다 애매함이 없다.**
+/// **읽는 규칙은 셋뿐이고, 셋 다 애매함이 없다.**
 ///
 /// 1. 산문 안에서는 `@강남역` 만 읽는다 (`parse`). `@` 는 캘린더·슬랙·인스타에서
 ///    이미 장소에 쓰는 기호라 배울 것이 없고, 무엇보다 **사람이 직접 찍은 표시**라
 ///    우리가 짐작한 것이 아니다.
 /// 2. 주소는 **문자열이 통째로 주소일 때만** 읽는다 (`address`) — 클립보드나
-///    단축어에서 온 것. 지도 앱의 공유 텍스트가 이 모양이다.
+///    단축어에서 온 것.
+/// 3. 지도 앱의 「공유」가 내놓는 **이름 · 주소 · 링크** 서너 줄을 읽는다 (`share`).
+///    폰에서 장소를 던지면 이 모양으로 온다. 첫 줄이 이름이고, 주소 줄이 2번의
+///    규칙을 통과하거나 링크가 지도 서비스의 것일 때만 믿는다.
 ///
 /// 2번을 산문으로 넓히지 않는 것이 이 파일에서 가장 중요한 결정이다. 한국어에서
 /// `…로`·`…구` 로 끝나는 낱말은 주소가 아닌 쪽이 훨씬 많아서 (`집으로 3분`,
@@ -83,6 +86,74 @@ public enum PlaceParser {
     /// 이보다 길면 주소가 아니라 글이다.
     private static let lengthLimit = 60
 
+    /// 지도 앱의 「공유」가 내놓은 글에서 읽은 것.
+    public struct Share: Sendable, Equatable {
+        /// 첫 줄 — 장소 이름.
+        public var place: String
+        /// `[네이버 지도]` 같은 서비스 이름표를 뗀 본문. 이름·주소·링크는 그대로 둔다 —
+        /// 이름은 곧 메모의 제목이고, 링크가 있어야 카드가 붙는다.
+        public var body: String
+
+        public init(place: String, body: String) {
+            self.place = place
+            self.body = body
+        }
+    }
+
+    /// `[이름표]` · 이름 · 주소 · 링크 — 이 차례의 두~네 줄일 때만 읽는다.
+    ///
+    /// 네이버는 `[네이버 지도]` 를 한 줄로, 카카오는 `[카카오맵] 이름` 으로 붙인다.
+    /// 구글은 이름 · 링크 두 줄이고 주소가 없다 — 그때는 링크가 지도의 것이어야
+    /// 장소다. `이름\nhttps://youtube.com/…` 은 장소가 아니라 링크 메모다.
+    public static func share(_ text: String) -> Share? {
+        var lines = text.split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        guard (2...4).contains(lines.count) else { return nil }
+
+        var stamped = false
+        if let stripped = strippingServiceStamp(lines[0]) {
+            stamped = true
+            if stripped.isEmpty { lines.removeFirst() } else { lines[0] = stripped }
+        }
+
+        // 링크는 끝에 온다. 공유 시트가 글과 주소를 따로 건네면 같은 링크가 두 줄이다.
+        var links: [String] = []
+        while let last = lines.last, isLink(last) {
+            links.insert(last, at: 0)
+            lines.removeLast()
+        }
+        guard (1...2).contains(lines.count), !isLink(lines[0]) else { return nil }
+
+        // 이름은 글자로 시작한다 — `[ ] 우유`·`- 우유`·`# 제목` 은 이름이 아니라 마크다운이다.
+        let name = lines[0]
+        guard name.count <= InboundNote.placeLimit,
+              let first = name.first, first.isLetter || first.isNumber
+        else { return nil }
+
+        if lines.count == 2 {
+            guard address(lines[1]) != nil else { return nil }
+        } else {
+            guard let link = links.first, MapLink.isMap(link) else { return nil }
+        }
+
+        return Share(place: name, body: stamped ? (lines + links).joined(separator: "\n") : text)
+    }
+
+    /// `[네이버 지도]` · `[카카오맵] 이름` — 앞의 `[…]` 를 뗀 나머지. 이름표가 없으면 `nil`.
+    ///
+    /// 두 글자 이상이어야 이름표다 — `[ ]`·`[x]` 는 체크상자다.
+    private static func strippingServiceStamp(_ line: String) -> String? {
+        guard let match = line.firstMatch(of: /^\[[^\]]{2,20}\]\s*/) else { return nil }
+        return String(line[match.range.upperBound...])
+    }
+
+    private static func isLink(_ line: String) -> Bool {
+        let lowered = line.lowercased()
+        return (lowered.hasPrefix("http://") || lowered.hasPrefix("https://"))
+            && !line.contains(where: \.isWhitespace)
+    }
+
     /// 시·군·구 → 로·길·동·읍·면 → 번지 가 이 **순서로** 나와야 주소다.
     ///
     /// 순서를 요구하는 것이 오탐을 막는 장치다. `인구 조사로 3일` 은 앞의 둘을
@@ -90,7 +161,10 @@ public enum PlaceParser {
     private static func hasAddressShape(_ tokens: [String]) -> Bool {
         guard let district = tokens.firstIndex(where: isDistrict) else { return false }
         guard let street = tokens[(district + 1)...].firstIndex(where: isStreet) else { return false }
-        guard street + 1 < tokens.count, isLotNumber(tokens[street + 1]) else { return false }
+        // 지하철역은 `강남대로 지하 396` 이다 — 이 한 낱말만 번지 앞에 끼어들 수 있다.
+        var number = street + 1
+        if number < tokens.count, tokens[number] == "지하" { number += 1 }
+        guard number < tokens.count, isLotNumber(tokens[number]) else { return false }
         return true
     }
 

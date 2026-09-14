@@ -84,3 +84,62 @@ struct PlaceParserAddressTests {
         #expect(PlaceParser.address(String(repeating: "가", count: 60) + " 강남구 테헤란로 152") == nil)
     }
 }
+
+@Suite("PlaceParser — 지도 앱이 공유한 이름·주소·링크")
+struct PlaceParserShareTests {
+    @Test("네이버 — 이름표 한 줄, 이름, 주소, 링크")
+    func naver() {
+        let text = "[네이버 지도]\n스타벅스 강남R점\n서울 강남구 강남대로 390 미진프라자 1층\nhttps://naver.me/5abcdef"
+        let share = PlaceParser.share(text)
+        #expect(share?.place == "스타벅스 강남R점")
+        #expect(share?.body == "스타벅스 강남R점\n서울 강남구 강남대로 390 미진프라자 1층\nhttps://naver.me/5abcdef")
+    }
+
+    @Test("카카오 — 이름표가 이름 앞에 붙는다")
+    func kakao() {
+        let text = "[카카오맵] 강남역 2호선\n서울 강남구 강남대로 지하 396\nhttps://kko.to/abcdef"
+        let share = PlaceParser.share(text)
+        #expect(share?.place == "강남역 2호선")
+        #expect(share?.body == "강남역 2호선\n서울 강남구 강남대로 지하 396\nhttps://kko.to/abcdef")
+    }
+
+    @Test("구글 — 주소 없이 이름과 링크뿐이면 링크가 지도의 것이어야 한다")
+    func google() {
+        #expect(PlaceParser.share("스타벅스 강남R점\nhttps://maps.app.goo.gl/abcdef")?.place == "스타벅스 강남R점")
+        #expect(PlaceParser.share("재밌는 영상\nhttps://youtu.be/abcdef") == nil)
+    }
+
+    @Test("이름표가 없으면 본문은 손대지 않는다")
+    func keepsBodyWithoutStamp() {
+        let text = "스타벅스 강남R점\n서울 강남구 강남대로 390\nhttps://naver.me/5abcdef"
+        #expect(PlaceParser.share(text)?.body == text)
+    }
+
+    @Test("이름과 주소 두 줄이면 링크가 없어도 장소다")
+    func nameAndAddress() {
+        #expect(PlaceParser.share("스타벅스 강남R점\n서울 강남구 강남대로 390")?.place == "스타벅스 강남R점")
+        // 둘째 줄이 주소가 아니면 그냥 두 줄짜리 글이다.
+        #expect(PlaceParser.share("장보기\n우유 사기") == nil)
+    }
+
+    @Test("공유 시트가 글과 링크를 따로 건네 링크가 두 줄이어도 읽는다")
+    func duplicatedLink() {
+        let text = "스타벅스 강남R점\nhttps://maps.app.goo.gl/abcdef\nhttps://maps.app.goo.gl/abcdef"
+        #expect(PlaceParser.share(text)?.place == "스타벅스 강남R점")
+    }
+
+    @Test("주소도 지도 링크도 없거나, 줄이 너무 많으면 읽지 않는다")
+    func rejects() {
+        #expect(PlaceParser.share("한 줄") == nil)
+        #expect(PlaceParser.share("스타벅스\n서울 강남구 강남대로 390\n내일 3시 미팅\n꼭 가기\nhttps://naver.me/x") == nil)
+        #expect(PlaceParser.share("https://naver.me/x\n스타벅스") == nil)   // 링크가 앞에 있다
+        #expect(PlaceParser.share("[ ] 우유\nhttps://naver.me/x") == nil)   // 체크상자는 이름이 아니다
+        #expect(PlaceParser.share("- 우유\nhttps://naver.me/x") == nil)
+    }
+
+    @Test("지하철역 주소의 「지하」는 번지 앞에 끼어들 수 있다")
+    func undergroundAddress() {
+        #expect(PlaceParser.address("서울 강남구 강남대로 지하 396") == "서울 강남구 강남대로 지하 396")
+        #expect(PlaceParser.address("서울 강남구 강남대로 지하") == nil)
+    }
+}

@@ -60,7 +60,8 @@ if case .add(let inbound) = command {
     let note = NoteReader.read(inbound)
     do {
         let memo = try await service.create(
-            body: note.body, due: note.due, at: note.at, every: note.every, place: note.place
+            body: note.body, due: note.due, at: note.at, every: note.every,
+            place: note.place, geo: note.geo
         )
         print(memo.id.stringValue)
         exit(0)
