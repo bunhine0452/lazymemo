@@ -23,13 +23,13 @@ iOS 는 지금 Xcode 프로젝트를 스토어용으로 다듬고, 맥은 샌드
 - [x] 스토어 판의 기본 자리 — iCloud 컨테이너 Documents(폰과 같은 자리), iCloud 가 꺼져 있으면 샌드박스 컨테이너. 설정 메뉴가 어디인지 적는다 {#mac-default-vault}
 - [x] ios/LazyMemo.xcodeproj 에 LazyMemo-macOS 타깃 — LazyMemoUI 패키지 의존, 스토어 Info.plist(LazyMemoAppStoreBuild, 카테고리, 암호화 면제), 샌드박스 entitlement(iCloud·네트워크·위치·캘린더·사용자 선택 파일·북마크) {#mac-xcode-target}
 - [x] ios/scripts/archive.sh 가 --mac 으로 맥 타깃도 아카이브·업로드한다 {#mac-archive-script}
-- [ ] 샌드박스 판 손검증 — 폴더 고르기·재시작 뒤 접근 유지·iCloud 동기화·핫키·달력 권한·위치·로그인 항목·창 복원 {#mac-sandbox-handtest}
+- [~] 샌드박스 판 손검증 — 폴더 고르기·재시작 뒤 접근 유지·iCloud 동기화·핫키·달력 권한·위치·로그인 항목·창 복원 {#mac-sandbox-handtest}
 
 ## App Store Connect {#asc}
 - [x] 개인정보 처리방침을 site/privacy/ 에 얹는다 (ko·en, 바깥 요청 없음) — Pages 로 URL 이 생긴다 {#asc-privacy-page}
 - [x] 앱 레코드 생성 — 이름·기본 언어 한국어·번들 id·SKU, iOS + macOS 플랫폼 {#asc-record}
-- [ ] 아이폰 TestFlight 업로드 + 내부 테스터로 설치 {#asc-testflight-ios}
-- [ ] 맥 TestFlight 업로드 + 설치해서 샌드박스 판이 실제로 뜨는지 {#asc-testflight-mac}
+- [~] 아이폰 TestFlight 업로드 + 내부 테스터로 설치 {#asc-testflight-ios}
+- [~] 맥 TestFlight 업로드 + 설치해서 샌드박스 판이 실제로 뜨는지 {#asc-testflight-mac}
 - [x] 메타데이터 — 설명(ko·en)·키워드·카테고리 생산성·무료·연령 4+·지원 URL·개인정보 URL·앱 개인정보 「수집 안 함」·심사 메모 {#asc-metadata}
 - [x] 맥 스크린샷 — render-ui.sh 산출물을 스토어 규격(2880×1800)으로 {#asc-mac-screenshots}
 - [ ] 심사 제출 — 아이폰·맥 {#asc-submit}
@@ -51,4 +51,7 @@ iOS 는 지금 Xcode 프로젝트를 스토어용으로 다듬고, 맥은 샌드
 | 2026-09-14T17:16:06+09:00 | #asc-mac-screenshots | claude-code | ☐→x | .oculpm/journal/20260914/Chores/1715_chore_mac-store-screenshots-and-checklist-fix.md | store-shots.sh → dist/store/mac 5장 2880×1800 |
 | 2026-09-14T17:20:53+09:00 | #asc-record | claude-code | ☐→x |  | ASC 에 lazymemo 레코드 생성 — iOS+macOS, ko, io.github.bunhine0452.lazymemo, SKU lazymemo |
 | 2026-09-14T17:53:10+09:00 | #asc-metadata | claude-code | ☐→x | .oculpm/journal/20260914/Chores/1753_chore_asc-record-and-metadata.md | ASC 앱 정보·연령 4+·무료·개인정보 게시·iOS/macOS 버전 메타데이터+스크린샷 전부 입력. 빌드만 남음 |
+| 2026-09-14T18:14:43+09:00 | #asc-testflight-ios | claude-code | ☐→~ | .oculpm/journal/20260914/Chores/1814_chore_testflight-upload-both-platforms.md | 빌드 1(0.1.0) 업로드·처리 완료·버전에 붙임. 내부 테스터 설치는 사용자 손 |
+| 2026-09-14T18:14:49+09:00 | #asc-testflight-mac | claude-code | ☐→~ | .oculpm/journal/20260914/Chores/1814_chore_testflight-upload-both-platforms.md | 빌드 0.4.0(1) 업로드·처리 완료·버전에 붙임. 기기 등록이 먼저였다. TestFlight 설치는 사용자 손 |
+| 2026-09-14T18:14:55+09:00 | #mac-sandbox-handtest | claude-code | ☐→~ | .oculpm/journal/20260914/Chores/1814_chore_testflight-upload-both-platforms.md | 서명본 기계 검증: 샌드박스 기동·iCloud 기본 자리·재시작 유지·Claude 없음 ✓. 패널·핫키·권한·로그인 항목·창 복원은 사람 손 |
 <!-- oculpm:plan-log end -->
