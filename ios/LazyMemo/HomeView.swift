@@ -17,12 +17,16 @@ struct HomeView: View {
     @State private var reveal = Reveal()
     @State private var here = HereFix()
     @State private var tab: Tab = .memos
+    /// 첫 실행의 안내. 본 뒤로는 More 메뉴의 「사용법」으로만.
+    @State private var showsTutorial = false
 
     enum Tab: Hashable { case memos, calendar }
 
     init(session: AppModel.Session) {
         self.session = session
-        _pen = State(initialValue: PenModel(store: session.store, draft: session.draft))
+        let pen = PenModel(store: session.store, draft: session.draft)
+        pen.holdsLaunchFocus = !Tutorial.seen
+        _pen = State(initialValue: pen)
         _folders = State(initialValue: FolderModel(store: session.store, settings: session.settings))
     }
 
@@ -48,6 +52,15 @@ struct HomeView: View {
             }
         }
         .tint(Theme.accentInk)
+        // 남기면 손끝에 한 번 — 글 칸이 비는 것 말고도 「됐다」는 신호가 있어야 한다.
+        .sensoryFeedback(.success, trigger: pen.lastLeft) { _, new in new != nil }
+        .onAppear { if !Tutorial.seen { showsTutorial = true } }
+        .sheet(isPresented: $showsTutorial, onDismiss: {
+            Tutorial.markSeen()
+            pen.releaseLaunchFocus()
+        }) {
+            TutorialView()
+        }
         .onChange(of: tab) { _, tab in
             // 달력 탭에서는 고른 날이 펜에 미리 물린다. 메모 탭으로 오면 푼다.
             if tab == .memos { pen.presetDay = nil }

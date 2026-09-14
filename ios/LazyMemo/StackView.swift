@@ -12,12 +12,14 @@ struct StackView: View {
     @Environment(\.undoManager) private var undoManager
     @Environment(\.openURL) private var openURL
     @State private var opened: ULID?
-    @State private var dating: Memo?
+    @State private var dating: ULID?
     @State private var showsTrash = false
     @State private var namingFolder = false
     @State private var newFolderName = ""
     @State private var renaming: String?
     @State private var renamedTo = ""
+    @State private var removing: String?
+    @State private var showsTutorial = false
 
     private var store: MemoStore { session.store }
 
@@ -84,7 +86,7 @@ struct StackView: View {
                                 if memo.folder != nil { Button("폴더에서 빼기") { move(memo, to: nil) } }
                             } label: { Label("폴더에 넣기", systemImage: "folder") }
                         }
-                        Button { dating = memo } label: { Label("달력에 놓기", systemImage: "calendar") }
+                        Button { dating = memo.id } label: { Label("달력에 놓기", systemImage: "calendar") }
                         Divider()
                         Button(role: .destructive) { delete(memo) } label: { Label("지우기", systemImage: "trash") }
                     } preview: {
@@ -92,7 +94,7 @@ struct StackView: View {
                     }
                     .accessibilityActions {
                         Button(memo.pinned ? "고정 해제" : "고정") { pin(memo) }
-                        Button("달력에 놓기") { dating = memo }
+                        Button("달력에 놓기") { dating = memo.id }
                         Button("지우기") { delete(memo) }
                     }
                 }
@@ -135,14 +137,32 @@ struct StackView: View {
         .navigationSubtitle(subtitle)
         .toolbarTitleDisplayMode(.large)
         .toolbar { toolbar }
-        .navigationDestination(item: $opened) { id in MemoEditorView(store: store, id: id, reveal: reveal) }
+        .navigationDestination(item: $opened) { id in
+            MemoEditorView(store: store, id: id, reveal: reveal, listedFolders: folders.names)
+        }
         .navigationDestination(isPresented: $showsTrash) { TrashView(store: store, reveal: reveal) }
-        .sheet(item: $dating) { memo in
-            DateSheet(schedule: Schedule(memo), onChange: { schedule in
-                Task { _ = try? await store.update(memo.id, due: .some(schedule.due), at: .some(schedule.at)) }
-            }, onClear: {
-                Task { _ = try? await store.update(memo.id, due: .some(nil), at: .some(nil)) }
-            })
+        // 시트는 메모를 **살아 있는 채로** 본다 — 값을 잡아 두면 첫 누름 뒤 격자의
+        // 밑줄과 시각 칩이 따라오지 않는다.
+        .sheet(isPresented: Binding(get: { dating != nil }, set: { if !$0 { dating = nil } })) {
+            if let id = dating, let memo = store.memo(id) {
+                DateSheet(schedule: Schedule(memo), onChange: { schedule in
+                    Task { _ = try? await store.update(id, due: .some(schedule.due), at: .some(schedule.at)) }
+                }, onClear: {
+                    Task { _ = try? await store.update(id, due: .some(nil), at: .some(nil)) }
+                })
+            }
+        }
+        .sheet(isPresented: $showsTutorial) { TutorialView() }
+        // 폴더를 지우는 것은 되돌릴 수 없다 (이름표가 떨어진다) — 한 번 묻는다.
+        .confirmationDialog(
+            "「\(removing ?? "")」 폴더를 지울까요?",
+            isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
+            titleVisibility: .visible, presenting: removing
+        ) { name in
+            Button("폴더 지우기", role: .destructive) { Task { await folders.remove(name) } }
+            Button("그만두기", role: .cancel) {}
+        } message: { _ in
+            Text("메모는 그대로 남고, 폴더 이름표만 떨어집니다.")
         }
         .alert("새 폴더", isPresented: $namingFolder) {
             TextField("이름", text: $newFolderName)
@@ -180,6 +200,9 @@ struct StackView: View {
                     Button { openURL(settings) } label: { Label("iCloud 설정 열기", systemImage: "icloud") }
                 }
                 Button { namingFolder = true } label: { Label("새 폴더", systemImage: "folder.badge.plus") }
+                Divider()
+                Button { showsTutorial = true } label: { Label("사용법", systemImage: "questionmark.circle") }
+                    .accessibilityIdentifier("tutorial-button")
             } label: {
                 Label("더 보기", systemImage: "ellipsis.circle")
             }
@@ -202,7 +225,7 @@ struct StackView: View {
                         }
                         .contextMenu {
                             Button("이름 바꾸기") { renamedTo = name; renaming = name }
-                            Button("폴더 지우기", role: .destructive) { Task { await folders.remove(name) } }
+                            Button("폴더 지우기", role: .destructive) { removing = name }
                         }
                     }
                     Button { namingFolder = true } label: { Image(systemName: "plus") }

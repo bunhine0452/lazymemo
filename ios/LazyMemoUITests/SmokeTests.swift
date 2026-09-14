@@ -154,11 +154,58 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(chip.exists, "자리가 칩으로 물려야 한다 — 시뮬레이터에 위치가 없으면 「위치를 못 잡았습니다」가 뜬다")
     }
 
+    // MARK: 첫 실행 — 안내가 뜨고, 닫히면 그제야 펜이 올라온다
+
+    func testFirstLaunchShowsTutorialThenThePen() throws {
+        let app = launch(tutorialSeen: false)
+        XCTAssertTrue(app.buttons["tutorial-next"].waitForExistence(timeout: 10), "첫 실행에 안내가 떠야 한다")
+        XCTAssertEqual(app.keyboards.count, 0, "안내 위로 키보드가 오르면 안 된다")
+
+        for _ in 0..<3 { app.buttons["tutorial-next"].tap() }
+        let done = app.buttons["tutorial-done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 3), "마지막 장은 「시작하기」여야 한다")
+        done.tap()
+
+        XCTAssertFalse(app.buttons["tutorial-done"].waitForExistence(timeout: 1), "닫혀야 한다")
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5), "안내가 닫히면 펜이 올라와야 한다")
+
+        // More 메뉴에서 다시 볼 수 있다.
+        dismissKeyboard(app)
+        app.buttons["more"].tap()
+        app.buttons["tutorial-button"].tap()
+        XCTAssertTrue(app.buttons["tutorial-skip"].waitForExistence(timeout: 3), "「사용법」으로 다시 열려야 한다")
+        app.buttons["tutorial-skip"].tap()
+    }
+
+    // MARK: 칩 — 끄면 빈 테두리로 남고, 다시 누르면 켜진다
+
+    func testDateChipStaysWhenTurnedOff() throws {
+        let app = launch()
+        let capture = app.descendants(matching: .any)["capture"]
+        XCTAssertTrue(capture.waitForExistence(timeout: 10))
+        capture.tap()
+        capture.typeText("dentist tomorrow at 3pm")
+
+        let chip = app.descendants(matching: .any)["chip-date"]
+        XCTAssertTrue(chip.waitForExistence(timeout: 3))
+        chip.tap()
+        XCTAssertTrue(chip.exists, "끈 칩은 빈 테두리로 남아야 한다 — 사라지면 다시 켤 길이 없다")
+        XCTAssertEqual(chip.value as? String, "꺼짐")
+        XCTAssertEqual(app.buttons["leave"].label, "메모 남기기", "날짜를 안 읽으면 단추도 그렇게 말한다")
+
+        chip.tap()
+        XCTAssertEqual(chip.value as? String, "켜짐")
+        XCTAssertEqual(app.buttons["leave"].label, "달력에 남기기")
+    }
+
     // MARK: 도우미
 
-    private func launch() -> XCUIApplication {
+    /// 첫 실행 안내는 따로 시험한다 — 나머지는 「본 것」으로 켠다.
+    private func launch(tutorialSeen: Bool = true) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["LAZYMEMO_VAULT"] = root.path(percentEncoded: false)
+        app.launchArguments += ["-tutorialSeen", tutorialSeen ? "YES" : "NO"]
         app.launch()
         return app
     }

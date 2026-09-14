@@ -23,6 +23,7 @@ final class ShotTests: XCTestCase {
         }
         let app = XCUIApplication()
         app.launchEnvironment["LAZYMEMO_VAULT"] = root.path(percentEncoded: false)
+        app.launchArguments += ["-tutorialSeen", "YES"]
         app.launch()
         let capture = app.descendants(matching: .any)["capture"]
         XCTAssertTrue(capture.waitForExistence(timeout: 10))

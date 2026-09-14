@@ -18,6 +18,8 @@ final class PenModel {
             guard text != oldValue else { return }
             draft.remember(text)
             reschedule()
+            // 글을 다 지우면 끈 칩도 잊는다 — 다음 글의 날짜가 말없이 안 읽히면 안 된다.
+            if text.isEmpty { readsDate = true; readsPlace = true }
         }
     }
 
@@ -44,12 +46,21 @@ final class PenModel {
     var focusRequest = 0
     func requestFocus() { focusRequest += 1 }
 
-    /// 켤 때의 포커스는 한 번뿐이다.
+    /// 켤 때의 포커스는 한 번뿐이다. 첫 실행의 안내가 떠 있는 동안은 미룬다 —
+    /// 안내 위로 키보드가 올라오면 안 된다 (`HomeView`).
     private var launchFocusTaken = false
+    var holdsLaunchFocus = false
     func takeLaunchFocus() -> Bool {
-        guard !launchFocusTaken else { return false }
+        guard !launchFocusTaken, !holdsLaunchFocus else { return false }
         launchFocusTaken = true
         return true
+    }
+
+    /// 안내가 닫혔다 — 미뤄 둔 켤 때의 포커스를 지금 준다. 그 뒤로는 다시 없다.
+    func releaseLaunchFocus() {
+        holdsLaunchFocus = false
+        launchFocusTaken = true
+        requestFocus()
     }
 
     /// 방금 남긴 메모 — 목록이 그리로 간다.
@@ -69,16 +80,22 @@ final class PenModel {
 
     // MARK: 읽기 — 누르기 전에 무엇을 읽었는지 보인다
 
-    /// 글에서 읽어 낸 것. 끈 칩은 빼고 돌려준다.
+    /// 글에서 읽어 낸 것 전부 — 칩을 껐어도 그대로. 칩은 이것으로 그린다:
+    /// 끈 칩도 빈 테두리로 남아 있어야 다시 켤 수 있다 (MOBILE_DESIGN §3).
     ///
     /// 글이 없고 자리만 물려 있으면 **자리가 곧 글이다** — 「여기 주차했다」는
     /// 사람이 나중에 덧붙인다 (맥의 `HereCapture` 와 같다).
-    var reading: ParsedNote {
+    private var readAll: ParsedNote {
         guard let inbound = InboundNote.make(text: text, place: here?.place) else {
             if let here { return ParsedNote(body: here.place, place: here.place) }
             return ParsedNote(body: "")
         }
-        var note = NoteReader.read(inbound)
+        return NoteReader.read(inbound)
+    }
+
+    /// 실제로 남길 것. 끈 칩은 빼고 돌려준다.
+    var reading: ParsedNote {
+        var note = readAll
         if !readsDate { note.due = nil; note.at = nil; note.every = nil }
         if !readsPlace, here == nil { note.place = nil; note.geo = nil }
         return note
@@ -93,22 +110,22 @@ final class PenModel {
         return dated ? "달력에 남기기" : "메모 남기기"
     }
 
-    /// 칩 하나 — 날짜.
+    /// 칩 하나 — 날짜. 끈 뒤에도 글이 그대로면 칩도 그대로다 (꺼진 모양으로).
     var dateChip: String? {
-        let note = reading
+        let note = readAll
         if let at = note.at { return "\(DayWords.long(CalendarDate(at))) \(DayWords.clock(at)) · 달력으로" }
         if let due = note.due { return "\(DayWords.long(due)) · 달력으로" }
-        if readsDate, let presetDay { return "\(DayWords.long(presetDay)) · 달력으로" }
+        if let presetDay { return "\(DayWords.long(presetDay)) · 달력으로" }
         return nil
     }
 
     var placeChip: String? {
-        guard let place = here?.place ?? reading.place else { return nil }
+        guard let place = here?.place ?? readAll.place else { return nil }
         return "@" + place
     }
 
     var everyChip: String? {
-        reading.every.map(\.label)
+        readAll.every.map(\.label)
     }
 
     // MARK: 적기 끝

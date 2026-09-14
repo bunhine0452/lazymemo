@@ -10,9 +10,12 @@ struct MemoEditorView: View {
     let store: MemoStore
     let id: ULID
     let reveal: Reveal
+    /// 설정에 적힌 폴더 차례 — 메모가 한 장도 없는 폴더도 고를 수 있게.
+    var listedFolders: [String] = []
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.undoManager) private var undoManager
+    @Environment(\.scenePhase) private var scenePhase
     @State private var text = ""
     @State private var lastSaved = ""
     @State private var loaded = false
@@ -24,6 +27,7 @@ struct MemoEditorView: View {
     private static let autosaveDelay: Duration = .milliseconds(600)
 
     private var memo: Memo? { store.memo(id) }
+    private var folderNames: [String] { MemoFolders.names(listed: listedFolders, memos: store.memos) }
 
     var body: some View {
         Group {
@@ -55,6 +59,8 @@ struct MemoEditorView: View {
             lastSaved = external
         }
         .onDisappear { flush() }
+        // 뒤로 물러날 때도 즉시 — 600ms 안에 앱이 죽으면 마지막 글자가 사라진다.
+        .onChange(of: scenePhase) { _, phase in if phase == .background { flush() } }
         .sheet(isPresented: $datePicking) {
             if let memo {
                 DateSheet(
@@ -66,17 +72,14 @@ struct MemoEditorView: View {
                 )
             }
         }
-        .alert("폴더", isPresented: $folderPicking) {
-            TextField("새 폴더 이름", text: $newFolder)
-            Button("넣기") {
+        .alert("새 폴더", isPresented: $folderPicking) {
+            TextField("이름", text: $newFolder)
+            Button("만들고 넣기") {
+                // 빈 이름은 아무것도 하지 않는다 — 전에는 있던 폴더에서 빠졌다.
                 let name = MemoFolders.normalized(newFolder)
                 newFolder = ""
-                Task { _ = try? await store.update(id, folder: .some(name)) }
-            }
-            if memo?.folder != nil {
-                Button("폴더에서 빼기", role: .destructive) {
-                    Task { _ = try? await store.update(id, folder: .some(nil)) }
-                }
+                guard let name else { return }
+                move(to: name)
             }
             Button("그만두기", role: .cancel) { newFolder = "" }
         }
@@ -110,7 +113,19 @@ struct MemoEditorView: View {
                 }
             }
 
-            Button { folderPicking = true } label: {
+            // 있는 폴더는 고르고, 없는 폴더만 이름을 적는다.
+            Menu {
+                ForEach(folderNames, id: \.self) { name in
+                    Button { move(to: name) } label: {
+                        Label(name, systemImage: memo.folder == name ? "checkmark" : "folder")
+                    }
+                }
+                Button { folderPicking = true } label: { Label("새 폴더…", systemImage: "folder.badge.plus") }
+                if memo.folder != nil {
+                    Divider()
+                    Button("폴더에서 빼기", role: .destructive) { move(to: nil) }
+                }
+            } label: {
                 if let folder = memo.folder {
                     Text(folder).font(.footnote).lineLimit(1)
                 } else {
@@ -118,6 +133,7 @@ struct MemoEditorView: View {
                 }
             }
             .accessibilityLabel(memo.folder.map { "폴더 \($0)" } ?? "폴더에 넣기")
+            .accessibilityIdentifier("tail-folder")
         }
         ToolbarSpacer(.fixed, placement: .bottomBar)
         ToolbarItemGroup(placement: .bottomBar) {
@@ -174,6 +190,10 @@ struct MemoEditorView: View {
         guard loaded, body != lastSaved else { return }
         lastSaved = body
         Task { _ = try? await store.update(id, body: body) }
+    }
+
+    private func move(to folder: String?) {
+        Task { _ = try? await store.update(id, folder: .some(folder)) }
     }
 
     private func clearDate(_ memo: Memo) {

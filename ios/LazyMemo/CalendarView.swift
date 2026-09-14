@@ -13,7 +13,7 @@ struct CalendarView: View {
     @State private var grid = MonthGrid.current()
     @State private var picked = CalendarDate(Date())
     @State private var inRange: [Memo] = []
-    @State private var dating: Memo?
+    @State private var dating: ULID?
     @State private var opened: ULID?
 
     private var today: CalendarDate { CalendarDate(Date()) }
@@ -52,11 +52,14 @@ struct CalendarView: View {
         .navigationTitle("달력")
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(item: $opened) { id in MemoEditorView(store: store, id: id, reveal: reveal) }
-        .sheet(item: $dating) { memo in
-            DateSheet(schedule: Schedule(memo), onChange: { schedule in
-                guard let day = schedule.day() else { return }
-                move(memo, to: day)
-            }, onClear: { unschedule(memo) })
+        // 시트가 준 자리를 통째로 쓴다 — 날만 받아 `move` 로 옮기면 시트에서 고른
+        // 시각이 사라진다. 메모는 살아 있는 채로 본다 (`StackView` 와 같다).
+        .sheet(isPresented: Binding(get: { dating != nil }, set: { if !$0 { dating = nil } })) {
+            if let id = dating, let memo = store.memo(id) {
+                DateSheet(schedule: Schedule(memo), onChange: { schedule in
+                    reschedule(memo, to: schedule, name: schedule.day().map { "\($0.month)월 \($0.day)일로 옮기기" } ?? "날짜 바꾸기")
+                }, onClear: { unschedule(memo) })
+            }
         }
         .task(id: grid) { await load() }
         .onChange(of: store.memos) { _, _ in Task { await load() } }
@@ -98,14 +101,14 @@ struct CalendarView: View {
                         }
                         .contextMenu {
                             Button { postpone(memo) } label: { Label("하루 미루기", systemImage: "arrow.right") }
-                            Button { dating = memo } label: { Label("다른 날로", systemImage: "calendar") }
+                            Button { dating = memo.id } label: { Label("다른 날로", systemImage: "calendar") }
                             Button { unschedule(memo) } label: { Label("날짜 떼기", systemImage: "calendar.badge.minus") }
                             Divider()
                             Button(role: .destructive) { delete(memo) } label: { Label("지우기", systemImage: "trash") }
                         }
                         .accessibilityActions {
                             Button("하루 미루기") { postpone(memo) }
-                            Button("다른 날로") { dating = memo }
+                            Button("다른 날로") { dating = memo.id }
                             Button("날짜 떼기") { unschedule(memo) }
                             Button("지우기") { delete(memo) }
                         }
@@ -151,12 +154,15 @@ struct CalendarView: View {
     }
 
     private func move(_ memo: Memo, to day: CalendarDate) {
+        reschedule(memo, to: Schedule(memo).moved(to: day), name: "\(day.month)월 \(day.day)일로 옮기기")
+    }
+
+    private func reschedule(_ memo: Memo, to after: Schedule, name: String) {
         let before = Schedule(memo)
-        let after = before.moved(to: day)
         guard after != before else { return }
         Task {
             _ = try? await store.update(memo.id, due: .some(after.due), at: .some(after.at))
-            Undo.register("\(day.month)월 \(day.day)일로 옮기기", on: undoManager) {
+            Undo.register(name, on: undoManager) {
                 _ = try? await store.update(memo.id, due: .some(before.due), at: .some(before.at))
             }
         }
