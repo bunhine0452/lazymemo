@@ -63,6 +63,32 @@ public struct AttachmentStore: Sendable {
         return paths.vault.appending(path: relativePath, directoryHint: .notDirectory)
     }
 
+    /// 파일이 지금 여기 있는가 — iCloud 가 자리만 잡아 둔 것일 수 있다.
+    public enum Availability: Sendable, Equatable {
+        /// 읽을 수 있다.
+        case present
+        /// `.<이름>.icloud` 만 있다. 내려받기를 청했으니 곧 온다.
+        case downloading
+        /// 파일도 자리도 없다 — 다른 기기가 아직 올리지 않았거나 지워졌다.
+        case missing
+    }
+
+    /// 사진이 있는지 보고, iCloud 가 자리만 잡아 둔 것이면 **내려받기를 청한다.**
+    ///
+    /// 메모 파일은 `MemoVault.requestMissingDownloads` 가 청하지만 사진은 메모가
+    /// 아니라 거기 끼지 않는다. 그래서 폰에서 맥이 붙인 사진을 열면 그 자리에는
+    /// 숨은 자리표만 있고 그림은 없었다. 여는 순간 청하면 몇 초 안에 온다.
+    public func availability(of relativePath: String) -> Availability {
+        guard let url = url(for: relativePath) else { return .missing }
+        if fileManager.fileExists(atPath: url.path(percentEncoded: false)) { return .present }
+        let placeholder = url.deletingLastPathComponent()
+            .appending(path: "." + url.lastPathComponent + ".icloud", directoryHint: .notDirectory)
+        guard fileManager.fileExists(atPath: placeholder.path(percentEncoded: false)) else { return .missing }
+        // 실패해도 다음에 다시 청한다 — 여기서 멈추면 그 한 장이 영영 안 보인다.
+        try? fileManager.startDownloadingUbiquitousItem(at: url)
+        return .downloading
+    }
+
     /// 어디서도 참조하지 않는 첨부를 찾는다. 지우는 것은 호출자가 정한다 (D6).
     public func orphans(referencedBy bodies: [String]) throws -> [URL] {
         let referenced = Set(bodies.flatMap(MarkdownScanner.imagePaths(in:)))

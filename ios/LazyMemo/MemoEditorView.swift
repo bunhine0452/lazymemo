@@ -31,12 +31,15 @@ struct MemoEditorView: View {
     @State private var newFolder = ""
     /// 자리 카드 — 지도와 가는 길. 자리가 없는 메모에는 없다.
     @State private var resolver = PlaceResolver()
+    /// 사진 — 맥이 붙인 것을 본다. 사진이 없는 메모에는 없다.
+    @State private var photos = PhotoLoader()
 
     private static let autosaveDelay: Duration = .milliseconds(600)
 
     private var memo: Memo? { store.memo(id) }
     private var folderNames: [String] { MemoFolders.names(listed: listedFolders, memos: store.memos) }
     private var places: [MemoPlaces.Place] { memo.map(MemoPlaces.of) ?? [] }
+    private var imagePaths: [String] { memo.map { MarkdownScanner.imagePaths(in: $0.body) } ?? [] }
 
     var body: some View {
         Group {
@@ -51,9 +54,18 @@ struct MemoEditorView: View {
         // 자리 카드는 종이 머리에 앉는다 — 지도가 먼저 보이고 글은 그 아래로 이어진다.
         // 키보드가 올라와 있는 동안은 접는다: 지도 밑에 글 칸이 세 줄 남으면 적을 수 없다.
         .safeAreaInset(edge: .top, spacing: 0) {
-            if !editing, !places.isEmpty {
-                PlaceCardsView(resolver: resolver)
+            if !editing {
+                VStack(spacing: 0) {
+                    if !places.isEmpty { PlaceCardsView(resolver: resolver) }
+                    // 사진도 머리에 앉는다 — 폰의 종이는 화면 전체가 글 칸이라 아래가 없다.
+                    if !imagePaths.isEmpty { PhotoCardsView(loader: photos) }
+                }
             }
+        }
+        // 참조가 바뀔 때만 다시 읽는다. iCloud 에서 오는 중이면 이 task 가 기다린다.
+        .task(id: imagePaths) {
+            guard !imagePaths.isEmpty else { return }
+            await photos.load(paths: imagePaths, store: store.attachments)
         }
         // 이름이 바뀔 때만 다시 짓는다. 좌표는 카드가 스스로 알아내 파일에 적는 것이라
         // 그것까지 열쇠에 넣으면 적는 순간 자기 자신을 다시 시작한다.

@@ -52,8 +52,8 @@ final class SmokeTests: XCTestCase {
         let app = launch()
         let capture = app.descendants(matching: .any)["capture"]
         XCTAssertTrue(capture.waitForExistence(timeout: 10))
-        XCTAssertTrue(row(in: app, startingWith: "장보기").waitForExistence(timeout: 5))
-        XCTAssertTrue(row(in: app, startingWith: "치과 예약").exists)
+        XCTAssertTrue(scrolledRow(in: app, startingWith: "장보기").exists)
+        XCTAssertTrue(scrolledRow(in: app, startingWith: "치과 예약").exists)
 
         capture.tap()
         capture.typeText("ㅊㄱ")
@@ -64,7 +64,7 @@ final class SmokeTests: XCTestCase {
         XCTAssertEqual(app.staticTexts["scope"].label, "6장 중 1장", "찾기의 범위를 적어야 한다")
 
         app.buttons["clear"].tap()
-        XCTAssertTrue(row(in: app, startingWith: "장보기").waitForExistence(timeout: 3), "⊗ 로 비우면 목록이 돌아온다")
+        XCTAssertTrue(scrolledRow(in: app, startingWith: "장보기").exists, "⊗ 로 비우면 목록이 돌아온다")
     }
 
     // MARK: 지우기 — 휴지통에서 돌아온다
@@ -72,8 +72,8 @@ final class SmokeTests: XCTestCase {
     func testDeletedMemoReturnsFromTrash() throws {
         try seed()
         let app = launch()
-        let target = row(in: app, startingWith: "집 — 전구 갈기")
-        XCTAssertTrue(target.waitForExistence(timeout: 10))
+        let target = scrolledRow(in: app, startingWith: "집 — 전구 갈기")
+        XCTAssertTrue(target.exists)
 
         target.swipeLeft()
         let delete = app.buttons["지우기"]
@@ -317,6 +317,44 @@ final class SmokeTests: XCTestCase {
         XCTAssertFalse(after.contains("\nsurface: "), "해제하면 파일에서 빠져야 한다: \(after)")
     }
 
+    // MARK: 사진 — 맥이 붙인 사진이 폰의 종이 머리에 선다
+
+    func testPhotoFromMacShowsOnThePaper() throws {
+        try seed()
+        try seedPhoto()
+        let app = launch()
+        let target = row(in: app, startingWith: "명함 사진")
+        XCTAssertTrue(target.waitForExistence(timeout: 10))
+        target.tap()
+
+        let photo = app.descendants(matching: .any)["photo"].firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 10), "사진이 종이 머리에 서야 한다")
+        XCTAssertTrue(app.textViews["paper"].isHittable, "종이가 사진에 가렸다")
+        photo.tap()
+        let viewer = app.descendants(matching: .any)["photo-viewer"].firstMatch
+        XCTAssertTrue(viewer.waitForExistence(timeout: 5), "누르면 전체 화면으로 펼쳐야 한다")
+        app.buttons["photo-close"].tap()
+        XCTAssertTrue(viewer.waitForNonExistence(timeout: 5))
+    }
+
+    /// 맥이 붙인 그대로 — `attachments/<ulid>.png` 와 본문의 `![](…)`.
+    private func seedPhoto() throws {
+        let attachments = root.appending(path: "vault/attachments", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: attachments, withIntermediateDirectories: true)
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 320, height: 200)).image { context in
+            UIColor(red: 0.16, green: 0.32, blue: 0.27, alpha: 1).setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 320, height: 200))
+            UIColor.white.setFill()
+            context.fill(CGRect(x: 40, y: 40, width: 240, height: 120))
+        }
+        try XCTUnwrap(image.pngData()).write(to: attachments.appending(path: "01K4ZR0000000000000000B1.png"))
+        let notes = root.appending(path: "vault/notes/2026/09", directoryHint: .isDirectory)
+        // 가장 최근 것이라 목록 위쪽에 선다 — 스크롤 없이 닿아야 한다.
+        let id = Self.ulid(day: 14, tail: "B1")
+        let text = "---\nid: \(id)\ncreated: 2026-09-14T12:00:00+09:00\nupdated: 2026-09-14T12:00:00+09:00\ntags: []\ncolor: yellow\npinned: false\n---\n명함 사진\n![](attachments/01K4ZR0000000000000000B1.png)\n"
+        try text.write(to: notes.appending(path: id + ".md"), atomically: true, encoding: .utf8)
+    }
+
     // MARK: 알림 설정 — More 메뉴에서 닿고, 켜기 전에 잠금 화면 표시를 읽는다
 
     func testRemindersSheetOpensFromMore() throws {
@@ -358,6 +396,26 @@ final class SmokeTests: XCTestCase {
 
     private func row(in app: XCUIApplication, startingWith title: String) -> XCUIElement {
         app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+    }
+
+    /// 화면 밖에 있으면 목록을 밀어 올려 찾는다 — 「지금」 띠가 목록의 머리를 차지하므로
+    /// 아래쪽 줄은 첫 화면에 없을 수 있다.
+    private func scrolledRow(in app: XCUIApplication, startingWith title: String) -> XCUIElement {
+        // 앱이 다 뜬 뒤에 센다 — 펜이 곧 「목록이 그려졌다」는 신호다.
+        _ = app.descendants(matching: .any)["capture"].waitForExistence(timeout: 10)
+        let target = row(in: app, startingWith: title)
+        var swipes = 0
+        while !target.waitForExistence(timeout: 2), swipes < 4 {
+            app.swipeUp()
+            swipes += 1
+        }
+        // 펜 바에 반쯤 가린 줄은 손짓이 펜에 닿는다 — 펜 위로 올라올 때까지 민다.
+        let pen = app.descendants(matching: .any)["capture"]
+        if target.exists, pen.exists, target.frame.maxY > pen.frame.minY - 8 {
+            app.swipeUp()
+            _ = target.waitForExistence(timeout: 2)
+        }
+        return target
     }
 
     /// 맥 형식 그대로의 파일 몇 장 — 2026-09 기준.

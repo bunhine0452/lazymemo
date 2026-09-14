@@ -1,7 +1,7 @@
 import XCTest
 
 /// 눈으로 보려고 찍는다 — 맥의 `render-ui.sh` 자리. `./ios/scripts/uitest.sh --shots` 로만 돈다.
-/// 결과는 /tmp/shot-{pen,list,editor,recall,datesheet,calendar}.png.
+/// 결과는 /tmp/shot-{pen,list,editor,recall,photo,datesheet,calendar}.png.
 final class ShotTests: XCTestCase {
     func testShots() throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["LAZYMEMO_SHOTS"] == "1", "찍을 때만")
@@ -14,7 +14,19 @@ final class ShotTests: XCTestCase {
             ("01K4ZR0000000000000000AC", "회의 자료 보내기", "due: 2026-09-15\n", "green", false, "일"),
             ("01K4ZR0000000000000000AD", "읽을 것: 설계 문서", "", "gray", true, "읽을 것"),
             ("01K4ZR0000000000000000AE", "집 — 전구 갈기\n거실 등, E26", "", "pink", false, "집"),
+            ("01K4ZR0000000000000000AF", "명함 — 김 디자이너\n![](attachments/01K4ZR0000000000000000AF.png)", "", "green", false, nil),
         ]
+        let attachments = root.appending(path: "vault/attachments", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: attachments, withIntermediateDirectories: true)
+        let card = UIGraphicsImageRenderer(size: CGSize(width: 640, height: 360)).image { context in
+            UIColor(red: 0.96, green: 0.94, blue: 0.90, alpha: 1).setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 640, height: 360))
+            UIColor(red: 0.16, green: 0.32, blue: 0.27, alpha: 1).setFill()
+            context.fill(CGRect(x: 48, y: 48, width: 200, height: 24))
+            context.fill(CGRect(x: 48, y: 96, width: 320, height: 12))
+            context.fill(CGRect(x: 48, y: 128, width: 260, height: 12))
+        }
+        try XCTUnwrap(card.pngData()).write(to: attachments.appending(path: "01K4ZR0000000000000000AF.png"))
         for (index, memo) in memos.enumerated() {
             let stamp = String(format: "2026-09-%02dT10:00:00+09:00", 10 + index)
             let folder = memo.5.map { "folder: \($0)\n" } ?? ""
@@ -47,6 +59,16 @@ final class ShotTests: XCTestCase {
         sleep(1)
         try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/shot-recall.png"))
         app.buttons["닫기"].firstMatch.tap()
+        sleep(1)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        sleep(1)
+        app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH '명함'")).firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["photo"].firstMatch.waitForExistence(timeout: 10))
+        sleep(1)
+        try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/shot-photo.png"))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        sleep(1)
+        app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH '치과 예약'")).firstMatch.tap()
         sleep(1)
         app.descendants(matching: .any)["tail-date"].firstMatch.tap()
         sleep(1)

@@ -115,3 +115,7 @@
 "오늘 일정" = "Today";
 "메모를 엽니다" = "Opens the note";
 "다시 시도" = "Try again";
+"사진 %@" = "Photo %@";
+"펼쳐 봅니다" = "Opens it full screen";
+"iCloud 에서 내려받는 중" = "Downloading from iCloud";
+"아직 없는 사진 — 다른 기기가 올리면 보여요" = "Photo not here yet — it appears once the other device uploads it";
