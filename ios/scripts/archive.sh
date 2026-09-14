@@ -6,7 +6,9 @@
 #   ./ios/scripts/archive.sh [mac] --no-upload  # 아카이브만 (build/ios/<판>.xcarchive)
 #
 # 전제: Xcode 에 개발자 계정이 로그인돼 있고(자동 서명 — Xcode › Settings › Accounts),
-# App Store Connect 에 앱 레코드가 있다. 판 번호는 ios/LazyMemo.xcodeproj 의
+# App Store Connect 에 앱 레코드가 있다. 맥 판은 아카이브 단계에서 개발용 프로필을 먼저
+# 쓰는데 그 프로필은 등록된 기기가 있어야 만들어진다 — 이 맥을 xcodebuild 가 스스로
+# 등록하게 `-allowProvisioningDeviceRegistration` 을 준다 (첫 번에 한 번만 실제로 등록). 판 번호는 ios/LazyMemo.xcodeproj 의
 # MARKETING_VERSION, 빌드 번호는 App Store Connect 가 올린다(manageAppVersionAndBuildNumber).
 #
 # 맥 판은 GitHub 판(scripts/build-app.sh)과 다른 물건이다 — 샌드박스 안이고
@@ -44,6 +46,7 @@ xcodebuild archive \
     -destination "$DESTINATION" \
     -archivePath "$ARCHIVE" \
     -allowProvisioningUpdates \
+    -allowProvisioningDeviceRegistration \
     | grep -E 'error:|warning: .*sign|ARCHIVE' || true
 
 [[ -d "$ARCHIVE" ]] || { echo "아카이브가 없다"; exit 1; }
