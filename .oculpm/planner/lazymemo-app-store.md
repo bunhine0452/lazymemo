@@ -55,4 +55,6 @@ iOS 는 지금 Xcode 프로젝트를 스토어용으로 다듬고, 맥은 샌드
 | 2026-09-14T18:14:49+09:00 | #asc-testflight-mac | claude-code | ☐→~ | .oculpm/journal/20260914/Chores/1814_chore_testflight-upload-both-platforms.md | 빌드 0.4.0(1) 업로드·처리 완료·버전에 붙임. 기기 등록이 먼저였다. TestFlight 설치는 사용자 손 |
 | 2026-09-14T18:14:55+09:00 | #mac-sandbox-handtest | claude-code | ☐→~ | .oculpm/journal/20260914/Chores/1814_chore_testflight-upload-both-platforms.md | 서명본 기계 검증: 샌드박스 기동·iCloud 기본 자리·재시작 유지·Claude 없음 ✓. 패널·핫키·권한·로그인 항목·창 복원은 사람 손 |
 | 2026-09-14T19:15:36+09:00 | #asc-submit | claude-code | ☐→☐ | .oculpm/journal/20260914/Chores/1915_chore_testflight-internal-group-and-handoff.md | 두 버전 「심사에 추가」 활성. 사용자 결정: TestFlight 손검증(READINESS 체크리스트) 뒤 「제출해」 신호에 누른다 |
+| 2026-09-14T20:39:55+09:00 | #asc-testflight-ios | claude-code | ~→~ | .oculpm/journal/20260914/Chores/2039_chore_testflight-upload-ux-polish.md | c130fe1 UX 손질판 둘째 빌드 업로드 — 설치·손검증 남음 |
+| 2026-09-14T20:40:02+09:00 | #asc-testflight-mac | claude-code | ~→~ | .oculpm/journal/20260914/Chores/2039_chore_testflight-upload-ux-polish.md | c130fe1 맥 판 둘째 빌드 업로드 — 설치·손검증 남음 |
 <!-- oculpm:plan-log end -->
