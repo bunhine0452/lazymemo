@@ -27,11 +27,11 @@ iOS 는 지금 Xcode 프로젝트를 스토어용으로 다듬고, 맥은 샌드
 
 ## App Store Connect {#asc}
 - [x] 개인정보 처리방침을 site/privacy/ 에 얹는다 (ko·en, 바깥 요청 없음) — Pages 로 URL 이 생긴다 {#asc-privacy-page}
-- [ ] 앱 레코드 생성 — 이름·기본 언어 한국어·번들 id·SKU, iOS + macOS 플랫폼 {#asc-record}
+- [x] 앱 레코드 생성 — 이름·기본 언어 한국어·번들 id·SKU, iOS + macOS 플랫폼 {#asc-record}
 - [ ] 아이폰 TestFlight 업로드 + 내부 테스터로 설치 {#asc-testflight-ios}
 - [ ] 맥 TestFlight 업로드 + 설치해서 샌드박스 판이 실제로 뜨는지 {#asc-testflight-mac}
-- [ ] 메타데이터 — 설명(ko·en)·키워드·카테고리 생산성·무료·연령 4+·지원 URL·개인정보 URL·앱 개인정보 「수집 안 함」·심사 메모 {#asc-metadata}
-- [ ] 맥 스크린샷 — render-ui.sh 산출물을 스토어 규격(2880×1800)으로 {#asc-mac-screenshots}
+- [x] 메타데이터 — 설명(ko·en)·키워드·카테고리 생산성·무료·연령 4+·지원 URL·개인정보 URL·앱 개인정보 「수집 안 함」·심사 메모 {#asc-metadata}
+- [x] 맥 스크린샷 — render-ui.sh 산출물을 스토어 규격(2880×1800)으로 {#asc-mac-screenshots}
 - [ ] 심사 제출 — 아이폰·맥 {#asc-submit}
 
 <!-- oculpm:plan-log begin v1 -->
@@ -48,4 +48,7 @@ iOS 는 지금 Xcode 프로젝트를 스토어용으로 다듬고, 맥은 샌드
 | 2026-09-13T11:56:01+09:00 | #mac-xcode-target | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/1155_feature_mac-app-store-sandbox-build.md | LazyMemo-macOS 타깃·스킴·plist·entitlements — 무서명 빌드 통과 |
 | 2026-09-13T11:56:06+09:00 | #mac-archive-script | claude-code | ☐→x | .oculpm/journal/20260913/Features_to_add/1155_feature_mac-app-store-sandbox-build.md | archive.sh mac — 실제 아카이브는 Xcode 계정 로그인 뒤 |
 | 2026-09-13T11:59:29+09:00 | #ios-screenshots | claude-code | ☐→x | .oculpm/journal/20260913/Chores/1159_chore_ios-store-screenshots.md | dist/store/ios 5장, 1320×2868 |
+| 2026-09-14T17:16:06+09:00 | #asc-mac-screenshots | claude-code | ☐→x | .oculpm/journal/20260914/Chores/1715_chore_mac-store-screenshots-and-checklist-fix.md | store-shots.sh → dist/store/mac 5장 2880×1800 |
+| 2026-09-14T17:20:53+09:00 | #asc-record | claude-code | ☐→x |  | ASC 에 lazymemo 레코드 생성 — iOS+macOS, ko, io.github.bunhine0452.lazymemo, SKU lazymemo |
+| 2026-09-14T17:53:10+09:00 | #asc-metadata | claude-code | ☐→x | .oculpm/journal/20260914/Chores/1753_chore_asc-record-and-metadata.md | ASC 앱 정보·연령 4+·무료·개인정보 게시·iOS/macOS 버전 메타데이터+스크린샷 전부 입력. 빌드만 남음 |
 <!-- oculpm:plan-log end -->
