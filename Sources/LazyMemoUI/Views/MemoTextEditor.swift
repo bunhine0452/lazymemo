@@ -103,6 +103,9 @@ struct MemoTextEditor: NSViewRepresentable {
         scrollView.documentView = textView
         textView.registerForDraggedTypes(MemoNSTextView.draggedTypes)
         context.coordinator.textView = textView
+        textView.onFocusChange = { [weak coordinator = context.coordinator] view, focused in
+            coordinator?.focusChanged(view, focused: focused)
+        }
         context.coordinator.onHeightChange = onHeightChange
         context.coordinator.stylesMarkdown = stylesMarkdown
         context.coordinator.hidesImageReferences = hidesImageReferences
@@ -151,13 +154,17 @@ struct MemoTextEditor: NSViewRepresentable {
         ///
         /// **조합 중에는 하지 않는다.** 속성을 통째로 다시 까는 동안 조합
         /// 밑줄이 지워져 한글 입력이 어디까지 됐는지 알 수 없게 된다.
-        func restyle(_ textView: NSTextView) {
+        func restyle(_ textView: NSTextView, focused: Bool? = nil) {
             guard stylesMarkdown || hidesImageReferences, !textView.hasMarkedText(),
                   let storage = textView.textStorage
             else { return }
 
             let selection = textView.selectedRange()
-            activeLine = (textView.string as NSString).lineRange(for: selection)
+            // 커서 줄은 **글을 치고 있는 동안에만** 있다. 첫 응답자가 아닌 종이의
+            // 선택은 글 끝에 놓인 기본값이라, 그것을 커서로 치면 바탕화면의 모든
+            // 종이가 마지막 줄만 `- [ ]` 원문을 드러낸 채 서 있다.
+            let hasFocus = focused ?? (textView.window?.firstResponder === textView)
+            activeLine = hasFocus ? (textView.string as NSString).lineRange(for: selection) : nil
 
             isRestyling = true
             if stylesMarkdown {
@@ -230,6 +237,12 @@ struct MemoTextEditor: NSViewRepresentable {
             // 파일에 "ㅊ" 같은 중간 상태가 남는다.
             guard !textView.hasMarkedText() else { return }
             onEdit(current)
+        }
+
+        /// 포커스가 오가면 커서 줄이 생기거나 없어진다 (`MemoNSTextView.onFocusChange`).
+        /// 물러나는 중에는 창이 아직 이 뷰를 첫 응답자로 들고 있어, 값을 받아 쓴다.
+        func focusChanged(_ textView: NSTextView, focused: Bool) {
+            restyle(textView, focused: focused)
         }
 
         /// 조합이 끝나거나 포커스를 잃을 때 마지막 상태를 확정한다.

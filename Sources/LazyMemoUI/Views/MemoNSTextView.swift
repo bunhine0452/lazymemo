@@ -21,6 +21,9 @@ final class MemoNSTextView: NSTextView {
     var onDelete: (() -> Void)?
     /// ⌘⏎ — "적기 끝". Return 은 다음 줄로 가므로 확정은 이 키가 맡는다.
     var onCommandReturn: (() -> Void)?
+
+    /// 첫 응답자가 되거나 물러났다 — 커서 줄의 기호를 되살리거나 감출 때다 (`MemoTextEditor`).
+    var onFocusChange: ((NSTextView, Bool) -> Void)?
     /// 편집 중이 아닐 때 본문 끌기를 창 이동으로 넘길지. 메모 창에서만 켠다.
     var movesWindowOnDrag = false
     /// Esc 로 편집에서 손을 뗄지. 빠른 입력은 Esc 를 자기가 쓰므로 끈다.
@@ -246,6 +249,18 @@ final class MemoNSTextView: NSTextView {
     /// 쓰이고 사라진다. 사용자에게는 "눌렀는데 안 써진다" 로 보인다 — 바탕화면에
     /// 놓인 종이에서 이건 말이 안 된다.
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func becomeFirstResponder() -> Bool {
+        let became = super.becomeFirstResponder()
+        if became { onFocusChange?(self, true) }
+        return became
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        if resigned { onFocusChange?(self, false) }
+        return resigned
+    }
 
     // MARK: 누르기 — 글자를 다루는가, 종이를 다루는가
 
