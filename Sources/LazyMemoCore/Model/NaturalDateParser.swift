@@ -99,6 +99,17 @@ public enum NaturalDateParser {
             return Result(at: soon.date, phrases: soon.phrases)
         }
 
+        // 「지금」·「당장」은 날이 아니라 이 순간이다 (`TimeWords.nowWords`). 시각을
+        // 함께 적었으면(「지금 3시」) 낱말은 오늘을 뜻하고 그 시각이 약속이다.
+        if let word = TimeWords.nowWord(in: text) {
+            if let time = TimeParser.parse(text),
+               let moment = calendar.date(bySettingHour: time.hour, minute: time.minute, second: 0, of: now) {
+                return Result(at: moment, phrases: [word.text] + time.phrases)
+            }
+            let moment = calendar.dateInterval(of: .minute, for: now)?.start ?? now
+            return Result(at: moment, phrases: [word.text])
+        }
+
         guard let day = DayParser.parse(text, now: now, calendar: calendar) else {
             return nextOccurrence(in: text, now: now, calendar: calendar)
         }

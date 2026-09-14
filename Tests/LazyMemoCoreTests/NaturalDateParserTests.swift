@@ -92,6 +92,43 @@ struct NaturalDateParserTests {
         #expect(Calendar.current.component(.minute, from: exact) == 40)
     }
 
+    // MARK: 지금
+
+    @Test("「지금」·「당장」은 날이 아니라 이 순간이다 — 시각까지 붙는다")
+    func readsNowAsThisMoment() throws {
+        let nowish = try #require(parse("지금 치과 전화"))
+        #expect(nowish.at == now)
+        #expect(nowish.phrases == ["지금"])
+        #expect(NaturalDateParser.strip(nowish.phrases, from: "지금 치과 전화") == "치과 전화")
+        #expect(parse("당장 우유 사기")?.at == now)
+        #expect(parse("지금 당장 전화")?.phrases == ["지금 당장"])
+        #expect(parse("call mom right now")?.at == now)
+        #expect(parse("send the file asap")?.at == now)
+    }
+
+    @Test("「지금 3시」는 오늘 그 시각이다 — 낱말은 오늘을 뜻할 뿐")
+    func nowWithClockMeansTodayAtThatClock() throws {
+        let three = try #require(parse("지금 3시 회의")?.at)
+        let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: three)
+        #expect(parts.day == 28 && parts.hour == 15 && parts.minute == 0)
+        #expect(parse("지금 3시 회의")?.phrases.contains("지금") == true)
+    }
+
+    @Test("「지금부터 2시간 뒤」는 낱말째 덜어낸다")
+    func stripsNowFromRelativeOffsets() throws {
+        let later = try #require(parse("지금부터 2시간 뒤 알람"))
+        #expect(later.at == now.addingTimeInterval(2 * 3600))
+        #expect(NaturalDateParser.strip(later.phrases, from: "지금부터 2시간 뒤 알람") == "알람")
+        #expect(NaturalDateParser.strip(parse("지금 30분 뒤 확인")!.phrases, from: "지금 30분 뒤 확인") == "확인")
+    }
+
+    @Test("붙어 쓴 「지금은」·「식당장」은 지금이 아니다")
+    func nowNeedsToStandAlone() {
+        #expect(parse("지금은 바쁨") == nil)
+        #expect(parse("식당장 부르기") == nil)
+        #expect(parse("I know nowhere") == nil)
+    }
+
     // MARK: 안 읽는 것
 
     @Test("날짜가 없으면 아무것도 만들지 않는다")

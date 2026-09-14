@@ -69,6 +69,38 @@ enum TimeWords {
         Word("大后天", 3), Word("大後天", 3), Word("后天", 2), Word("後天", 2),
     ]
 
+    /// `지금` · `당장` · `right now` · `今すぐ` · `马上` — 날이 아니라 **이 순간**.
+    ///
+    /// 시각을 따로 적지 않았으면 지금 이 분이 약속 시각이 된다. 「지금 3시」처럼
+    /// 시각이 함께 있으면 낱말은 오늘을 뜻할 뿐이다. 「지금부터 2시간 뒤」는
+    /// `TimeParser.momentFromNow` 의 몫 — 거기가 먼저 읽는다.
+    ///
+    /// 한글은 띄어 쓰지 않아도 붙는 말이 많다 — 「지금은」·「식당장」. 그래서 이 표만은
+    /// 한글에도 낱말 경계를 묻는다 (`nowWord(in:)`).
+    static let nowWords: [Word<Int>] = [
+        Word("지금 당장", 0), Word("지금 바로", 0), Word("바로 지금", 0), Word("지금", 0), Word("당장", 0),
+        Word("right now", 0), Word("right away", 0), Word("immediately", 0), Word("asap", 0), Word("now", 0),
+        Word("今すぐ", 0), Word("いますぐ", 0), Word("ただちに", 0),
+        Word("现在", 0), Word("現在", 0), Word("马上", 0), Word("馬上", 0), Word("立刻", 0),
+    ]
+
+    /// 본문에서 「지금」을 찾되, 한글도 낱말로 서 있을 때만 — 「지금은 바쁨」은 아니다.
+    static func nowWord(in text: String) -> Match<Int>? {
+        for word in nowWords {
+            guard let range = range(of: word.text, in: text) else { continue }
+            let before = range.lowerBound > text.startIndex ? text[text.index(before: range.lowerBound)] : nil
+            let after = range.upperBound < text.endIndex ? text[range.upperBound] : nil
+            guard !isHangul(before), !isHangul(after) else { continue }
+            return Match(value: word.value, text: String(text[range]), range: range)
+        }
+        return nil
+    }
+
+    private static func isHangul(_ character: Character?) -> Bool {
+        guard let scalar = character?.unicodeScalars.first else { return false }
+        return (0xAC00...0xD7A3).contains(scalar.value)
+    }
+
     /// 요일. 값은 `Calendar` 의 weekday (일요일 = 1).
     ///
     /// 주말은 **토요일**로 읽는다. "주말에 청소" 는 토요일부터 시작하는 일이고,

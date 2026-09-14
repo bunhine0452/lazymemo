@@ -158,21 +158,21 @@ enum TimeParser {
         guard counts else { return nil }
 
         if TimeWords.mentions(["시간", "時間", "小时", "小時", "hour", "hr"], in: text) {
-            if let found = counted(in: text, /(\d{1,3})\s*(?:시간|時間|小时|小時)\s*(?:뒤|후|後|后|이후|以後|以后)/)
+            if let found = counted(in: text, /(?:지금\s*(?:부터\s*)?)?(\d{1,3})\s*(?:시간|時間|小时|小時)\s*(?:뒤|후|後|后|이후|以後|以后)/)
                 ?? counted(in: text, /(?i)\bin\s+(\d{1,3})\s+(?:hours?|hrs?)\b/) {
                 return moment(byAdding: found.count * 60, phrase: found.phrase, now: now, calendar: calendar)
             }
             if let match = text.firstMatch(of: /(?i)\bin\s+an?\s+(hour|hr)\b/) {
                 return moment(byAdding: 60, phrase: String(match.0), now: now, calendar: calendar)
             }
-            if let match = text.firstMatch(of: /(한|두|세|네)\s*시간\s*(?:뒤|후|이후)/),
+            if let match = text.firstMatch(of: /(?:지금\s*(?:부터\s*)?)?(한|두|세|네)\s*시간\s*(?:뒤|후|이후)/),
                let hours = nativeHours[String(match.1)] {
                 return moment(byAdding: hours * 60, phrase: String(match.0), now: now, calendar: calendar)
             }
         }
 
         if TimeWords.hasAny(of: "분分", in: text) || TimeWords.mentions(["minute", "min"], in: text),
-           let found = counted(in: text, /(\d{1,3})\s*(?:분|分鐘|分钟|分)\s*(?:뒤|후|後|后|이후|以後|以后)/)
+           let found = counted(in: text, /(?:지금\s*(?:부터\s*)?)?(\d{1,3})\s*(?:분|分鐘|分钟|分)\s*(?:뒤|후|後|后|이후|以後|以后)/)
             ?? counted(in: text, /(?i)\bin\s+(\d{1,3})\s+(?:minutes?|mins?)\b/) {
             return moment(byAdding: found.count, phrase: found.phrase, now: now, calendar: calendar)
         }
