@@ -42,6 +42,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// 설정에 적혀 있었지만 찾지 못한 메모 폴더 (`AppPaths.resolve`).
     /// 값이 있으면 지금 화면은 **기본 폴더**를 보고 있다는 뜻이다.
     private let missingVault: URL?
+    /// 뜰 때 찾아 둔 iCloud 컨테이너 (App Store 판). 「iCloud 로 동기화 중」의 근거.
+    private let cloudContainer: URL?
     private let menu = NSMenu()
     private let welcome = WelcomeWindow()
 
@@ -55,7 +57,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         layouts: LayoutStore,
         settings: SettingsStore,
         appearance: PaperAppearance,
-        missingVault: URL? = nil
+        missingVault: URL? = nil,
+        cloudContainer: URL? = nil
     ) {
         self.paths = paths
         self.store = store
@@ -63,8 +66,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         self.settings = settings
         self.appearance = appearance
         self.missingVault = missingVault
+        self.cloudContainer = cloudContainer
         self.mover = VaultMover(
-            paths: paths, settings: settings,
+            paths: paths, settings: settings, cloudContainer: cloudContainer,
             // 옮기기 전에 적던 글을 전부 내린다 — 옮기고 나면 옛 자리는 없다.
             flush: { [weak windows] in await windows?.flushAll() }
         )
@@ -222,12 +226,20 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// 가능해졌으므로, 짓는 것까지만이라도 눈으로 확인할 통로를 둔다.
     var menuDiagnostics: String {
         menuNeedsUpdate(menu)
-        return menu.items.map { entry in
-            if entry.isSeparatorItem { return "  ──────" }
+        return Self.describe(menu.items, indent: "  ")
+    }
+
+    /// 하위 메뉴(설정)까지 들여쓰기로 적는다 — 스토어 판에 Claude·업데이트 줄이
+    /// 없는 것, 메모 폴더가 어디인지가 전부 그 안에 있다.
+    private static func describe(_ items: [NSMenuItem], indent: String) -> String {
+        items.map { entry in
+            if entry.isSeparatorItem { return "\(indent)──────" }
             let mark = entry.view is MemoRow ? "▪︎" : (entry.isAlternate ? "⌥" : "·")
             let key = entry.keyEquivalent.isEmpty ? "" : "  [\(entry.keyEquivalent)]"
-            let submenu = entry.submenu.map { "  ▸\($0.items.count)" } ?? ""
-            return "  \(mark) \(entry.title)\(key)\(submenu)"
+            let subtitle = entry.subtitle.map { "  (\($0))" } ?? ""
+            let line = "\(indent)\(mark) \(entry.title)\(key)\(subtitle)"
+            guard let submenu = entry.submenu else { return line }
+            return line + "\n" + describe(submenu.items, indent: indent + "    ")
         }.joined(separator: "\n")
     }
 
@@ -577,7 +589,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         submenu.addItem(.separator())
         // `claude` 가 없으면 이 줄들도 없다 — 없는 사람에게는 존재하지 않는 기능이다.
-        if windows.claude != nil || settings.current.claudePath != nil {
+        // App Store 판에는 아예 없다 (`ClaudeSupport`).
+        if !updater.source.isAppStore, windows.claude != nil || settings.current.claudePath != nil {
             let tidy = item(title: "종이에서 Claude 부르기", action: #selector(toggleClaude), key: "")
             tidy.state = settings.current.usesClaude ?? true ? .on : .off
             tidy.subtitle = "종이의 ✧ 를 누를 때만 나갑니다 · 8초 안에 되돌릴 수 있습니다"
@@ -646,7 +659,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     /// 아이폰과 같은 폴더를 보는 길. 이미 그 안이면 그렇다고 적고 누를 것이 없다.
     private func cloudSyncItem() -> NSMenuItem {
-        if AppPaths.cloudContainerOnDisk().map({ AppPaths.cloudVault(inContainer: $0) })
+        // 샌드박스 안에서는 `NSHomeDirectory()` 가 컨테이너라 디스크의 폴더를 못 찾는다 —
+        // 뜰 때 iCloud 에 직접 물어 둔 것이 먼저다.
+        let container = cloudContainer ?? AppPaths.cloudContainerOnDisk()
+        if container.map({ AppPaths.cloudVault(inContainer: $0) })
             .map({ $0.standardizedFileURL.path(percentEncoded: false) })
             == paths.vault.standardizedFileURL.path(percentEncoded: false) {
             let entry = disabled("iCloud 로 동기화 중")
@@ -660,11 +676,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     /// 홈 아래는 `~` 로 줄인다. 메뉴 한 줄에 전체 경로는 안 들어간다.
-    private var shortVaultPath: String {
-        let path = paths.vault.path(percentEncoded: false)
-        let home = NSHomeDirectory()
-        return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
-    }
+    private var shortVaultPath: String { VaultLabel.readable(paths.vault) }
 
     /// 재부팅을 넘기는 스위치 (`LoginItem`).
     ///

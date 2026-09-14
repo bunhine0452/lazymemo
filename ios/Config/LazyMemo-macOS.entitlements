@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 맥 App Store 판 — 샌드박스가 필수다. 아래는 이 앱이 샌드박스 안에서
+	     실제로 하는 일 전부이고, 하나씩 근거가 있다. -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<!-- 「메모 폴더 옮기기…」 의 NSOpenPanel 로 고른 폴더. -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	<!-- 고른 폴더에 다음 실행에도 닿는 열쇠 (VaultBookmark). -->
+	<key>com.apple.security.files.bookmarks.app-scope</key>
+	<true/>
+	<!-- 링크를 카드로 펼치기(LPMetadataProvider)와 「지금 여기」의 지오코딩. -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<!-- ⌥⌘L 지금 여기 · 가면 떠오르기. -->
+	<key>com.apple.security.personal-information.location</key>
+	<true/>
+	<!-- 달력에 시스템 일정 읽기 (EventKitFeed). -->
+	<key>com.apple.security.personal-information.calendars</key>
+	<true/>
+	<!-- 아이폰의 lazymemo 와 같은 컨테이너 (Resources/LazyMemo.entitlements 와 같은 셋). -->
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.io.github.bunhine0452.lazymemo</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudDocuments</string>
+	</array>
+	<key>com.apple.developer.ubiquity-container-identifiers</key>
+	<array>
+		<string>iCloud.io.github.bunhine0452.lazymemo</string>
+	</array>
+</dict>
+</plist>

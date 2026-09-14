@@ -51,6 +51,15 @@ public struct AppPaths: Sendable, Equatable {
         public let paths: AppPaths
         /// 설정에 적혀 있었지만 찾지 못한 폴더. 없으면 `nil`.
         public let missingVault: URL?
+        /// 열쇠(`VaultBookmark`)가 낡아 새로 만든 것. 부른 쪽이 설정에 도로 적는다 —
+        /// 안 적으면 다음 실행에 또 만든다.
+        public let refreshedBookmark: Data?
+
+        init(paths: AppPaths, missingVault: URL?, refreshedBookmark: Data? = nil) {
+            self.paths = paths
+            self.missingVault = missingVault
+            self.refreshedBookmark = refreshedBookmark
+        }
     }
 
     /// 기본 위치 — Vault 는 `~/Documents/lazymemo`, 파생물은 Application Support.
@@ -66,8 +75,14 @@ public struct AppPaths: Sendable, Equatable {
     /// **파생물 자리는 옮기지 않는다.** 옮기는 것은 정본뿐이라, 설정 파일은
     /// 언제나 같은 곳(Application Support)에서 읽힌다 — 그렇지 않으면 폴더를
     /// 알아야 설정을 읽고 설정을 읽어야 폴더를 아는 고리가 생긴다.
+    ///
+    /// - Parameter cloudContainer: 설정에 아무것도 없을 때의 기본 자리를 iCloud
+    ///   컨테이너로 한다 — App Store 판이 준다. 샌드박스 안의 `~/Documents` 는
+    ///   사용자 눈에 안 보이는 폴더라, 그 판의 「Finder 로 열어도 된다」(D4)는
+    ///   iCloud Drive 의 「LazyMemo」 폴더가 지킨다. 폰과 같은 자리이기도 하다.
     public static func resolve(
         environment: [String: String] = ProcessInfo.processInfo.environment,
+        cloudContainer: URL? = nil,
         fileManager: FileManager = .default
     ) -> Resolution {
         if let override = environment[vaultEnvironmentKey], !override.isEmpty {
@@ -82,13 +97,28 @@ public struct AppPaths: Sendable, Equatable {
         }
 
         let home = standardHomeLocations(fileManager: fileManager)
-        guard let stored = Settings.storedVaultPath(inSupport: home.support) else {
-            return Resolution(paths: home, missingVault: nil)
+        let fallback = cloudContainer.map {
+            AppPaths(vault: cloudVault(inContainer: $0), support: home.support)
+        } ?? home
+        guard let stored = Settings.storedVault(inSupport: home.support) else {
+            return Resolution(paths: fallback, missingVault: nil)
         }
 
-        let moved = URL(filePath: stored, directoryHint: .isDirectory)
+        #if os(macOS)
+        // 열쇠가 있으면 그것으로 먼저 연다 — 샌드박스 안에서는 경로만으로는 잠겨 있다.
+        if let bookmark = stored.bookmark, let access = VaultBookmark.open(bookmark),
+           isDirectory(access.url, fileManager: fileManager) {
+            return Resolution(
+                paths: AppPaths(vault: access.url, support: home.support),
+                missingVault: nil,
+                refreshedBookmark: access.refreshed
+            )
+        }
+        #endif
+
+        let moved = URL(filePath: stored.path, directoryHint: .isDirectory)
         guard isDirectory(moved, fileManager: fileManager) else {
-            return Resolution(paths: home, missingVault: moved)
+            return Resolution(paths: fallback, missingVault: moved)
         }
         return Resolution(
             paths: AppPaths(vault: moved, support: home.support), missingVault: nil

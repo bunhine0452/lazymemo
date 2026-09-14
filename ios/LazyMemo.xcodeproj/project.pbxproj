@@ -10,6 +10,8 @@
 		4C4D000000000000000000F3 /* LazyMemoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D000000000000000000F4 /* LazyMemoCore */; };
 		4C4D000000000000000000F5 /* LazyMemoShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4C4D000000000000000000F2 /* LazyMemoShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		4C4D000000000000000000C3 /* LazyMemoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D000000000000000000C2 /* LazyMemoCore */; };
+		4C4D00000000000000000206 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 4C4D00000000000000000205 /* AppIcon.icns */; };
+		4C4D00000000000000000208 /* LazyMemoUI in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D00000000000000000207 /* LazyMemoUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -34,6 +36,10 @@
 		4C4D000000000000000000F2 /* LazyMemoShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LazyMemoShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C4D000000000000000000F8 /* Share-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Share-Info.plist"; sourceTree = "<group>"; };
 		4C4D000000000000000000F9 /* LazyMemoShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LazyMemoShare.entitlements; sourceTree = "<group>"; };
+		4C4D00000000000000000202 /* LazyMemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LazyMemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C4D00000000000000000203 /* Mac-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Mac-Info.plist"; sourceTree = "<group>"; };
+		4C4D00000000000000000204 /* LazyMemo-macOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "LazyMemo-macOS.entitlements"; sourceTree = "<group>"; };
+		4C4D00000000000000000205 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = AppIcon.icns; path = ../../Resources/AppIcon.icns; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -50,6 +56,11 @@
 		4C4D000000000000000000F1 /* LazyMemoShare */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = LazyMemoShare;
+			sourceTree = "<group>";
+		};
+		4C4D00000000000000000201 /* LazyMemoMac */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = LazyMemoMac;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -78,6 +89,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4C4D0000000000000000020A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C4D00000000000000000208 /* LazyMemoUI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -87,6 +106,7 @@
 				4C4D000000000000000000A4 /* LazyMemo */,
 				4C4D000000000000000000E4 /* LazyMemoUITests */,
 				4C4D000000000000000000F1 /* LazyMemoShare */,
+				4C4D00000000000000000201 /* LazyMemoMac */,
 				4C4D000000000000000000A5 /* Config */,
 				4C4D000000000000000000A3 /* Products */,
 			);
@@ -98,6 +118,7 @@
 				4C4D000000000000000000B2 /* LazyMemo.app */,
 				4C4D000000000000000000E2 /* LazyMemoUITests.xctest */,
 				4C4D000000000000000000F2 /* LazyMemoShare.appex */,
+				4C4D00000000000000000202 /* LazyMemo.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -109,6 +130,9 @@
 				4C4D000000000000000000A7 /* LazyMemo.entitlements */,
 				4C4D000000000000000000F8 /* Share-Info.plist */,
 				4C4D000000000000000000F9 /* LazyMemoShare.entitlements */,
+				4C4D00000000000000000203 /* Mac-Info.plist */,
+				4C4D00000000000000000204 /* LazyMemo-macOS.entitlements */,
+				4C4D00000000000000000205 /* AppIcon.icns */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -187,6 +211,29 @@
 			productReference = 4C4D000000000000000000B2 /* LazyMemo.app */;
 			productType = "com.apple.product-type.application";
 		};
+		4C4D0000000000000000020C /* LazyMemo-macOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4C4D0000000000000000020D /* Build configuration list for PBXNativeTarget "LazyMemo-macOS" */;
+			buildPhases = (
+				4C4D00000000000000000209 /* Sources */,
+				4C4D0000000000000000020A /* Frameworks */,
+				4C4D0000000000000000020B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				4C4D00000000000000000201 /* LazyMemoMac */,
+			);
+			name = "LazyMemo-macOS";
+			packageProductDependencies = (
+				4C4D00000000000000000207 /* LazyMemoUI */,
+			);
+			productName = LazyMemo;
+			productReference = 4C4D00000000000000000202 /* LazyMemo.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -205,6 +252,9 @@
 						TestTargetID = 4C4D000000000000000000B1;
 					};
 					4C4D000000000000000000F0 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					4C4D0000000000000000020C = {
 						CreatedOnToolsVersion = 26.0;
 					};
 				};
@@ -230,6 +280,7 @@
 				4C4D000000000000000000B1 /* LazyMemo-iOS */,
 				4C4D000000000000000000E1 /* LazyMemoUITests */,
 				4C4D000000000000000000F0 /* LazyMemoShare */,
+				4C4D0000000000000000020C /* LazyMemo-macOS */,
 			);
 		};
 /* End PBXProject section */
@@ -256,6 +307,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4C4D0000000000000000020B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C4D00000000000000000206 /* AppIcon.icns in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -274,6 +333,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		4C4D000000000000000000B3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4C4D00000000000000000209 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -578,7 +644,57 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		4C4D0000000000000000020E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "Config/LazyMemo-macOS.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = BP57Z7L498;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/Mac-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.bunhine0452.lazymemo;
+				PRODUCT_NAME = LazyMemo;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Debug;
+		};
+		4C4D0000000000000000020F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "Config/LazyMemo-macOS.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = BP57Z7L498;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Config/Mac-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.bunhine0452.lazymemo;
+				PRODUCT_NAME = LazyMemo;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
 			name = Release;
 		};
@@ -612,6 +728,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		4C4D0000000000000000020D /* Build configuration list for PBXNativeTarget "LazyMemo-macOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4C4D0000000000000000020E /* Debug */,
+				4C4D0000000000000000020F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		4C4D000000000000000000FC /* Build configuration list for PBXNativeTarget "LazyMemoShare" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -638,6 +763,10 @@
 		4C4D000000000000000000C2 /* LazyMemoCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = LazyMemoCore;
+		};
+		4C4D00000000000000000207 /* LazyMemoUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LazyMemoUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

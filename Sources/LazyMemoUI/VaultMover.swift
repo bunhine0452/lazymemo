@@ -17,12 +17,18 @@ import LazyMemoCore
 final class VaultMover {
     private let paths: AppPaths
     private let settings: SettingsStore
+    /// 뜰 때 찾아 둔 iCloud 컨테이너 (App Store 판). 없으면 여기서 다시 찾는다.
+    private let cloudContainer: URL?
     /// 옮기기 전에 적던 글을 전부 파일에 내린다. 옮기고 나면 옛 자리는 없다.
     private let flush: () async -> Void
 
-    init(paths: AppPaths, settings: SettingsStore, flush: @escaping () async -> Void) {
+    init(
+        paths: AppPaths, settings: SettingsStore, cloudContainer: URL? = nil,
+        flush: @escaping () async -> Void
+    ) {
         self.paths = paths
         self.settings = settings
+        self.cloudContainer = cloudContainer
         self.flush = flush
     }
 
@@ -49,9 +55,11 @@ final class VaultMover {
     func beginCloud() {
         Task {
             // 첫 호출이 iCloud 데몬과 이야기하는 막히는 호출이라 메인 밖에서.
-            let container = await Task.detached(priority: .userInitiated) {
-                AppPaths.ubiquityContainer() ?? AppPaths.cloudContainerOnDisk()
-            }.value
+            let container = if let cloudContainer { cloudContainer } else {
+                await Task.detached(priority: .userInitiated) {
+                    AppPaths.ubiquityContainer() ?? AppPaths.cloudContainerOnDisk()
+                }.value
+            }
             guard let container else {
                 tell(
                     "iCloud 컨테이너를 찾지 못했습니다",
@@ -108,7 +116,14 @@ final class VaultMover {
         await flush()
         do {
             let moved = try VaultRelocation.perform(plan, from: paths.vault)
-            settings.update { $0.vaultPath = moved.path(percentEncoded: false) }
+            // 고른 폴더에는 열쇠를 같이 적는다 — 샌드박스 판은 다음 실행에 이것으로
+            // 문을 연다 (`VaultBookmark`). iCloud 컨테이너는 entitlement 가 여는
+            // 자리라 열쇠가 필요 없고, 옛 열쇠를 남겨 두면 엉뚱한 폴더를 연다.
+            let bookmark: Data? = if case .merge = plan { nil } else { VaultBookmark.make(for: moved) }
+            settings.update {
+                $0.vaultPath = moved.path(percentEncoded: false)
+                $0.vaultBookmark = bookmark
+            }
             // 인덱스는 파생물이라(D4) 버리면 그만이고, 새 자리를 훑어 다시
             // 지어진다. 옛 자리를 가리키는 행을 남겨 두는 것보다 짧다.
             discardIndex()
@@ -126,11 +141,7 @@ final class VaultMover {
         }
     }
 
-    private func readable(_ url: URL) -> String {
-        let path = url.path(percentEncoded: false)
-        let home = NSHomeDirectory()
-        return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
-    }
+    private func readable(_ url: URL) -> String { VaultLabel.readable(url) }
 
     private func confirm(_ message: String, detail: String) -> Bool {
         let alert = NSAlert()

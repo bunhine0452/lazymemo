@@ -53,6 +53,8 @@ release 번들은 **3.6MB**, 내려받는 zip 은 **1.6MB** 다. `swift build` �
 swift run LazyMemo
 ```
 
+**App Store 판**(준비 중)은 다른 껍데기다 — 샌드박스 안이라 [Claude 연동](#claude-연동-선택)과 자체 업데이트가 없고, 메모 폴더의 기본 자리가 iCloud Drive 의 「LazyMemo」 폴더(아이폰과 같은 자리)다. 나머지는 전부 같다 ([설계문서 §12.6](docs/DESIGN.md)). Claude 를 쓰려면 이 GitHub 판을 쓰면 된다.
+
 ## 처음 켜면
 
 첫 실행에 「lazymemo 시작하기」 창이 한 장 뜬다. 읽는 안내가 아니라 **만져 보는 안내**다.
@@ -332,6 +334,13 @@ git tag -a v0.4.0 -m "..." && git push origin v0.4.0
 ```
 
 태그 하나가 전부다. 워크플로가 태그·`Info.plist`·`Version.swift` 가 같은 판인지 보고, 시험을 돌리고, 묶고, 릴리스를 만들고, 홈브루 탭의 `sha256` 을 갱신한다. **이미 나간 판의 바이트는 바꾸지 않는다** — 같은 소스도 기계가 다르면 zip 이 다르고, 그러면 cask 의 checksum 이 어긋나 받는 사람에게만 터진다. 고칠 것이 있으면 판을 올린다.
+
+App Store 는 따로 간다 — Xcode 에 개발자 계정이 로그인돼 있어야 한다.
+
+```sh
+./ios/scripts/archive.sh          # 아이폰 → TestFlight
+./ios/scripts/archive.sh mac      # 맥 스토어 판 → TestFlight
+```
 
 ### 구조
 

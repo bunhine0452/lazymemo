@@ -33,10 +33,7 @@ final class Updater {
 
     init(
         settings: SettingsStore,
-        source: InstallSource = .detect(
-            bundlePath: Bundle.main.bundlePath,
-            appStoreBuild: Bundle.main.object(forInfoDictionaryKey: "LazyMemoAppStoreBuild") as? Bool == true
-        ),
+        source: InstallSource = .current,
         fetch: @escaping UpdateCheck.Fetch = Updater.download
     ) {
         self.settings = settings

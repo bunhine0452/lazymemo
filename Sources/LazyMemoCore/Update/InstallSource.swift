@@ -45,6 +45,20 @@ public enum InstallSource: Sendable, Equatable {
         return .standalone
     }
 
+    /// 지금 도는 이 앱. 한 번 보고 적어 둔다 — 업데이트·Claude 연동·메뉴가
+    /// 전부 같은 답을 봐야 한다. 둘이 따로 판별하면 한쪽만 고쳐지는 날이 온다.
+    ///
+    /// App Store 판은 Info.plist 의 `LazyMemoAppStoreBuild` 가 말한다 — 영수증은
+    /// 스토어가 깔아 준 뒤에야 생기므로, 로컬에서 지은 스토어 판을 시험할 때는
+    /// 그 키가 유일한 근거다.
+    public static let current: InstallSource = detect(
+        bundlePath: Bundle.main.bundlePath,
+        appStoreBuild: Bundle.main.object(forInfoDictionaryKey: "LazyMemoAppStoreBuild") as? Bool == true
+    )
+
+    /// App Store 판인가 — 샌드박스 안이고, 바깥 프로세스(`claude`)를 부를 수 없다.
+    public var isAppStore: Bool { self == .appStore }
+
     /// 사람에게 하는 말. 앱이 스스로 못 바꾸는 경우에만 쓴다.
     public var advice: String? {
         switch self {

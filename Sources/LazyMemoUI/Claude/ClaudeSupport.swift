@@ -8,6 +8,9 @@ import LazyMemoCore
 /// 다음부터는 그 파일이 아직 있는지만 본다 — 지워졌으면 그때 다시 찾는다.
 enum ClaudeSupport {
     static func resolve(settings: SettingsStore) async -> ClaudeRunner? {
+        // App Store 판에는 이 기능이 없다. 샌드박스가 바깥 프로세스를 못 부르기도
+        // 하지만, 그 전에 **로그인 셸을 띄우지 않는다** — 찾아보는 것부터가 없다.
+        guard !InstallSource.current.isAppStore else { return nil }
         guard settings.current.usesClaude ?? true else { return nil }
 
         let manager = FileManager.default

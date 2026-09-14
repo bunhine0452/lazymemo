@@ -3,11 +3,6 @@ import LazyMemoCore
 
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
-    /// 메모 폴더가 어디인지 — 설정에 적힌 자리까지 살펴 정한다 (§5.1).
-    /// 옮겨 둔 폴더를 못 찾았으면 그 사실도 함께 들고 온다.
-    private let location = AppPaths.resolve()
-    private var paths: AppPaths { location.paths }
-
     private var store: MemoStore?
     private var layouts: LayoutStore?
     private var windows: NoteWindowManager?
@@ -27,6 +22,23 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         // 메뉴 막대에 보이지 않지만, 이것이 없으면 ⌘A·⌘Z·⌘C 가 전부 죽는다.
         StandardMenu.install()
 
+        Task {
+            // App Store 판은 iCloud 컨테이너가 기본 자리다 — 폰과 같은 폴더. 첫 호출이
+            // iCloud 데몬과 이야기하는 막히는 호출이라 메인 밖에서 한다. 다른 판은
+            // 지금처럼 `~/Documents/lazymemo` 라 묻지 않는다 (`AppPaths.resolve`).
+            let container: URL? = if InstallSource.current.isAppStore {
+                await Task.detached(priority: .userInitiated) { AppPaths.ubiquityContainer() }.value
+            } else { nil }
+            open(AppPaths.resolve(cloudContainer: container), cloudContainer: container)
+        }
+    }
+
+    /// 메모 폴더가 어디인지 정해진 뒤의 기동 전부.
+    ///
+    /// - Parameter location: 설정에 적힌 자리까지 살펴 정한 것 (§5.1). 옮겨 둔
+    ///   폴더를 못 찾았으면 그 사실도 함께 들어 있다.
+    private func open(_ location: AppPaths.Resolution, cloudContainer: URL?) {
+        let paths = location.paths
         let store: MemoStore
         do {
             try paths.createDirectories()
@@ -38,6 +50,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let layouts = LayoutStore(location: paths.layout)
         let settings = SettingsStore(location: paths.settings)
+        rememberVault(location, in: settings)
         let previews = LinkPreviewStore(
             cacheDirectory: paths.support.appending(path: "links", directoryHint: .isDirectory),
             settings: settings
@@ -49,7 +62,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         let menuBar = MenuBarController(
             paths: paths, store: store, windows: windows, layouts: layouts,
             settings: settings, appearance: appearance,
-            missingVault: location.missingVault
+            missingVault: location.missingVault, cloudContainer: cloudContainer
         )
 
         self.store = store
@@ -191,6 +204,28 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 await Self.measureQuickCapture(rounds: rounds, menuBar: menuBar)
             }
         }
+    }
+
+    /// 정한 자리를 설정에 남긴다.
+    ///
+    /// App Store 판은 **첫 실행에 정한 자리를 적어 둔다.** 기본 자리가 iCloud 의
+    /// 유무에 따라 갈리는 판이라, 적어 두지 않으면 iCloud 를 나중에 켜거나 끄는
+    /// 것만으로 다음 실행이 다른 폴더를 보고 — 사용자에게는 메모가 전부 사라진
+    /// 화면이다. 자리를 바꾸는 것은 메뉴의 옮기기뿐이어야 한다 (`VaultMover`).
+    /// 시험(`LAZYMEMO_VAULT`)은 적지 않는다 — 그 자리의 설정 파일은 시험의 것이다.
+    ///
+    /// 낡은 열쇠를 새로 만들었으면(`VaultBookmark`) 그것도 같이 적는다.
+    private func rememberVault(_ location: AppPaths.Resolution, in settings: SettingsStore) {
+        let vault = location.paths.vault.path(percentEncoded: false)
+        if let refreshed = location.refreshedBookmark {
+            settings.update { $0.vaultPath = vault; $0.vaultBookmark = refreshed }
+            return
+        }
+        guard InstallSource.current.isAppStore, location.missingVault == nil,
+              settings.current.vaultPath == nil,
+              ProcessInfo.processInfo.environment[AppPaths.vaultEnvironmentKey] == nil
+        else { return }
+        settings.update { $0.vaultPath = vault }
     }
 
     /// 저장 버튼이 없는 앱이라(§8) 종료가 곧 마지막 저장 지점이다.

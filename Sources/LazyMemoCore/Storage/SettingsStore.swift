@@ -36,6 +36,15 @@ public struct Settings: Codable, Sendable, Equatable {
     /// 사용자는 메모가 전부 사라진 것으로 본다.
     public var vaultPath: String?
 
+    /// `vaultPath` 에 다시 닿기 위한 열쇠 — 샌드박스 판(App Store)의 것이다
+    /// (`VaultBookmark`).
+    ///
+    /// 샌드박스 안에서는 사용자가 패널로 고른 폴더라도 **다음 실행에는 닿을 수
+    /// 없다.** 경로는 알지만 문이 잠긴다 — 열쇠는 security-scoped bookmark
+    /// 하나뿐이고, 그것을 여기 같이 적어 둔다. 샌드박스 밖 판은 이 값이 있어도
+    /// 없어도 경로로 간다.
+    public var vaultBookmark: Data?
+
     /// 종이 위에서 Claude 를 부를 수 있게 할지 (`{#claude-tidy-action}`).
     ///
     /// **`claude` 가 없는 컴퓨터에서는 이 값이 무엇이든 아무 일도 없다.** 켜져
@@ -96,6 +105,7 @@ public struct Settings: Codable, Sendable, Equatable {
         embedsLinks: Bool? = nil,
         paperOpacity: Double? = nil,
         vaultPath: String? = nil,
+        vaultBookmark: Data? = nil,
         usesClaude: Bool? = nil,
         claudePath: String? = nil,
         watchesPlaces: Bool? = nil,
@@ -111,6 +121,7 @@ public struct Settings: Codable, Sendable, Equatable {
         self.embedsLinks = embedsLinks
         self.paperOpacity = paperOpacity
         self.vaultPath = vaultPath
+        self.vaultBookmark = vaultBookmark
         self.usesClaude = usesClaude
         self.claudePath = claudePath
         self.watchesPlaces = watchesPlaces
@@ -124,19 +135,29 @@ public struct Settings: Codable, Sendable, Equatable {
 
     public static let `default` = Settings()
 
-    /// 앱이 뜨기 **전에** 이 한 값만 읽는다 (`AppPaths.resolve`).
+    /// 옮겨 둔 메모 폴더 — 경로와, 있으면 그 열쇠.
+    public struct StoredVault: Sendable, Equatable {
+        public let path: String
+        public let bookmark: Data?
+    }
+
+    /// 앱이 뜨기 **전에** 이 값만 읽는다 (`AppPaths.resolve`).
     ///
     /// 저장소를 열려면 폴더를 알아야 하고, 폴더를 알려면 설정을 읽어야 한다.
     /// 그 고리를 여기서 끊는다 — 파생물 자리(Application Support)는 설정과
     /// 무관하게 언제나 같은 곳이므로 설정 파일은 늘 찾을 수 있다.
-    public static func storedVaultPath(inSupport support: URL) -> String? {
+    public static func storedVault(inSupport support: URL) -> StoredVault? {
         let location = support.appending(path: "settings.json", directoryHint: .notDirectory)
         guard let data = try? Data(contentsOf: location),
               let settings = try? JSONDecoder().decode(Settings.self, from: data),
               let path = settings.vaultPath,
               !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { return nil }
-        return path
+        return StoredVault(path: path, bookmark: settings.vaultBookmark)
+    }
+
+    public static func storedVaultPath(inSupport support: URL) -> String? {
+        storedVault(inSupport: support)?.path
     }
 }
 

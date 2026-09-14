@@ -76,6 +76,15 @@ struct AppPathsTests {
         #expect(resolved.paths == AppPaths.resolve(environment: [:]).paths)
     }
 
+    @Test("App Store 판의 기본 자리는 컨테이너 — 설정에 아무것도 없을 때만")
+    func storeBuildDefaultsToCloud() {
+        let resolved = AppPaths.resolve(environment: [:], cloudContainer: container)
+
+        #expect(resolved.paths.vault.path(percentEncoded: false) == "/tmp/lazymemo-test/iCloud~lazymemo/Documents/")
+        #expect(resolved.paths.support == AppPaths.resolve(environment: [:]).paths.support)
+        #expect(resolved.missingVault == nil)
+    }
+
     @Test("LAZYMEMO_VAULT 는 컨테이너보다 세다 — 시험이 진짜 iCloud 를 건드리면 안 된다")
     func environmentOverrideBeatsContainer() {
         let environment = [AppPaths.vaultEnvironmentKey: "/tmp/lazymemo-test/override"]
