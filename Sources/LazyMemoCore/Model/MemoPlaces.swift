@@ -21,15 +21,20 @@ public enum MemoPlaces {
     }
 
     /// 칸의 자리 먼저, 그다음 본문의 `@낱말` 차례대로. 같은 이름은 한 번만.
+    ///
+    /// 칸이 비어 있고 좌표만 있으면 그 좌표는 **본문의 첫 자리** 것이다 — 카드가 첫
+    /// 자리를 찾아 파일에 적어 둔 것이라(`PlaceResolver`), 좌표를 따로 세우면 이름
+    /// 없는 카드가 하나 더 서고 첫 자리는 도로 지도에 묻게 된다.
     public static func of(_ memo: Memo) -> [Place] {
         var places: [Place] = []
         if let name = memo.place?.trimmingCharacters(in: .whitespaces), !name.isEmpty {
             places.append(Place(name: name, geo: memo.geo))
-        } else if let geo = memo.geo {
-            places.append(Place(name: geo.description, geo: geo))
         }
         for found in PlaceParser.parseAll(memo.body) where !places.contains(where: { $0.name == found.place }) {
-            places.append(Place(name: found.place))
+            places.append(Place(name: found.place, geo: places.isEmpty ? memo.geo : nil))
+        }
+        if places.isEmpty, let geo = memo.geo {
+            places.append(Place(name: geo.description, geo: geo))
         }
         return places
     }

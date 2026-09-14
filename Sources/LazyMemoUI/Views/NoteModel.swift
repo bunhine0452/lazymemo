@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import LazyMemoCore
+import LazyMemoPlaces
 import Observation
 
 /// 메모 창 하나의 상태와 자동 저장 (설계문서 §8).
@@ -23,6 +24,13 @@ final class NoteModel {
 
     /// 본문이 가리키는 링크의 카드. 설정이 꺼져 있으면 비어 있다.
     private(set) var links: [LinkPreviewStore.Card] = []
+
+    /// 이 종이의 자리들을 지도의 점으로 (`PlaceCardsView`). 폰과 같은 물건이다.
+    let places = PlaceResolver()
+
+    /// 카드로 세울 자리들 — 칸의 `place:` 하나와 본문의 `@낱말`들 (`MemoPlaces`).
+    /// 적힌 대로(파일)를 본다: 치는 중의 글은 아직 자리가 아니다.
+    var placeList: [MemoPlaces.Place] { MemoPlaces.of(memo) }
 
     /// 나이를 재는 기준 시각 (`MemoAge`, 철학 3).
     ///
@@ -278,6 +286,12 @@ final class NoteModel {
     /// 서랍에 넣는 것은 부르는 쪽(×와 같은 길)이 한다 (`MemoFolders`).
     func setFolder(_ folder: String?) async {
         memo = (try? await store.update(memo.id, folder: .some(folder))) ?? memo
+    }
+
+    /// 첫 자리의 좌표를 파일에 적어 둔다 — 다음엔 맥도 폰도 안 묻고, 「가면 떠오르기」도 그 자리를 안다.
+    func adoptGeo(_ geo: Coordinate) async {
+        guard memo.geo == nil else { return }
+        memo = (try? await store.update(memo.id, geo: .some(geo))) ?? memo
     }
 
     /// 이 종이를 지운다. **창은 그 자리에 남아 되돌리는 줄을 든다.**

@@ -17,6 +17,8 @@ struct NoteView: View {
     /// 어디에 있는지 **보러** 간다. 어느 쪽인지는 부르는 쪽이 정한다 —
     /// 종이는 달력 창을 알지 못한다.
     var onCalendar: () -> Void = {}
+    /// 자리 카드가 처음 섰다 — 창이 종이를 늘릴 자리다 (`NoteWindowController`).
+    var onPlacesAppear: () -> Void = {}
     /// 종이가 얼마나 진한가. 창 전체가 함께 쓰는 값이다 (`PaperAppearance`).
     var appearance: PaperAppearance? = nil
     /// 화면 밖 렌더에서 조작 줄을 펴 보이기 위한 연출값 (설계문서 §14.9).
@@ -58,6 +60,7 @@ struct NoteView: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading, spacing: 0) {
+                if !model.placeList.isEmpty { placeCards }
                 editor
                 if !model.images.isEmpty { photographs }
                 if !model.links.isEmpty { linkCards }
@@ -109,6 +112,31 @@ struct NoteView: View {
         .animation(Theme.reveal, value: model.justDeleted?.id)
         .animation(Theme.settle, value: age)
         .animation(Theme.settle, value: paperOpacity)
+        // 이름이 바뀔 때만 다시 묻는다. 좌표는 카드가 알아내 파일에 적는 것이라 그것까지
+        // 열쇠에 넣으면 적는 순간 자기 자신을 다시 시작한다.
+        .task(id: model.placeList.map(\.name)) {
+            let places = model.placeList
+            guard !places.isEmpty else { return }
+            onPlacesAppear()
+            await model.places.load(places: places) { geo in
+                Task { await model.adoptGeo(geo) }
+            }
+        }
+    }
+
+    // MARK: 자리 카드
+
+    /// 종이 머리의 지도 — 폰과 같은 자리, 같은 물건 (`PlaceCardsView`).
+    private var placeCards: some View {
+        PlaceCardsView(resolver: model.places, mapHeight: mapHeight)
+            .padding(.bottom, Theme.tight)
+    }
+
+    /// 지도 한 장이 종이에서 가질 수 있는 키. 사진과 같은 규칙이다 — 기본 종이(200pt)에서
+    /// 지도가 절반을 먹으면 글은 두 줄만 남는다. 크게 보는 것은 종이를 늘리거나 지도 앱이다.
+    private var mapHeight: CGFloat {
+        let share = paperHeight > 0 ? paperHeight * 0.34 : 68
+        return max(56, min(share, 120))
     }
 
     // MARK: 본문

@@ -1,4 +1,5 @@
 import LazyMemoCore
+import LazyMemoPlaces
 import SwiftUI
 
 /// 편집 — 화면 전체가 종이, 꼬리는 표준 바닥 툴바 (MOBILE_DESIGN §5).

@@ -1,4 +1,5 @@
 import LazyMemoCore
+import LazyMemoPlaces
 import MapKit
 import SwiftUI
 

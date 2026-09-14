@@ -254,7 +254,7 @@ TabView                             (tabBarMinimizeBehavior: .onScrollDown)
 
 ### 자리 카드 — 지도는 여기서 그린다, 길은 지도 앱이 찾는다
 
-맥의 설계는 「이 앱은 지도를 그리지 않는다」였다 (`MapLink`, DESIGN §14.5). 폰에서는 뒤집는다 — 2026-09-14 결정. 종이 **머리**에 자리 카드가 앉는다: 만질 수 없는 작은 지도 한 장(`Map`, 핀 하나, `interactionModes: []`), 이름, 그리고 가는 길을 열 지도 앱 단추. 자리가 여럿(`place:` 하나 + 본문의 `@낱말`들, `MemoPlaces`)이면 카드가 여럿이고 옆으로 **쓸어 넘긴다** — 한 장씩 멈추는 페이지 스크롤(`scrollTargetBehavior(.paging)`), 아래 점이 몇째 장인지 말한다. 키보드가 올라와 있는 동안은 접는다.
+맥의 설계는 「이 앱은 지도를 그리지 않는다」였다 (`MapLink`, DESIGN §14.5). 폰에서는 뒤집는다 — 2026-09-14 결정. 같은 날 저녁 맥도 따라갔다 (`Sources/LazyMemoUI/Views/PlaceCards.swift`, 리졸버는 `LazyMemoPlaces` 로 공유): 종이 머리의 같은 카드, 다만 지도 앱은 애플 하나(카카오맵은 우클릭의 웹 주소)이고, 기본 종이(200pt)에는 카드가 설 자리가 없어 카드가 처음 설 때 종이가 320pt 로 한 번 자란다 (`NoteWindowController.paperWithMap`). 종이 **머리**에 자리 카드가 앉는다: 만질 수 없는 작은 지도 한 장(`Map`, 핀 하나, `interactionModes: []`), 이름, 그리고 가는 길을 열 지도 앱 단추. 자리가 여럿(`place:` 하나 + 본문의 `@낱말`들, `MemoPlaces`)이면 카드가 여럿이고 옆으로 **쓸어 넘긴다** — 한 장씩 멈추는 페이지 스크롤(`scrollTargetBehavior(.paging)`), 아래 점이 몇째 장인지 말한다. 키보드가 올라와 있는 동안은 접는다.
 
 ```
 ‹

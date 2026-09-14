@@ -37,9 +37,10 @@ enum PreviewRenderer {
         let plain = NoteModel(memo: samples.plain, store: store, previews: previews)
         try? await Task.sleep(for: .milliseconds(300))
 
+        // 자리가 적힌 종이는 지도 카드가 서서 창이 자란다 (`NoteWindowController.paperWithMap`).
         await render(
             name: "note",
-            size: CGSize(width: 268, height: 200),
+            size: CGSize(width: 268, height: NoteWindowController.paperWithMap),
             // 겹쳐 뜨는 조작 줄까지 펴서 낸다 — 지우기(붉은 휴지통)와
             // 치우기(×)가 서로 구별되는지는 나란히 놓고 봐야만 알 수 있다.
             content: NoteView(model: scheduled, onClose: {}, staged: true),
@@ -60,7 +61,7 @@ enum PreviewRenderer {
         sheer.set(0.5)
         await render(
             name: "note-sheer",
-            size: CGSize(width: 268, height: 200),
+            size: CGSize(width: 268, height: NoteWindowController.paperWithMap),
             content: NoteView(model: scheduled, onClose: {}, appearance: sheer),
             into: directory
         )

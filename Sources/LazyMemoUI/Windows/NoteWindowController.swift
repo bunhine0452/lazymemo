@@ -15,6 +15,12 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
     /// 줄어드는 그 프레임들이 `layout.json` 에 들어가면, 꺼냈을 때 종이가
     /// 서랍 자리에 손톱만 하게 돌아온다.
     private var isFlying = false
+    /// 자리 카드 때문에 종이를 늘린 적이 있는가 — 한 번뿐이다. 그 뒤로 줄이는 것은 사람의 몫.
+    private var grewForPlaces = false
+
+    /// 지도가 앉은 종이의 키. 기본 종이(200pt)에 카드(~110pt)가 서면 글이 두 줄만 남는다 —
+    /// 사진과 달리 지도는 몫을 나눠 줄일 수 없어(작으면 지도가 아니다) 종이가 자란다.
+    static let paperWithMap: CGFloat = 320
 
     init(
         memo: Memo,
@@ -41,6 +47,7 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
             onCalendar: { [id] in onCalendarRequest(id) },
             appearance: appearance
         ))
+        hosting.rootView.onPlacesAppear = { [weak self] in self?.growForPlaces() }
         // 창 크기는 layout.json 이 정본이다. 뷰가 끌고 가게 두지 않는다.
         hosting.sizingOptions = []
 
@@ -76,6 +83,21 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
     /// 파일이 밖에서 바뀌었을 때 창 내용을 맞춘다.
     func adopt(_ memo: Memo) {
         model.adopt(memo)
+    }
+
+    /// 자리 카드가 서면 종이를 아래로 늘린다 — 윗변은 그대로, 사람이 둔 자리가 안 흔들린다.
+    private func growForPlaces() {
+        guard !grewForPlaces, !isFlying else { return }
+        grewForPlaces = true
+        var frame = window.frame
+        guard frame.height < Self.paperWithMap else { return }
+        let delta = Self.paperWithMap - frame.height
+        frame.origin.y -= delta
+        frame.size.height = Self.paperWithMap
+        if let screen = window.screen?.visibleFrame, frame.minY < screen.minY {
+            frame.origin.y = screen.minY
+        }
+        window.setFrame(frame, display: true, animate: true)
     }
 
     // MARK: 서랍으로

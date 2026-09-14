@@ -233,6 +233,13 @@
 "붙인 사진, %@" = "Attached photo, %@";
 "기본은 꺼져 있습니다 · 켜면 항상 위치 권한을 묻습니다" = "Off by default · turning it on asks for Always location access";
 "시스템 설정에서 «항상» 위치를 허용해야 켜집니다" = "Needs “Always” location access in System Settings";
+"가는 길" = "Directions";
+"가는 길 — 지도 앱이 지금 자리에서 %@까지 길을 찾습니다" = "Directions — Maps finds the way to %@ from where you are";
+"애플 지도에서 가는 길" = "Directions in Apple Maps";
+"카카오맵에서 가는 길" = "Directions in KakaoMap";
+"자리 %@" = "Place %@";
+"지도에서 못 찾은 자리" = "Not found on the map";
+"지도를 찾는 중" = "Looking it up on the map";
 "잠깐, 메모 한 장" = "A quick note";
 "닫기 — 적던 글은 앱을 사용하는 동안 남습니다" = "Close — what you typed stays while the app is running";
 "찾기" = "Find";

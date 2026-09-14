@@ -11,6 +11,7 @@ let package = Package(
         .executable(name: "LazyMemo", targets: ["LazyMemo"]),
         .executable(name: "lazymemo-mcp", targets: ["LazyMemoMCP"]),
         .library(name: "LazyMemoUI", targets: ["LazyMemoUI"]),
+        .library(name: "LazyMemoPlaces", targets: ["LazyMemoPlaces"]),
         .library(name: "LazyMemoCore", targets: ["LazyMemoCore"]),
     ],
     targets: [
@@ -32,9 +33,16 @@ let package = Package(
         // 앱 셸 — AppKit/SwiftUI. 도메인 로직을 두지 않는다.
         .target(
             name: "LazyMemoUI",
-            dependencies: ["LazyMemoCore"],
+            dependencies: ["LazyMemoCore", "LazyMemoPlaces"],
             path: "Sources/LazyMemoUI",
             resources: [.process("Resources")]
+        ),
+        // 자리를 지도의 점으로 — MapKit 에 묻는 일. 폰과 맥의 종이가 같이 쓰고,
+        // Core 에 두지 않는 이유는 MCP 서버까지 MapKit 을 들지 않게 하려는 것.
+        .target(
+            name: "LazyMemoPlaces",
+            dependencies: ["LazyMemoCore"],
+            path: "Sources/LazyMemoPlaces"
         ),
         // 도메인·저장 계층 — AppKit 비의존. 테스트와 MCP 서버가 공유한다.
         .target(
