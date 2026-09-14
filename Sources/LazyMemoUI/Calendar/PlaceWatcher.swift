@@ -51,10 +51,10 @@ final class PlaceWatcher: NSObject, CLLocationManagerDelegate {
 
     /// 설정 메뉴에 적는 말. **켜 둔 것을 잊게 두지 않는다.**
     var note: String {
-        guard isEnabled else { return "기본은 꺼져 있습니다 · 켜면 항상 위치 권한을 묻습니다" }
-        guard Self.access else { return "시스템 설정에서 «항상» 위치를 허용해야 켜집니다" }
-        if dropped > 0 { return "\(watching)자리를 지켜보는 중 · 상한을 넘겨 \(dropped)장은 빠졌습니다" }
-        return "\(watching)자리를 지켜보는 중 · 도착하면 그 종이가 나옵니다"
+        guard isEnabled else { return L("기본은 꺼져 있습니다 · 켜면 항상 위치 권한을 묻습니다") }
+        guard Self.access else { return L("시스템 설정에서 «항상» 위치를 허용해야 켜집니다") }
+        if dropped > 0 { return L("\(watching)자리를 지켜보는 중 · 상한을 넘겨 \(dropped)장은 빠졌습니다") }
+        return L("\(watching)자리를 지켜보는 중 · 도착하면 그 종이가 나옵니다")
     }
 
     func setEnabled(_ enabled: Bool) {

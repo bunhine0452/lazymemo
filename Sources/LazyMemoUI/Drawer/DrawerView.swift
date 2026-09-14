@@ -119,12 +119,12 @@ struct DrawerView: View {
                 Image(systemName: "tray.full.fill")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Theme.accentInk)
-                Text("서랍")
+                Text(L("서랍"))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Paper.ink.opacity(0.9))
                 Spacer(minLength: 0)
                 if landing != nil {
-                    Text("놓으면 들어옵니다")
+                    Text(L("놓으면 들어옵니다"))
                         .font(Theme.micro)
                         .foregroundStyle(Theme.accentInk)
                         .lineLimit(1)
@@ -150,7 +150,7 @@ struct DrawerView: View {
         .buttonStyle(.plain)
         .scaleEffect(landing != nil ? 1.04 : (isHovering ? 1.02 : 1))
         .animation(quick, value: isHovering)
-        .spoken("서랍 — \(model.title). 눌러서 펼칩니다")
+        .spoken(L("서랍 — \(model.title). 눌러서 펼칩니다"))
     }
 
     private func countPill(_ count: Int) -> some View {
@@ -181,10 +181,10 @@ struct DrawerView: View {
         HStack(spacing: Theme.tight + 2) {
             Image(systemName: "tray.full.fill")
                 .foregroundStyle(Theme.accentInk)
-            Text("서랍").font(.system(size: 17, weight: .bold))
+            Text(L("서랍")).font(.system(size: 17, weight: .bold))
             countPill(model.total)
             Spacer()
-            QuietButton(symbol: "xmark", help: "접기 — 서랍을 닫습니다") {
+            QuietButton(symbol: "xmark", help: L("접기 — 서랍을 닫습니다")) {
                 model.setOpen(false)
             }
         }
@@ -203,13 +203,13 @@ struct DrawerView: View {
                 .foregroundStyle(Theme.secondaryInk)
             if rendersStatically {
                 // 화면 밖 렌더는 `NSViewRepresentable` 을 그리지 못한다 (§14.9).
-                Text(model.shownQuery.isEmpty ? "찾기 — 첫소리로도 됩니다" : model.shownQuery)
+                Text(model.shownQuery.isEmpty ? L("찾기 — 첫소리로도 됩니다") : model.shownQuery)
                     .font(.system(size: 12))
                     .foregroundStyle(model.shownQuery.isEmpty ? Theme.secondaryInk.opacity(0.7) : Paper.ink)
                     .lineLimit(1)
                 Spacer(minLength: 0)
             } else {
-                TextField("찾기 — 첫소리로도 됩니다", text: $model.query)
+                TextField(L("찾기 — 첫소리로도 됩니다"), text: $model.query)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12))
                     .focused($searchFocused)
@@ -228,7 +228,7 @@ struct DrawerView: View {
                         .hitTarget(Theme.touchRow)
                 }
                 .buttonStyle(.plain)
-                .spoken("지우기 — 찾던 글자를 지웁니다")
+                .spoken(L("지우기 — 찾던 글자를 지웁니다"))
             }
         }
         .padding(.horizontal, Theme.snug)
@@ -236,7 +236,7 @@ struct DrawerView: View {
         .background(Theme.softAccent, in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
         .contentShape(.rect)
         .onTapGesture { searchFocused = true }
-        .spoken("찾기 — 서랍에 든 종이를 글자로 거릅니다. 첫소리로도 찾습니다")
+        .spoken(L("찾기 — 서랍에 든 종이를 글자로 거릅니다. 첫소리로도 찾습니다"))
     }
 
     // MARK: 폴더 띠
@@ -287,8 +287,8 @@ struct DrawerView: View {
             chipButton(folder, count: count)
                 .contextMenu {
                     if let folder {
-                        Button("이름 바꾸기") { model.renamingFolder = folder }
-                        Button("폴더 지우기 — 종이는 서랍에 남습니다", role: .destructive) {
+                        Button(L("이름 바꾸기")) { model.renamingFolder = folder }
+                        Button(L("폴더 지우기 — 종이는 서랍에 남습니다"), role: .destructive) {
                             model.deleteFolder(folder)
                         }
                     }
@@ -331,15 +331,15 @@ struct DrawerView: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .spoken(folder.map { "\($0) — \(count)장. 눌러서 이 폴더만 봅니다" }
-                ?? "전체 — \(count)장. 눌러서 서랍 전체를 봅니다")
+        .spoken(folder.map { L("\($0) — \(count)장. 눌러서 이 폴더만 봅니다") }
+                ?? L("전체 — \(count)장. 눌러서 서랍 전체를 봅니다"))
     }
 
     private var newFolderButton: some View {
         Button { model.isNamingFolder = true } label: {
             HStack(spacing: 3) {
                 Image(systemName: "plus").font(.system(size: 9, weight: .bold))
-                Text("새 폴더").font(.system(size: 11, weight: .medium))
+                Text(L("새 폴더")).font(.system(size: 11, weight: .medium))
             }
             .padding(.horizontal, Theme.snug)
             .frame(height: 26)
@@ -348,7 +348,7 @@ struct DrawerView: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .spoken("새 폴더 — 이름을 적고 ↩ 를 누르면 생깁니다")
+        .spoken(L("새 폴더 — 이름을 적고 ↩ 를 누르면 생깁니다"))
     }
 
     /// 새 폴더 이름을 적는 자리. ↩ 로 만들고 esc 로 그만둔다.
@@ -356,9 +356,9 @@ struct DrawerView: View {
         HStack(spacing: 4) {
             Image(systemName: "folder.badge.plus").font(.system(size: 10, weight: .medium))
             if rendersStatically {
-                Text("새 폴더 이름").font(.system(size: 11)).foregroundStyle(Theme.secondaryInk.opacity(0.7))
+                Text(L("새 폴더 이름")).font(.system(size: 11)).foregroundStyle(Theme.secondaryInk.opacity(0.7))
             } else {
-                TextField("새 폴더 이름", text: $newFolderName)
+                TextField(L("새 폴더 이름"), text: $newFolderName)
                     .textFieldStyle(.plain)
                     .font(.system(size: 11))
                     .focused($namingFocused)
@@ -376,7 +376,7 @@ struct DrawerView: View {
     private func renameField(_ old: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: "pencil").font(.system(size: 10, weight: .medium))
-            TextField("폴더 이름", text: $renameText)
+            TextField(L("폴더 이름"), text: $renameText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 11))
                 .focused($renamingFocused)
@@ -446,17 +446,17 @@ struct DrawerView: View {
     }
 
     private var emptyTitle: String {
-        if model.isSearching { return "「\(model.shownQuery)」로 찾은 것이 없습니다" }
-        if let folder = model.shownFolder { return "「\(folder)」는 비어 있습니다" }
-        return "여기 아무것도 없습니다"
+        if model.isSearching { return L("「\(model.shownQuery)」로 찾은 것이 없습니다") }
+        if let folder = model.shownFolder { return L("「\(folder)」는 비어 있습니다") }
+        return L("여기 아무것도 없습니다")
     }
 
     private var emptyHint: String {
-        if model.isSearching { return "서랍에는 \(model.total)장이 들어 있습니다 — esc 로 되돌립니다" }
+        if model.isSearching { return L("서랍에는 \(model.total)장이 들어 있습니다 — esc 로 되돌립니다") }
         if model.shownFolder != nil {
-            return "줄을 이 폴더로 끌어다 놓거나, 이 폴더를 연 채로 종이를 서랍에 넣으면 여기로 옵니다"
+            return L("줄을 이 폴더로 끌어다 놓거나, 이 폴더를 연 채로 종이를 서랍에 넣으면 여기로 옵니다")
         }
-        return "종이를 끌어다 놓거나, 종이의 ×를 누르면 들어옵니다"
+        return L("종이를 끌어다 놓거나, 종이의 ×를 누르면 들어옵니다")
     }
 
     private func row(_ memo: Memo) -> some View {
@@ -482,10 +482,10 @@ struct DrawerView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(
             model.shownPicked.contains(memo.id)
-                ? "\(memo.title) — 골랐습니다. \(MemoTimeLabel.text(for: memo))"
+                ? L("\(memo.title) — 골랐습니다. \(MemoTimeLabel.text(for: memo))")
                 : "\(memo.title) — \(MemoTimeLabel.text(for: memo))"
         ))
-        .accessibilityHint(Text("눌러서 펼칩니다. ⌘ 를 누른 채 누르면 고릅니다"))
+        .accessibilityHint(Text(L("눌러서 펼칩니다. ⌘ 를 누른 채 누르면 고릅니다")))
     }
 
     // MARK: 바닥 한 줄
@@ -506,11 +506,11 @@ struct DrawerView: View {
             } else if let filed = model.shownLastFiled {
                 filedNotice(filed)
             } else if landing != nil {
-                Text("놓으면 들어옵니다")
+                Text(L("놓으면 들어옵니다"))
                     .font(Theme.micro)
                     .foregroundStyle(Theme.accentInk)
             } else {
-                Text("⌘-클릭으로 여러 장 · ↑↓ 훑기 · ↩ 펼치기 · 줄을 폴더로 끌기")
+                Text(L("⌘-클릭으로 여러 장 · ↑↓ 훑기 · ↩ 펼치기 · 줄을 폴더로 끌기"))
                     .font(Theme.micro)
                     .foregroundStyle(Paper.ink.opacity(isHovering ? 0.42 : 0.26))
                     .lineLimit(1)
@@ -531,7 +531,7 @@ struct DrawerView: View {
                 .foregroundStyle(Theme.accentInk)
                 .lineLimit(1)
 
-            footerButton("모두 꺼내기", help: "모두 꺼내기 — 고른 종이를 전부 바탕화면으로 되돌립니다") {
+            footerButton(L("모두 꺼내기"), help: L("모두 꺼내기 — 고른 종이를 전부 바탕화면으로 되돌립니다")) {
                 model.takeOutPicked()
             }
 
@@ -539,7 +539,7 @@ struct DrawerView: View {
                 moveLabel
             } else {
                 Menu {
-                    Button("폴더에서 빼기") { model.movePicked(to: nil) }
+                    Button(L("폴더에서 빼기")) { model.movePicked(to: nil) }
                     if !model.folders.isEmpty { Divider() }
                     ForEach(model.folders, id: \.self) { name in
                         Button(name) { model.movePicked(to: name) }
@@ -551,10 +551,10 @@ struct DrawerView: View {
                 .menuIndicator(.hidden)
                 .fixedSize()
                 .foregroundStyle(Theme.accentInk)
-                .spoken("옮기기 — 고른 종이를 다른 폴더로 보냅니다")
+                .spoken(L("옮기기 — 고른 종이를 다른 폴더로 보냅니다"))
             }
 
-            RowTrash(isLit: true, help: "모두 지우기 — 메뉴의 되돌리기로 살릴 수 있습니다") {
+            RowTrash(isLit: true, help: L("모두 지우기 — 메뉴의 되돌리기로 살릴 수 있습니다")) {
                 model.deletePicked()
             }
         }
@@ -562,7 +562,7 @@ struct DrawerView: View {
 
     private var moveLabel: some View {
         HStack(spacing: 2) {
-            Text("옮기기")
+            Text(L("옮기기"))
             Image(systemName: "chevron.down").font(.system(size: 7, weight: .semibold))
         }
         .font(Theme.micro)
@@ -574,11 +574,11 @@ struct DrawerView: View {
 
     private func filedNotice(_ filed: Memo) -> some View {
         HStack(spacing: Theme.tight) {
-            Text("「\(short(filed.title))」 넣었습니다")
+            Text(L("「\(short(filed.title))」 넣었습니다"))
                 .font(Theme.micro)
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
-            footerButton("꺼내기", help: "꺼내기 — 방금 넣은 종이를 도로 바탕화면으로 보냅니다") {
+            footerButton(L("꺼내기"), help: L("꺼내기 — 방금 넣은 종이를 도로 바탕화면으로 보냅니다")) {
                 model.takeOut(filed.id)
             }
         }

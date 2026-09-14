@@ -50,7 +50,7 @@ final class AppModel {
                 usingCloud: resolved.usingCloud
             ))
         } catch {
-            phase = .failed("메모 폴더를 열지 못했습니다 — \(error)")
+            phase = .failed(String(localized: "메모 폴더를 열지 못했습니다 — \(String(describing: error))"))
         }
     }
 

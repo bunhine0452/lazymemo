@@ -131,7 +131,8 @@ struct MemoEditorView: View {
                     Label("달력에 놓기", systemImage: "calendar")
                 }
             }
-            .accessibilityLabel(memo.due != nil || memo.at != nil ? "날짜 \(MemoTimeLabel.text(for: memo))" : "달력에 놓기")
+            .accessibilityLabel(memo.due != nil || memo.at != nil
+                ? String(localized: "날짜 \(MemoTimeLabel.text(for: memo))") : String(localized: "달력에 놓기"))
             .accessibilityIdentifier("tail-date")
 
             if let place = memo.place {
@@ -164,7 +165,7 @@ struct MemoEditorView: View {
                     Label("폴더에 넣기", systemImage: "folder")
                 }
             }
-            .accessibilityLabel(memo.folder.map { "폴더 \($0)" } ?? "폴더에 넣기")
+            .accessibilityLabel(memo.folder.map { String(localized: "폴더 \($0)") } ?? String(localized: "폴더에 넣기"))
             .accessibilityIdentifier("tail-folder")
         }
         ToolbarSpacer(.fixed, placement: .bottomBar)
@@ -188,7 +189,7 @@ struct MemoEditorView: View {
             Button {
                 Task { _ = try? await store.update(id, pinned: !memo.pinned) }
             } label: {
-                Label(memo.pinned ? "고정 해제" : "고정", systemImage: memo.pinned ? "pin.fill" : "pin")
+                Label(memo.pinned ? String(localized: "고정 해제") : String(localized: "고정"), systemImage: memo.pinned ? "pin.fill" : "pin")
             }
         }
         ToolbarSpacer(.flexible, placement: .bottomBar)
@@ -231,7 +232,7 @@ struct MemoEditorView: View {
     private func clearDate(_ memo: Memo) {
         Task {
             _ = try? await store.update(id, due: .some(nil), at: .some(nil))
-            Undo.register("날짜 떼기", on: undoManager, reveal: reveal, id: id) {
+            Undo.register(String(localized: "날짜 떼기"), on: undoManager, reveal: reveal, id: id) {
                 _ = try? await store.update(id, due: .some(memo.due), at: .some(memo.at))
             }
         }
@@ -245,7 +246,7 @@ struct MemoEditorView: View {
             await save()
             try? await store.delete(id)
             dismiss()
-            Undo.register("지우기", on: undoManager, reveal: reveal, id: id) { try? await store.restore(id) }
+            Undo.register(String(localized: "지우기"), on: undoManager, reveal: reveal, id: id) { try? await store.restore(id) }
         }
     }
 }

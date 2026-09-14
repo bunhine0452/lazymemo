@@ -69,6 +69,8 @@ struct MemoTimeLabelTests {
     }
 
     private var today: CalendarDate { CalendarDate(now, calendar: calendar) }
+    private let ko = Locale(identifier: "ko_KR")
+    private let en = Locale(identifier: "en_US")
 
     private func memo(due: CalendarDate? = nil, at: Date? = nil, updated: Date? = nil) -> Memo {
         Memo(updated: updated ?? now, due: due, at: at, body: "무엇")
@@ -76,14 +78,31 @@ struct MemoTimeLabelTests {
 
     @Test("일정이 오늘·내일이면 낱말로 적는다")
     func namesNearbyDays() {
-        #expect(MemoTimeLabel.text(for: memo(due: today), now: now, calendar: calendar) == "오늘")
+        #expect(MemoTimeLabel.text(for: memo(due: today), now: now, calendar: calendar, locale: ko) == "오늘")
         #expect(
             MemoTimeLabel.text(for: memo(due: today.adding(days: 1, calendar: calendar)),
-                               now: now, calendar: calendar) == "내일"
+                               now: now, calendar: calendar, locale: ko) == "내일"
         )
         #expect(
             MemoTimeLabel.text(for: memo(due: today.adding(days: 3, calendar: calendar)),
-                               now: now, calendar: calendar) == "3일 뒤"
+                               now: now, calendar: calendar, locale: ko) == "3일 뒤"
+        )
+    }
+
+    @Test("영어도 같은 자리에 같은 길이로 — 낱말만 바뀐다")
+    func englishWords() {
+        #expect(MemoTimeLabel.text(for: memo(due: today), now: now, calendar: calendar, locale: en) == "Today")
+        #expect(
+            MemoTimeLabel.text(for: memo(due: today.adding(days: 1, calendar: calendar)),
+                               now: now, calendar: calendar, locale: en) == "Tomorrow"
+        )
+        #expect(
+            MemoTimeLabel.text(for: memo(due: today.adding(days: 3, calendar: calendar)),
+                               now: now, calendar: calendar, locale: en) == "in 3 days"
+        )
+        #expect(
+            MemoTimeLabel.text(for: memo(updated: now.addingTimeInterval(-86_400 * 2)),
+                               now: now, calendar: calendar, locale: en) == "2 days ago"
         )
     }
 
@@ -91,7 +110,7 @@ struct MemoTimeLabelTests {
     func shortensDistantDays() {
         let far = today.adding(days: 30, calendar: calendar)
         #expect(
-            MemoTimeLabel.text(for: memo(due: far), now: now, calendar: calendar)
+            MemoTimeLabel.text(for: memo(due: far), now: now, calendar: calendar, locale: ko)
                 == "\(far.month)/\(far.day)"
         )
     }
@@ -99,17 +118,17 @@ struct MemoTimeLabelTests {
     @Test("시각이 있으면 날 뒤에 24시로 붙인다")
     func appendsClockToDay() {
         let at = calendar.date(byAdding: .hour, value: 30, to: now)!
-        let text = MemoTimeLabel.text(for: memo(at: at), now: now, calendar: calendar)
+        let text = MemoTimeLabel.text(for: memo(at: at), now: now, calendar: calendar, locale: ko)
         #expect(text.hasPrefix("내일 "))
         #expect(text.contains(":"))
     }
 
     @Test("일정이 없으면 마지막으로 손댄 때를 보인다")
     func fallsBackToLastEdit() {
-        #expect(MemoTimeLabel.text(for: memo(), now: now, calendar: calendar) == "오늘")
+        #expect(MemoTimeLabel.text(for: memo(), now: now, calendar: calendar, locale: ko) == "오늘")
         let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: now)!
         #expect(
-            MemoTimeLabel.text(for: memo(updated: twoDaysAgo), now: now, calendar: calendar)
+            MemoTimeLabel.text(for: memo(updated: twoDaysAgo), now: now, calendar: calendar, locale: ko)
                 == "2일 전"
         )
     }
@@ -117,7 +136,7 @@ struct MemoTimeLabelTests {
     @Test("일정이 지나갔어도 그 날을 그대로 적는다 — 재촉하지 않는다 (철학 1)")
     func keepsPastSchedule() {
         let yesterday = today.adding(days: -1, calendar: calendar)
-        #expect(MemoTimeLabel.text(for: memo(due: yesterday), now: now, calendar: calendar) == "어제")
+        #expect(MemoTimeLabel.text(for: memo(due: yesterday), now: now, calendar: calendar, locale: ko) == "어제")
     }
 }
 

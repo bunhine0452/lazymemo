@@ -43,7 +43,7 @@ struct PenBar: View {
         } label: {
             HStack {
                 Image(systemName: "pencil.line")
-                Text(pen.text.isEmpty ? "적기…" : pen.text.split(separator: "\n").first.map(String.init) ?? "적기…")
+                Text(pen.text.isEmpty ? String(localized: "적기…") : pen.text.split(separator: "\n").first.map(String.init) ?? String(localized: "적기…"))
                     .lineLimit(1)
                     .foregroundStyle(pen.text.isEmpty ? .secondary : .primary)
                 Spacer()
@@ -84,18 +84,18 @@ struct PenBar: View {
                             .accessibilityIdentifier("here-trouble")
                     }
                     if let date {
-                        chip(date, on: pen.readsDate, hint: "누르면 날짜로 읽지 않습니다") { pen.readsDate.toggle() }
+                        chip(date, on: pen.readsDate, hint: String(localized: "누르면 날짜로 읽지 않습니다")) { pen.readsDate.toggle() }
                             .accessibilityIdentifier("chip-date")
                     }
                     if let every {
-                        chip(every, on: pen.readsDate && pen.readsEvery, hint: "누르면 되풀이로 읽지 않습니다") {
+                        chip(every, on: pen.readsDate && pen.readsEvery, hint: String(localized: "누르면 되풀이로 읽지 않습니다")) {
                             // 날짜가 꺼져 있으면 되풀이도 꺼져 보인다 — 누르면 둘 다 켠다.
                             if !pen.readsDate { pen.readsDate = true; pen.readsEvery = true } else { pen.readsEvery.toggle() }
                         }
                         .accessibilityIdentifier("chip-every")
                     }
                     if let place {
-                        chip(place, on: pen.readsPlace || pen.here != nil, hint: "누르면 장소로 읽지 않습니다") {
+                        chip(place, on: pen.readsPlace || pen.here != nil, hint: String(localized: "누르면 장소로 읽지 않습니다")) {
                             if pen.here != nil { pen.here = nil } else { pen.readsPlace.toggle() }
                         }
                         .accessibilityIdentifier("chip-place")
@@ -120,8 +120,8 @@ struct PenBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
-        .accessibilityValue(on ? "켜짐" : "꺼짐")
-        .accessibilityHint(on ? hint : "누르면 다시 읽습니다")
+        .accessibilityValue(on ? String(localized: "켜짐") : String(localized: "꺼짐"))
+        .accessibilityHint(on ? hint : String(localized: "누르면 다시 읽습니다"))
     }
 
     // MARK: 펜 줄 — 위치 단추 · 글 칸 · 남기기

@@ -70,7 +70,15 @@ struct MonthGridTests {
     @Test("여러 달을 건너뛰어도 맞는다")
     func advancesByManyMonths() {
         let grid = MonthGrid.make(year: 2026, month: 8)
-        #expect(grid.advanced(by: 17).title == "2028년 1월")
-        #expect(grid.advanced(by: -20).title == "2024년 12월")
+        let ko = Locale(identifier: "ko_KR")
+        #expect(grid.advanced(by: 17).title(locale: ko) == "2028년 1월")
+        #expect(grid.advanced(by: -20).title(locale: ko) == "2024년 12월")
+    }
+
+    @Test("머리글은 그 말의 어순으로 — 「2026년 9월」은 영어에서 「September 2026」")
+    func titleFollowsLocale() {
+        let grid = MonthGrid.make(year: 2026, month: 9)
+        #expect(grid.title(locale: Locale(identifier: "en_US")) == "September 2026")
+        #expect(grid.title(locale: Locale(identifier: "ko_KR")) == "2026년 9월")
     }
 }

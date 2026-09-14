@@ -269,6 +269,8 @@ final class SmokeTests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["LAZYMEMO_VAULT"] = root.path(percentEncoded: false)
         app.launchArguments += ["-tutorialSeen", tutorialSeen ? "YES" : "NO"]
+        // 시험은 한국어 낱말을 읽는다 — 시뮬레이터의 말과 상관없이 같은 화면을 보게 고정한다.
+        app.launchArguments += ["-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR"]
         app.launch()
         return app
     }

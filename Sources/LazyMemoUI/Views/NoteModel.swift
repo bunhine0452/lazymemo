@@ -302,11 +302,11 @@ final class NoteModel {
         do {
             let answer = try await claude.ask(ClaudePrompts.tidy, about: before)
             guard text == before else {
-                settle(.failed("적는 사이에 글이 바뀌어 그대로 두었습니다"))
+                settle(.failed(L("적는 사이에 글이 바뀌어 그대로 두었습니다")))
                 return
             }
             guard answer != before else {
-                settle(.failed("다듬을 것이 없었습니다"))
+                settle(.failed(L("다듬을 것이 없었습니다")))
                 return
             }
             // `edited` 는 «바뀌었다» 는 알림이라 글자를 넣지 않는다 — 평소에는

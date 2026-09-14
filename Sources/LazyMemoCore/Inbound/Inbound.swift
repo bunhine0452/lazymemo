@@ -102,9 +102,8 @@ public enum InboundCommand {
         }
     }
 
-    public static let usage = """
-        lazymemo \(LazyMemo.version)
-
+    public static var usage: String {
+        "lazymemo \(LazyMemo.version)\n\n" + L("""
         사용법
           lazymemo-mcp                       MCP 서버로 선다 (Claude Desktop 이 띄운다)
           lazymemo-mcp add "장보기"           바탕화면에 종이 한 장
@@ -113,5 +112,6 @@ public enum InboundCommand {
 
         메모는 ~/Documents/lazymemo 안의 마크다운 파일이다. 앱이 켜져 있으면
         적자마자 바탕화면에 나타나고, 꺼져 있으면 다음에 켤 때 나타난다.
-        """
+        """)
+    }
 }

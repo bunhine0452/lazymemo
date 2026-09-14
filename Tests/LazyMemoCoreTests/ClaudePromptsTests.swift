@@ -29,8 +29,12 @@ struct ClaudePromptsTests {
 
     @Test("다듬기 문장이 뜻을 바꾸지 말라고 못 박는다")
     func tidyPromptForbidsInvention() {
-        #expect(ClaudePrompts.tidy.contains("뜻을 바꾸지 마라"))
-        #expect(ClaudePrompts.tidy.contains("없는 내용을 더하지 마라"))
-        #expect(ClaudePrompts.tidy.contains("코드펜스도 붙이지 마라"))
+        let ko = ClaudePrompts.tidy(locale: Locale(identifier: "ko_KR"))
+        #expect(ko.contains("뜻을 바꾸지 마라"))
+        #expect(ko.contains("없는 내용을 더하지 마라"))
+        #expect(ko.contains("코드펜스도 붙이지 마라"))
+        let en = ClaudePrompts.tidy(locale: Locale(identifier: "en_US"))
+        #expect(en.contains("Do not change the meaning"))
+        #expect(en.contains("code fence"))
     }
 }

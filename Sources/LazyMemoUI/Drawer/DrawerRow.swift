@@ -137,7 +137,7 @@ struct DrawerRow: View {
     private var detail: some View {
         VStack(alignment: .leading, spacing: Theme.snug) {
             if rest.isEmpty {
-                Text("첫 줄이 전부입니다")
+                Text(L("첫 줄이 전부입니다"))
                     .font(.system(size: 12))
                     .foregroundStyle(Paper.ink.opacity(0.38))
             } else {
@@ -173,7 +173,7 @@ struct DrawerRow: View {
     private func controls(compact: Bool) -> some View {
         HStack(spacing: compact ? Theme.hairline : Theme.tight) {
             Button(action: onTakeOut) {
-                Text("꺼내기")
+                Text(L("꺼내기"))
                     .font(.system(size: 10.5, weight: .medium))
                     .padding(.horizontal, compact ? Theme.tight : Theme.snug)
                     .frame(height: Theme.touchRow)
@@ -187,11 +187,11 @@ struct DrawerRow: View {
                         .fill(Theme.accent)
                 }
             }
-            .spoken("꺼내기 — 이 종이를 바탕화면으로 되돌립니다")
+            .spoken(L("꺼내기 — 이 종이를 바탕화면으로 되돌립니다"))
 
             folderMenu
 
-            RowTrash(isLit: true, help: "지우기 — 메뉴의 되돌리기로 살릴 수 있습니다", action: onDelete)
+            RowTrash(isLit: true, help: L("지우기 — 메뉴의 되돌리기로 살릴 수 있습니다"), action: onDelete)
         }
     }
 
@@ -217,7 +217,7 @@ struct DrawerRow: View {
     private var folderMenuBody: some View {
         Menu {
             if memo.folder != nil {
-                Button("폴더에서 빼기") { onMove(nil) }
+                Button(L("폴더에서 빼기")) { onMove(nil) }
                 Divider()
             }
             ForEach(folders, id: \.self) { name in
@@ -232,7 +232,7 @@ struct DrawerRow: View {
                 }
             }
             if folders.isEmpty {
-                Text("폴더가 없습니다 — 위의 + 로 만듭니다")
+                Text(L("폴더가 없습니다 — 위의 + 로 만듭니다"))
             }
         } label: {
             folderGlyph
@@ -241,6 +241,6 @@ struct DrawerRow: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .foregroundStyle(Theme.accentInk)
-        .spoken("폴더 — 이 종이를 다른 폴더로 옮깁니다")
+        .spoken(L("폴더 — 이 종이를 다른 폴더로 옮깁니다"))
     }
 }

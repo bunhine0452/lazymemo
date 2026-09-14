@@ -38,8 +38,8 @@ final class VaultMover {
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
-        panel.prompt = "여기로"
-        panel.message = "메모를 둘 폴더를 고르세요. 이미 옮겨 둔 lazymemo 폴더를 고르면 그것을 씁니다."
+        panel.prompt = L("여기로")
+        panel.message = L("메모를 둘 폴더를 고르세요. 이미 옮겨 둔 lazymemo 폴더를 고르면 그것을 씁니다.")
         panel.directoryURL = paths.vault.deletingLastPathComponent()
         NSApp.activate()
         guard panel.runModal() == .OK, let chosen = panel.url else { return }
@@ -62,9 +62,8 @@ final class VaultMover {
             }
             guard let container else {
                 tell(
-                    "iCloud 컨테이너를 찾지 못했습니다",
-                    detail: "시스템 설정에서 iCloud Drive 가 켜져 있는지 보세요. "
-                        + "소스에서 지은 lazymemo 는 아이폰의 lazymemo 가 한 번 켜진 뒤에야 그 폴더가 생깁니다.",
+                    L("iCloud 컨테이너를 찾지 못했습니다"),
+                    detail: L("시스템 설정에서 iCloud Drive 가 켜져 있는지 보세요. 소스에서 지은 lazymemo 는 아이폰의 lazymemo 가 한 번 켜진 뒤에야 그 폴더가 생깁니다."),
                     critical: true
                 )
                 return
@@ -80,31 +79,30 @@ final class VaultMover {
     private func apply(_ plan: VaultRelocation.Plan) async {
         switch plan {
         case .alreadyThere:
-            tell("이미 그 폴더를 쓰고 있습니다", detail: readable(paths.vault))
+            tell(L("이미 그 폴더를 쓰고 있습니다"), detail: readable(paths.vault))
         case .refuse(let reason):
-            tell("옮길 수 없습니다", detail: reason, critical: true)
+            tell(L("옮길 수 없습니다"), detail: reason, critical: true)
         case .adopt(let target):
             guard confirm(
-                "그 폴더의 메모를 씁니다",
-                detail: "\(readable(target))\n\n이미 메모가 들어 있는 폴더입니다. "
-                    + "파일은 옮기지 않고 이제부터 이 폴더를 씁니다.\n\n"
-                    + "지금 있는 \(readable(paths.vault)) 는 그대로 남습니다."
+                L("그 폴더의 메모를 씁니다"),
+                detail: readable(target) + "\n\n"
+                    + L("이미 메모가 들어 있는 폴더입니다. 파일은 옮기지 않고 이제부터 이 폴더를 씁니다.\n\n지금 있는 \(readable(paths.vault)) 는 그대로 남습니다.")
             ) else { return }
             await settle(plan, to: target)
         case .move(let target):
             guard confirm(
-                "메모 폴더를 옮깁니다",
+                L("메모 폴더를 옮깁니다"),
                 detail: "\(readable(paths.vault))\n→ \(readable(target))\n\n"
-                    + "메모 파일과 사진이 통째로 옮겨집니다. lazymemo 가 다시 열립니다."
+                    + L("메모 파일과 사진이 통째로 옮겨집니다. lazymemo 가 다시 열립니다.")
             ) else { return }
             await settle(plan, to: target)
         case .merge(let target, let existing):
-            let already = existing > 0 ? "거기 이미 있는 \(existing)장과 합쳐집니다. " : ""
+            let already = existing > 0 ? L("거기 이미 있는 \(existing)장과 합쳐집니다.") + " " : ""
             guard confirm(
-                "iCloud 의 LazyMemo 폴더로 옮깁니다",
+                L("iCloud 의 LazyMemo 폴더로 옮깁니다"),
                 detail: "\(readable(paths.vault))\n→ \(readable(target))\n\n"
-                    + "메모 파일과 사진이 그 폴더로 들어갑니다. \(already)"
-                    + "아이폰의 lazymemo 와 같은 폴더입니다. lazymemo 가 다시 열립니다."
+                    + L("메모 파일과 사진이 그 폴더로 들어갑니다.") + " " + already
+                    + L("아이폰의 lazymemo 와 같은 폴더입니다. lazymemo 가 다시 열립니다.")
             ) else { return }
             await settle(plan, to: target)
         }
@@ -129,7 +127,7 @@ final class VaultMover {
             discardIndex()
             Relaunch.now()
         } catch {
-            tell("옮기지 못했습니다", detail: "\(error)\n\n메모는 있던 자리에 그대로 있습니다.", critical: true)
+            tell(L("옮기지 못했습니다"), detail: "\(error)\n\n" + L("메모는 있던 자리에 그대로 있습니다."), critical: true)
         }
     }
 
@@ -147,8 +145,8 @@ final class VaultMover {
         let alert = NSAlert()
         alert.messageText = message
         alert.informativeText = detail
-        alert.addButton(withTitle: "옮기기")
-        alert.addButton(withTitle: "그만두기")
+        alert.addButton(withTitle: L("옮기기"))
+        alert.addButton(withTitle: L("그만두기"))
         NSApp.activate()
         return alert.runModal() == .alertFirstButtonReturn
     }
@@ -158,7 +156,7 @@ final class VaultMover {
         alert.alertStyle = critical ? .warning : .informational
         alert.messageText = message
         alert.informativeText = detail
-        alert.addButton(withTitle: "확인")
+        alert.addButton(withTitle: L("확인"))
         NSApp.activate()
         alert.runModal()
     }

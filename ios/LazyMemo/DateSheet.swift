@@ -42,7 +42,7 @@ struct DateSheet: View {
     }
 
     private var title: String {
-        guard let day else { return "날짜" }
+        guard let day else { return String(localized: "날짜") }
         guard let at = schedule.at else { return DayWords.long(day) }
         return "\(DayWords.long(day)) \(DayWords.clock(at))"
     }
@@ -95,11 +95,11 @@ struct DateSheet: View {
     private var timeRow: some View {
         HStack(spacing: 8) {
             Text("시각").font(.subheadline).foregroundStyle(.secondary)
-            timeChip("없음", on: schedule.at == nil) { clearTime() }
+            timeChip(String(localized: "없음"), on: schedule.at == nil) { clearTime() }
             ForEach(Self.presets, id: \.self) { hour in
                 timeChip(String(format: "%02d:00", hour), on: Self.clock(schedule) == hour) { set(hour: hour) }
             }
-            timeChip("직접…", on: custom || Self.ownTime(schedule)) { toggleCustom() }
+            timeChip(String(localized: "직접…"), on: custom || Self.ownTime(schedule)) { toggleCustom() }
             Spacer()
         }
         .padding(.horizontal, 20)

@@ -27,9 +27,9 @@ final class HereCapture: NSObject, CLLocationManagerDelegate {
         /// 설정 메뉴에 적을 말. `nil` 이면 할 말이 없다.
         var note: String? {
             switch self {
-            case .granted: "⌥⌘L 로 지금 있는 자리를 종이에 적습니다"
-            case .notAsked: "처음 ⌥⌘L 을 누를 때 한 번 묻습니다"
-            case .denied: "시스템 설정 → 개인정보 보호에서 위치를 허용하면 켜집니다"
+            case .granted: L("⌥⌘L 로 지금 있는 자리를 종이에 적습니다")
+            case .notAsked: L("처음 ⌥⌘L 을 누를 때 한 번 묻습니다")
+            case .denied: L("시스템 설정 → 개인정보 보호에서 위치를 허용하면 켜집니다")
             }
         }
     }
@@ -70,7 +70,7 @@ final class HereCapture: NSObject, CLLocationManagerDelegate {
 
         // 적을 글이 없으면 자리 자체가 글이다 — 사람이 나중에 덧붙인다.
         return await door.receive(
-            InboundNote(text: address ?? point?.description ?? "여기", place: address)
+            InboundNote(text: address ?? point?.description ?? L("여기"), place: address)
         )
     }
 

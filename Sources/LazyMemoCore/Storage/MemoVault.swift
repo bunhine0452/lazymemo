@@ -11,8 +11,8 @@ public actor MemoVault {
 
         public var description: String {
             switch self {
-            case .notFound(let id): "메모를 찾을 수 없습니다: \(id)"
-            case .notInTrash(let id): "휴지통에 없는 메모입니다: \(id)"
+            case .notFound(let id): L("메모를 찾을 수 없습니다: \(id.description)")
+            case .notInTrash(let id): L("휴지통에 없는 메모입니다: \(id.description)")
             }
         }
     }

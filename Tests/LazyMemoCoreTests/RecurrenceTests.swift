@@ -20,6 +20,9 @@ struct RecurrenceTests {
         #expect(Recurrence("매달") == .monthly)
         #expect(Recurrence("weekly") == .weekly)
         #expect(Recurrence("매주")?.label == "매주")
+        #expect(Recurrence("weekly")?.label == "매주", "파일에 적히는 낱말은 어느 말로 읽었든 하나다")
+        #expect(Recurrence.weekly.text(locale: Locale(identifier: "en_US")) == "Weekly")
+        #expect(Recurrence.weekly.text(locale: Locale(identifier: "ko_KR")) == "매주")
         #expect(Recurrence("가끔") == nil)
         #expect(Recurrence("") == nil)
     }

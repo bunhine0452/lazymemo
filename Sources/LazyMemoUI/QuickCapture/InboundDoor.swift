@@ -53,7 +53,7 @@ final class InboundDoor: NSObject {
         _ pasteboard: NSPasteboard, userData: String, error: AutoreleasingUnsafeMutablePointer<NSString>
     ) {
         guard let text = pasteboard.string(forType: .string) else {
-            error.pointee = "적을 글이 없습니다" as NSString
+            error.pointee = L("적을 글이 없습니다") as NSString
             return
         }
         Task { await receive(text: text) }

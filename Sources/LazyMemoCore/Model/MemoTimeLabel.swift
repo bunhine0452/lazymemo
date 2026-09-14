@@ -9,45 +9,49 @@ import Foundation
 /// 맥의 메뉴 목록에서 시작해 폰의 목록까지 같은 낱말을 쓴다 — 「오늘 15:00」이
 /// 한쪽에서는 「오늘 오후 3시」로 보이면 사람은 두 앱을 쓰는 것이 된다.
 public enum MemoTimeLabel {
-    public static func text(for memo: Memo, now: Date = Date(), calendar: Calendar = .current) -> String {
+    public static func text(
+        for memo: Memo, now: Date = Date(), calendar: Calendar = .current, locale: Locale = .current
+    ) -> String {
         if let at = memo.at {
-            let day = relativeDay(CalendarDate(at, calendar: calendar), now: now, calendar: calendar)
+            let day = relativeDay(CalendarDate(at, calendar: calendar), now: now, calendar: calendar, locale: locale)
             return "\(day) \(clock(at, calendar: calendar))"
         }
         if let due = memo.due {
-            return relativeDay(due, now: now, calendar: calendar)
+            return relativeDay(due, now: now, calendar: calendar, locale: locale)
         }
-        return elapsed(memo.updated, now: now, calendar: calendar)
+        return elapsed(memo.updated, now: now, calendar: calendar, locale: locale)
     }
 
     /// 앞으로 올 날. 일정이 적힌 메모에 쓴다.
     private static func relativeDay(
-        _ target: CalendarDate, now: Date, calendar: Calendar
+        _ target: CalendarDate, now: Date, calendar: Calendar, locale: Locale
     ) -> String {
         guard let offset = dayOffset(target, from: now, calendar: calendar) else {
             return short(target)
         }
         switch offset {
-        case 0: return "오늘"
-        case 1: return "내일"
-        case -1: return "어제"
-        case 2...6: return "\(offset)일 뒤"
-        case -6 ... -2: return "\(-offset)일 전"
+        case 0: return L("오늘", locale: locale)
+        case 1: return L("내일", locale: locale)
+        case -1: return L("어제", locale: locale)
+        case 2...6: return L("\(offset)일 뒤", locale: locale)
+        case -6 ... -2: return L("\(-offset)일 전", locale: locale)
         default: return short(target)
         }
     }
 
     /// 지나간 날. 일정이 없는 메모는 마지막으로 손댄 때를 보인다. 휴지통은
     /// 「N일 전 지움」에 같은 낱말을 쓴다.
-    public static func elapsed(_ date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+    public static func elapsed(
+        _ date: Date, now: Date = Date(), calendar: Calendar = .current, locale: Locale = .current
+    ) -> String {
         let target = CalendarDate(date, calendar: calendar)
         guard let offset = dayOffset(target, from: now, calendar: calendar) else {
             return short(target)
         }
         switch offset {
-        case 0: return "오늘"
-        case -1: return "어제"
-        case -6 ... -2: return "\(-offset)일 전"
+        case 0: return L("오늘", locale: locale)
+        case -1: return L("어제", locale: locale)
+        case -6 ... -2: return L("\(-offset)일 전", locale: locale)
         default: return short(target)
         }
     }

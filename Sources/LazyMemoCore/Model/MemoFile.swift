@@ -15,9 +15,9 @@ public enum MemoFile {
 
         public var description: String {
             switch self {
-            case .missingFrontmatter: "frontmatter 가 없습니다 (`---` 로 시작해야 합니다)"
-            case .unterminatedFrontmatter: "frontmatter 가 닫히지 않았습니다"
-            case .invalidIdentifier(let value): "id 가 ULID 가 아닙니다: \(value ?? "없음")"
+            case .missingFrontmatter: L("frontmatter 가 없습니다 (`---` 로 시작해야 합니다)")
+            case .unterminatedFrontmatter: L("frontmatter 가 닫히지 않았습니다")
+            case .invalidIdentifier(let value): L("id 가 ULID 가 아닙니다: \(value ?? L("없음"))")
             }
         }
     }

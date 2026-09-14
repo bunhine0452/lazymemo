@@ -26,19 +26,19 @@ public struct UpdateInstaller: Sendable {
         public var description: String {
             switch self {
             case .notReplaceable(.homebrew):
-                "Homebrew 로 설치한 앱입니다 — 터미널에서 `brew upgrade --cask lazymemo`"
+                L("Homebrew 로 설치한 앱입니다 — 터미널에서 `brew upgrade --cask lazymemo`")
             case .notReplaceable:
-                "이 앱은 스스로 바꿀 수 없는 자리에 있습니다"
+                L("이 앱은 스스로 바꿀 수 없는 자리에 있습니다")
             case .checksumMismatch:
-                "받은 파일이 온전하지 않습니다 — 다시 시도해 보세요"
+                L("받은 파일이 온전하지 않습니다 — 다시 시도해 보세요")
             case .unpackFailed:
-                "받은 파일을 풀지 못했습니다"
+                L("받은 파일을 풀지 못했습니다")
             case .signatureBroken:
-                "받은 앱의 서명이 깨져 있습니다 — 설치하지 않았습니다"
+                L("받은 앱의 서명이 깨져 있습니다 — 설치하지 않았습니다")
             case .wrongVersion(let expected, let found):
-                "받은 앱이 \(found) 입니다 (\(expected) 를 기다렸습니다)"
+                L("받은 앱이 \(found) 입니다 (\(expected) 를 기다렸습니다)")
             case .notWritable(let path):
-                "\(path) 에 쓸 수 없습니다"
+                L("\(path) 에 쓸 수 없습니다")
             }
         }
     }
@@ -97,7 +97,7 @@ public struct UpdateInstaller: Sendable {
         // ③ «다른 것을 받았다» 를 잡는다.
         let found = Self.bundleVersion(at: bundle)
         guard found == release.version.description else {
-            throw Failure.wrongVersion(expected: release.version.description, found: found ?? "알 수 없음")
+            throw Failure.wrongVersion(expected: release.version.description, found: found ?? L("알 수 없음"))
         }
 
         return bundle

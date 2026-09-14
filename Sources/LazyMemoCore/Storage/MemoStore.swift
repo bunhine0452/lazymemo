@@ -141,7 +141,7 @@ public final class MemoStore {
         color: MemoColor = .default,
         folder: String? = nil
     ) async throws -> Memo {
-        let memo = try await recording("메모를 만들지 못했습니다") {
+        let memo = try await recording(L("메모를 만들지 못했습니다")) {
             try await service.create(
                 body: body, due: due, at: at, every: every, surface: surface, place: place, geo: geo,
                 tags: tags, color: color, folder: folder
@@ -166,7 +166,7 @@ public final class MemoStore {
         pinned: Bool? = nil,
         folder: String?? = nil
     ) async throws -> Memo {
-        let memo = try await recording("메모를 저장하지 못했습니다") {
+        let memo = try await recording(L("메모를 저장하지 못했습니다")) {
             try await service.update(
                 id, body: body, due: due, at: at, every: every, surface: surface, place: place, geo: geo,
                 tags: tags, color: color, pinned: pinned, folder: folder
@@ -178,7 +178,7 @@ public final class MemoStore {
 
     /// 삭제는 휴지통 이동뿐이다 (D6).
     public func delete(_ id: ULID) async throws {
-        let removed = try await recording("메모를 지우지 못했습니다") {
+        let removed = try await recording(L("메모를 지우지 못했습니다")) {
             try await service.delete(id)
         }
         memos.removeAll { $0.id == id }
@@ -186,7 +186,7 @@ public final class MemoStore {
     }
 
     public func restore(_ id: ULID) async throws {
-        let restored = try await recording("메모를 되돌리지 못했습니다") {
+        let restored = try await recording(L("메모를 되돌리지 못했습니다")) {
             try await service.restore(id)
         }
         trash.removeAll { $0.id == id }
@@ -203,7 +203,7 @@ public final class MemoStore {
             trouble = nil
         } catch {
             // 이건 다르다 — 파일을 못 읽으면 보여줄 것 자체가 없다.
-            report(error, while: "메모를 읽지 못했습니다")
+            report(error, while: L("메모를 읽지 못했습니다"))
         }
     }
 
@@ -222,7 +222,7 @@ public final class MemoStore {
             try attachments.discardOrphans(referencedBy: bodies, notTouchedSince: grace)
             try attachments.purgeTrashed(now: now)
         } catch {
-            report(error, while: "첨부를 정리하지 못했습니다")
+            report(error, while: L("첨부를 정리하지 못했습니다"))
         }
     }
 
@@ -231,7 +231,7 @@ public final class MemoStore {
 
     /// 치워 둔 것을 도로 꺼낸다.
     public func untidy(_ id: ULID) async {
-        guard let restored = try? await recording("치워 둔 메모를 꺼내지 못했습니다", {
+        guard let restored = try? await recording(L("치워 둔 메모를 꺼내지 못했습니다"), {
             try await service.untidy(id)
         }) else { return }
         insertOrReplace(restored)
@@ -239,7 +239,7 @@ public final class MemoStore {
 
     /// 치워 둔 것을 **한 번에** 전부 꺼낸다 (`{#tidy-visible-undo}`).
     public func untidyAll() async {
-        guard let restored = try? await recording("치워 둔 메모를 꺼내지 못했습니다", {
+        guard let restored = try? await recording(L("치워 둔 메모를 꺼내지 못했습니다"), {
             try await service.untidyAll()
         }) else { return }
         for memo in restored { insertOrReplace(memo) }
@@ -266,7 +266,7 @@ public final class MemoStore {
                 trash.removeAll { purged.contains($0.id) }
             }
         } catch {
-            report(error, while: "휴지통을 정리하지 못했습니다")
+            report(error, while: L("휴지통을 정리하지 못했습니다"))
         }
     }
 

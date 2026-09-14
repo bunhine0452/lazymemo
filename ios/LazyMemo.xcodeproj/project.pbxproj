@@ -260,7 +260,7 @@
 				};
 			};
 			buildConfigurationList = 4C4D000000000000000000D1 /* Build configuration list for PBXProject "LazyMemo" */;
-			developmentRegion = ko;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				ko,

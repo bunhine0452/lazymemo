@@ -49,7 +49,7 @@ enum DrawerContents {
 
     /// 서랍이 스스로를 뭐라고 부르는가. 숫자만 적으면 그것은 배지이지 말이 아니다.
     static func title(count: Int) -> String {
-        count == 0 ? "서랍" : "서랍 · \(count)장"
+        count == 0 ? L("서랍") : L("서랍 · \(count)장")
     }
 
     /// 고른 장이 몇 장인지. **없으면 아무 말도 하지 않는다.**
@@ -57,9 +57,9 @@ enum DrawerContents {
     /// 「0장 골랐습니다」는 말이 아니라 빈칸이다. 고르지 않은 사람에게 고르기의
     /// 존재를 알릴 자리는 여기가 아니다 (철학 1 — 완성을 요구하지 않는다).
     static func picked(count: Int) -> String? {
-        count > 0 ? "\(count)장 골랐습니다" : nil
+        count > 0 ? L("\(count)장 골랐습니다") : nil
     }
 
     /// 「전체」 칸의 이름. 폴더 이름과 겹치지 않게 앞에 구분 기호를 둔다.
-    static let everything = "전체"
+    static let everything = L("전체")
 }

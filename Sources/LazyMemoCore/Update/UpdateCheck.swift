@@ -43,9 +43,9 @@ public enum UpdateCheck {
 
         public var description: String {
             switch self {
-            case .unreadable: "릴리스 정보를 읽지 못했습니다"
-            case .noVersion(let tag): "판 번호를 알 수 없는 태그입니다: \(tag)"
-            case .noAsset(let version): "\(version) 릴리스에 내려받을 앱이 없습니다"
+            case .unreadable: L("릴리스 정보를 읽지 못했습니다")
+            case .noVersion(let tag): L("판 번호를 알 수 없는 태그입니다: \(tag)")
+            case .noAsset(let version): L("\(version) 릴리스에 내려받을 앱이 없습니다")
             }
         }
     }

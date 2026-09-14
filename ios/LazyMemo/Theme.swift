@@ -95,12 +95,12 @@ extension MemoColor {
 
     var label: String {
         switch self {
-        case .yellow: "노랑"
-        case .green: "초록"
-        case .blue: "파랑"
-        case .purple: "보라"
-        case .pink: "분홍"
-        case .gray: "무채"
+        case .yellow: String(localized: "노랑")
+        case .green: String(localized: "초록")
+        case .blue: String(localized: "파랑")
+        case .purple: String(localized: "보라")
+        case .pink: String(localized: "분홍")
+        case .gray: String(localized: "무채")
         }
     }
 }

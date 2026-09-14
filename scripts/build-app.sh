@@ -44,8 +44,11 @@ cp "$BIN_PATH/LazyMemo" "$APP/Contents/MacOS/LazyMemo"
 cp "$BIN_PATH/lazymemo-mcp" "$APP/Contents/MacOS/lazymemo-mcp"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
-# SPM 이 만든 리소스 번들(메뉴바 아이콘)도 함께 넣는다.
+# SPM 이 만든 리소스 번들(메뉴바 아이콘·번역 표)도 함께 넣는다.
 cp -R "$BIN_PATH"/*.bundle "$APP/Contents/Resources/" 2>/dev/null || true
+# 앱 번들이 어떤 말을 하는지는 이 폴더들이 말한다 — 없으면 macOS 가 영어 사용자에게도
+# 개발 언어만 보이고, 패키지 번들의 번역 표는 쓰이지 않는다 (Words.swift).
+cp -R "$ROOT"/Resources/*.lproj "$APP/Contents/Resources/"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 # 심볼 테이블을 턴다. 번들의 절반이 디버거용 이름표라 그냥 두면 3.8MB 가 나간다.

@@ -60,15 +60,15 @@ public enum VaultRelocation {
         if from == to { return .alreadyThere }
         // 자기 안으로 옮기면 옮기는 도중에 원본이 사라진다.
         if to.hasPrefix(from + "/") {
-            return .refuse("메모 폴더 안으로는 옮길 수 없습니다")
+            return .refuse(L("메모 폴더 안으로는 옮길 수 없습니다"))
         }
         if isVault(target, fileManager: fileManager) { return .adopt(target) }
         if AppPaths.isDirectory(target, fileManager: fileManager),
            !isEmpty(target, fileManager: fileManager) {
-            return .refuse("그 자리에 이미 다른 것이 들어 있습니다")
+            return .refuse(L("그 자리에 이미 다른 것이 들어 있습니다"))
         }
         guard AppPaths.isDirectory(chosen, fileManager: fileManager) else {
-            return .refuse("폴더가 아닙니다")
+            return .refuse(L("폴더가 아닙니다"))
         }
         return .move(to: target)
     }
@@ -84,7 +84,7 @@ public enum VaultRelocation {
 
         if from == to { return .alreadyThere }
         if to.hasPrefix(from + "/") {
-            return .refuse("메모 폴더 안으로는 옮길 수 없습니다")
+            return .refuse(L("메모 폴더 안으로는 옮길 수 없습니다"))
         }
         return .merge(into: target, existing: noteCount(in: target, fileManager: fileManager))
     }

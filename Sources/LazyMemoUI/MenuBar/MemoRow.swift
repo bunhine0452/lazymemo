@@ -233,7 +233,7 @@ final class MemoRow: NSView {
     private static func trashImage(_ color: NSColor) -> NSImage? {
         let configuration = NSImage.SymbolConfiguration(pointSize: 12, weight: .regular)
             .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
-        return NSImage(systemSymbolName: "trash", accessibilityDescription: "지우기")?
+        return NSImage(systemSymbolName: "trash", accessibilityDescription: L("지우기"))?
             .withSymbolConfiguration(configuration)
     }
 

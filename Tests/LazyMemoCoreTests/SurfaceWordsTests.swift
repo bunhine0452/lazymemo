@@ -6,8 +6,13 @@ import Testing
 struct SurfaceWordsTests {
     private let event = Date(timeIntervalSince1970: 1_800_000_000)
 
-    private func lead(minutesBefore: Double) -> String? {
-        SurfaceWords.lead(surface: event.addingTimeInterval(-minutesBefore * 60), event: event)
+    private let ko = Locale(identifier: "ko_KR")
+    private let en = Locale(identifier: "en_US")
+
+    private func lead(minutesBefore: Double, locale: Locale? = nil) -> String? {
+        SurfaceWords.lead(
+            surface: event.addingTimeInterval(-minutesBefore * 60), event: event, locale: locale ?? ko
+        )
     }
 
     @Test("분 단위로 말한다")
@@ -31,13 +36,25 @@ struct SurfaceWordsTests {
 
     @Test("일정보다 나중에 나오는 것도 말할 수 있다")
     func after() {
-        #expect(SurfaceWords.lead(surface: event.addingTimeInterval(600), event: event)
+        #expect(SurfaceWords.lead(surface: event.addingTimeInterval(600), event: event, locale: ko)
             == "10분 뒤")
+    }
+
+    @Test("영어는 앞뒤가 뒤집힌다 — 「전」을 꼬리로 붙이지 않고 문장째 표에서 온다")
+    func english() {
+        #expect(lead(minutesBefore: 30, locale: en) == "30 min ahead")
+        #expect(lead(minutesBefore: 60, locale: en) == "1 hr ahead")
+        #expect(lead(minutesBefore: 120, locale: en) == "2 hrs ahead")
+        #expect(lead(minutesBefore: 90, locale: en) == "1 hr 30 min ahead")
+        #expect(lead(minutesBefore: 60 * 24, locale: en) == "1 day ahead")
+        #expect(lead(minutesBefore: 60 * 24 * 3, locale: en) == "3 days ahead")
+        #expect(SurfaceWords.lead(surface: event.addingTimeInterval(600), event: event, locale: en)
+            == "10 min after")
     }
 
     @Test("같은 시각이면 덧붙일 말이 없다 — 「1분 전」은 알려 주는 값이 없다")
     func sameMoment() {
-        #expect(SurfaceWords.lead(surface: event, event: event) == nil)
+        #expect(SurfaceWords.lead(surface: event, event: event, locale: ko) == nil)
         #expect(lead(minutesBefore: 0.5) == nil)
     }
 }

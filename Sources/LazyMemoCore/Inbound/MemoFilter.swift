@@ -8,16 +8,27 @@ import Foundation
 public enum MemoShape: Sendable, Equatable, CaseIterable {
     case photo, link, checklist
 
+    /// 칩에 적히는 말. 사용자가 치는 것도 이 말이다 — `#사진` · `#photo`.
     public var label: String {
         switch self {
-        case .photo: "사진"
-        case .link: "링크"
-        case .checklist: "체크"
+        case .photo: L("사진")
+        case .link: L("링크")
+        case .checklist: L("체크")
+        }
+    }
+
+    /// 알아듣는 낱말. 화면의 말과 상관없이 어느 말로 쳐도 걸린다 (`TimeWords` 와 같은 태도).
+    var words: [String] {
+        switch self {
+        case .photo: ["사진", "photo", "photos", "pic", "image"]
+        case .link: ["링크", "link", "links", "url"]
+        case .checklist: ["체크", "할일", "todo", "to-do", "check", "checklist"]
         }
     }
 
     public static func named(_ word: String) -> MemoShape? {
-        allCases.first { $0.label == word }
+        let lowered = word.lowercased()
+        return allCases.first { $0.words.contains(lowered) }
     }
 
     public func matches(_ memo: Memo) -> Bool {

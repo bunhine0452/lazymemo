@@ -159,6 +159,6 @@ public struct Memo: Sendable, Equatable, Identifiable {
             .first { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
             .map(String.init) ?? ""
         let stripped = line.trimmingCharacters(in: CharacterSet(charactersIn: "# \t-*>"))
-        return stripped.isEmpty ? "빈 메모" : stripped
+        return stripped.isEmpty ? L("빈 메모") : stripped
     }
 }

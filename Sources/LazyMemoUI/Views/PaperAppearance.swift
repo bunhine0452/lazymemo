@@ -25,10 +25,10 @@ final class PaperAppearance {
     /// 물건이고, 이 앱이 가장 피하는 종류의 조작이다. 네 칸이면 "조금 더"
     /// 와 "많이" 사이에서 헤맬 일이 없다.
     static let steps: [Step] = [
-        Step(label: "선명하게", opacity: 1.0),
-        Step(label: "살짝 비치게", opacity: 0.85),
-        Step(label: "반쯤 비치게", opacity: 0.68),
-        Step(label: "많이 비치게", opacity: 0.5),
+        Step(label: L("선명하게"), opacity: 1.0),
+        Step(label: L("살짝 비치게"), opacity: 0.85),
+        Step(label: L("반쯤 비치게"), opacity: 0.68),
+        Step(label: L("많이 비치게"), opacity: 0.5),
     ]
 
     static let standard: Double = 1.0

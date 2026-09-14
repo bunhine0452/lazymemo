@@ -93,7 +93,7 @@ final class MorningBrief {
 
     /// 같은 종이를 다시 쓴다. 없어졌으면(사람이 지웠으면) 새로 짓는다.
     private func place(_ body: String) async {
-        let text = "## 오늘\n\n" + body
+        let text = "## " + L("오늘") + "\n\n" + body
 
         if let raw = settings.current.briefMemoID, let id = ULID(raw),
            let existing = try? await store.update(id, body: text) {

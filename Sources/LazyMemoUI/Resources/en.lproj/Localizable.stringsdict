@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>%@ — %lld개</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%1$@ — %2$#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%2$lld note</string>
+			<key>other</key>
+			<string>%2$lld notes</string>
+		</dict>
+	</dict>
+	<key>%lld장</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld note</string>
+			<key>other</key>
+			<string>%lld notes</string>
+		</dict>
+	</dict>
+	<key>%@ — %lld장. 눌러서 이 폴더만 봅니다</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%1$@ — %2$#@n@. Click to see only this folder</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%2$lld note</string>
+			<key>other</key>
+			<string>%2$lld notes</string>
+		</dict>
+	</dict>
+	<key>전체 — %lld장. 눌러서 서랍 전체를 봅니다</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>All — %#@n@. Click to see the whole drawer</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld note</string>
+			<key>other</key>
+			<string>%lld notes</string>
+		</dict>
+	</dict>
+	<key>서랍에는 %lld장이 들어 있습니다 — esc 로 되돌립니다</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>The drawer holds %#@n@ — esc goes back</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld note</string>
+			<key>other</key>
+			<string>%lld notes</string>
+		</dict>
+	</dict>
+	<key>메모 %lld장</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld note</string>
+			<key>other</key>
+			<string>%lld notes</string>
+		</dict>
+	</dict>
+	<key>지운 메모 %lld장</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Deleted Note</string>
+			<key>other</key>
+			<string>%lld Deleted Notes</string>
+		</dict>
+	</dict>
+	<key>%lld자리를 지켜보는 중 · 상한을 넘겨 %lld장은 빠졌습니다</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>Watching %1$#@n@ · over the limit, %2$lld left out</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%1$lld place</string>
+			<key>other</key>
+			<string>%1$lld places</string>
+		</dict>
+	</dict>
+	<key>%lld자리를 지켜보는 중 · 도착하면 그 종이가 나옵니다</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>Watching %#@n@ · the note comes out when you arrive</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld place</string>
+			<key>other</key>
+			<string>%lld places</string>
+		</dict>
+	</dict>
+	<key>거기 이미 있는 %lld장과 합쳐집니다.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>Merged with the %#@n@ already there.</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld note</string>
+			<key>other</key>
+			<string>%lld notes</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

@@ -62,7 +62,7 @@ public enum InstallSource: Sendable, Equatable {
     /// 사람에게 하는 말. 앱이 스스로 못 바꾸는 경우에만 쓴다.
     public var advice: String? {
         switch self {
-        case .appStore: "App Store에서 업데이트할 수 있습니다"
+        case .appStore: L("App Store에서 업데이트할 수 있습니다")
         case .homebrew: "brew upgrade --cask lazymemo"
         case .development, .standalone: nil
         }

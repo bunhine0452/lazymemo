@@ -85,9 +85,10 @@ private struct ShareSheet: View {
         if let at = note.at {
             let day = CalendarDate(at)
             let parts2 = Calendar.current.dateComponents([.hour, .minute], from: at)
-            parts.append("\(day.month)월 \(day.day)일 \(String(format: "%d:%02d", parts2.hour ?? 0, parts2.minute ?? 0)) · 달력으로")
+            let clock = String(format: "%d:%02d", parts2.hour ?? 0, parts2.minute ?? 0)
+            parts.append(String(localized: "\(DateWords.monthDay(day)) \(clock) · 달력으로"))
         } else if let due = note.due {
-            parts.append("\(due.month)월 \(due.day)일 · 달력으로")
+            parts.append(String(localized: "\(DateWords.monthDay(due)) · 달력으로"))
         }
         if let place = note.place { parts.append("@" + place) }
         return parts.isEmpty ? nil : parts.joined(separator: "   ")
@@ -95,9 +96,9 @@ private struct ShareSheet: View {
 
     /// 날짜가 읽혔으면 단추가 그렇게 말한다 — 앱의 펜과 같다.
     private var leaveLabel: String {
-        guard let inbound = InboundNote.make(text: text) else { return "메모 남기기" }
+        guard let inbound = InboundNote.make(text: text) else { return String(localized: "메모 남기기") }
         let note = NoteReader.read(inbound)
-        return note.due == nil && note.at == nil ? "메모 남기기" : "달력에 남기기"
+        return note.due == nil && note.at == nil ? String(localized: "메모 남기기") : String(localized: "달력에 남기기")
     }
 
     private func leave() {
@@ -115,7 +116,7 @@ private struct ShareSheet: View {
                 try await InboxDrop.drop(inbound, into: paths)
                 context?.completeRequest(returningItems: nil)
             } catch {
-                trouble = "적지 못했습니다 — \(error)"
+                trouble = String(localized: "적지 못했습니다 — \(String(describing: error))")
             }
         }
     }

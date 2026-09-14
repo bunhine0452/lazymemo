@@ -112,15 +112,15 @@ final class PenModel {
     var leaveLabel: String {
         let note = reading
         let dated = note.due != nil || note.at != nil || (readsDate && presetDay != nil)
-        return dated ? "달력에 남기기" : "메모 남기기"
+        return dated ? String(localized: "달력에 남기기") : String(localized: "메모 남기기")
     }
 
     /// 칩 하나 — 날짜. 끈 뒤에도 글이 그대로면 칩도 그대로다 (꺼진 모양으로).
     var dateChip: String? {
         let note = readAll
-        if let at = note.at { return "\(DayWords.long(CalendarDate(at))) \(DayWords.clock(at)) · 달력으로" }
-        if let due = note.due { return "\(DayWords.long(due)) · 달력으로" }
-        if let presetDay { return "\(DayWords.long(presetDay)) · 달력으로" }
+        if let at = note.at { return String(localized: "\(DayWords.long(CalendarDate(at))) \(DayWords.clock(at)) · 달력으로") }
+        if let due = note.due { return String(localized: "\(DayWords.long(due)) · 달력으로") }
+        if let presetDay { return String(localized: "\(DayWords.long(presetDay)) · 달력으로") }
         return nil
     }
 
@@ -130,7 +130,7 @@ final class PenModel {
     }
 
     var everyChip: String? {
-        readAll.every.map(\.label)
+        readAll.every.map { $0.text() }
     }
 
     // MARK: 적기 끝
@@ -215,9 +215,7 @@ final class PenModel {
 /// 여기는 「9월 14일 (일)」처럼 조금 더 긴 자리다.
 enum DayWords {
     static func long(_ day: CalendarDate, calendar: Calendar = .current) -> String {
-        guard let date = day.startOfDay(calendar: calendar) else { return day.description }
-        let weekday = calendar.shortWeekdaySymbols[calendar.component(.weekday, from: date) - 1]
-        return "\(day.month)월 \(day.day)일 (\(weekday))"
+        DateWords.monthDayWeekday(day, calendar: calendar)
     }
 
     static func clock(_ date: Date, calendar: Calendar = .current) -> String {

@@ -246,7 +246,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private func configureButton() {
         guard let button = statusItem.button else { return }
         button.image = Self.menuBarIcon()
-        button.toolTip = "lazymemo — \(hotkey.current.displayName) 로 빠른 입력"
+        button.toolTip = L("lazymemo — \(hotkey.current.displayName) 로 빠른 입력")
         button.target = self
         button.action = #selector(statusItemClicked)
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -286,20 +286,20 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(captureItem())
         menu.addItem(clipboardCaptureItem())
         if !hotkeyAvailable {
-            menu.addItem(disabled("⚠︎ \(hotkey.current.displayName) 을 다른 앱이 쓰고 있습니다"))
+            menu.addItem(disabled(L("⚠︎ \(hotkey.current.displayName) 을 다른 앱이 쓰고 있습니다")))
         }
         addMissingVaultLine(to: menu)
         addTroubleLine(to: menu)
-        menu.addItem(item(title: "빈 종이 꺼내기", action: #selector(newMemo), key: ""))
+        menu.addItem(item(title: L("빈 종이 꺼내기"), action: #selector(newMemo), key: ""))
         menu.addItem(.separator())
 
-        let calendarItem = item(title: "달력", action: #selector(toggleCalendar), key: "")
+        let calendarItem = item(title: L("달력"), action: #selector(toggleCalendar), key: "")
         calendarItem.state = calendar.isOpen ? .on : .off
         menu.addItem(calendarItem)
 
-        let drawerItem = item(title: "서랍", action: #selector(toggleDrawer), key: "")
+        let drawerItem = item(title: L("서랍"), action: #selector(toggleDrawer), key: "")
         drawerItem.state = drawer.isVisible ? .on : .off
-        drawerItem.toolTip = "밀어 둔 종이가 모이는 자리 — 바탕화면에 놓입니다"
+        drawerItem.toolTip = L("밀어 둔 종이가 모이는 자리 — 바탕화면에 놓입니다")
         menu.addItem(drawerItem)
         menu.addItem(.separator())
 
@@ -310,10 +310,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         addUpdateLine(to: menu)
         menu.addItem(settingsItem())
-        menu.addItem(item(title: "시작하기 및 사용 안내…", action: #selector(showWelcome), key: ""))
+        menu.addItem(item(title: L("시작하기 및 사용 안내…"), action: #selector(showWelcome), key: ""))
         addVaultItem(to: menu)
         menu.addItem(.separator())
-        menu.addItem(item(title: "lazymemo 종료", action: #selector(quit), key: "q"))
+        menu.addItem(item(title: L("lazymemo 종료"), action: #selector(quit), key: "q"))
     }
 
     /// 저장이나 읽기가 실패했다는 것을 **머리에서 말한다** (§6 의 연장).
@@ -339,16 +339,16 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// iCloud 가 아직 안 내려왔을 뿐일 수도 있으므로 설정을 지우지도 않는다.
     private func addMissingVaultLine(to menu: NSMenu) {
         guard let missingVault else { return }
-        let line = disabled("⚠︎ 옮겨 둔 메모 폴더를 찾지 못했습니다")
+        let line = disabled(L("⚠︎ 옮겨 둔 메모 폴더를 찾지 못했습니다"))
         line.toolTip = "\(missingVault.path(percentEncoded: false))\n"
-            + "지금은 기본 폴더를 쓰고 있습니다. 그 자리가 돌아오면 다시 그리로 갑니다."
+            + L("지금은 기본 폴더를 쓰고 있습니다. 그 자리가 돌아오면 다시 그리로 갑니다.")
         menu.addItem(line)
     }
 
     /// 이 앱의 머리 동작. 단축키를 **오른쪽에 적어 둔다** — 메뉴를 여는 사람은
     /// 대개 단축키를 모르는 사람이고, 알고 나면 다시는 메뉴를 열지 않는다.
     private func captureItem() -> NSMenuItem {
-        let entry = item(title: "빠른 입력", action: #selector(openCapture), key: "")
+        let entry = item(title: L("빠른 입력"), action: #selector(openCapture), key: "")
         if let (key, modifiers) = hotkey.current.menuKeyEquivalent {
             entry.keyEquivalent = key
             entry.keyEquivalentModifierMask = modifiers
@@ -358,9 +358,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     /// 클립보드 원키 즉시 캡처 (⌥⌘V).
     private func clipboardCaptureItem() -> NSMenuItem {
-        let entry = item(title: "클립보드 즉시 메모", action: #selector(captureClipboard), key: "v")
+        let entry = item(title: L("클립보드 즉시 메모"), action: #selector(captureClipboard), key: "v")
         entry.keyEquivalentModifierMask = [.option, .command]
-        entry.toolTip = "복사한 글이나 사진을 창 없이 즉시 메모로 저장합니다"
+        entry.toolTip = L("복사한 글이나 사진을 창 없이 즉시 메모로 저장합니다")
         return entry
     }
 
@@ -369,7 +369,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// 단계를 네 칸으로 끊는다 — 슬라이더는 조준해서 끌어야 하는 물건이고,
     /// 메뉴 안에서는 더 그렇다.
     private func paperOpacityItem() -> NSMenuItem {
-        let parent = NSMenuItem(title: "종이 투명도", action: nil, keyEquivalent: "")
+        let parent = NSMenuItem(title: L("종이 투명도"), action: nil, keyEquivalent: "")
         let submenu = NSMenu()
         for step in PaperAppearance.steps {
             let entry = item(title: step.label, action: #selector(setPaperOpacity(_:)), key: "")
@@ -378,7 +378,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             submenu.addItem(entry)
         }
         submenu.addItem(.separator())
-        submenu.addItem(disabled("포인터를 올리면 원래대로 진해집니다"))
+        submenu.addItem(disabled(L("포인터를 올리면 원래대로 진해집니다")))
         parent.submenu = submenu
         return parent
     }
@@ -388,11 +388,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // 적고 한 번에 도로 꺼낸다 — 안 적으면 그건 삭제로 읽힌다.
         let memos = store.active
         guard !memos.isEmpty else {
-            menu.addItem(disabled("아직 적은 것이 없습니다"))
+            menu.addItem(disabled(L("아직 적은 것이 없습니다")))
             return
         }
 
-        menu.addItem(header("메모 \(memos.count)장"))
+        menu.addItem(header(L("메모 \(memos.count)장")))
         let now = Date()
         for memo in memos.prefix(Self.listedMemoLimit) {
             menu.addItem(row(for: memo, now: now))
@@ -400,7 +400,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         if memos.count > Self.listedMemoLimit {
             // 넘어간 것을 **거기서 지울 수도 있다고** 적는다. 예전에는 "찾기"
             // 라고만 해서, 아홉 번째 메모부터는 치울 길이 없는 것처럼 보였다.
-            menu.addItem(disabled("… 외 \(memos.count - Self.listedMemoLimit)장 — 빠른 입력에서 찾기·지우기"))
+            menu.addItem(disabled(L("… 외 \(memos.count - Self.listedMemoLimit)장 — 빠른 입력에서 찾기·지우기")))
         }
     }
 
@@ -439,13 +439,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         guard !tidied.isEmpty else { return }
         menu.addItem(.separator())
 
-        menu.addItem(header("치워 둔 \(tidied.count)장 — \(Self.tidiedReasons(tidied))"))
+        menu.addItem(header(L("치워 둔 \(tidied.count)장 — \(Self.tidiedReasons(tidied))")))
 
-        let restore = item(title: "도로 꺼내기", action: #selector(restoreTidied), key: "")
+        let restore = item(title: L("도로 꺼내기"), action: #selector(restoreTidied), key: "")
         restore.image = NSImage(
-            systemSymbolName: "tray.and.arrow.up", accessibilityDescription: "도로 꺼내기"
+            systemSymbolName: "tray.and.arrow.up", accessibilityDescription: L("도로 꺼내기")
         )
-        restore.toolTip = "지운 것이 아닙니다 — 찾으면 그대로 나오고, 열면 도로 나옵니다"
+        restore.toolTip = L("지운 것이 아닙니다 — 찾으면 그대로 나오고, 열면 도로 나옵니다")
         menu.addItem(restore)
     }
 
@@ -464,7 +464,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let reasons = Tidy.Reason.allCases.filter { reason in
             asked.contains { Tidy.reason(for: $0, now: now) == reason }
         }
-        guard !reasons.isEmpty else { return "다 끝난 것" }
+        guard !reasons.isEmpty else { return L("다 끝난 것") }
         return reasons.map(\.label).joined(separator: "·")
     }
 
@@ -486,11 +486,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
 
         if let justDeleted {
-            let undo = item(title: "「\(justDeleted.title)」 되돌리기", action: #selector(restoreMemo(_:)), key: "")
+            let undo = item(title: L("「\(justDeleted.title)」 되돌리기"), action: #selector(restoreMemo(_:)), key: "")
             undo.representedObject = justDeleted.id.stringValue
             undo.image = NSImage(
                 systemSymbolName: "arrow.uturn.backward",
-                accessibilityDescription: "되돌리기"
+                accessibilityDescription: L("되돌리기")
             )
             menu.addItem(undo)
         }
@@ -498,16 +498,16 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let remaining = trash.filter { $0.id != justDeleted?.id }
         guard !remaining.isEmpty else { return }
 
-        let parent = NSMenuItem(title: "지운 메모 \(remaining.count)장", action: nil, keyEquivalent: "")
+        let parent = NSMenuItem(title: L("지운 메모 \(remaining.count)장"), action: nil, keyEquivalent: "")
         let submenu = NSMenu()
         for memo in remaining.prefix(Self.listedTrashLimit) {
             let entry = item(title: memo.title, action: #selector(restoreMemo(_:)), key: "")
             entry.representedObject = memo.id.stringValue
-            entry.toolTip = "되돌리기"
+            entry.toolTip = L("되돌리기")
             submenu.addItem(entry)
         }
         submenu.addItem(.separator())
-        submenu.addItem(disabled("30일 뒤 자동으로 지워집니다"))
+        submenu.addItem(disabled(L("30일 뒤 자동으로 지워집니다")))
         parent.submenu = submenu
         menu.addItem(parent)
     }
@@ -517,9 +517,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// 스파이크는 Stage Manager·Mission Control 에서 창이 제자리에 있는지
     /// 확인하는 개발용 통로다. 늘 보이면 "이건 뭐지" 를 남기므로 접어 둔다.
     private func addVaultItem(to menu: NSMenu) {
-        menu.addItem(item(title: "메모 폴더 열기", action: #selector(openVault), key: ""))
+        menu.addItem(item(title: L("메모 폴더 열기"), action: #selector(openVault), key: ""))
 
-        let spike = item(title: "바탕화면 창 스파이크", action: #selector(toggleSpike), key: "")
+        let spike = item(title: L("바탕화면 창 스파이크"), action: #selector(toggleSpike), key: "")
         spike.state = self.spike.isOpen ? .on : .off
         spike.keyEquivalentModifierMask = .option
         spike.isAlternate = true
@@ -540,30 +540,30 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         case .found(let release):
             let line: NSMenuItem
             if updater.source == .homebrew {
-                line = item(title: "새 판 \(release.version) 이 있습니다", action: #selector(copyBrewCommand), key: "")
-                line.subtitle = "눌러서 `brew upgrade --cask lazymemo` 복사"
+                line = item(title: L("새 판 \(release.version) 이 있습니다"), action: #selector(copyBrewCommand), key: "")
+                line.subtitle = L("눌러서 `brew upgrade --cask lazymemo` 복사")
             } else {
-                line = item(title: "새 판 \(release.version) 으로 바꾸기", action: #selector(installUpdate), key: "")
-                line.subtitle = "받아서 바꾸고 다시 엽니다"
+                line = item(title: L("새 판 \(release.version) 으로 바꾸기"), action: #selector(installUpdate), key: "")
+                line.subtitle = L("받아서 바꾸고 다시 엽니다")
             }
             menu.addItem(line)
 
         case .installing:
-            menu.addItem(disabled("새 판을 받는 중입니다…"))
+            menu.addItem(disabled(L("새 판을 받는 중입니다…")))
 
         case .checking:
-            menu.addItem(disabled("새 판이 있는지 보는 중…"))
+            menu.addItem(disabled(L("새 판이 있는지 보는 중…")))
 
         case .failed(let reason):
-            let line = item(title: "업데이트 확인", action: #selector(checkForUpdates), key: "")
+            let line = item(title: L("업데이트 확인"), action: #selector(checkForUpdates), key: "")
             line.subtitle = reason
             menu.addItem(line)
 
         case .idle, .upToDate:
-            let line = item(title: "업데이트 확인", action: #selector(checkForUpdates), key: "")
+            let line = item(title: L("업데이트 확인"), action: #selector(checkForUpdates), key: "")
             line.subtitle = updater.state == .upToDate
-                ? "\(LazyMemo.version) — 최신입니다"
-                : "지금은 \(LazyMemo.version)"
+                ? L("\(LazyMemo.version) — 최신입니다")
+                : L("지금은 \(LazyMemo.version)")
             menu.addItem(line)
         }
     }
@@ -571,11 +571,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// 설정. 항목이 몇 개뿐이라 창을 따로 짓지 않는다 — 창을 여는 것 자체가
     /// 조작 한 번이고, 이 앱은 그 한 번을 아끼는 앱이다.
     private func settingsItem() -> NSMenuItem {
-        let parent = NSMenuItem(title: "설정", action: nil, keyEquivalent: "")
+        let parent = NSMenuItem(title: L("설정"), action: nil, keyEquivalent: "")
         let submenu = NSMenu()
 
-        let shortcut = item(title: "단축키 바꾸기…", action: #selector(changeHotkey), key: "")
-        shortcut.subtitle = "지금은 \(hotkey.current.displayName)"
+        let shortcut = item(title: L("단축키 바꾸기…"), action: #selector(changeHotkey), key: "")
+        shortcut.subtitle = L("지금은 \(hotkey.current.displayName)")
         submenu.addItem(shortcut)
 
         submenu.addItem(loginItem())
@@ -591,20 +591,20 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // `claude` 가 없으면 이 줄들도 없다 — 없는 사람에게는 존재하지 않는 기능이다.
         // App Store 판에는 아예 없다 (`ClaudeSupport`).
         if !updater.source.isAppStore, windows.claude != nil || settings.current.claudePath != nil {
-            let tidy = item(title: "종이에서 Claude 부르기", action: #selector(toggleClaude), key: "")
+            let tidy = item(title: L("종이에서 Claude 부르기"), action: #selector(toggleClaude), key: "")
             tidy.state = settings.current.usesClaude ?? true ? .on : .off
-            tidy.subtitle = "종이의 ✧ 를 누를 때만 나갑니다 · 8초 안에 되돌릴 수 있습니다"
+            tidy.subtitle = L("종이의 ✧ 를 누를 때만 나갑니다 · 8초 안에 되돌릴 수 있습니다")
             submenu.addItem(tidy)
 
-            let morning = item(title: "아침 여덟 시에 브리핑 놓기", action: #selector(toggleMorningBrief), key: "")
+            let morning = item(title: L("아침 여덟 시에 브리핑 놓기"), action: #selector(toggleMorningBrief), key: "")
             morning.state = brief.isEnabled ? .on : .off
             // **누르지 않았는데 값이 드는 유일한 기능이다.** 그 사실을 적는다.
-            morning.subtitle = "매일 메모를 Claude 에게 보냅니다 — 구독 사용량이 듭니다"
+            morning.subtitle = L("매일 메모를 Claude 에게 보냅니다 — 구독 사용량이 듭니다")
             submenu.addItem(morning)
             submenu.addItem(.separator())
         }
 
-        let watch = item(title: "가면 떠오르게 하기", action: #selector(togglePlaceWatch), key: "")
+        let watch = item(title: L("가면 떠오르게 하기"), action: #selector(togglePlaceWatch), key: "")
         watch.state = watcher.isEnabled ? .on : .off
         // **켜 둔 것을 잊게 두지 않는다** — 몇 자리를 지켜보는지까지 적는다.
         watch.subtitle = watcher.note
@@ -613,33 +613,33 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // 위치는 켜고 끄는 값이 아니라 **권한이 정한다.** 그래서 토글이 아니라
         // 지금 어떤 상태인지만 적는다 — 거절해 놓고 «왜 안 되지» 가 남으면 안 된다.
         if let note = HereCapture.access.note {
-            let location = disabled("지금 여기 — ⌥⌘L")
+            let location = disabled(L("지금 여기 — ⌥⌘L"))
             location.subtitle = note
             submenu.addItem(location)
             submenu.addItem(.separator())
         }
 
-        let events = item(title: "시스템 캘린더 함께 보기", action: #selector(toggleSystemEvents), key: "")
+        let events = item(title: L("시스템 캘린더 함께 보기"), action: #selector(toggleSystemEvents), key: "")
         events.state = settings.current.showsSystemEvents ?? true ? .on : .off
         // 권한을 묻는 자리는 달력을 처음 열 때다. 거절했다면 그 사실이 여기 보인다 —
         // 조용히 빈 달력을 내놓으면 사용자는 연동이 고장 난 줄 안다.
-        events.subtitle = EventKitFeed.access.note ?? "달력을 처음 열 때 한 번 묻습니다 · 읽기만 합니다"
+        events.subtitle = EventKitFeed.access.note ?? L("달력을 처음 열 때 한 번 묻습니다 · 읽기만 합니다")
         submenu.addItem(events)
         submenu.addItem(.separator())
 
         if updater.source.allowsExternalUpdates {
-            let check = item(title: "새 판이 나오면 알기", action: #selector(toggleUpdateChecks), key: "")
+            let check = item(title: L("새 판이 나오면 알기"), action: #selector(toggleUpdateChecks), key: "")
             check.state = updater.isEnabled ? .on : .off
             // 네트워크를 쓰는 두 번째 기능이다. 켜져 있다는 사실이 보여야 한다 (§9.3).
-            check.subtitle = "GitHub 에 판 번호만 물어봅니다 — 메모는 나가지 않습니다"
+            check.subtitle = L("GitHub 에 판 번호만 물어봅니다 — 메모는 나가지 않습니다")
             submenu.addItem(check)
             submenu.addItem(.separator())
         }
 
-        let embed = item(title: "링크를 카드로 펼치기", action: #selector(toggleLinkEmbedding), key: "")
+        let embed = item(title: L("링크를 카드로 펼치기"), action: #selector(toggleLinkEmbedding), key: "")
         embed.state = settings.current.embedsLinks ?? true ? .on : .off
         // 네트워크를 쓰는 유일한 기능이다. 켜져 있다는 사실이 보여야 한다 (§9.3).
-        embed.subtitle = "제목과 그림을 가져오려고 그 주소에 접속합니다"
+        embed.subtitle = L("제목과 그림을 가져오려고 그 주소에 접속합니다")
         submenu.addItem(embed)
 
         parent.submenu = submenu
@@ -651,9 +651,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// **지금 자리를 먼저 적는다.** 옮기는 버튼만 있으면 어디서 어디로 가는지
     /// 모른 채 누르게 되고, 이 앱에서 그것은 메모 전부가 걸린 조작이다.
     private func vaultLocationItem() -> NSMenuItem {
-        let entry = item(title: "메모 폴더 옮기기…", action: #selector(moveVault), key: "")
-        entry.subtitle = "지금은 \(shortVaultPath)"
-        entry.toolTip = "고른 폴더에 이미 메모가 있으면 옮기지 않고 그것을 씁니다"
+        let entry = item(title: L("메모 폴더 옮기기…"), action: #selector(moveVault), key: "")
+        entry.subtitle = L("지금은 \(shortVaultPath)")
+        entry.toolTip = L("고른 폴더에 이미 메모가 있으면 옮기지 않고 그것을 씁니다")
         return entry
     }
 
@@ -665,13 +665,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         if container.map({ AppPaths.cloudVault(inContainer: $0) })
             .map({ $0.standardizedFileURL.path(percentEncoded: false) })
             == paths.vault.standardizedFileURL.path(percentEncoded: false) {
-            let entry = disabled("iCloud 로 동기화 중")
-            entry.subtitle = "아이폰의 lazymemo 와 같은 폴더를 봅니다"
+            let entry = disabled(L("iCloud 로 동기화 중"))
+            entry.subtitle = L("아이폰의 lazymemo 와 같은 폴더를 봅니다")
             return entry
         }
-        let entry = item(title: "iCloud 로 동기화…", action: #selector(syncToCloud), key: "")
-        entry.subtitle = "iCloud Drive 의 LazyMemo 폴더로 옮깁니다 — 아이폰과 같은 자리"
-        entry.toolTip = "별도 계정 없이 iCloud 가 옮깁니다. 이미 거기 메모가 있으면 합칩니다"
+        let entry = item(title: L("iCloud 로 동기화…"), action: #selector(syncToCloud), key: "")
+        entry.subtitle = L("iCloud Drive 의 LazyMemo 폴더로 옮깁니다 — 아이폰과 같은 자리")
+        entry.toolTip = L("별도 계정 없이 iCloud 가 옮깁니다. 이미 거기 메모가 있으면 합칩니다")
         return entry
     }
 
@@ -683,15 +683,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// 설정 안에서 가장 위에 둔다. 이 앱은 켜져 있지 않으면 아무것도 아니라서,
     /// 여기 있는 항목 중 유일하게 **안 켜면 앱 전체가 없어지는** 것이다.
     private func loginItem() -> NSMenuItem {
-        let entry = item(title: "로그인할 때 시작", action: #selector(toggleLoginItem), key: "")
+        let entry = item(title: L("로그인할 때 시작"), action: #selector(toggleLoginItem), key: "")
         entry.state = LoginItem.isEnabled ? .on : .off
         if LoginItem.isAvailable {
-            entry.subtitle = "껐다 켜도 메모가 그대로 떠 있습니다"
+            entry.subtitle = L("껐다 켜도 메모가 그대로 떠 있습니다")
         } else {
             // 개발 빌드(`swift run`)는 등록할 몸이 없다. 켤 수 없는 스위치를
             // 멀쩡한 척 보여 주지 않는다.
             entry.isEnabled = false
-            entry.subtitle = "앱 번들로 실행할 때만 됩니다"
+            entry.subtitle = L("앱 번들로 실행할 때만 됩니다")
         }
         return entry
     }

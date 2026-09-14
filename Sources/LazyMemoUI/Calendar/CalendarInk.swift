@@ -162,9 +162,9 @@ enum MonthStrip {
 /// 방금 무엇이 어디로 갔는지를 사용자가 화면에서 다시 찾아야 한다.
 enum MoveNote {
     static func text(from: Schedule, to: CalendarDate?) -> String {
-        guard let to else { return "종이로 보냈습니다" }
-        let day = "\(to.month)월 \(to.day)일"
+        guard let to else { return L("종이로 보냈습니다") }
+        let day = DateWords.monthDay(to)
         // 원래 자리가 없던 것은 "옮긴" 것이 아니라 처음 "놓은" 것이다.
-        return from.isEmpty ? "\(day)에 놓았습니다" : "\(day)로 옮겼습니다"
+        return from.isEmpty ? L("\(day)에 놓았습니다") : L("\(day)로 옮겼습니다")
     }
 }

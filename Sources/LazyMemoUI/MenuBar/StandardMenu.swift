@@ -23,7 +23,7 @@ enum StandardMenu {
         let item = NSMenuItem()
         let menu = NSMenu()
         menu.addItem(
-            withTitle: "lazymemo 종료", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"
+            withTitle: L("lazymemo 종료"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"
         )
         item.submenu = menu
         return item
@@ -31,20 +31,20 @@ enum StandardMenu {
 
     private static func editMenu() -> NSMenuItem {
         let item = NSMenuItem()
-        let menu = NSMenu(title: "편집")
+        let menu = NSMenu(title: L("편집"))
 
-        add(to: menu, "되돌리기", Selector(("undo:")), "z")
-        add(to: menu, "다시 실행", Selector(("redo:")), "Z")
+        add(to: menu, L("되돌리기"), Selector(("undo:")), "z")
+        add(to: menu, L("다시 실행"), Selector(("redo:")), "Z")
         menu.addItem(.separator())
-        add(to: menu, "잘라내기", #selector(NSText.cut(_:)), "x")
-        add(to: menu, "복사", #selector(NSText.copy(_:)), "c")
-        add(to: menu, "붙여넣기", #selector(NSText.paste(_:)), "v")
+        add(to: menu, L("잘라내기"), #selector(NSText.cut(_:)), "x")
+        add(to: menu, L("복사"), #selector(NSText.copy(_:)), "c")
+        add(to: menu, L("붙여넣기"), #selector(NSText.paste(_:)), "v")
         // 서식 없이 붙여넣기 — 마크다운이 정본이므로(D4) 이쪽이 오히려 기본에 가깝다.
-        let plain = add(to: menu, "서식 없이 붙여넣기", #selector(NSTextView.pasteAsPlainText(_:)), "V")
+        let plain = add(to: menu, L("서식 없이 붙여넣기"), #selector(NSTextView.pasteAsPlainText(_:)), "V")
         plain.keyEquivalentModifierMask = [.command, .option, .shift]
-        add(to: menu, "전체 선택", #selector(NSText.selectAll(_:)), "a")
+        add(to: menu, L("전체 선택"), #selector(NSText.selectAll(_:)), "a")
         menu.addItem(.separator())
-        add(to: menu, "찾기", Selector(("performFindPanelAction:")), "f")
+        add(to: menu, L("찾기"), Selector(("performFindPanelAction:")), "f")
 
         item.submenu = menu
         return item

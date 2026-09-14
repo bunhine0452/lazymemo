@@ -77,7 +77,7 @@ enum PreviewRenderer {
         // 닿지 않는다. 기본 창(260pt)에서 제목이 줄을 채우는 이 경우가
         // 사람이 실제로 겪는 쪽이다 (`{#controls-overlap}`).
         let longTitled = NoteModel(
-            memo: Memo(body: "은행 가서 통장 재발급 받기\n신분증이랑 도장 챙길 것"),
+            memo: Memo(body: L("은행 가서 통장 재발급 받기\n신분증이랑 도장 챙길 것")),
             store: store, previews: previews
         )
         await render(
@@ -95,7 +95,7 @@ enum PreviewRenderer {
         // **방금 지운 종이** (`{#note-inline-undo}`). 흉내가 아니라 정말로 한
         // 장 지워서 그린다 — 그러면 그림이 곧 검증이 된다. 예전에는 여기서
         // 창이 소리 없이 사라져 화면에 흔적이 한 줄도 안 남았다.
-        if let doomed = try? await store.create(body: "잘못 적은 메모") {
+        if let doomed = try? await store.create(body: L("잘못 적은 메모")) {
             let mourning = NoteModel(memo: doomed, store: store, previews: previews)
             await mourning.delete()
             await render(
@@ -120,7 +120,7 @@ enum PreviewRenderer {
         let capture = QuickCaptureModel(store: store)
         // 말풍선 꼬리가 메뉴바 아이콘을 가리키는 모습까지 확인한다.
         capture.arrowOffset = QuickCaptureController.width - 70
-        capture.query = "내일 오후 3시 치과\n강남역 3번 출구"
+        capture.query = L("내일 오후 3시 치과\n강남역 3번 출구")
         // 붙인 사진이 조각으로 보이는지 — 이것이 없어서 "붙여넣기가 안 된다"
         // 로 보였다.
         if let pasted = capture.markdown(forPastedImage: samplePhoto(), fileExtension: "png") {
@@ -140,7 +140,7 @@ enum PreviewRenderer {
         // 화면에 없으면** 목록이 짧아진 이유를 알 길이 없다.
         let recalling = QuickCaptureModel(store: store)
         recalling.arrowOffset = QuickCaptureController.width - 70
-        recalling.query = "#사진"
+        recalling.query = "#" + MemoShape.photo.label
         try? await Task.sleep(for: .milliseconds(400))
         log("capture-filter.chips=\(recalling.filter.chips) 찾은것=\(recalling.pool.count)")
         await render(
@@ -157,7 +157,7 @@ enum PreviewRenderer {
         // 지우는 길까지 같은 장에 담는다. 줄 끝의 휴지통은 포인터가 있어야
         // 붉어지므로 둘째 줄에 연출해 얹고, 되돌리기 줄은 **실제로 한 장
         // 지워서** 띄운다 — 흉내가 아니므로 그림이 곧 검증이 된다.
-        let discarded = try? await store.create(body: "지난주 영수증 정리")
+        let discarded = try? await store.create(body: L("지난주 영수증 정리"))
         browsing.prepareForShow()
         if let discarded { await browsing.delete(discarded) }
         browsing.selection = 0
@@ -252,17 +252,17 @@ enum PreviewRenderer {
         // (일정은 달력이 맡는다 — `DrawerContents`) 날짜 없는 종이를 몇 장 만든다.
         // 폴더는 셋 — 「전체」와 폴더 칸이 함께 보여야 폴더 띠가 무엇인지 안다.
         let filed: [(String, MemoColor, String?)] = [
-            ("장보기 목록\n- [x] 우유\n- [x] 계란\n- [ ] 세제", .green, "장보기"),
-            ("읽다 만 것 — 「종이의 물성」\n3장까지 읽었다", .blue, "읽을 것"),
-            ("환불 신청 번호\n8821-0043", .yellow, nil),
-            ("겨울옷 정리", .purple, "집"),
-            ("명함 사진 찍어 두기", .pink, nil),
-            ("이사 견적 세 군데\n한아름 / 무지개 / 다섯별", .gray, "집"),
-            ("자전거 공기압", .blue, nil),
-            ("도서관 반납\n「종이의 물성」 · 「게으름의 기술」", .yellow, "읽을 것"),
-            ("우산 새로 사기", .green, "장보기"),
-            ("전구 40W 두 개", .yellow, "장보기"),
-            ("커튼 세탁", .purple, "집"),
+            (L("장보기 목록\n- [x] 우유\n- [x] 계란\n- [ ] 세제"), .green, L("장보기")),
+            (L("읽다 만 것 — 「종이의 물성」\n3장까지 읽었다"), .blue, L("읽을 것")),
+            (L("환불 신청 번호\n8821-0043"), .yellow, nil),
+            (L("겨울옷 정리"), .purple, L("집")),
+            (L("명함 사진 찍어 두기"), .pink, nil),
+            (L("이사 견적 세 군데\n한아름 / 무지개 / 다섯별"), .gray, L("집")),
+            (L("자전거 공기압"), .blue, nil),
+            (L("도서관 반납\n「종이의 물성」 · 「게으름의 기술」"), .yellow, L("읽을 것")),
+            (L("우산 새로 사기"), .green, L("장보기")),
+            (L("전구 40W 두 개"), .yellow, L("장보기")),
+            (L("커튼 세탁"), .purple, L("집")),
         ]
         for (body, color, folder) in filed {
             _ = try? await store.create(body: body, color: color, folder: folder)
@@ -271,7 +271,7 @@ enum PreviewRenderer {
         // 좌표 파일이 없는 렌더에서는 「사람이 치웠는가」를 물을 곳이 없다.
         // 전부 치운 것으로 친다 — 일정은 `DrawerContents` 가 알아서 뺀다.
         let drawer = DrawerModel(
-            store: store, putAway: { _ in true }, folders: ["장보기", "읽을 것", "집"]
+            store: store, putAway: { _ in true }, folders: [L("장보기"), L("읽을 것"), L("집")]
         )
         log("drawer.papers=\(drawer.count) folders=\(drawer.folders)")
 
@@ -317,10 +317,10 @@ enum PreviewRenderer {
 
         // **폴더 하나를 보는 중.** 띠에서 고른 칸이 채워지고 목록이 그 칸의
         // 것만 남는지, 줄에서 폴더 이름표가 사라지는지.
-        drawer.staged = DrawerModel.Staged(isOpen: true, folder: "장보기")
+        drawer.staged = DrawerModel.Staged(isOpen: true, folder: L("장보기"))
         await render(
             name: "drawer-folder",
-            size: DrawerGeometry(count: drawer.counts["장보기"] ?? 0).size,
+            size: DrawerGeometry(count: drawer.counts[L("장보기")] ?? 0).size,
             content: DrawerView(model: drawer),
             into: directory
         )
@@ -346,7 +346,7 @@ enum PreviewRenderer {
 
         // **못 찾은 서랍.** 「여기 아무것도 없습니다」와 갈리는지가 요점이다 —
         // 방금 아홉 장을 넣어 둔 사람에게 그 말은 거짓말이다.
-        drawer.staged = DrawerModel.Staged(isOpen: true, query: "없는말")
+        drawer.staged = DrawerModel.Staged(isOpen: true, query: L("없는말"))
         await render(
             name: "drawer-nothing-found",
             size: DrawerGeometry(count: 0).size,
@@ -450,7 +450,7 @@ enum PreviewRenderer {
                     )
                     drawMenuPanel(in: frame)
                     drawMenuHeader(
-                        "메모 \(memos.count)장",
+                        L("메모 \(memos.count)장"),
                         in: NSRect(
                             x: frame.minX + inset + 13, y: frame.maxY - inset - headerHeight,
                             width: frame.width, height: headerHeight
@@ -532,7 +532,7 @@ enum PreviewRenderer {
                         Text(color.label)
                             .font(Theme.body)
                             .foregroundStyle(Paper.ink)
-                        Text("치과 예약")
+                        Text(L("치과 예약"))
                             .font(Theme.label)
                             .foregroundStyle(Paper.fadedInk)
                     }
@@ -556,13 +556,13 @@ enum PreviewRenderer {
             ) ?? Date()
             return [
                 ForeignEvent(
-                    id: "sample-standup", title: "팀 스탠드업",
+                    id: "sample-standup", title: L("팀 스탠드업"),
                     start: day.addingTimeInterval(10 * 3600), isAllDay: false,
-                    calendarName: "직장"
+                    calendarName: L("직장")
                 ),
                 ForeignEvent(
-                    id: "sample-holiday", title: "재택 근무",
-                    start: day, isAllDay: true, calendarName: "직장"
+                    id: "sample-holiday", title: L("재택 근무"),
+                    start: day, isAllDay: true, calendarName: L("직장")
                 ),
             ]
         }
@@ -580,20 +580,20 @@ enum PreviewRenderer {
         ) ?? Date()
 
         let scheduled = (try? await store.create(
-            body: "치과 예약\n보험증 챙기기",
+            body: L("치과 예약\n보험증 챙기기"),
             at: appointment,
             // 일이 언제인가(14:30)와 종이가 언제 나오는가(14:00)가 한 조각으로
             // 붙는 것을 눈으로 본다 — 「오후 2:30 · 30분 전」.
             surface: appointment.addingTimeInterval(-1800),
             // 장소가 본문에서 아래 잉크로 옮겨 앉는 것이 이 표본의 볼거리다.
-            place: "강남역 3번 출구", geo: Coordinate("37.4979,127.0276"),
-            tags: ["병원"], color: .blue
-        )) ?? Memo(body: "치과 예약")
+            place: L("강남역 3번 출구"), geo: Coordinate("37.4979,127.0276"),
+            tags: [L("병원")], color: .blue
+        )) ?? Memo(body: L("치과 예약"))
 
         // 마크다운 꾸밈과 붙여넣기 결과를 한 장에 담아 눈으로 확인한다.
         let attachment = (try? store.attachments.save(samplePhoto(), fileExtension: "png")) ?? ""
         let plain = (try? await store.create(
-            body: """
+            body: L("""
                 ## 장보기
                 - [x] 우유
                 - [ ] **계란** 두 판
@@ -602,17 +602,15 @@ enum PreviewRenderer {
                 > 세제도 떨어졌음
 
                 [example.com/recipes](https://example.com/recipes)
-
-                ![](\(attachment))
-                """,
+                """) + "\n\n![](\(attachment))",
             color: .yellow
-        )) ?? Memo(body: "장보기")
+        )) ?? Memo(body: L("장보기"))
 
         _ = try? await store.create(
-            body: "월세 이체", due: CalendarDate(year: 2026, month: 8, day: 25), color: .pink
+            body: L("월세 이체"), due: CalendarDate(year: 2026, month: 8, day: 25), color: .pink
         )
         _ = try? await store.create(
-            body: "치과 정기검진 예약하기",
+            body: L("치과 정기검진 예약하기"),
             due: CalendarDate(year: 2026, month: 8, day: 20), color: .green
         )
 
@@ -620,9 +618,9 @@ enum PreviewRenderer {
         // 여러 줄이 한 장에서 함께 확인되어야 한다.
         let today = CalendarDate(Date(), calendar: calendar)
         for (hour, minute, body, color) in [
-            (9, 30, "팀 회의", MemoColor.purple),
-            (13, 0, "은행 — 통장 정리", MemoColor.green),
-            (19, 0, "저녁 약속", MemoColor.pink),
+            (9, 30, L("팀 회의"), MemoColor.purple),
+            (13, 0, L("은행 — 통장 정리"), MemoColor.green),
+            (19, 0, L("저녁 약속"), MemoColor.pink),
         ] {
             _ = try? await store.create(
                 body: body,
@@ -633,9 +631,9 @@ enum PreviewRenderer {
                 color: color
             )
         }
-        _ = try? await store.create(body: "분리수거", due: today, color: .gray)
+        _ = try? await store.create(body: L("분리수거"), due: today, color: .gray)
         _ = try? await store.create(
-            body: "전기요금", due: today.adding(days: 3, calendar: calendar), color: .yellow
+            body: L("전기요금"), due: today.adding(days: 3, calendar: calendar), color: .yellow
         )
 
         return Samples(scheduled: scheduled, plain: plain)

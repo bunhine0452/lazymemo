@@ -1,0 +1,3 @@
+"NSCalendarsFullAccessUsageDescription" = "Read so events from your system calendars can appear in the calendar next to your notes. lazymemo never writes to your calendars.";
+"NSLocationAlwaysUsageDescription" = "Watches your location so a note can come out onto the desktop when you arrive at the place written on it. Your location is never stored or sent anywhere.";
+"NSLocationWhenInUseUsageDescription" = "Reads your location once so ⌥⌘L can write where you are into a note. Your location is not tracked continuously.";

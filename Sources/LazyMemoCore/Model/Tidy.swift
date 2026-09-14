@@ -26,8 +26,8 @@ public enum Tidy {
         /// 메뉴에 적는 말.
         public var label: String {
             switch self {
-            case .finished: "다 체크한 목록"
-            case .past: "지난 일정"
+            case .finished: L("다 체크한 목록")
+            case .past: L("지난 일정")
             }
         }
     }

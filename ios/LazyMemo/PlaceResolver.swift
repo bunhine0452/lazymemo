@@ -84,9 +84,9 @@ enum MapApp: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .kakao: "카카오맵"
-        case .naver: "네이버 지도"
-        case .apple: "애플 지도"
+        case .kakao: String(localized: "카카오맵")
+        case .naver: String(localized: "네이버 지도")
+        case .apple: String(localized: "애플 지도")
         }
     }
 

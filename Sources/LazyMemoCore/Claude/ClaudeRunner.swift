@@ -25,10 +25,10 @@ public struct ClaudeRunner: Sendable {
 
         public var description: String {
             switch self {
-            case .notFound: "claude 를 실행하지 못했습니다"
-            case .timedOut: "답이 오지 않아 그만두었습니다"
-            case .failed: "claude 가 답하지 못했습니다"
-            case .empty: "빈 답이 왔습니다"
+            case .notFound: L("claude 를 실행하지 못했습니다")
+            case .timedOut: L("답이 오지 않아 그만두었습니다")
+            case .failed: L("claude 가 답하지 못했습니다")
+            case .empty: L("빈 답이 왔습니다")
             }
         }
     }
@@ -103,7 +103,11 @@ public enum ClaudePrompts {
     /// 그건 다듬은 것이 아니라 다른 메모다), ② 짧아진다(길어지면 치울 것이
     /// 하나 더 생긴다), ③ 날짜·장소·이름은 손대지 않는다(이 앱이 읽는 값이다),
     /// ④ 본문만 답한다(인사와 코드펜스는 그대로 메모에 남는다).
-    public static let tidy = """
+    public static var tidy: String { tidy() }
+
+    /// 사용자의 말로 시킨다 — 한국어로 시키면 영어 메모도 한국어 투로 돌아온다.
+    public static func tidy(locale: Locale = .current) -> String {
+        L("""
         아래는 사용자의 메모다. 읽기 좋게 다듬어라.
 
         - 뜻을 바꾸지 마라. 없는 내용을 더하지 마라.
@@ -112,14 +116,18 @@ public enum ClaudePrompts {
         - 날짜·시각·장소·사람 이름은 글자 그대로 두어라.
 
         답에는 다듬은 메모 본문만 담아라. 인사도, 설명도, 코드펜스도 붙이지 마라.
-        """
+        """, locale: locale)
+    }
 
     /// 아침에 놓는 종이 한 장 (`MorningBrief`).
     ///
     /// **셋을 넘기지 말라고 문장에 박았다.** 스무 개를 늘어놓는 답은 게으른
     /// 사람에게 «치워야 할 것» 을 하나 더 만든다 — `MemoPrompts` 의 「오늘
     /// 뭐부터」와 같은 규칙이다.
-    public static let morningBrief = """
+    public static var morningBrief: String { morningBrief() }
+
+    public static func morningBrief(locale: Locale = .current) -> String {
+        L("""
         아래는 오늘 사용자의 메모다. 오늘 손대야 할 것을 **세 개만** 골라라.
 
         - 셋을 넘기지 마라. 고르라고 부른 것이지 늘어놓으라고 부른 것이 아니다.
@@ -128,7 +136,8 @@ public enum ClaudePrompts {
         - 아무것도 급하지 않으면 그렇게 한 줄로만 적어라.
 
         답에는 그 목록만 담아라. 인사도, 설명도, 코드펜스도 붙이지 마라.
-        """
+        """, locale: locale)
+    }
 
     /// 답을 메모에 그대로 넣을 수 있게 다듬는다.
     ///

@@ -1,0 +1,8 @@
+/* English — Korean source strings are the keys (see Sources/LazyMemoCore/Words.swift) */
+"lazymemo 에 적기" = "Add to lazymemo";
+"그만두기" = "Cancel";
+"%@ %@ · 달력으로" = "%1$@ %2$@ · to calendar";
+"%@ · 달력으로" = "%@ · to calendar";
+"메모 남기기" = "Add note";
+"달력에 남기기" = "Add to calendar";
+"적지 못했습니다 — %@" = "Couldn't write it — %@";

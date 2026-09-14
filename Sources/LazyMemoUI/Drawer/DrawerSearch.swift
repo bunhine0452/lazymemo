@@ -63,6 +63,6 @@ enum DrawerSearch {
     static func summary(query: String, found: Int) -> String? {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, found > 0 else { return nil }
-        return "\(found)장"
+        return L("\(found)장")
     }
 }

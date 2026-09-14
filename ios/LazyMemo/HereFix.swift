@@ -29,7 +29,7 @@ final class HereFix {
     func fix() async -> PenModel.Here? {
         trouble = nil
         guard !Self.denied else {
-            trouble = "설정에서 위치를 켜야 합니다"
+            trouble = String(localized: "설정에서 위치를 켜야 합니다")
             return nil
         }
         fixing = true
@@ -47,12 +47,12 @@ final class HereFix {
         }
 
         guard let location else {
-            trouble = Self.denied ? "설정에서 위치를 켜야 합니다" : "위치를 못 잡았습니다"
+            trouble = Self.denied ? String(localized: "설정에서 위치를 켜야 합니다") : String(localized: "위치를 못 잡았습니다")
             return nil
         }
         let point = Coordinate(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
         let address = await Self.address(of: location)
-        return PenModel.Here(place: address ?? point?.description ?? "여기", geo: point)
+        return PenModel.Here(place: address ?? point?.description ?? String(localized: "여기"), geo: point)
     }
 
     /// 권한이 아직이면 시스템이 여기서 묻는다. 첫 좌표 하나로 끝.

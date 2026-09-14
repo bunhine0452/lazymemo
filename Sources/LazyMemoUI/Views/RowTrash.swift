@@ -20,7 +20,7 @@ struct RowTrash: View {
     var isLit = false
     /// 화면 밖 렌더에서 포인터를 흉내 낸다 (설계문서 §14.9).
     var staged = false
-    var help = "지우기 — 바로 아래 줄에서 되돌릴 수 있습니다"
+    var help = L("지우기 — 바로 아래 줄에서 되돌릴 수 있습니다")
     let action: () -> Void
 
     @State private var isOver = false

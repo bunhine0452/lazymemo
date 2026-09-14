@@ -6,7 +6,7 @@
 	     빌드 설정이 넣고 스토어 판임을 적는다 — 그 한 줄로 앱이 자체 업데이트와
 	     Claude 연동을 접는다 (`InstallSource.current`). -->
 	<key>CFBundleDevelopmentRegion</key>
-	<string>ko</string>
+	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>lazymemo</string>
 	<key>CFBundleExecutable</key>

@@ -102,7 +102,7 @@ struct PhotoStrip: View {
                 }
                 // 그림에는 읽을 글자가 없다. 무엇이 붙어 있는지는 파일 이름이
                 // 유일한 단서라 그것을 소리로 적는다.
-                .accessibilityLabel(Text("붙인 사진, \(attachment.name)"))
+                .accessibilityLabel(Text(L("붙인 사진, \(attachment.name)")))
         }
         .frame(height: min(stripHeight, maxHeight))
     }
@@ -182,7 +182,7 @@ struct PhotoChip: View {
             .popover(isPresented: $isHovering, arrowEdge: .top) {
                 FullSizePhoto(image: original ?? attachment.image)
             }
-            .accessibilityLabel(Text("붙인 사진, \(attachment.name)"))
+            .accessibilityLabel(Text(L("붙인 사진, \(attachment.name)")))
     }
 }
 

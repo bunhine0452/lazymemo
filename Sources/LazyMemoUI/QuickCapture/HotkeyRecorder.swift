@@ -66,11 +66,11 @@ final class HotkeyRecorder {
         )
 
         guard candidate.isUsable else {
-            model.problem = "⌘ ⌥ ⌃ ⇧ 중 하나를 함께 눌러 주세요"
+            model.problem = L("⌘ ⌥ ⌃ ⇧ 중 하나를 함께 눌러 주세요")
             return
         }
         guard apply(candidate) else {
-            model.problem = "\(candidate.displayName) 은 다른 앱이 쓰고 있습니다"
+            model.problem = L("\(candidate.displayName) 은 다른 앱이 쓰고 있습니다")
             return
         }
         model.current = candidate
@@ -112,7 +112,7 @@ private struct HotkeyRecorderView: View {
 
     var body: some View {
         VStack(spacing: Theme.snug) {
-            Text("새 단축키를 누르세요")
+            Text(L("새 단축키를 누르세요"))
                 .font(Theme.title)
                 .foregroundStyle(Paper.ink)
 
@@ -126,7 +126,7 @@ private struct HotkeyRecorderView: View {
                         .fill(Theme.accentInk.opacity(0.12))
                 )
 
-            Text(model.problem ?? "esc 로 그만두기")
+            Text(model.problem ?? L("esc 로 그만두기"))
                 .font(Theme.micro)
                 .foregroundStyle(model.problem == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(Theme.sunday))
                 .multilineTextAlignment(.center)

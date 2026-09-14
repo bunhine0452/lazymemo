@@ -14,7 +14,7 @@ public struct AttachmentStore: Sendable {
 
         public var description: String {
             switch self {
-            case .unsupported(let kind): "붙일 수 없는 형식입니다: \(kind)"
+            case .unsupported(let kind): L("붙일 수 없는 형식입니다: \(kind)")
             }
         }
     }

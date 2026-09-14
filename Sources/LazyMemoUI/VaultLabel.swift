@@ -12,10 +12,10 @@ enum VaultLabel {
         let path = url.path(percentEncoded: false)
         let cloudFolder = AppPaths.ubiquityContainerIdentifier.replacingOccurrences(of: ".", with: "~")
         if path.contains("/Library/Mobile Documents/\(cloudFolder)/Documents") {
-            return "iCloud Drive 의 LazyMemo 폴더"
+            return L("iCloud Drive 의 LazyMemo 폴더")
         }
         if path.contains("/Library/Containers/\(AppPaths.bundleIdentifier)/") {
-            return "이 앱의 보관함 — iCloud 가 꺼져 있을 때의 자리"
+            return L("이 앱의 보관함 — iCloud 가 꺼져 있을 때의 자리")
         }
         let home = realHome
         return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path

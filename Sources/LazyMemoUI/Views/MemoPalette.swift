@@ -34,12 +34,12 @@ extension MemoColor {
 
     var label: String {
         switch self {
-        case .yellow: "노랑"
-        case .green: "초록"
-        case .blue: "파랑"
-        case .purple: "보라"
-        case .pink: "분홍"
-        case .gray: "무채"
+        case .yellow: L("노랑")
+        case .green: L("초록")
+        case .blue: L("파랑")
+        case .purple: L("보라")
+        case .pink: L("분홍")
+        case .gray: L("무채")
         }
     }
 }

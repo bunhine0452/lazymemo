@@ -218,7 +218,7 @@ final class CalendarModel {
     func detach(_ memo: Memo) async {
         let before = Schedule(memo)
         guard !before.isEmpty else { return }
-        await write(Schedule(), to: memo.id, verb: "종이로 보내기")
+        await write(Schedule(), to: memo.id, verb: L("종이로 보내기"))
         remember(Move(id: memo.id, from: before, to: nil))
     }
 
@@ -236,7 +236,7 @@ final class CalendarModel {
             forget { $0.lastDeleted = nil }
             await refresh()
         } catch {
-            failure = "지우기 실패: \(error)"
+            failure = L("지우기 실패: \(String(describing: error))")
         }
     }
 
@@ -282,7 +282,7 @@ final class CalendarModel {
             }
             await refresh()
         } catch {
-            failure = "적기 실패: \(error)"
+            failure = L("적기 실패: \(String(describing: error))")
         }
     }
 
@@ -303,14 +303,14 @@ final class CalendarModel {
 
     // MARK: 내부
 
-    private func write(_ schedule: Schedule, to id: ULID, verb: String = "옮기기") async {
+    private func write(_ schedule: Schedule, to id: ULID, verb: String = L("옮기기")) async {
         do {
             // 자리를 통째로 쓴다. 한쪽만 건드리면 한 메모가 두 날에 선다.
             _ = try await store.update(id, due: .some(schedule.due), at: .some(schedule.at))
             failure = nil
             await refresh()
         } catch {
-            failure = "\(verb) 실패: \(error)"
+            failure = L("\(verb) 실패: \(String(describing: error))")
         }
     }
 

@@ -462,10 +462,10 @@ final class MemoNSTextView: NSTextView {
         guard onDelete != nil else { return menu }
 
         if !menu.items.isEmpty { menu.addItem(.separator()) }
-        let item = NSMenuItem(title: "이 메모 지우기", action: #selector(deleteMemo), keyEquivalent: "")
+        let item = NSMenuItem(title: L("이 메모 지우기"), action: #selector(deleteMemo), keyEquivalent: "")
         item.target = self
         // 되돌릴 수 있다는 것을 누르기 **전에** 알려준다 (D6).
-        item.subtitle = "메뉴바 「최근 삭제」에서 되돌릴 수 있습니다"
+        item.subtitle = L("메뉴바 「최근 삭제」에서 되돌릴 수 있습니다")
         menu.addItem(item)
         return menu
     }

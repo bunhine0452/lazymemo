@@ -44,7 +44,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             try paths.createDirectories()
             store = try MemoStore(paths: paths)
         } catch {
-            presentFatal("저장소를 열지 못했습니다.\n\(paths.vault.path(percentEncoded: false))\n\n\(error)")
+            presentFatal(L("저장소를 열지 못했습니다.") + "\n\(paths.vault.path(percentEncoded: false))\n\n\(error)")
             return
         }
 
@@ -308,9 +308,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     private func presentFatal(_ message: String) {
         let alert = NSAlert()
         alert.alertStyle = .critical
-        alert.messageText = "lazymemo 를 시작할 수 없습니다"
+        alert.messageText = L("lazymemo 를 시작할 수 없습니다")
         alert.informativeText = message
-        alert.addButton(withTitle: "종료")
+        alert.addButton(withTitle: L("종료"))
         NSApp.activate()
         alert.runModal()
         NSApp.terminate(nil)

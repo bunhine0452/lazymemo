@@ -24,6 +24,8 @@ final class ShotTests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["LAZYMEMO_VAULT"] = root.path(percentEncoded: false)
         app.launchArguments += ["-tutorialSeen", "YES"]
+        // 찍는 말은 한국어다 — 아래의 누르는 자리가 한국어 낱말로 적혀 있다.
+        app.launchArguments += ["-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR"]
         app.launch()
         let capture = app.descendants(matching: .any)["capture"]
         XCTAssertTrue(capture.waitForExistence(timeout: 10))

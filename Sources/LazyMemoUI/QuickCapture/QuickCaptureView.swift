@@ -97,7 +97,7 @@ struct QuickCaptureView: View {
             Text("lazymemo")
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundStyle(Theme.accentInk)
-            Text("잠깐, 메모 한 장")
+            Text(L("잠깐, 메모 한 장"))
                 .font(.system(size: 11))
             Spacer()
             Button(action: onCancel) {
@@ -105,7 +105,7 @@ struct QuickCaptureView: View {
                     .hitTarget(28)
             }
             .buttonStyle(.plain)
-            .spoken("닫기 — 적던 글은 앱을 사용하는 동안 남습니다")
+            .spoken(L("닫기 — 적던 글은 앱을 사용하는 동안 남습니다"))
         }
         .foregroundStyle(.secondary)
         .padding(.leading, Theme.loose)
@@ -115,10 +115,10 @@ struct QuickCaptureView: View {
 
     private var searchShortcuts: some View {
         HStack(spacing: 8) {
-            Text("찾기").foregroundStyle(.secondary)
-            searchShortcut("사진", symbol: "photo", query: "#사진")
-            searchShortcut("링크", symbol: "link", query: "#링크")
-            searchShortcut("할 일", symbol: "checklist", query: "#체크")
+            Text(L("찾기")).foregroundStyle(.secondary)
+            searchShortcut(L("사진"), symbol: "photo", query: "#" + MemoShape.photo.label)
+            searchShortcut(L("링크"), symbol: "link", query: "#" + MemoShape.link.label)
+            searchShortcut(L("할 일"), symbol: "checklist", query: "#" + MemoShape.checklist.label)
             Spacer(minLength: 0)
         }
         .font(.system(size: 11, weight: .medium))
@@ -134,7 +134,7 @@ struct QuickCaptureView: View {
                 .background(Theme.softAccent, in: RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
-        .spoken("\(title) 메모 찾기")
+        .spoken(L("\(title) 메모 찾기"))
     }
 
     /// 말풍선의 꼬리. 메뉴바 아이콘을 가리킨다.
@@ -219,7 +219,7 @@ struct QuickCaptureView: View {
                     .padding(.vertical, 3)
                     .background(Capsule().fill(Paper.ink.opacity(0.08)))
             }
-            Text("만 보입니다")
+            Text(L("만 보입니다"))
                 .font(.system(size: 10))
                 .opacity(0.55)
         }
@@ -232,7 +232,7 @@ struct QuickCaptureView: View {
         HStack(spacing: 5) {
             Text(text)
                 .font(.system(size: 11, weight: .medium))
-            Text("달력으로")
+            Text(L("달력으로"))
                 .font(.system(size: 10, weight: .regular))
                 .opacity(0.62)
         }
@@ -275,9 +275,9 @@ struct QuickCaptureView: View {
     private var resultRows: some View {
         VStack(spacing: 0) {
             HStack {
-                Text(model.listing == .recent ? "최근 메모" : "검색 결과")
+                Text(model.listing == .recent ? L("최근 메모") : L("검색 결과"))
                 Spacer()
-                Text("\(model.pool.count)장").monospacedDigit()
+                Text(L("\(model.pool.count)장")).monospacedDigit()
             }
             .font(.system(size: 11, weight: .medium))
             .foregroundStyle(.secondary)
@@ -316,7 +316,7 @@ struct QuickCaptureView: View {
         case .more(let count):
             Button { model.expand() } label: {
                 HStack(spacing: Theme.tight) {
-                    Text("… 외 \(count)장 더")
+                    Text(L("… 외 \(count)장 더"))
                     Image(systemName: "chevron.down")
                         .font(.system(size: 8, weight: .semibold))
                     Spacer(minLength: 0)
@@ -328,12 +328,12 @@ struct QuickCaptureView: View {
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .spoken("외 \(count)장 더 — 눌러서 목록을 넓힙니다")
+            .spoken(L("외 \(count)장 더 — 눌러서 목록을 넓힙니다"))
 
         case .tooMany(let count):
             // 넓힐 만큼 넓혔다. 여기서 더 늘리는 것은 답이 아니라서
             // **길을 바꿔 말한다** — 스무 줄을 훑는 것보다 한 글자 더 치는 편이 짧다.
-            Text("… \(count)장 더 있습니다 — 낱말을 더 적으면 좁혀집니다")
+            Text(L("… \(count)장 더 있습니다 — 낱말을 더 적으면 좁혀집니다"))
                 .font(Theme.micro)
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
@@ -382,7 +382,7 @@ struct QuickCaptureView: View {
             .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(Text("\(memo.title), \(MemoTimeLabel.text(for: memo))"))
-            .accessibilityHint(Text("열기"))
+            .accessibilityHint(Text(L("열기")))
 
             RowTrash(isLit: isSelected || isPointed, staged: stagedTrashRow == index) {
                 Task { await model.delete(memo) }
@@ -425,7 +425,7 @@ struct QuickCaptureView: View {
     /// 한 번인데 되돌리기가 셋이면 그 휴지통은 못 누르는 버튼이 된다.
     private func undoLine(_ memo: Memo) -> some View {
         HStack(spacing: Theme.tight) {
-            Text("「\(memo.title)」 지웠습니다")
+            Text(L("「\(memo.title)」 지웠습니다"))
                 .lineLimit(1)
             Spacer(minLength: Theme.snug)
             Button {
@@ -433,14 +433,14 @@ struct QuickCaptureView: View {
             } label: {
                 // 급하게 찾는 손이 오는 자리다 — 지운 직후가 잘못 눌렀다는
                 // 것을 아는 순간이므로. 낱말은 그대로 두고 둘레를 넓힌다.
-                Text("되돌리기")
+                Text(L("되돌리기"))
                     .foregroundStyle(Theme.accentInk)
                     .padding(.horizontal, Theme.tight)
                     .frame(minHeight: Theme.touchRow)
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .spoken("되돌리기 — 방금 지운 메모를 되살립니다")
+            .spoken(L("되돌리기 — 방금 지운 메모를 되살립니다"))
         }
         .font(Theme.micro)
         .foregroundStyle(.secondary)
@@ -456,7 +456,7 @@ struct QuickCaptureView: View {
     /// 하나 더 얹으면 상자가 그만큼 커지고, 커진 상자는 적을 자리를 밀어낸다.
     private var hint: some View {
         HStack(spacing: Theme.snug) {
-            Text(selectedMemo == nil ? "↵ 줄바꿈 · esc 닫기" : "↑↓ 선택 · ⌘⌫ 지우기")
+            Text(selectedMemo == nil ? L("↵ 줄바꿈 · esc 닫기") : L("↑↓ 선택 · ⌘⌫ 지우기"))
                 .font(.system(size: 11))
             Spacer(minLength: 0)
             if let commandLabel {
@@ -474,7 +474,7 @@ struct QuickCaptureView: View {
                 .buttonStyle(.plain)
                 .spoken("\(commandLabel) — Command Return")
             } else {
-                Text("적으면 메모, 찾으면 검색")
+                Text(L("적으면 메모, 찾으면 검색"))
                     .font(.system(size: 11))
             }
         }
@@ -485,9 +485,9 @@ struct QuickCaptureView: View {
 
     /// 지금 ⌘⏎ 가 할 일. 없으면 `nil`.
     private var commandLabel: String? {
-        if selectedMemo != nil { return "메모 열기" }
+        if selectedMemo != nil { return L("메모 열기") }
         guard !model.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-        return model.scheduleLabel == nil ? "메모 남기기" : "달력에 남기기"
+        return model.scheduleLabel == nil ? L("메모 남기기") : L("달력에 남기기")
     }
 
     /// 텍스트 뷰가 넘겨준 키 명령. `true` 를 돌려주면 텍스트 뷰는 처리하지 않는다.

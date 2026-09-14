@@ -3,6 +3,9 @@ import PackageDescription
 
 let package = Package(
     name: "LazyMemo",
+    // 표에 없는 말을 하는 사람에게는 영어를 보인다. 한국어 원문은 코드의 열쇠 그대로라
+    // 표가 비어 있어도 한국어 사용자는 아무것도 잃지 않는다 (Words.swift).
+    defaultLocalization: "en",
     platforms: [.macOS(.v26), .iOS(.v26)],
     products: [
         .executable(name: "LazyMemo", targets: ["LazyMemo"]),
@@ -23,7 +26,8 @@ let package = Package(
         .executableTarget(
             name: "LazyMemoMCP",
             dependencies: ["LazyMemoCore"],
-            path: "Sources/LazyMemoMCP"
+            path: "Sources/LazyMemoMCP",
+            resources: [.process("Resources")]
         ),
         // 앱 셸 — AppKit/SwiftUI. 도메인 로직을 두지 않는다.
         .target(
@@ -35,7 +39,8 @@ let package = Package(
         // 도메인·저장 계층 — AppKit 비의존. 테스트와 MCP 서버가 공유한다.
         .target(
             name: "LazyMemoCore",
-            path: "Sources/LazyMemoCore"
+            path: "Sources/LazyMemoCore",
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "LazyMemoCoreTests",

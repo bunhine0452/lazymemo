@@ -16,34 +16,34 @@ struct TutorialView: View {
     private static let pages: [Page] = [
         Page(
             symbol: "pencil.line",
-            title: "아래 펜에 적고, 남기기",
+            title: String(localized: "아래 펜에 적고, 남기기"),
             lines: [
-                "한 줄이면 메모가 됩니다. 적던 글은 앱을 닫아도 남아 있어요.",
-                "같은 칸에 치면 메모를 **찾습니다** — 「ㅊㄱ」처럼 첫소리만 쳐도 「치과」가 나와요.",
+                String(localized: "한 줄이면 메모가 됩니다. 적던 글은 앱을 닫아도 남아 있어요."),
+                String(localized: "같은 칸에 치면 메모를 **찾습니다** — 「ㅊㄱ」처럼 첫소리만 쳐도 「치과」가 나와요."),
             ]
         ),
         Page(
             symbol: "calendar.badge.clock",
-            title: "날짜와 장소는 앱이 읽어요",
+            title: String(localized: "날짜와 장소는 앱이 읽어요"),
             lines: [
-                "「내일 3시 치과 @강남역」이라고 적으면 날짜·시각·장소가 **칩**으로 먼저 보여요. 단추는 「달력에 남기기」가 됩니다.",
-                "칩을 누르면 그 해석만 끕니다. 글은 그대로예요. 왼쪽 끝 위치 단추는 「지금 여기」를 붙입니다.",
+                String(localized: "「내일 3시 치과 @강남역」이라고 적으면 날짜·시각·장소가 **칩**으로 먼저 보여요. 단추는 「달력에 남기기」가 됩니다."),
+                String(localized: "칩을 누르면 그 해석만 끕니다. 글은 그대로예요. 왼쪽 끝 위치 단추는 「지금 여기」를 붙입니다."),
             ]
         ),
         Page(
             symbol: "hand.draw",
-            title: "밀고, 길게 누르고, 흔들기",
+            title: String(localized: "밀고, 길게 누르고, 흔들기"),
             lines: [
-                "줄을 **오른쪽**으로 밀면 고정, **왼쪽**으로 밀면 지우기. 길게 누르면 폴더·달력이 나와요.",
-                "지운 것은 휴지통에 30일 남고, 흔들면 방금 한 일을 되돌립니다.",
+                String(localized: "줄을 **오른쪽**으로 밀면 고정, **왼쪽**으로 밀면 지우기. 길게 누르면 폴더·달력이 나와요."),
+                String(localized: "지운 것은 휴지통에 30일 남고, 흔들면 방금 한 일을 되돌립니다."),
             ]
         ),
         Page(
             symbol: "calendar",
-            title: "달력에서는 날을 고르고 적어요",
+            title: String(localized: "달력에서는 날을 고르고 적어요"),
             lines: [
-                "날을 누르면 그 날의 메모가 아래에 서고, 펜에 그 날이 미리 물립니다.",
-                "줄을 오른쪽으로 밀면 **하루 미루기**, 길게 눌러 끌면 다른 날로 옮겨요. 맥과 같은 iCloud 폴더를 봅니다.",
+                String(localized: "날을 누르면 그 날의 메모가 아래에 서고, 펜에 그 날이 미리 물립니다."),
+                String(localized: "줄을 오른쪽으로 밀면 **하루 미루기**, 길게 눌러 끌면 다른 날로 옮겨요. 맥과 같은 iCloud 폴더를 봅니다."),
             ]
         ),
     ]
@@ -63,7 +63,7 @@ struct TutorialView: View {
                 Button {
                     if last { dismiss() } else { withAnimation(.snappy) { page += 1 } }
                 } label: {
-                    Text(last ? "시작하기" : "다음")
+                    Text(last ? String(localized: "시작하기") : String(localized: "다음"))
                         .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity, minHeight: 44)
                 }

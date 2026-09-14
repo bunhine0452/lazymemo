@@ -21,7 +21,7 @@
 | ~~필수~~ | ~~공개 개인정보 처리방침 및 스토어 개인정보 응답 미확정~~ **해결** — `docs/PRIVACY.md` → https://bunhine0452.github.io/lazymemo/privacy/ (ko·en). 스토어 응답 초안은 그 문서 끝 | 제출 때 그대로 옮긴다 |
 | ~~필수~~ | ~~배포 계정·App Store Connect 메타데이터 미검증~~ **해결 (2026-09-14)** — 앱 레코드(Apple ID 6811815255)·무료·4+·개인정보 게시·설명·키워드·스크린샷·심사 메모 전부 입력, iOS 0.1.0(1)·macOS 0.4.0(1) 빌드가 TestFlight 에 올라가 각 버전에 붙어 있다. 원고는 `docs/STORE_LISTING.md` | 「심사에 추가」 만 남았다 — 아래 TestFlight 손검증 뒤 |
 | ~~품질~~ | ~~빠른 입력 초안은 프로세스 메모리에만 유지~~ **해결** — `CaptureDraftStore` 가 Application Support 의 `capture-draft.txt` 에 남기고 확정하면 지운다 | 앱 종료·충돌·판 갈이 뒤에도 미확정 입력을 복원한다. 검색어는 메모가 되지 않는다 |
-| 품질 | macOS 26 이상만 지원, 한국어 UI 중심 | 출시 지원 범위를 명시. 다른 macOS 버전과 영어 지원은 별도 실제 기기 검증 후 확대 |
+| ~~품질~~ | ~~macOS 26 이상만 지원, 한국어 UI 중심~~ **영어 해결 (2026-09-14)** — 맥·아이폰·공유 확장·MCP 의 화면 말 전부가 `en.lproj` 표를 지난다(한국어 원문이 열쇠, `Sources/LazyMemoCore/Words.swift`). 개발 언어를 영어로 두어 한국어가 아닌 사용자는 영어를 본다. 빠진 열쇠는 `scripts/check-l10n.sh --ios` 가 잡는다 | macOS 26 이상만 지원은 그대로. 영어 스토어 스크린샷은 `ShotTests`·`DemoTour` 가 한국어 낱말로 누르는 자리를 식별자로 바꾼 뒤 |
 
 ## TestFlight 손검증 — 제출 전에 사람 손으로 (2026-09-14, 내부 그룹 「lazymemo internal」)
 

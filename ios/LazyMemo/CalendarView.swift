@@ -63,7 +63,7 @@ struct CalendarView: View {
                 // 메모를 다시 집어야 「같은 자리」 판정과 되돌리기가 맞는다.
                 DateSheet(schedule: Schedule(memo), onChange: { schedule in
                     guard let live = store.memo(id) else { return }
-                    reschedule(live, to: schedule, name: schedule.day().map { "\($0.month)월 \($0.day)일로 옮기기" } ?? "날짜 바꾸기")
+                    reschedule(live, to: schedule, name: schedule.day().map { String(localized: "\(DateWords.monthDay($0))로 옮기기") } ?? String(localized: "날짜 바꾸기"))
                 }, onClear: { if let live = store.memo(id) { unschedule(live) } })
             }
         }
@@ -162,7 +162,7 @@ struct CalendarView: View {
     }
 
     private func move(_ memo: Memo, to day: CalendarDate) {
-        reschedule(memo, to: Schedule(memo).moved(to: day), name: "\(day.month)월 \(day.day)일로 옮기기")
+        reschedule(memo, to: Schedule(memo).moved(to: day), name: String(localized: "\(DateWords.monthDay(day))로 옮기기"))
     }
 
     private func reschedule(_ memo: Memo, to after: Schedule, name: String) {
@@ -186,7 +186,7 @@ struct CalendarView: View {
         let before = Schedule(memo)
         Task {
             _ = try? await store.update(memo.id, due: .some(nil), at: .some(nil))
-            Undo.register("날짜 떼기", on: undoManager, reveal: reveal, id: memo.id) {
+            Undo.register(String(localized: "날짜 떼기"), on: undoManager, reveal: reveal, id: memo.id) {
                 _ = try? await store.update(memo.id, due: .some(before.due), at: .some(before.at))
             }
         }
@@ -195,7 +195,7 @@ struct CalendarView: View {
     private func delete(_ memo: Memo) {
         Task {
             try? await store.delete(memo.id)
-            Undo.register("지우기", on: undoManager, reveal: reveal, id: memo.id) { try? await store.restore(memo.id) }
+            Undo.register(String(localized: "지우기"), on: undoManager, reveal: reveal, id: memo.id) { try? await store.restore(memo.id) }
         }
     }
 }

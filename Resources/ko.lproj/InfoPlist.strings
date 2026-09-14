@@ -1,0 +1,5 @@
+/* Info.plist 의 한국어 원문을 그대로 둔다. 개발 언어가 영어라 이 파일이 없으면
+   CFBundle 이 en.lproj 의 것을 집어 든다 — 한국어 사용자에게 영어 안내가 뜬다. */
+"NSCalendarsFullAccessUsageDescription" = "달력에 시스템 캘린더의 일정을 함께 보여 주기 위해 읽습니다. lazymemo 는 캘린더에 아무것도 쓰지 않습니다.";
+"NSLocationAlwaysUsageDescription" = "적어 둔 자리에 도착하면 그 메모를 바탕화면에 꺼내 주기 위해 위치를 지켜봅니다. 위치를 저장하지도, 밖으로 보내지도 않습니다.";
+"NSLocationWhenInUseUsageDescription" = "⌥⌘L 로 지금 있는 자리를 메모에 적기 위해 한 번 위치를 읽습니다. 위치를 계속 지켜보지 않습니다.";

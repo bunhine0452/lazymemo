@@ -28,10 +28,10 @@ case .version:
     print(LazyMemo.version)
     exit(0)
 case .unknown(let verb):
-    FileHandle.standardError.write(Data("모르는 명령입니다: \(verb)\n\n\(InboundCommand.usage)\n".utf8))
+    FileHandle.standardError.write(Data((L("모르는 명령입니다: \(verb)") + "\n\n\(InboundCommand.usage)\n").utf8))
     exit(2)
 case .empty:
-    FileHandle.standardError.write(Data("적을 글이 없습니다.\n\n\(InboundCommand.usage)\n".utf8))
+    FileHandle.standardError.write(Data((L("적을 글이 없습니다.") + "\n\n\(InboundCommand.usage)\n").utf8))
     exit(2)
 case .serve, .add:
     break
@@ -51,7 +51,7 @@ do {
     try paths.createDirectories()
     service = try MemoService(paths: paths)
 } catch {
-    StdioTransport.log("저장소를 열지 못했습니다: \(error)")
+    StdioTransport.log(L("저장소를 열지 못했습니다: \(String(describing: error))"))
     exit(1)
 }
 
@@ -66,7 +66,7 @@ if case .add(let inbound) = command {
         print(memo.id.stringValue)
         exit(0)
     } catch {
-        FileHandle.standardError.write(Data("적지 못했습니다: \(error)\n".utf8))
+        FileHandle.standardError.write(Data((L("적지 못했습니다: \(String(describing: error))") + "\n").utf8))
         exit(1)
     }
 }
@@ -86,11 +86,11 @@ func handle(_ request: JSONRPC.Request) async -> [String: Any]? {
                 "prompts": ["listChanged": false],
             ],
             "serverInfo": ["name": "lazymemo", "version": LazyMemo.version],
-            "instructions": """
+            "instructions": L("""
                 lazymemo 는 사용자의 바탕화면 메모다. 메모와 일정이 같은 것이라,
                 due(날짜) 또는 at(시각)을 채우면 캘린더에도 나타난다.
                 삭제는 휴지통 이동까지만 가능하며 영구 삭제 도구는 제공되지 않는다.
-                """,
+                """),
         ])
 
     case "ping":
@@ -101,12 +101,12 @@ func handle(_ request: JSONRPC.Request) async -> [String: Any]? {
 
     case "prompts/get":
         guard let name = request.params["name"] as? String else {
-            return JSONRPC.failure(id: request.id, .invalidParams, "name 이 필요합니다")
+            return JSONRPC.failure(id: request.id, .invalidParams, L("name 이 필요합니다"))
         }
         guard let messages = MemoPrompts.messages(for: name),
               let definition = MemoPrompts.definition(name)
         else {
-            return JSONRPC.failure(id: request.id, .invalidParams, "없는 프롬프트입니다: \(name)")
+            return JSONRPC.failure(id: request.id, .invalidParams, L("없는 프롬프트입니다: \(name)"))
         }
         return JSONRPC.result(id: request.id, [
             "description": definition["description"] ?? "",
@@ -118,7 +118,7 @@ func handle(_ request: JSONRPC.Request) async -> [String: Any]? {
 
     case "tools/call":
         guard let name = request.params["name"] as? String else {
-            return JSONRPC.failure(id: request.id, .invalidParams, "name 이 필요합니다")
+            return JSONRPC.failure(id: request.id, .invalidParams, L("name 이 필요합니다"))
         }
         let arguments = request.params["arguments"] as? [String: Any] ?? [:]
 
@@ -140,7 +140,7 @@ func handle(_ request: JSONRPC.Request) async -> [String: Any]? {
     default:
         // 알림은 응답하지 않는다 — notifications/initialized 등.
         if request.isNotification { return nil }
-        return JSONRPC.failure(id: request.id, .methodNotFound, "지원하지 않는 메서드: \(request.method)")
+        return JSONRPC.failure(id: request.id, .methodNotFound, L("지원하지 않는 메서드: \(request.method)"))
     }
 }
 
@@ -151,12 +151,12 @@ for try await line in FileHandle.standardInput.bytes.lines {
     guard let data = line.data(using: .utf8),
           let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     else {
-        transport.send(JSONRPC.failure(id: nil, .parseError, "JSON 을 읽을 수 없습니다"))
+        transport.send(JSONRPC.failure(id: nil, .parseError, L("JSON 을 읽을 수 없습니다")))
         continue
     }
 
     guard let request = JSONRPC.Request(object) else {
-        transport.send(JSONRPC.failure(id: object["id"], .invalidRequest, "method 가 없습니다"))
+        transport.send(JSONRPC.failure(id: object["id"], .invalidRequest, L("method 가 없습니다")))
         continue
     }
 

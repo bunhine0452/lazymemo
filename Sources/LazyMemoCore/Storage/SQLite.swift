@@ -22,7 +22,7 @@ final class SQLiteDatabase {
         let flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
         let code = sqlite3_open_v2(path, &handle, flags, nil)
         guard code == SQLITE_OK, handle != nil else {
-            let message = handle.map { String(cString: sqlite3_errmsg($0)) } ?? "열 수 없음"
+            let message = handle.map { String(cString: sqlite3_errmsg($0)) } ?? L("열 수 없음")
             sqlite3_close_v2(handle)
             throw Failure(code: code, message: message)
         }
@@ -47,7 +47,7 @@ final class SQLiteDatabase {
         var errorPointer: UnsafeMutablePointer<CChar>?
         let code = sqlite3_exec(handle, sql, nil, nil, &errorPointer)
         guard code == SQLITE_OK else {
-            let message = errorPointer.map { String(cString: $0) } ?? "알 수 없는 오류"
+            let message = errorPointer.map { String(cString: $0) } ?? L("알 수 없는 오류")
             sqlite3_free(errorPointer)
             throw Failure(code: code, message: message)
         }

@@ -100,7 +100,7 @@ private struct PlaceCard: View {
                 VStack(spacing: 4) {
                     Image(systemName: spot.unresolved ? "mappin.slash" : "map")
                         .font(.title3).foregroundStyle(.secondary)
-                    Text(spot.unresolved ? "지도에서 못 찾은 자리" : "지도를 찾는 중")
+                    Text(spot.unresolved ? String(localized: "지도에서 못 찾은 자리") : String(localized: "지도를 찾는 중"))
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }

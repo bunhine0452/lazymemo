@@ -29,7 +29,7 @@ actor EventKitFeed: CalendarFeed {
         var note: String? {
             switch self {
             case .granted, .notAsked: nil
-            case .denied: "시스템 설정 → 개인정보 보호에서 캘린더를 허용하면 함께 보입니다"
+            case .denied: L("시스템 설정 → 개인정보 보호에서 캘린더를 허용하면 함께 보입니다")
             }
         }
     }
@@ -67,7 +67,7 @@ actor EventKitFeed: CalendarFeed {
                 // 붙여야 하루에 두 줄이 서도 서로 다른 줄로 센다.
                 id: (event.eventIdentifier ?? event.title ?? "?")
                     + "@" + String(Int(event.startDate.timeIntervalSince1970)),
-                title: event.title ?? "제목 없는 일정",
+                title: event.title ?? L("제목 없는 일정"),
                 start: event.startDate,
                 isAllDay: event.isAllDay,
                 calendarName: event.calendar?.title

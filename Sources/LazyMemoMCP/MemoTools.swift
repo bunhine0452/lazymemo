@@ -15,50 +15,50 @@ struct MemoTools {
         [
             [
                 "name": "list_memos",
-                "description": """
+                "description": L("""
                     메모를 검색하거나 나열한다. 날짜 범위를 주면 그 기간의 일정을 돌려준다. \
                     lazymemo 에서는 메모와 일정이 같은 것이라, due(날짜) 또는 at(시각) 필드가 \
                     채워진 메모가 곧 캘린더 항목이다.
-                    """,
+                    """),
                 "inputSchema": [
                     "type": "object",
                     "properties": [
-                        "query": ["type": "string", "description": "본문 검색어"],
-                        "tag": ["type": "string", "description": "이 태그를 가진 메모만"],
-                        "place": ["type": "string", "description": "장소 이름에 이 말이 들어간 메모만 (예: 강남)"],
-                        "folder": ["type": "string", "description": "이 폴더에 넣어 둔 메모만. 폴더 이름은 list_folders 로 얻는다"],
-                        "from": ["type": "string", "description": "일정 시작일 YYYY-MM-DD"],
-                        "to": ["type": "string", "description": "일정 종료일 YYYY-MM-DD"],
-                        "limit": ["type": "integer", "description": "최대 개수 (기본 30)"],
+                        "query": ["type": "string", "description": L("본문 검색어")],
+                        "tag": ["type": "string", "description": L("이 태그를 가진 메모만")],
+                        "place": ["type": "string", "description": L("장소 이름에 이 말이 들어간 메모만 (예: 강남)")],
+                        "folder": ["type": "string", "description": L("이 폴더에 넣어 둔 메모만. 폴더 이름은 list_folders 로 얻는다")],
+                        "from": ["type": "string", "description": L("일정 시작일 YYYY-MM-DD")],
+                        "to": ["type": "string", "description": L("일정 종료일 YYYY-MM-DD")],
+                        "limit": ["type": "integer", "description": L("최대 개수 (기본 30)")],
                     ],
                 ],
             ],
             [
                 "name": "create_memo",
-                "description": """
+                "description": L("""
                     새 메모를 만든다. 약속처럼 시각이 정해진 것은 at 에, 마감이나 목표처럼 \
                     날짜만 있는 것은 due 에 넣으면 캘린더에도 나타난다. 둘 다 비우면 그냥 메모다. \
                     place 는 어디인지를 적는 칸이며, 날짜와 달리 메모가 놓이는 자리를 바꾸지 않는다 \
                     — 바탕화면의 종이에 장소가 함께 적힐 뿐이다.
-                    """,
+                    """),
                 "inputSchema": [
                     "type": "object",
                     "required": ["text"],
                     "properties": [
-                        "text": ["type": "string", "description": "메모 본문 (마크다운)"],
-                        "due": ["type": "string", "description": "마감일 YYYY-MM-DD"],
-                        "at": ["type": "string", "description": "약속 시각 ISO8601 (예: 2026-09-01T14:00:00+09:00)"],
+                        "text": ["type": "string", "description": L("메모 본문 (마크다운)")],
+                        "due": ["type": "string", "description": L("마감일 YYYY-MM-DD")],
+                        "at": ["type": "string", "description": L("약속 시각 ISO8601 (예: 2026-09-01T14:00:00+09:00)")],
                         "every": [
                             "type": "string",
                             "enum": Recurrence.allCases.map(\.label),
-                            "description": "되풀이하는 일이면 주기. 언제인지는 due/at 이 들고 있고, 그 회차가 지나면 앱이 다음 회차로 옮긴다",
+                            "description": L("되풀이하는 일이면 주기. 언제인지는 due/at 이 들고 있고, 그 회차가 지나면 앱이 다음 회차로 옮긴다"),
                         ],
                         "surface_at": [
                             "type": "string",
-                            "description": "이 메모가 바탕화면에 나올 시각 ISO8601. 일정(at)과 다른 것을 말한다 — 회의는 3시, 종이는 2시 30분",
+                            "description": L("이 메모가 바탕화면에 나올 시각 ISO8601. 일정(at)과 다른 것을 말한다 — 회의는 3시, 종이는 2시 30분"),
                         ],
-                        "place": ["type": "string", "description": "장소 이름 (예: 강남역 3번 출구). 사람이 읽는 말 그대로"],
-                        "geo": ["type": "string", "description": "좌표 위도,경도 (예: 37.4979,127.0276). 선택 — 없으면 이름으로 지도를 찾는다"],
+                        "place": ["type": "string", "description": L("장소 이름 (예: 강남역 3번 출구). 사람이 읽는 말 그대로")],
+                        "geo": ["type": "string", "description": L("좌표 위도,경도 (예: 37.4979,127.0276). 선택 — 없으면 이름으로 지도를 찾는다")],
                         "tags": ["type": "array", "items": ["type": "string"]],
                         "color": [
                             "type": "string",
@@ -66,67 +66,67 @@ struct MemoTools {
                         ],
                         "folder": [
                             "type": "string",
-                            "description": "서랍의 폴더 이름. 넣으면 메모가 바탕화면 대신 서랍의 그 칸으로 간다. 없는 이름이면 폴더가 새로 생긴다",
+                            "description": L("서랍의 폴더 이름. 넣으면 메모가 바탕화면 대신 서랍의 그 칸으로 간다. 없는 이름이면 폴더가 새로 생긴다"),
                         ],
                     ],
                 ],
             ],
             [
                 "name": "update_memo",
-                "description": "기존 메모를 고친다. 넘기지 않은 필드는 그대로 둔다. 날짜를 지우려면 빈 문자열을 넘긴다.",
+                "description": L("기존 메모를 고친다. 넘기지 않은 필드는 그대로 둔다. 날짜를 지우려면 빈 문자열을 넘긴다."),
                 "inputSchema": [
                     "type": "object",
                     "required": ["id"],
                     "properties": [
-                        "id": ["type": "string", "description": "메모 id (ULID)"],
+                        "id": ["type": "string", "description": L("메모 id (ULID)")],
                         "text": ["type": "string"],
-                        "due": ["type": "string", "description": "YYYY-MM-DD, 빈 문자열이면 삭제"],
-                        "at": ["type": "string", "description": "ISO8601, 빈 문자열이면 삭제"],
+                        "due": ["type": "string", "description": L("YYYY-MM-DD, 빈 문자열이면 삭제")],
+                        "at": ["type": "string", "description": L("ISO8601, 빈 문자열이면 삭제")],
                         "every": [
                             "type": "string",
-                            "description": "되풀이 주기(매일·매주·매월·매년), 빈 문자열이면 삭제",
+                            "description": L("되풀이 주기(매일·매주·매월·매년), 빈 문자열이면 삭제"),
                         ],
-                        "surface_at": ["type": "string", "description": "나올 시각 ISO8601, 빈 문자열이면 삭제"],
-                        "place": ["type": "string", "description": "장소 이름, 빈 문자열이면 삭제"],
-                        "geo": ["type": "string", "description": "위도,경도. 빈 문자열이면 삭제"],
+                        "surface_at": ["type": "string", "description": L("나올 시각 ISO8601, 빈 문자열이면 삭제")],
+                        "place": ["type": "string", "description": L("장소 이름, 빈 문자열이면 삭제")],
+                        "geo": ["type": "string", "description": L("위도,경도. 빈 문자열이면 삭제")],
                         "tags": ["type": "array", "items": ["type": "string"]],
                         "color": ["type": "string", "enum": MemoColor.allCases.map(\.rawValue)],
                         "pinned": ["type": "boolean"],
-                        "folder": ["type": "string", "description": "서랍의 폴더 이름. 빈 문자열이면 폴더에서 뺀다"],
+                        "folder": ["type": "string", "description": L("서랍의 폴더 이름. 빈 문자열이면 폴더에서 뺀다")],
                     ],
                 ],
             ],
             [
                 "name": "list_folders",
-                "description": "서랍의 폴더 이름과 각 폴더에 든 메모 수를 나열한다. create_memo·update_memo 의 folder 에 넘길 이름을 여기서 얻는다.",
+                "description": L("서랍의 폴더 이름과 각 폴더에 든 메모 수를 나열한다. create_memo·update_memo 의 folder 에 넘길 이름을 여기서 얻는다."),
                 "inputSchema": ["type": "object", "properties": [:]],
             ],
             [
                 "name": "surface_memo",
-                "description": """
+                "description": L("""
                     이 메모가 바탕화면에 **나올 시각**을 정한다. 일정을 바꾸지 않는다 — \
                     회의는 3시 그대로 두고 종이만 2시 30분에 앞으로 꺼낼 때 쓴다. \
                     일정이 없는 메모에도 쓸 수 있다("금요일 아침에 이거 다시 보여줘"). \
                     시스템 알림이 아니라 바탕화면의 종이가 앞으로 나오는 것이다.
-                    """,
+                    """),
                 "inputSchema": [
                     "type": "object",
                     "required": ["id"],
                     "properties": [
-                        "id": ["type": "string", "description": "메모 id (ULID)"],
+                        "id": ["type": "string", "description": L("메모 id (ULID)")],
                         "at": [
                             "type": "string",
-                            "description": "나올 시각 ISO8601. 빈 문자열이면 다시 일정 시각에 나온다",
+                            "description": L("나올 시각 ISO8601. 빈 문자열이면 다시 일정 시각에 나온다"),
                         ],
                     ],
                 ],
             ],
             [
                 "name": "delete_memo",
-                "description": """
+                "description": L("""
                     메모를 휴지통으로 옮긴다. 파일은 지워지지 않으며 restore_memo 로 되돌릴 수 있다. \
                     영구 삭제하는 방법은 제공되지 않는다.
-                    """,
+                    """),
                 "inputSchema": [
                     "type": "object",
                     "required": ["id"],
@@ -135,7 +135,7 @@ struct MemoTools {
             ],
             [
                 "name": "restore_memo",
-                "description": "휴지통에 있는 메모를 되돌린다.",
+                "description": L("휴지통에 있는 메모를 되돌린다."),
                 "inputSchema": [
                     "type": "object",
                     "required": ["id"],
@@ -144,7 +144,7 @@ struct MemoTools {
             ],
             [
                 "name": "list_trash",
-                "description": "휴지통에 있는 메모를 나열한다. restore_memo 에 넘길 id 를 여기서 얻는다.",
+                "description": L("휴지통에 있는 메모를 나열한다. restore_memo 에 넘길 id 를 여기서 얻는다."),
                 "inputSchema": ["type": "object", "properties": [:]],
             ],
         ]
@@ -159,9 +159,9 @@ struct MemoTools {
 
         var description: String {
             switch self {
-            case .unknownTool(let name): "알 수 없는 도구입니다: \(name)"
-            case .missing(let field): "\(field) 이(가) 필요합니다"
-            case .malformed(let field, let value): "\(field) 형식이 잘못되었습니다: \(value)"
+            case .unknownTool(let name): L("알 수 없는 도구입니다: \(name)")
+            case .missing(let field): L("\(field) 이(가) 필요합니다")
+            case .malformed(let field, let value): L("\(field) 형식이 잘못되었습니다: \(value)")
             }
         }
     }
@@ -259,7 +259,7 @@ struct MemoTools {
 
     private func deleteMemo(_ arguments: [String: Any]) async throws -> String {
         let memo = try await service.delete(try identifier(arguments))
-        return "휴지통으로 옮겼습니다. restore_memo 로 되돌릴 수 있습니다.\n" + encode([memo])
+        return L("휴지통으로 옮겼습니다. restore_memo 로 되돌릴 수 있습니다.") + "\n" + encode([memo])
     }
 
     private func restoreMemo(_ arguments: [String: Any]) async throws -> String {

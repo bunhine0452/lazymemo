@@ -82,7 +82,7 @@ struct Hotkey: Equatable, Sendable {
     /// 키 이름. 표에 없는 키는 번호로 보인다 — 틀린 이름을 보여 주는 것보다 낫다.
     private static func keyName(_ code: UInt32) -> String {
         if let name = names[Int(code)] { return name }
-        return "키\(code)"
+        return L("키\(Int(code))")
     }
 
     private static let names: [Int: String] = [

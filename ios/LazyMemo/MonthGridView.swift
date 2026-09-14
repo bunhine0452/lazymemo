@@ -20,7 +20,7 @@ struct MonthGridView: View {
     var onDrop: ((CalendarDate, [String]) -> Bool)?
 
     private static let cell: CGFloat = 44
-    private let weekdays = ["일", "월", "화", "수", "목", "금", "토"]
+    private let weekdays = DateWords.weekdayLetters()
 
     var body: some View {
         VStack(spacing: 8) {
@@ -53,7 +53,7 @@ struct MonthGridView: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text("\(grid.month)월")
+            Text(DateWords.month(grid.month))
                 .font(.largeTitle.weight(.bold))
                 .foregroundStyle(Paper.ink)
             Text(String(grid.year))
@@ -114,7 +114,9 @@ struct MonthGridView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(day.date.day)일 \(weekdayName(day.date))" + (count > 0 ? ", 일정 \(count)" : ""))
+        .accessibilityLabel(count > 0
+            ? String(localized: "\(DateWords.dayWeekday(day.date)), 일정 \(count)")
+            : DateWords.dayWeekday(day.date))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
@@ -126,8 +128,4 @@ struct MonthGridView: View {
         }
     }
 
-    private func weekdayName(_ day: CalendarDate) -> String {
-        guard let date = day.startOfDay() else { return "" }
-        return Calendar.current.weekdaySymbols[Calendar.current.component(.weekday, from: date) - 1]
-    }
 }

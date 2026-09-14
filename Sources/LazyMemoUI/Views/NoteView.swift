@@ -155,7 +155,7 @@ struct NoteView: View {
 
     /// 오른쪽 위 — 치우기 하나.
     private var closeControl: some View {
-        QuietButton(symbol: "xmark", help: "치우기 — 서랍에 들어갑니다. 지워지지 않습니다", action: onClose)
+        QuietButton(symbol: "xmark", help: L("치우기 — 서랍에 들어갑니다. 지워지지 않습니다"), action: onClose)
             .padding(NoteControlLayout.capsulePadding)
             .background { RaisedSurface(ink: color.ink) }
             .padding(NoteControlLayout.closeInset)
@@ -168,7 +168,7 @@ struct NoteView: View {
         HStack(spacing: NoteControlLayout.spacing) {
             // 지우기는 **가장 먼 왼쪽**에 두고 색으로 갈라 놓는다. 붉은 휴지통과
             // 회색 ×는 반쯤 보고도 구별된다 (설계문서 §6).
-            QuietButton(symbol: "trash", help: "지우기 — 메뉴의 되돌리기로 살릴 수 있습니다", isDestructive: true) {
+            QuietButton(symbol: "trash", help: L("지우기 — 메뉴의 되돌리기로 살릴 수 있습니다"), isDestructive: true) {
                 Task { await model.delete() }
             }
 
@@ -186,7 +186,7 @@ struct NoteView: View {
             if model.canTidy {
                 QuietButton(
                     symbol: "sparkles",
-                    help: "다듬기 — Claude 가 이 메모를 읽기 좋게 고칩니다. 8초 안에 되돌릴 수 있습니다"
+                    help: L("다듬기 — Claude 가 이 메모를 읽기 좋게 고칩니다. 8초 안에 되돌릴 수 있습니다")
                 ) {
                     Task { await model.tidyWithClaude() }
                 }
@@ -212,8 +212,8 @@ struct NoteView: View {
             QuietButton(
                 symbol: model.memo.isScheduled ? "calendar" : "calendar.badge.plus",
                 help: model.memo.isScheduled
-                    ? "달력에서 보기"
-                    : "달력에 놓기 — 날을 고르면 이 종이는 달력이 맡습니다",
+                    ? L("달력에서 보기")
+                    : L("달력에 놓기 — 날을 고르면 이 종이는 달력이 맡습니다"),
                 action: onCalendar
             )
         }
@@ -234,12 +234,12 @@ struct NoteView: View {
     /// 같은 것을 하는 편이 낫다.
     @ViewBuilder private var paperMenu: some View {
         if model.canTidy {
-            Button("다듬기") { Task { await model.tidyWithClaude() } }
+            Button(L("다듬기")) { Task { await model.tidyWithClaude() } }
         }
-        Button(model.memo.pinned ? "고정 해제" : "고정") {
+        Button(model.memo.pinned ? L("고정 해제") : L("고정")) {
             Task { await model.togglePin() }
         }
-        Menu("색") {
+        Menu(L("색")) {
             ForEach(MemoColor.allCases, id: \.self) { candidate in
                 Button(candidate.label) { Task { await model.setColor(candidate) } }
             }
@@ -248,8 +248,8 @@ struct NoteView: View {
         // **폴더에 넣기 = 서랍에 넣기 + 이름표.** 이름표만 달고 종이를 그대로
         // 두면 사람은 아무 일도 안 일어난 것으로 본다 — 폴더는 서랍의 칸이므로
         // (`MemoFolders`) 넣는 순간 종이는 서랍으로 간다.
-        Menu("서랍에 넣기") {
-            Button("폴더 없이") { onClose() }
+        Menu(L("서랍에 넣기")) {
+            Button(L("폴더 없이")) { onClose() }
             let folders = model.folderNames()
             if !folders.isEmpty {
                 Divider()
@@ -270,11 +270,11 @@ struct NoteView: View {
             }
             if model.memo.folder != nil {
                 Divider()
-                Button("폴더 이름표 떼기") { Task { await model.setFolder(nil) } }
+                Button(L("폴더 이름표 떼기")) { Task { await model.setFolder(nil) } }
             }
         }
         Divider()
-        Button("지우기", role: .destructive) { Task { await model.delete() } }
+        Button(L("지우기"), role: .destructive) { Task { await model.delete() } }
     }
 
     private var colorButton: some View {
@@ -289,7 +289,7 @@ struct NoteView: View {
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .spoken("색 바꾸기 — 지금은 \(color.label)")
+        .spoken(L("색 바꾸기 — 지금은 \(color.label)"))
         .popover(isPresented: $isPickingColor, arrowEdge: .bottom) {
             colorPicker
         }
@@ -368,7 +368,7 @@ struct NoteView: View {
                 .buttonStyle(.plain)
                 .help(card.url.absoluteString)
                 .accessibilityLabel(Text("\(card.title), \(card.host)"))
-                .accessibilityHint(Text("링크 열기"))
+                .accessibilityHint(Text(L("링크 열기")))
             }
         }
         .padding(.horizontal, Theme.loose)
@@ -440,23 +440,23 @@ struct NoteView: View {
         HStack(spacing: Theme.tight) {
             switch model.thinking {
             case .working:
-                Text("다듬는 중…")
+                Text(L("다듬는 중…"))
                     .font(Theme.micro)
                     .foregroundStyle(Paper.fadedInk)
             case .done:
-                Text("다듬었습니다")
+                Text(L("다듬었습니다"))
                     .font(Theme.micro)
                     .foregroundStyle(Paper.fadedInk)
                 Button { Task { await model.undoTidy() } } label: {
                     // 8초 안에 닿아야 하는 자리다. 급한 손에 13pt 를 내밀지 않는다.
-                    Text("되돌리기")
+                    Text(L("되돌리기"))
                         .font(Theme.micro)
                         .padding(.horizontal, Theme.tight)
                         .hitTarget(Theme.touchRow)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Theme.accentInk)
-                .spoken("되돌리기 — 다듬기 전의 글로 되돌립니다")
+                .spoken(L("되돌리기 — 다듬기 전의 글로 되돌립니다"))
             case .failed(let reason):
                 Text(reason)
                     .font(Theme.micro)
@@ -475,7 +475,7 @@ struct NoteView: View {
 
     private func deletedVeil(_ deleted: Memo) -> some View {
         VStack(spacing: Theme.tight) {
-            Text("「\(deleted.title)」 지웠습니다")
+            Text(L("「\(deleted.title)」 지웠습니다"))
                 .font(Theme.label)
                 .foregroundStyle(Paper.fadedInk)
                 .lineLimit(2)
@@ -485,14 +485,14 @@ struct NoteView: View {
                 Task { await model.restoreDeleted() }
             } label: {
                 // 방금 잘못 지운 사람이 오는 자리다 — 이 종이에서 가장 넉넉해야 한다.
-                Text("되돌리기")
+                Text(L("되돌리기"))
                     .font(Theme.label)
                     .padding(.horizontal, Theme.snug)
                     .hitTarget(Theme.touch)
             }
             .buttonStyle(.plain)
             .foregroundStyle(Theme.accentInk)
-            .spoken("되돌리기 — 방금 지운 이 메모를 되살립니다")
+            .spoken(L("되돌리기 — 방금 지운 이 메모를 되살립니다"))
         }
         .padding(Theme.normal)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -518,14 +518,14 @@ struct NoteView: View {
         HStack(spacing: 4) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 8))
-            Text("아직 안 적혔습니다")
+            Text(L("아직 안 적혔습니다"))
                 .font(Theme.micro)
             Spacer(minLength: 0)
         }
         .foregroundStyle(Theme.dangerInk)
         .padding(.horizontal, NoteControlLayout.footerInset)
         .padding(.bottom, hasFooter ? Theme.hairline : Theme.normal)
-        .help("파일에 쓰지 못했습니다 — 글이 사라지지 않게 다른 곳에 옮겨 두세요")
+        .help(L("파일에 쓰지 못했습니다 — 글이 사라지지 않게 다른 곳에 옮겨 두세요"))
         .transition(.opacity)
     }
 
@@ -590,7 +590,7 @@ struct NoteView: View {
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .spoken("달력에서 보기 — 이 일정이 달력의 어디에 있는지 펼칩니다")
+            .spoken(L("달력에서 보기 — 이 일정이 달력의 어디에 있는지 펼칩니다"))
         }
     }
 
@@ -607,13 +607,13 @@ struct NoteView: View {
                 Image(systemName: "arrow.up").font(.system(size: 9))
             }
             .foregroundStyle(surface <= model.asOf ? Paper.ink.opacity(0.35) : Paper.fadedInk)
-            .help("이 시각에 종이가 앞으로 나옵니다")
-            .accessibilityLabel(Text("\(Self.surfaceText(surface))에 이 종이가 앞으로 나옵니다"))
+            .help(L("이 시각에 종이가 앞으로 나옵니다"))
+            .accessibilityLabel(Text(L("\(Self.surfaceText(surface))에 이 종이가 앞으로 나옵니다")))
         }
     }
 
     static func surfaceText(_ surface: Date) -> String {
-        surface.formatted(.dateTime.month().day().hour().minute()) + " 나옴"
+        L("\(surface.formatted(.dateTime.month().day())) \(surface.formatted(.dateTime.hour().minute())) 나옴")
     }
 
     /// 장소도 누를 수 있다. 다만 날짜와 다르다 — 날짜를 누르면 이 메모가 옮겨
@@ -634,7 +634,7 @@ struct NoteView: View {
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .spoken("지도에서 보기 — \(mark) 을(를) 지도 앱에서 엽니다")
+            .spoken(L("지도에서 보기 — \(mark) 을(를) 지도 앱에서 엽니다"))
         }
     }
 
@@ -672,14 +672,16 @@ struct NoteView: View {
         // 「9월 1일 화 · 30분 전 · 매주」. 셋 다 같은 시각을 가리키는 말이라
         // 한 조각으로 붙는다 — 되풀이는 날짜를 **한정하는 말**이지 별개의 값이
         // 아니다 (`Recurrence` — 주기만 말하고 언제인지는 날짜가 들고 있다).
-        return [schedule, model.memo.surfaceLead, model.memo.every?.label]
+        return [schedule, model.memo.surfaceLead, model.memo.every?.text()]
             .compactMap { $0 }
             .joined(separator: " · ")
     }
 
     private var scheduleLabel: String? {
         if let at = model.memo.at {
-            return at.formatted(.dateTime.month().day().hour().minute())
+            // 날과 시각을 따로 적는다 — 한 벌로 적으면 영어가 「Aug 31 at 2:30 PM」으로
+            // 늘어나 꼬리에서 잘린다. 한국어는 어느 쪽이든 「8월 31일 오후 2:30」이다.
+            return "\(at.formatted(.dateTime.month().day())) \(at.formatted(.dateTime.hour().minute()))"
         }
         if let due = model.memo.due, let start = due.startOfDay() {
             return start.formatted(.dateTime.month().day().weekday(.abbreviated))

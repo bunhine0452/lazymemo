@@ -24,28 +24,28 @@ enum MemoPrompts {
     static var definitions: [[String: Any]] { [
         [
             "name": "weekly-tidy",
-            "title": "이번 주 정리",
-            "description": "쌓인 메모를 훑어 끝난 것은 치우고, 남을 것은 날짜를 붙인다",
+            "title": L("이번 주 정리"),
+            "description": L("쌓인 메모를 훑어 끝난 것은 치우고, 남을 것은 날짜를 붙인다"),
         ],
         [
             "name": "today-three",
-            "title": "오늘 뭐부터",
-            "description": "지금 손댈 것 세 개만 고른다",
+            "title": L("오늘 뭐부터"),
+            "description": L("지금 손댈 것 세 개만 고른다"),
         ],
         [
             "name": "merge-scattered",
-            "title": "흩어진 것 합치기",
-            "description": "같은 얘기로 흩어진 메모를 하나로 모은다",
+            "title": L("흩어진 것 합치기"),
+            "description": L("같은 얘기로 흩어진 메모를 하나로 모은다"),
         ],
         [
             "name": "date-the-undated",
-            "title": "날짜 없는 것 챙기기",
-            "description": "날짜가 있어야 할 것 같은 메모에 날짜를 제안한다",
+            "title": L("날짜 없는 것 챙기기"),
+            "description": L("날짜가 있어야 할 것 같은 메모에 날짜를 제안한다"),
         ],
         [
             "name": "last-month",
-            "title": "지난달 뭐 했더라",
-            "description": "지난 30일의 메모를 짧게 되짚는다",
+            "title": L("지난달 뭐 했더라"),
+            "description": L("지난 30일의 메모를 짧게 되짚는다"),
         ],
     ] }
 
@@ -59,7 +59,7 @@ enum MemoPrompts {
     }
 
     private static let script: [String: String] = [
-        "weekly-tidy": """
+        "weekly-tidy": L("""
             lazymemo 의 메모를 훑어 이번 주를 정리해줘.
 
             1. list_memos 로 전체를 본다.
@@ -69,8 +69,8 @@ enum MemoPrompts {
             4. 어디서 하는 일인지 본문에 적혀 있으면 place 로 옮겨 준다.
 
             마지막에 한 줄로 알려줘 — 몇 장을 치웠고 몇 장에 날짜를 붙였는지.
-            """,
-        "today-three": """
+            """),
+        "today-three": L("""
             오늘 손대야 할 것 **세 개만** 골라줘.
 
             list_memos 로 오늘 날짜의 일정과 날짜 없는 메모를 함께 보고,
@@ -78,8 +78,8 @@ enum MemoPrompts {
             고르라고 부른 것이지 늘어놓으라고 부른 것이 아니다.
 
             각각 왜 오늘인지 한 줄씩. 장소가 적혀 있으면 함께 말해줘.
-            """,
-        "merge-scattered": """
+            """),
+        "merge-scattered": L("""
             같은 얘기로 흩어진 메모를 찾아 합쳐줘.
 
             1. list_memos 로 전체를 보고 주제가 겹치는 묶음을 찾는다.
@@ -87,20 +87,20 @@ enum MemoPrompts {
             3. 합칠 때는 update_memo 로 한 장에 모으고, 나머지는 delete_memo 로 옮긴다.
 
             애매하면 합치지 마. 잘못 합친 것을 되돌리는 것이 흩어진 채로 두는 것보다 비싸다.
-            """,
-        "date-the-undated": """
+            """),
+        "date-the-undated": L("""
             날짜가 없는데 있어야 할 것 같은 메모를 찾아줘.
 
             list_memos 로 due 와 at 이 모두 빈 메모를 보고, 그중 «언제까지» 가
             있어야 말이 되는 것을 고른다(예약·마감·연락·결제).
 
             각각 언제로 하면 좋을지 제안하고, **내가 좋다고 한 것만** update_memo 로 붙인다.
-            """,
-        "last-month": """
+            """),
+        "last-month": L("""
             지난 30일 동안 무슨 일이 있었는지 짧게 되짚어줘.
 
             list_memos 의 from·to 로 그 기간을 보고, 열 줄 안쪽으로 정리한다.
             빠짐없이 적는 것이 목적이 아니다 — 다시 볼 만한 것만 남긴다.
-            """,
+            """),
     ]
 }

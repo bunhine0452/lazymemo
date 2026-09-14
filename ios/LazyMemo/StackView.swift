@@ -30,7 +30,7 @@ struct StackView: View {
     private var searching: Bool { pen.found != nil }
 
     private var subtitle: String {
-        session.usingCloud ? "iCloud · \(store.active.count)장" : "이 기기에만 · iCloud 꺼짐"
+        session.usingCloud ? String(localized: "iCloud · \(store.active.count)장") : String(localized: "이 기기에만 · iCloud 꺼짐")
     }
 
     var body: some View {
@@ -50,8 +50,8 @@ struct StackView: View {
                     // 무언가 틀린 것처럼 읽는다. 펜은 적기가 먼저고 찾기는 곁이다.
                     let scope = MemoFolders.filter(store.active, folder: folders.selected).count
                     Text(listed.isEmpty
-                         ? "\(scope)장 중 겹치는 것 없음 · 남기면 새 메모예요"
-                         : "\(scope)장 중 \(listed.count)장")
+                         ? String(localized: "\(scope)장 중 겹치는 것 없음 · 남기면 새 메모예요")
+                         : String(localized: "\(scope)장 중 \(listed.count)장"))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .listRowBackground(Color.clear)
@@ -78,13 +78,13 @@ struct StackView: View {
                     }
                     .swipeActions(edge: .leading) {
                         Button { pin(memo) } label: {
-                            Label(memo.pinned ? "고정 해제" : "고정", systemImage: memo.pinned ? "pin.slash" : "pin")
+                            Label(memo.pinned ? String(localized: "고정 해제") : String(localized: "고정"), systemImage: memo.pinned ? "pin.slash" : "pin")
                         }
                         .tint(Theme.accent)
                     }
                     .contextMenu {
                         Button { pin(memo) } label: {
-                            Label(memo.pinned ? "고정 해제" : "고정", systemImage: memo.pinned ? "pin.slash" : "pin")
+                            Label(memo.pinned ? String(localized: "고정 해제") : String(localized: "고정"), systemImage: memo.pinned ? "pin.slash" : "pin")
                         }
                         if !folders.names.isEmpty || memo.folder != nil {
                             Menu {
@@ -99,7 +99,7 @@ struct StackView: View {
                         MemoRowView(memo: memo).padding(16).frame(width: 340).background(Paper.surface)
                     }
                     .accessibilityActions {
-                        Button(memo.pinned ? "고정 해제" : "고정") { pin(memo) }
+                        Button(memo.pinned ? String(localized: "고정 해제") : String(localized: "고정")) { pin(memo) }
                         Button("달력에 놓기") { dating = memo.id }
                         Button("지우기") { delete(memo) }
                     }
@@ -112,7 +112,7 @@ struct StackView: View {
                             .foregroundStyle(Theme.accentInk)
                             .frame(width: 64, height: 64)
                             .background(Theme.accentInk.opacity(0.08), in: RoundedRectangle(cornerRadius: 20))
-                        Text(folders.selected == nil ? "가볍게, 한 줄부터" : "아직 비어 있는 폴더예요")
+                        Text(folders.selected == nil ? String(localized: "가볍게, 한 줄부터") : String(localized: "아직 비어 있는 폴더예요"))
                             .font(.headline).foregroundStyle(Paper.ink)
                         Text("아래에 적으면 이곳에 차곡차곡 쌓여요.")
                             .font(.subheadline).foregroundStyle(.secondary)
@@ -159,7 +159,7 @@ struct StackView: View {
         .sheet(isPresented: $showsTutorial) { TutorialView() }
         // 폴더를 지우는 것은 되돌릴 수 없다 (이름표가 떨어진다) — 한 번 묻는다.
         .confirmationDialog(
-            "「\(removing ?? "")」 폴더를 지울까요?",
+            String(localized: "「\(removing ?? "")」 폴더를 지울까요?"),
             isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
             titleVisibility: .visible, presenting: removing
         ) { name in
@@ -222,7 +222,7 @@ struct StackView: View {
         if !names.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    folderChip("전부", selected: folders.selected == nil) { folders.selected = nil }
+                    folderChip(String(localized: "전부"), selected: folders.selected == nil) { folders.selected = nil }
                     ForEach(names, id: \.self) { name in
                         folderChip(name, selected: folders.selected == name) {
                             folders.selected = folders.selected == name ? nil : name
@@ -270,7 +270,7 @@ struct StackView: View {
         Task {
             try? await store.delete(memo.id)
             await pen.refresh()
-            Undo.register("지우기", on: undoManager, reveal: reveal, id: memo.id) {
+            Undo.register(String(localized: "지우기"), on: undoManager, reveal: reveal, id: memo.id) {
                 try? await store.restore(memo.id)
                 await pen.refresh()
             }

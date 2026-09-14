@@ -1,0 +1,3 @@
+/* 빌드 설정(INFOPLIST_KEY_*)의 한국어 원문을 그대로 둔다 — 개발 언어가 영어라 이 파일이
+   없으면 한국어 사용자에게 en.lproj 의 안내가 뜬다. */
+"NSLocationWhenInUseUsageDescription" = "핀을 누를 때 지금 있는 자리를 메모에 적기 위해 한 번 위치를 읽습니다. 위치를 계속 지켜보지 않습니다.";

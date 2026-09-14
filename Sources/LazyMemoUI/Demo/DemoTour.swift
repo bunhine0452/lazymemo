@@ -52,21 +52,21 @@ final class DemoTour {
 
     /// 창을 세우기 **전에** 부른다 — 메모와 자리를 먼저 심어야 창이 그 자리에 선다.
     func seed() async {
-        settings.update { $0.folders = ["장보기", "읽을 것", "집"] }
-        drawer.model.adoptFolders(["장보기", "읽을 것", "집"])
+        settings.update { $0.folders = [L("장보기"), L("읽을 것"), L("집")] }
+        drawer.model.adoptFolders([L("장보기"), L("읽을 것"), L("집")])
 
         let onDesk: [(String, MemoColor)] = [
-            ("장보기 목록\n- [x] 우유\n- [x] 계란\n- [ ] 세제\n- [ ] 식빵", .green),
-            ("읽다 만 것 — 「종이의 물성」\n3장까지 읽었다. 4장은 접는 법.", .blue),
+            (L("장보기 목록\n- [x] 우유\n- [x] 계란\n- [ ] 세제\n- [ ] 식빵"), .green),
+            (L("읽다 만 것 — 「종이의 물성」\n3장까지 읽었다. 4장은 접는 법."), .blue),
         ]
         let filed: [(String, MemoColor, String?)] = [
-            ("환불 신청 번호\n8821-0043", .yellow, nil),
-            ("겨울옷 정리\n패딩 세탁 맡기기", .purple, "집"),
-            ("이사 견적 세 군데\n한아름 / 무지개 / 다섯별", .gray, "집"),
-            ("도서관 반납\n「게으름의 기술」", .yellow, "읽을 것"),
-            ("명함 사진 찍어 두기", .pink, nil),
-            ("전구 40W 두 개", .yellow, "장보기"),
-            ("커튼 세탁", .purple, "집"),
+            (L("환불 신청 번호\n8821-0043"), .yellow, nil),
+            (L("겨울옷 정리\n패딩 세탁 맡기기"), .purple, L("집")),
+            (L("이사 견적 세 군데\n한아름 / 무지개 / 다섯별"), .gray, L("집")),
+            (L("도서관 반납\n「게으름의 기술」"), .yellow, L("읽을 것")),
+            (L("명함 사진 찍어 두기"), .pink, nil),
+            (L("전구 40W 두 개"), .yellow, L("장보기")),
+            (L("커튼 세탁"), .purple, L("집")),
         ]
 
         // 바탕화면의 종이는 무대 오른쪽 위부터 계단으로 — 새 종이의 첫 자리와
@@ -132,7 +132,7 @@ final class DemoTour {
         // 1. 빠른 입력 — 날짜를 앱이 읽는다.
         capture.show()
         await pause(0.7)
-        await type("내일 오후 3시 치과 예약")
+        await type(L("내일 오후 3시 치과 예약"))
         await pause(1.4)
         capture.commitForDemo()
         await pause(2.4)
@@ -140,13 +140,13 @@ final class DemoTour {
         // 2. 날짜 없는 한 줄 — 종이가 된다.
         capture.show()
         await pause(0.6)
-        await type("우산 새로 사기")
+        await type(L("우산 새로 사기"))
         await pause(0.7)
         capture.commitForDemo()
         await pause(1.8)
 
         // 3. 그 종이를 서랍에 넣는다 — 날아 들어간다.
-        guard let umbrella = store.memos.first(where: { $0.title == "우산 새로 사기" }) else { return }
+        guard let umbrella = store.memos.first(where: { $0.title == L("우산 새로 사기") }) else { return }
         drawer.fileForDemo(umbrella.id)
         await pause(1.5)
 
@@ -155,7 +155,7 @@ final class DemoTour {
         await pause(1.8)
 
         // 5. 폴더 하나만 본다.
-        drawer.model.selectedFolder = "집"
+        drawer.model.selectedFolder = L("집")
         await pause(1.5)
         if let first = drawer.model.shown.first?.id {
             drawer.model.zoom(first)
@@ -173,19 +173,19 @@ final class DemoTour {
             await pause(0.5)
         }
         await pause(0.9)
-        drawer.model.movePicked(to: "장보기")
+        drawer.model.movePicked(to: L("장보기"))
         await pause(1.4)
 
         // 7. 새 폴더.
         drawer.model.isNamingFolder = true
         await pause(1.0)
-        drawer.model.createFolder("여행")
+        drawer.model.createFolder(L("여행"))
         await pause(1.3)
 
         // 8. 한 장을 도로 꺼낸다 — 바탕화면으로 돌아간다.
         drawer.model.selectedFolder = nil
         await pause(0.6)
-        if let back = drawer.model.shown.first(where: { $0.title == "우산 새로 사기" })?.id {
+        if let back = drawer.model.shown.first(where: { $0.title == L("우산 새로 사기") })?.id {
             drawer.model.takeOut(back)
             await pause(1.8)
         }
@@ -207,10 +207,10 @@ final class DemoTour {
         // 달력에 보일 일정 — 오늘과 이번 주. 빠른 입력의 「치과 예약」은 장면 1 이 적는다.
         let today = CalendarDate(Date())
         let dated: [(String, Int, Int)] = [
-            ("팀 회의\n분기 계획 초안 가져가기", 0, 10),
-            ("저녁 약속 — 현진\n망원동 파스타집", 0, 19),
-            ("전기 요금 납부", 3, 9),
-            ("도서관 반납\n「게으름의 기술」", 6, 14),
+            (L("팀 회의\n분기 계획 초안 가져가기"), 0, 10),
+            (L("저녁 약속 — 현진\n망원동 파스타집"), 0, 19),
+            (L("전기 요금 납부"), 3, 9),
+            (L("도서관 반납\n「게으름의 기술」"), 6, 14),
         ]
         for (body, offset, hour) in dated {
             let day = today.adding(days: offset)
@@ -228,14 +228,14 @@ final class DemoTour {
         // 1. 빠른 입력이 날짜를 읽는다.
         capture.show()
         await pause(0.7)
-        await type("내일 오후 3시 치과 예약")
+        await type(L("내일 오후 3시 치과 예약"))
         await snap("capture", into: directory)
         capture.commitForDemo()
         await pause(1.6)
 
         // 2. 종이 한 장이 더 서고, 달력이 열려 있다. 빠른 입력으로 적으면 새 종이의
         //    첫 자리(계단 꼭대기)가 `seed` 의 첫 종이와 겹치므로, 자리를 정해서 세운다.
-        if let umbrella = try? await store.create(body: "우산 새로 사기", color: .yellow) {
+        if let umbrella = try? await store.create(body: L("우산 새로 사기"), color: .yellow) {
             let paper = CGSize(width: 268, height: 196)
             layouts.set(
                 WindowLayout(frame: CGRect(
@@ -257,7 +257,7 @@ final class DemoTour {
         await snap("drawer", into: directory)
 
         // 4. 폴더 하나만.
-        drawer.model.selectedFolder = "집"
+        drawer.model.selectedFolder = L("집")
         await snap("folder", into: directory)
         drawer.model.selectedFolder = nil
         drawer.model.setOpen(false)

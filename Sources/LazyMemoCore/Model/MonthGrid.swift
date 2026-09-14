@@ -30,8 +30,11 @@ public struct MonthGrid: Sendable, Equatable {
         return first...last
     }
 
-    public var title: String {
-        "\(year)년 \(month)월"
+    /// 「2026년 9월」 · 「September 2026」.
+    public var title: String { title() }
+
+    public func title(locale: Locale = .current) -> String {
+        DateWords.yearMonth(year: year, month: month, locale: locale)
     }
 
     /// - Parameter firstWeekday: 1 = 일요일 (한국·미국 관행), 2 = 월요일.
