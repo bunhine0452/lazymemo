@@ -21,6 +21,16 @@ enum Paper {
         }
     })
 
+    /// 목록의 종이 한 장. 바탕과 명도만 달리해 내용의 경계를 만든다.
+    static let card = Color(uiColor: UIColor { traits in
+        if traits.userInterfaceStyle == .dark {
+            return traits.accessibilityContrast == .high
+                ? UIColor(white: 0.14, alpha: 1)
+                : UIColor(red: 0.185, green: 0.175, blue: 0.16, alpha: 1)
+        }
+        return UIColor(red: 1, green: 0.993, blue: 0.978, alpha: 1)
+    })
+
     /// 종이 위의 잉크.
     static let ink = Color(uiColor: UIColor { traits in
         let dark = traits.userInterfaceStyle == .dark

@@ -59,7 +59,7 @@ struct StackView: View {
                     .id(memo.id)
                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                     .listRowBackground(
-                        RoundedRectangle(cornerRadius: 10)
+                        RoundedRectangle(cornerRadius: 18)
                             .fill(reveal.target == memo.id ? Color.accentColor.opacity(0.14) : .clear)
                             .padding(.horizontal, 8)
                             .animation(.easeOut(duration: 0.6), value: reveal.target)
@@ -97,13 +97,28 @@ struct StackView: View {
                     }
                 }
 
-                if listed.isEmpty, !searching {
-                    Text("적은 것이 여기 쌓입니다")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .center).padding(.vertical, 12)
-                        .listRowBackground(Color.clear).listRowSeparator(.hidden)
-                        .accessibilityIdentifier("stack-empty")
+                if listed.isEmpty {
+                    VStack(spacing: 12) {
+                        if !searching {
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 28, weight: .light))
+                            .foregroundStyle(Theme.accentInk)
+                            .frame(width: 64, height: 64)
+                            .background(Theme.accentInk.opacity(0.08), in: RoundedRectangle(cornerRadius: 20))
+                        }
+                        Text(searching ? "찾는 메모가 없어요" : folders.selected == nil ? "가볍게, 한 줄부터" : "아직 비어 있는 폴더예요")
+                            .font(.headline).foregroundStyle(Paper.ink)
+                        Text(searching ? "아래의 글을 새 메모로 남겨도 좋아요." : "아래에 적으면 이곳에 차곡차곡 쌓여요.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, searching ? 8 : 28)
+                    .padding(.horizontal, 20)
+                    .listRowBackground(Color.clear).listRowSeparator(.hidden)
+                    .accessibilityIdentifier(searching ? "search-empty" : "stack-empty")
                 }
+
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
@@ -200,13 +215,20 @@ struct StackView: View {
         }
     }
 
-    @ViewBuilder
     private func folderChip(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        if selected {
-            Button(label, action: action).buttonStyle(.borderedProminent).buttonBorderShape(.capsule).tint(Theme.accent)
-        } else {
-            Button(label, action: action).buttonStyle(.bordered).buttonBorderShape(.capsule)
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: selected ? "folder.fill" : "folder")
+                Text(label)
+            }
+            .font(.subheadline.weight(selected ? .semibold : .regular))
+            .padding(.horizontal, 14)
+            .frame(minHeight: 44)
+            .foregroundStyle(selected ? Theme.onAccent : Theme.accentInk)
+            .background(selected ? Theme.accent : Theme.accentInk.opacity(0.07), in: Capsule())
         }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     // MARK: 손짓

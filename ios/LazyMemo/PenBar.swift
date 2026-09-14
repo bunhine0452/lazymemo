@@ -62,8 +62,8 @@ struct PenBar: View {
             chips
             penRow
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 
     // MARK: 칩 — 읽은 것을 누르기 전에 보인다
@@ -116,7 +116,8 @@ struct PenBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
-        .accessibilityHint(hint)
+        .accessibilityValue(on ? "켜짐" : "꺼짐")
+        .accessibilityHint(on ? hint : "누르면 다시 읽습니다")
     }
 
     // MARK: 펜 줄 — 위치 단추 · 글 칸 · 남기기
@@ -152,7 +153,7 @@ struct PenBar: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)
-                            .frame(width: 32, height: 36)
+                            .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.borderless)

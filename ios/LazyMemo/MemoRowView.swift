@@ -31,29 +31,28 @@ struct MemoRowView: View {
     }
 
     var body: some View {
-        Group {
-            if typeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 12) { dot; title }
-                    if let secondLine { Text(secondLine).font(.subheadline).foregroundStyle(.secondary) }
-                    when
+        HStack(alignment: .top, spacing: 12) {
+            dot.padding(.top, 8)
+            VStack(alignment: .leading, spacing: 8) {
+                title
+                if let secondLine {
+                    Text(secondLine)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(typeSize.isAccessibilitySize ? 3 : 2)
+                        .lineSpacing(3)
                 }
-            } else {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    dot
-                    VStack(alignment: .leading, spacing: 3) {
-                        title
-                        if let secondLine {
-                            Text(secondLine).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                    }
-                    Spacer(minLength: 8)
-                    when
-                }
+                when
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 4)
-        .frame(minHeight: 56)
+        .padding(16)
+        .frame(minHeight: 88, alignment: .leading)
+        .background(Paper.card, in: RoundedRectangle(cornerRadius: 18))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18)
+                .strokeBorder(memo.pinned ? Theme.accentInk.opacity(0.35) : Paper.ink.opacity(contrast == .increased ? 0.35 : 0.07), lineWidth: 1)
+        }
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spoken)
@@ -77,14 +76,25 @@ struct MemoRowView: View {
     }
 
     private var when: some View {
-        VStack(alignment: .trailing, spacing: 2) {
-            Text(MemoTimeLabel.text(for: memo, now: now))
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(scheduled && !retired ? Theme.highlightInk : .secondary)
-                .fixedSize()
-            if let place = memo.place {
-                Text("@" + place).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-            }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) { timeLabel; placeLabel }
+            VStack(alignment: .leading, spacing: 6) { timeLabel; placeLabel }
+        }
+        .font(.caption)
+    }
+
+    private var timeLabel: some View {
+        Label(MemoTimeLabel.text(for: memo, now: now), systemImage: scheduled ? "calendar" : "clock")
+            .monospacedDigit()
+            .foregroundStyle(scheduled && !retired ? Theme.highlightInk : .secondary)
+    }
+
+    @ViewBuilder
+    private var placeLabel: some View {
+        if let place = memo.place {
+            Label(place, systemImage: "mappin")
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
         }
     }
 
