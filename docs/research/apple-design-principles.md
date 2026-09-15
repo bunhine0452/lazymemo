@@ -296,3 +296,44 @@ https://developer.apple.com/design/human-interface-guidelines/accessibility
 - `tabViewBottomAccessory` 안의 텍스트 필드가 키보드 위로 오르는지 — 323 트랜스크립트에는 재생 컨트롤 예시뿐.
 - Reminders 가 제목 안의 「tomorrow at 3」을 날짜로 제안하는 기능의 공식 문서 — 102484 는 날짜 단추와 Siri 만 적는다.
 - Notes 의 정렬 기본값·기존 메모를 열 때 키보드 동작의 공식 문서 — 관찰로 적었다.
+
+## 10. 맥 — popover·검색 필드·텍스트 필드·피드백·되돌리기·데이터 입력 (2026-09-15 추가)
+
+> 빠른 입력 × 비서 융합(`quick-capture-assistant-2026-09-15.md`)의 근거. HIG 데이터 엔드포인트 원문.
+
+### Popovers — https://developer.apple.com/design/human-interface-guidelines/popovers
+- "Use a popover to expose a small amount of information or functionality." / "Because a popover disappears after people interact with it, limit the amount of functionality in the popover to a few related tasks."
+- "Make sure a popover's arrow points as directly as possible to the element that revealed it."
+- "Use a Close button for confirmation and guidance only." / "Otherwise, a popover generally closes when people click or tap outside its bounds or select an item in the popover."
+- **"Always save work when automatically closing a nonmodal popover."**
+- "Show one popover at a time." / "Don't show another view over a popover."
+- "Avoid making a popover too big." / "Make a popover only big enough to display its contents and point to the place it came from." / "Provide a smooth transition when changing the size of a popover."
+- macOS: "You can make a popover detachable in macOS, which becomes a separate panel when people drag it." / "Consider letting people detach a popover."
+→ 말풍선은 하나, 그 위에 다른 창을 띄우지 않는다(「메모에게 묻기」 창을 없애는 근거). 되묻기 중 esc 는 초안을 버리지 않고 적는다.
+
+### Search fields — https://developer.apple.com/design/human-interface-guidelines/search-fields
+- "Use placeholder text to help people know what they can search for." / "If possible, start search immediately when a person types."
+- "Provide the most relevant search results first to minimize the need for someone to scroll…" / "Consider showing suggested search terms."
+- "Use a scope bar to filter among clearly defined search categories." / "Default to a broader scope and let people refine it as they need."
+- 맥 고유 문장 없음.
+→ 치는 동안 랭킹된 목록이 곧 근거 후보. 범위 막대(모드)는 두지 않는다 — 넓은 범위가 기본이고 앱이 가른다.
+
+### Text fields — https://developer.apple.com/design/human-interface-guidelines/text-fields
+- "Show a hint in a text field to help communicate its purpose." / "Because placeholder text disappears when people start typing, it can also be useful to include a separate label describing the field…"
+- "To the extent possible, match the size of a text field to the quantity of anticipated text." / "Validate fields when it makes sense."
+- macOS: "Consider using a combo box if you need to pair text input with a list of choices."
+→ 되묻기 때 입력 위에 초안 요약 줄(라벨)을 둔다. 답은 칩(선택지)과 자유 입력 둘 다.
+
+### Feedback — https://developer.apple.com/design/human-interface-guidelines/feedback
+- "Consider integrating status feedback into your interface." / "When it makes sense, confirm that a significant action or task has completed." / "Show people when a command can't be carried out and help them understand why." / "Warn people when they initiate a task that can cause data loss that's unexpected and irreversible."
+→ 「메모를 읽는 중」은 힌트 줄에, 「모델을 받으면 답합니다」는 한 줄로. 휴지통만 되묻는다.
+
+### Undo and redo — https://developer.apple.com/design/human-interface-guidelines/undo-and-redo
+- "Help people predict the results of undo and redo as much as possible." / "…modify the menu item labels to identify the result. For example… Undo Typing or Redo Bold."
+- "Show the results of an undo or redo." / "Let people undo multiple times." / "Provide undo and redo buttons only when necessary."
+- macOS: "Place undo and redo commands in the Edit menu and support the standard keyboard shortcuts." / "…Command–Z and Shift–Command–Z…"
+→ 결과 줄은 무엇을 했는지 그대로 적는다(「…에 다시 보여 줍니다 · 되돌리기」). 상자에는 Edit 메뉴가 없어 줄을 두되 ⌘Z 도 받는다.
+
+### Entering data — https://developer.apple.com/design/human-interface-guidelines/entering-data
+- "Get information from the system whenever possible." / "Be clear about the data you need." / "When possible, offer choices instead of requiring text entry." / "Dynamically validate field values." / "When data entry is necessary, make sure people understand that they must provide the required data before they can proceed."
+→ 날짜·자리는 앱이 읽고 칩으로 보인다. 빠진 시각은 선택 칩으로 준다. 시각을 받기 전에는 ⌘↵ 라벨이 「답하기」다.

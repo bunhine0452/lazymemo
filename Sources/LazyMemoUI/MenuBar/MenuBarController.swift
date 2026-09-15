@@ -1,4 +1,5 @@
 import AppKit
+import LazyMemoAssistantUI
 import LazyMemoCore
 import LazyMemoReminders
 
@@ -29,7 +30,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// 아침에 종이를 놓는 시계. **기본은 꺼져 있다.**
     let brief: MorningBrief
     /// 「메모에게 묻기…」 — 비서 창을 여는 길. AppDelegate 가 모델을 만든 뒤 넣는다.
-    var openAssistant: (() -> Void)?
     /// `⌥⌘L` — 지금 여기.
     private let here: HereCapture
     /// 「가면 떠오른다」. **기본은 꺼져 있다.**
@@ -200,6 +200,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     func closeCapture() { capture.close(returningFocus: false) }
+    /// 이 기기의 비서를 빠른 입력 상자에 끼운다.
+    func adoptAssistant(_ assistant: AssistantModel?) { capture.adoptAssistant(assistant) }
+    /// 「이 메모에게 시키기…」 — 그 메모를 대상으로 빠른 입력 상자를 연다.
+    func showCapture(target: ULID) { capture.show(target: target) }
 
     /// 종료 직전 — 빠른 입력이 들고 있던 글을 파일에 남긴다.
     func flushCaptureDraft() { capture.flushDraft() }
@@ -311,9 +315,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         addTrashSection(to: menu)
 
         menu.addItem(.separator())
-        if openAssistant != nil {
-            menu.addItem(item(title: L("메모에게 묻기…"), action: #selector(askAssistant), key: ""))
-        }
         addUpdateLine(to: menu)
         menu.addItem(settingsItem())
         menu.addItem(item(title: L("시작하기 및 사용 안내…"), action: #selector(showWelcome), key: ""))
@@ -709,10 +710,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     // MARK: 메뉴 항목 만들기
 
+
     private func item(title: String, action: Selector, key: String) -> NSMenuItem {
         let menuItem = NSMenuItem(title: title, action: action, keyEquivalent: key)
-    @objc private func askAssistant() { openAssistant?() }
-
         menuItem.target = self
         return menuItem
     }

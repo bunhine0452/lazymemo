@@ -1,4 +1,6 @@
 import AppKit
+import LazyMemoAssistant
+import LazyMemoAssistantUI
 import LazyMemoCore
 import SwiftUI
 
@@ -175,6 +177,77 @@ enum PreviewRenderer {
             ),
             into: directory
         )
+
+        // 비서를 겸하는 상자 — 되묻기·답·후보·결과 (docs/research/quick-capture-assistant-2026-09-15.md).
+        // 모델 없이 상태만 세운다(`stageForPreview`). 배치와 낱말을 눈으로 보는 것이 목적이다.
+        let assistant = AssistantModel(service: store.service, support: FileManager.default.temporaryDirectory
+            .appending(path: "lazymemo-render-assistant", directoryHint: .isDirectory))
+        let asking = QuickCaptureModel(store: store)
+        asking.arrowOffset = QuickCaptureController.width - 70
+        asking.assistant = assistant
+        asking.query = L("9월 30일에 @홍대입구 친구랑 밥 먹기로 했어")
+        _ = asking.commit()
+        asking.query = ""
+        log("capture-asking.question=\(asking.pendingQuestion ?? "-") summary=\(asking.pendingSummary ?? "-")")
+        await render(
+            name: "capture-asking",
+            size: CGSize(width: QuickCaptureController.width, height: 300),
+            content: QuickCaptureView(model: asking, onCommit: {}, onCancel: {}),
+            into: directory
+        )
+
+        let dentist = try? await store.create(body: L("치과 예약 — 강남역 3번 출구 서울밝은치과. 18일 오후 2시 스케일링."),
+                                              due: CalendarDate(year: 2026, month: 9, day: 18))
+        let answering = QuickCaptureModel(store: store)
+        answering.arrowOffset = QuickCaptureController.width - 70
+        answering.assistant = assistant
+        if let dentist {
+            assistant.stageForPreview(answer: AssistantAnswer(found: true, text: L("9월 18일 오후 2시, 강남역 서울밝은치과 스케일링 예약이에요."),
+                                                              evidence: [dentist.id], quotes: [L("치과 예약 — 강남역 3번 출구 서울밝은치과. 18일 오후 2시 스케일링.")]))
+            answering.showMemos([dentist.id], as: .evidence)
+        }
+        await render(
+            name: "capture-answer",
+            size: CGSize(width: QuickCaptureController.width, height: 330),
+            content: QuickCaptureView(model: answering, onCommit: {}, onCancel: {}),
+            into: directory
+        )
+
+        let applying = QuickCaptureModel(store: store)
+        applying.arrowOffset = QuickCaptureController.width - 70
+        applying.assistant = assistant
+        if let dentist {
+            let when = Calendar.current.date(from: DateComponents(year: 2026, month: 9, day: 18, hour: 10)) ?? Date()
+            assistant.stageForPreview(applied: ProposedAction(requestID: UUID(), kind: .setRecall, memoID: dentist.id,
+                                                              patch: FieldPatch(surface: .set(when))))
+            applying.prepareForShow()
+        }
+        await render(
+            name: "capture-applied",
+            size: CGSize(width: QuickCaptureController.width, height: 420),
+            content: QuickCaptureView(model: applying, onCommit: {}, onCancel: {}),
+            into: directory
+        )
+
+        let choosing = QuickCaptureModel(store: store)
+        choosing.arrowOffset = QuickCaptureController.width - 70
+        choosing.assistant = assistant
+        let jisoo = try? await store.create(body: L("지수한테 5만 원 빌려줌"))
+        let jisoo2 = try? await store.create(body: L("지수 생일 — 11월 2일"))
+        if let jisoo, let jisoo2 {
+            assistant.stageForPreview(proposal: ProposedAction(requestID: UUID(), kind: .ask, question: L("어느 메모를 말하는지 골라 주세요"),
+                                                               candidates: [jisoo.id, jisoo2.id]))
+            choosing.showMemos([jisoo.id, jisoo2.id], as: .candidates)
+            choosing.selection = 0
+        }
+        await render(
+            name: "capture-candidates",
+            size: CGSize(width: QuickCaptureController.width, height: 330),
+            content: QuickCaptureView(model: choosing, onCommit: {}, onCancel: {}),
+            into: directory
+        )
+        assistant.reset()
+        for extra in [dentist, jisoo, jisoo2].compactMap({ $0 }) { try? await store.delete(extra.id) }
 
         await render(
             name: "palette",

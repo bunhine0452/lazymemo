@@ -134,5 +134,5 @@ public actor ActionExecutor {
 
 extension FieldChange {
     /// createMemo 용 — clear 와 keep 은 둘 다 「없음」.
-    var value: Value? { if case .set(let v) = self { return v } else { return nil } }
+    public var value: Value? { if case .set(let v) = self { return v } else { return nil } }
 }

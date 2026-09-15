@@ -1,4 +1,6 @@
 import Foundation
+import LazyMemoAssistant
+import LazyMemoAssistantUI
 import LazyMemoCore
 import Observation
 
@@ -21,8 +23,11 @@ final class QuickCaptureModel {
             // 날짜 인식은 로컬 문자열 처리라 즉시 한다. 타자마다 칩이 따라와야
             // 사용자가 "아, 얘가 읽고 있구나" 를 알 수 있다.
             schedule = NaturalDateParser.parse(query)
+            place = NoteReader.read(query).place
             filter = MemoFilter.read(query)
             reloadImages()
+            // 글을 고치면 답은 물러나고 검색으로 돌아간다 (설계 D9). 되돌리기 줄은 남는다.
+            if assistant?.answer != nil || assistant?.proposal != nil || assistant?.phase == .thinking { assistant?.reset() }
             // 낱말이 바뀌면 목록은 다른 물건이다. 넓혀 둔 것은 그때 것이라
             // 도로 접는다 — 지운 뒤의 다시 짓기(`refreshListing`)는 같은
             // 목록이므로 접지 않는다.
@@ -86,6 +91,8 @@ final class QuickCaptureModel {
     private(set) var images: [AttachedImage] = []
     /// 입력에서 알아낸 일정. 없으면 그냥 메모다.
     private(set) var schedule: NaturalDateParser.Result?
+    /// 입력에서 읽은 자리 — `@홍대입구`·지도 링크의 이름 (`NoteReader`). 자리 칩이 선다 (설계 D4).
+    private(set) var place: String?
     /// 입력에서 알아낸 **거를 조건** (`MemoFilter`). 낱말이 기억나지 않을 때 남는 길이다.
     private(set) var filter = MemoFilter()
     /// 화살표로 고른 메모. **자리가 아니라 그 메모 자체를 들고 있는다.**
@@ -116,11 +123,41 @@ final class QuickCaptureModel {
     }
 
     /// 목록에 놓인 것의 출처.
-    enum Listing {
+    enum Listing: Equatable {
         /// 아무것도 치지 않았을 때 — 최근에 손댄 것부터.
         case recent
         /// 친 글로 걸러 낸 것.
         case found
+        /// 비서의 답이 인용한 근거 메모.
+        case evidence
+        /// 답을 못 찾았을 때 — 검색이 찾은 관련 메모.
+        case related
+        /// 「어느 메모?」— 시키는 말의 대상 후보. ↓ 로 고르고 ⌘⏎.
+        case candidates
+    }
+
+    /// 목록을 비서가 정한 메모들로 갈아 끼운다 (근거·관련·후보). 글을 고치면 도로 검색이다.
+    func showMemos(_ ids: [ULID], as listing: Listing) {
+        let memos = ids.compactMap { store.memo($0) }
+        self.listing = listing
+        pool = memos
+        isExpanded = false
+        dropSelectionIfGone()
+    }
+
+    /// 비서가 방금 정한 것에 맞춰 목록을 고른다 — `AssistantModel.onSettled` 에서.
+    func reflectAssistant() {
+        guard let assistant else { return }
+        if let answer = assistant.answer {
+            showMemos(answer.found ? answer.evidence : assistant.relatedMemos.map(\.memoID), as: answer.found ? .evidence : .related)
+        } else if let proposal = assistant.proposal, proposal.kind == .ask, !proposal.candidates.isEmpty {
+            showMemos(proposal.candidates, as: .candidates)
+        } else if case .failed = assistant.phase, !assistant.relatedMemos.isEmpty {
+            showMemos(assistant.relatedMemos.map(\.memoID), as: .related)
+        } else if assistant.receipt != nil {
+            // 바꾼 메모가 목록에 있다 — 새 값으로 다시 그린다.
+            Task { await refreshListing() }
+        }
     }
 
     // 창 높이를 다시 잡아 달라고 여기서 부탁하던 길은 **버렸다.**
@@ -128,6 +165,61 @@ final class QuickCaptureModel {
     // 결과 수가 바뀔 때는 부르고 날짜 칩이 뜰 때는 안 부르는, 그런 빠짐이
     // 생기는 구조였다. 지금은 뷰가 다시 그려진 높이를 창이 직접 받아 간다
     // (`CaptureHostingView`) — 모델은 무엇이 화면에 있어야 하는지만 안다.
+
+    // MARK: 비서 — 한 상자가 묻기·시키기·되묻기까지 겸한다
+
+    /// 이 기기의 비서. 없으면(시험·렌더) 상자는 적기와 찾기만 한다.
+    var assistant: AssistantModel?
+    /// 「이 메모에게 시키기…」로 열렸을 때 — 그 메모가 「이거」다. 닫으면 놓는다.
+    var target: ULID?
+    /// 되물음 뒤에 기다리는 새 메모 — 「약속 시간이 언제인가요?」의 답을 이것에 잇는다.
+    private(set) var pending: (question: String, draft: FieldPatch)?
+
+    /// 답을 기다리는 동안 상자 안에 서는 질문. 없으면 nil.
+    var pendingQuestion: String? { pending?.question }
+
+    /// 답을 기다리던 초안을 놓는다 — esc, 또는 답이 아닌 새 말.
+    func dropPending() { pending = nil }
+
+    /// esc 로 닫을 때 — 초안을 시각 없이 그대로 적는다 (설계 D12: 이미 ⌘⏎ 로 «적어라» 했다).
+    func takePendingDraft() -> FieldPatch? {
+        defer { pending = nil }
+        return pending?.draft
+    }
+
+    /// 되묻기의 선택지 — 글자를 안 쳐도 되게 (Entering data «offer choices»). 마지막은 시각 없이.
+    static let timeChoices = ["12시", "점심", "저녁 7시", "시각 없이"]
+
+    /// 초안 한 줄 — 「친구랑 밥 먹기로 했어 · 9월 30일 (수) · 자리 홍대입구」.
+    var pendingSummary: String? {
+        guard let draft = pending?.draft else { return nil }
+        var parts = [draft.body ?? ""]
+        if case .set(let due) = draft.due, let start = due.startOfDay() {
+            parts.append(start.formatted(.dateTime.month().day().weekday(.abbreviated)))
+        }
+        if let place = draft.place { parts.append(L("자리 \(place)")) }
+        return parts.filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+
+    /// 지금 ⌘⏎ 가 할 일 — 라벨이 곧 동사다 (설계 D5). `commit()` 과 같은 갈래, 다만 아무것도 바꾸지 않는다.
+    enum Intent: Equatable {
+        case nothing, open(String), applyTo(String), pick(String), command, ask, answer, memo, calendar
+    }
+
+    var intent: Intent {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if pending != nil { return text.isEmpty ? .nothing : .answer }
+        if let selection, listed.indices.contains(selection) {
+            let title = listed[selection].title
+            if listing == .candidates, text.isEmpty { return .pick(title) }
+            if !text.isEmpty, AssistantIntent.hasCommandVerb(text) { return .applyTo(title) }
+            return .open(title)
+        }
+        guard !text.isEmpty else { return .nothing }
+        if AssistantIntent.hasCommandVerb(text) { return .command }
+        if target == nil, AssistantIntent.isQuestion(text) { return .ask }
+        return schedule == nil ? .memo : .calendar
+    }
 
     /// 말풍선 꼬리가 가리킬 자리 (상자 왼쪽 끝에서의 거리).
     /// `nil` 이면 매달 곳이 없어 꼬리를 그리지 않는다.
@@ -183,10 +275,15 @@ final class QuickCaptureModel {
         selectedID = nil
         pointed = nil
         images = []
+        place = nil
         lastDeleted = nil
+        pending = nil
         draft?.forget()
         showRecent()
     }
+
+    /// 메모 한 장 — 결과 줄이 제목을 적을 때.
+    func memo(_ id: ULID) -> Memo? { store.memo(id) }
 
     /// 펼쳐 볼 원본. 화면에 들고 있는 것은 줄인 그림이다 (§11).
     func originalURL(for attachment: AttachedImage) -> URL? {
@@ -317,6 +414,17 @@ final class QuickCaptureModel {
     /// 손에 쥐어야 볼 수 있다. 낱말이 비어 있으면(`#사진` 만 쳤을 때) 요즘
     /// 것부터 훑어 거른다 — 그때 인덱스에 넘길 것이 없기 때문이다.
     private func find(_ text: String) async {
+        // 시키는 말은 목록을 비우지 않는다 — 「금요일 10시에 다시 알려줘」는 어느 메모의 낱말도 아니고,
+        // 사람은 그 목록에서 ↓ 로 대상을 고른다 (설계 D10). 낱말이 걸리면(「치과 …」) 그것으로 좁힌다.
+        if AssistantIntent.hasCommandVerb(text) {
+            let ranked = MemoRanker.search(text, in: store.active, limit: Self.searchCeiling)
+            if !ranked.isEmpty {
+                listing = .found
+                pool = ranked
+                dropSelectionIfGone()
+            }
+            return
+        }
         let condition = MemoFilter.read(text)
         let words = condition.words.trimmingCharacters(in: .whitespacesAndNewlines)
         let found = await search(words)
@@ -335,8 +443,18 @@ final class QuickCaptureModel {
     /// 이미 메모리에 있는 메모를 훑는다 — 수백 장이면 인덱스만큼 빠르고,
     /// 차례는 인덱스와 같다(고정한 것 먼저, 그 다음 최근순).
     private func search(_ words: String) async -> [Memo] {
+        // 물음은 낱말로 찾는다 — 「치과 언제였지?」는 어느 메모의 문장도 아니다. 이 목록이 곧 비서의 근거 후보다.
+        if AssistantIntent.isQuestion(words) {
+            let ranked = MemoRanker.search(words, in: store.active, limit: Self.searchCeiling)
+            if !ranked.isEmpty { return ranked }
+        }
         guard HangulInitials.isInitialsQuery(words) else {
-            return await store.search(words, limit: Self.searchCeiling)
+            let found = await store.search(words, limit: Self.searchCeiling)
+            // 구(phrase)로 못 찾은 여러 낱말은 낱말 랭킹으로 한 번 더 — 「엄마 선물」이 「엄마 생신 선물」을 찾게.
+            if found.isEmpty, words.contains(" ") {
+                return MemoRanker.search(words, in: store.active, limit: Self.searchCeiling)
+            }
+            return found
         }
         return Array(
             store.memos
@@ -429,25 +547,60 @@ final class QuickCaptureModel {
 
     // MARK: 확정
 
-    struct Draft {
+    struct Draft: Equatable {
         let text: String
         let due: CalendarDate?
         let at: Date?
     }
 
-    enum Commit {
+    enum Commit: Equatable {
         case open(ULID)
         case create(Draft)
+        /// 비서의 파서가 읽은 새 메모 — 날짜·시각·자리·좌표까지.
+        case compose(FieldPatch)
+        /// 약속인데 시각이 없다. 상자는 닫히지 않고 이 질문을 세운 채 답을 기다린다.
+        case askTime(String)
+        /// 물음 — 비서가 메모에서 찾아 답한다.
+        case ask(String)
+        /// 시키는 말 — 대상은 고른 줄이거나 「이 메모에게」로 연 메모, 없으면 비서가 되묻는다.
+        case command(String, target: ULID?)
+        /// 「어느 메모?」의 후보 하나를 골랐다 — 같은 말을 그 메모에게.
+        case pick(ULID)
         case nothing
     }
 
+    /// ⌘⏎ 가 할 일. **모드가 없다** — 글이 무엇인지를 앱이 가린다:
+    /// 되물음의 답 → 고른 줄 열기(시키는 말이면 그 줄에 적용) → 시키는 말 → 물음 → 날짜·자리 든 서술 → 그냥 글.
     func commit() -> Commit {
-        if let selection, listed.indices.contains(selection) {
-            return .open(listed[selection].id)
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let pending {
+            if !text.isEmpty, let done = AssistantIntent.complete(draft: pending.draft, reply: text) {
+                self.pending = nil
+                return .compose(done.patch)
+            }
+            // 답이 아니면 새 말이다. 초안은 놓는다 — 사람이 딴 얘기를 시작했다.
+            self.pending = nil
         }
 
-        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let selection, listed.indices.contains(selection) {
+            let picked = listed[selection].id
+            if listing == .candidates, text.isEmpty { return .pick(picked) }
+            if !text.isEmpty, AssistantIntent.hasCommandVerb(text) { return .command(text, target: picked) }
+            return .open(picked)
+        }
+
         guard !text.isEmpty else { return .nothing }
+        if AssistantIntent.hasCommandVerb(text) { return .command(text, target: target) }
+        if target == nil, AssistantIntent.isQuestion(text) { return .ask(text) }
+        if let composed = AssistantIntent.compose(text) {
+            if composed.kind == .ask, let draft = composed.draft {
+                let question = composed.question ?? L("약속 시간이 언제인가요?")
+                pending = (question, draft)
+                return .askTime(question)
+            }
+            return .compose(composed.patch)
+        }
 
         guard let schedule else {
             return .create(Draft(text: text, due: nil, at: nil))

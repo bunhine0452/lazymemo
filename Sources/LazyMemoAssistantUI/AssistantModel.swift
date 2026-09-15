@@ -49,6 +49,8 @@ public final class AssistantModel {
     private var pendingDraft: FieldPatch?
     /// 방금 적용한 것 — 되돌리기 줄이 무엇을 했는지 말한다.
     public private(set) var applied: ProposedAction?
+    /// 답·제안·적용·실패가 정해질 때마다 부른다 — 빠른 입력 상자가 목록을 근거·후보로 갈아 끼우는 고리.
+    public var onSettled: (() -> Void)?
 
     public init(service: MemoService, support: URL, manifest: ModelManifest = .gemma4E2B, profile: ModelProfile? = nil) {
         self.service = service
@@ -179,6 +181,23 @@ public final class AssistantModel {
         return result
     }
 
+    /// 렌더·시험용 — 모델 없이 화면 상태를 세운다 (`PreviewRenderer`). 제품 코드는 부르지 않는다.
+    public func stageForPreview(answer: AssistantAnswer? = nil, applied: ProposedAction? = nil, proposal: ProposedAction? = nil, failed: String? = nil) {
+        cancel()
+        self.answer = answer
+        self.applied = applied
+        self.proposal = proposal
+        phase = failed.map { .failed($0) } ?? .done
+    }
+
+    /// 답·제안·결과를 물린다 — 글을 고치면 답은 물러나고 검색으로 돌아간다. 받기 진행은 그대로.
+    public func reset() {
+        cancel()
+        phase = .idle
+        answer = nil; evidence = []; proposal = nil; receipt = nil; applied = nil; applyError = nil; briefItems = nil
+        pendingDraft = nil
+    }
+
     public func cancel() {
         guard let current else { return }
         current.task.cancel()
@@ -227,6 +246,7 @@ public final class AssistantModel {
             }
             if phase == .thinking { phase = .idle }
             current = nil
+            onSettled?()
         }
         current = (request.id, task)
     }
@@ -247,6 +267,7 @@ public final class AssistantModel {
         } catch {
             applyError = String(describing: error)
         }
+        onSettled?()
     }
 
     public func dismissProposal() { proposal = nil }
@@ -262,6 +283,7 @@ public final class AssistantModel {
         } catch {
             applyError = String(describing: error)
         }
+        onSettled?()
     }
 
     // MARK: 브리핑 캐시 — 로컬 날짜 + 입력 지문 + 템플릿 판 (명세 §6)

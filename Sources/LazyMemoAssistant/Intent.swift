@@ -18,6 +18,27 @@ public enum AssistantIntent {
         return .answer
     }
 
+    /// 물음말·물음표가 있는가 — 「치과 언제였지?」. 빠른 입력 상자가 「적기」와 「묻기」를 가르는 기준.
+    public static func isQuestion(_ text: String) -> Bool {
+        CommandResolver.looksLikeQuestion(text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    /// 시키는 동사(알려줘·미뤄·폴더로·지워…)나 「…8시로」가 있는가. 날짜만 있는 서술은 여기 들지 않는다 — 그건 적는 말이다.
+    public static func hasCommandVerb(_ text: String) -> Bool {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return CommandResolver.mentions(CommandResolver.abortWords, in: text)
+            || !CommandResolver.verbs(in: text).isEmpty || CommandResolver.timeWithDirection(text)
+    }
+
+    /// 서술을 새 메모 초안으로 — 날짜·시각·@장소·지도 링크를 읽고, 약속인데 시각이 없으면 `ask` + `draft` 를 돌려준다.
+    /// 읽을 것이 없으면 nil — 그때는 그냥 글이다.
+    public static func compose(_ text: String, now: Date = Date(), timeZone: TimeZone = .current) -> ProposedAction? {
+        let request = AssistantRequest(task: .command, userText: text, now: now, timeZone: timeZone)
+        guard let action = CommandResolver.resolve(nil, request: request, selected: nil, candidates: []),
+              action.kind == .createMemo || (action.kind == .ask && action.draft != nil) else { return nil }
+        return action
+    }
+
     /// 되물음(「약속 시간이 언제인가요?」)에 온 답을 초안에 잇는다. 답이 아니면 nil.
     public static func complete(draft: FieldPatch, reply: String, now: Date = Date(), timeZone: TimeZone = .current) -> ProposedAction? {
         CommandResolver.complete(draft: draft, reply: reply, request: AssistantRequest(task: .command, userText: reply, now: now, timeZone: timeZone))

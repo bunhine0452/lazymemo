@@ -45,7 +45,6 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     /// - Parameter location: 설정에 적힌 자리까지 살펴 정한 것 (§5.1). 옮겨 둔
     ///   폴더를 못 찾았으면 그 사실도 함께 들어 있다.
     private var assistant: AssistantModel?
-    private var assistantWindow: AssistantWindow?
 
     private func open(_ location: AppPaths.Resolution, cloudContainer: URL?) {
         let paths = location.paths
@@ -97,16 +96,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         // `claude` 가 이 컴퓨터에 있는지 한 번 찾는다 (`ClaudeSupport`).
         // **없으면 아무 일도 일어나지 않는다** — 종이에 조작이 하나 안 생길 뿐이고,
         // 그 사실을 어디에도 적지 않는다 (없는 사람에게는 존재하지 않는 기능이다).
-        // 이 기기의 모델 — 묻기·시키기·다듬기. 모델이 없으면 창이 받기부터 안내한다.
+        // 이 기기의 모델 — 묻기·시키기·다듬기. **창이 따로 없다** — 빠른 입력 상자가 겸한다
+        // (docs/research/quick-capture-assistant-2026-09-15.md D1). 모델이 없으면 묻기 줄이 받기부터 안내한다.
         let assistant = AssistantModel(service: store.service, support: paths.support)
-        let assistantWindow = AssistantWindow(model: assistant, store: store) { [weak windows] id in
-            windows?.reveal(id)
-        }
         self.assistant = assistant
-        self.assistantWindow = assistantWindow
-        menuBar.openAssistant = { [weak assistantWindow] in assistantWindow?.show() }
-        // 종이의 우클릭 「이 메모에게 시키기…」. 모델이 없어도 시각·할 일이 분명한 말은 앱이 읽으므로 늘 건다.
-        windows.adoptAssistant { [weak assistantWindow] id in assistantWindow?.show(selected: id) }
+        menuBar.adoptAssistant(assistant)
+        // 종이의 우클릭 「이 메모에게 시키기…」— 그 메모를 대상으로 상자를 연다 (D10).
+        windows.adoptAssistant { [weak menuBar] id in menuBar?.showCapture(target: id) }
         Task { [weak windows, weak menuBar] in
             let runner = await ClaudeSupport.resolve(settings: settings)
             windows?.adoptClaude(runner)

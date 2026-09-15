@@ -1,4 +1,5 @@
 import AppKit
+import LazyMemoAssistantUI
 import LazyMemoCore
 import SwiftUI
 
@@ -469,6 +470,17 @@ final class QuickCaptureController {
     ///   보이는 창이 하나도 없는 채로 앱이 활성 상태로 남는다. 그 다음 타자는
     ///   허공으로 간다. 메모를 열어 보여줄 때만 예외다.
     func close(returningFocus: Bool = true) {
+        model.target = nil
+        // 되묻기 중에 닫으면 「시각 없이」와 같다 — 이미 ⌘⏎ 로 적으라 한 글이다 (설계 D12).
+        if let draft = model.takePendingDraft() {
+            Task {
+                guard let memo = try? await store.create(
+                    body: draft.body ?? "", due: draft.due.value, at: draft.at.value,
+                    place: draft.place, geo: draft.geo
+                ) else { return }
+                announce(memo)
+            }
+        }
         CaptureTrace.log("close 돌려줌=\(returningFocus) visible=\(panel.isVisible)")
         stopWatchingOutsideClicks()
         panel.orderOut(nil)
@@ -526,6 +538,18 @@ final class QuickCaptureController {
     // 다시 누르기, 그리고 상자 바깥 클릭. 적고 있는 상자는 어떤 잡음으로도
     // 사라지지 않는다.
 
+    /// 이 기기의 비서를 상자에 끼운다 — 묻기·시키기가 이 상자에서 된다.
+    func adoptAssistant(_ assistant: AssistantModel?) {
+        model.assistant = assistant
+        assistant?.onSettled = { [weak self] in self?.model.reflectAssistant() }
+    }
+
+    /// 「이 메모에게 시키기…」 — 그 메모를 대상으로 상자를 연다.
+    func show(target: ULID) {
+        model.target = target
+        show()
+    }
+
     /// ⌘⏎ — 적기 끝.
     private func commit() {
         switch model.commit() {
@@ -541,6 +565,34 @@ final class QuickCaptureController {
                 ) else { return }
                 announce(memo)
             }
+
+        case .compose(let patch):
+            // 같은 길 — 다만 비서의 파서가 자리·좌표까지 읽어 왔다.
+            model.clear()
+            close()
+            Task {
+                guard let memo = try? await store.create(
+                    body: patch.body ?? "", due: patch.due.value, at: patch.at.value,
+                    place: patch.place, geo: patch.geo
+                ) else { return }
+                announce(memo)
+            }
+
+        case .askTime:
+            // 상자는 열린 채, 글만 비운다 — 다음에 치는 것은 답이다.
+            // (`model.pending` 이 질문과 초안을 들고 있다.)
+            model.query = ""
+
+        case .ask(let text):
+            model.query = ""
+            model.assistant?.ask(text)
+
+        case .command(let text, let target):
+            model.query = ""
+            model.assistant?.command(text, selected: target)
+
+        case .pick(let id):
+            model.assistant?.pick(id)
 
         case .open(let id):
             // 여기서는 사용자가 "그 메모를 보자" 고 한 것이다. 앞으로 데려온다.

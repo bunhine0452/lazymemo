@@ -1,4 +1,6 @@
 import AppKit
+import LazyMemoAssistant
+import LazyMemoAssistantUI
 import LazyMemoCore
 import SwiftUI
 
@@ -66,16 +68,23 @@ struct QuickCaptureView: View {
         .animation(reduceMotion ? nil : Theme.reveal, value: model.scheduleLabel)
         .animation(reduceMotion ? nil : Theme.reveal, value: model.lastDeleted?.id)
         .animation(reduceMotion ? nil : Theme.reveal, value: model.isExpanded)
+        .animation(reduceMotion ? nil : Theme.reveal, value: model.pendingQuestion)
+        .animation(reduceMotion ? nil : Theme.reveal, value: model.assistant?.phase)
     }
 
     private var bubble: some View {
         VStack(alignment: .leading, spacing: 0) {
             heading
+            // 되묻기 — 질문 하나만 남는다 (설계 D6). 초안 요약 · 질문 · 선택지, 그 아래 답을 적는 칸.
+            if let question = model.pendingQuestion { pendingBlock(question) }
             input
 
-            if model.query.isEmpty { searchShortcuts }
+            if model.query.isEmpty, model.pendingQuestion == nil, model.assistant?.phase ?? .idle == .idle { searchShortcuts }
 
-            if !model.listed.isEmpty {
+            // 비서의 답·결과 — 목록 위에 선다. 목록은 그 답의 근거·후보로 갈려 있다 (`reflectAssistant`).
+            if model.pendingQuestion == nil, let assistant = model.assistant { assistantBlock(assistant) }
+
+            if !model.listed.isEmpty, model.pendingQuestion == nil {
                 Divider().opacity(0.3)
                 results
             }
@@ -165,8 +174,8 @@ struct QuickCaptureView: View {
                 hidesImageReferences: true,
                 onPasteImage: { model.markdown(forPastedImage: $0, fileExtension: $1) },
                 onPasteLink: { LinkLabel.markdown(for: $0) },
-                // 열 때마다 바뀐다 (`CapturePrompt`).
-                placeholder: model.placeholder,
+                // 열 때마다 바뀐다 (`CapturePrompt`). 답을 기다릴 때는 답의 예.
+                placeholder: model.pendingQuestion == nil ? model.placeholder : L("12시야"),
                 onCommand: handle(command:in:),
                 onCommandReturn: onCommit,
                 // 글이 자라면 **그 자리에서** 상자도 자라야 한다.
@@ -187,12 +196,220 @@ struct QuickCaptureView: View {
                 filterChips(model.filter.chips)
             }
 
-            if let schedule = model.scheduleLabel {
-                scheduleChip(schedule)
+            // 앱이 읽은 것 — 날짜는 달력으로 가고, 자리는 종이에 남는다 (설계 D4). 둘 다 해석한 결과다.
+            if model.scheduleLabel != nil || model.place != nil {
+                HStack(spacing: Theme.snug) {
+                    if let schedule = model.scheduleLabel { scheduleChip(schedule) }
+                    if let place = model.place { placeChip(place) }
+                }
+            }
+
+            if let target = model.target, let memo = targetMemo(target) {
+                targetChip(memo)
             }
         }
         .padding(.horizontal, Theme.loose)
         .padding(.vertical, Theme.normal)
+    }
+
+    private func targetMemo(_ id: ULID) -> Memo? { model.listed.first { $0.id == id } ?? model.memo(id) }
+
+    /// 「열린 메모 · 치과 예약 ×」— 종이 우클릭으로 열렸을 때 「이거」가 누구인지 (설계 D10).
+    private func targetChip(_ memo: Memo) -> some View {
+        HStack(spacing: 5) {
+            Text(L("열린 메모 · \(memo.title)"))
+                .font(.system(size: 11, weight: .medium))
+                .lineLimit(1)
+            Button { model.target = nil } label: {
+                Image(systemName: "xmark").font(.system(size: 9, weight: .semibold)).hitTarget(20)
+            }
+            .buttonStyle(.plain)
+            .spoken(L("열린 메모 놓기"))
+        }
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, Theme.snug)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(Paper.ink.opacity(0.08)))
+        .transition(.opacity)
+        .fixedSize()
+    }
+
+    /// 자리 칩 — 날짜 칩과 같은 꼴, 잉크만 다르다.
+    private func placeChip(_ place: String) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: "mappin").font(.system(size: 9, weight: .semibold))
+            Text(place).font(.system(size: 11, weight: .medium)).lineLimit(1)
+        }
+        .foregroundStyle(Theme.accentInk)
+        .padding(.horizontal, Theme.snug)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(Theme.softAccent))
+        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+        .fixedSize()
+    }
+
+    // MARK: 되묻기 (설계 D6)
+
+    /// 초안 요약 한 줄 · 질문 한 줄 · 고를 수 있는 칩. 글자를 안 쳐도 되게.
+    private func pendingBlock(_ question: String) -> some View {
+        VStack(alignment: .leading, spacing: Theme.snug) {
+            if let summary = model.pendingSummary {
+                Text(summary).font(Theme.micro).foregroundStyle(.secondary).lineLimit(2)
+            }
+            Text(question).font(Theme.body)
+            HStack(spacing: 6) {
+                ForEach(QuickCaptureModel.timeChoices, id: \.self) { choice in
+                    Button {
+                        // 선택지도 답과 같은 길로 간다 — 「시각 없이」는 「없어」와 같은 말.
+                        model.query = choice == "시각 없이" ? "없어" : choice
+                        onCommit()
+                    } label: {
+                        Text(L(String.LocalizationValue(choice)))
+                            .font(.system(size: 11, weight: .medium))
+                            .padding(.horizontal, 10)
+                            .frame(height: 26)
+                            .background(Theme.softAccent, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.horizontal, Theme.loose)
+        .padding(.top, Theme.normal)
+        .transition(.opacity)
+    }
+
+    // MARK: 비서 — 답·결과·되물음 (설계 D8·D9·D10·D11)
+
+    @ViewBuilder
+    private func assistantBlock(_ assistant: AssistantModel) -> some View {
+        switch assistant.phase {
+        case .idle, .thinking:
+            EmptyView()
+        case .failed(let message):
+            if !assistant.isReady {
+                modelLine(assistant)
+            } else {
+                statusLine(message, symbol: "exclamationmark.circle")
+            }
+        case .done:
+            VStack(alignment: .leading, spacing: 0) {
+                if let answer = assistant.answer { answerLines(answer) }
+                if let proposal = assistant.proposal {
+                    if proposal.kind == .ask { statusLine(ActionWords.describe(proposal, memoTitle: nil), symbol: "questionmark.circle") }
+                    else if proposal.kind == .trash { trashLine(proposal, assistant) }
+                }
+                if let applied = assistant.applied { resultLine(applied, assistant) }
+                if let error = assistant.applyError { statusLine(error, symbol: "exclamationmark.circle") }
+            }
+        }
+    }
+
+    private func answerLines(_ answer: AssistantAnswer) -> some View {
+        VStack(alignment: .leading, spacing: Theme.tight) {
+            Text(answer.found ? ActionWords.soft(answer.text) : L("메모에서 찾지 못했습니다"))
+                .font(Theme.body)
+                .textSelection(.enabled)
+            ForEach(answer.quotes, id: \.self) { line in
+                Text(line)
+                    .font(Theme.micro)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .padding(.leading, Theme.snug)
+                    .overlay(alignment: .leading) { Rectangle().frame(width: 2).foregroundStyle(.tertiary) }
+            }
+        }
+        .padding(.horizontal, Theme.loose)
+        .padding(.vertical, Theme.snug)
+        .transition(.opacity)
+    }
+
+    /// 「「치과 예약」 9월 18일 (금) 10:00 에 다시 보여 줍니다 · 되돌리기」— 지운 줄과 같은 자리·같은 낱말 (D6).
+    /// 줄 하나에 들어갈 만큼의 제목 — 긴 첫 줄은 앞만 남긴다.
+    private func shortTitle(_ id: ULID) -> String? {
+        guard let title = model.memo(id)?.title else { return nil }
+        return title.count > 14 ? String(title.prefix(13)) + "…" : title
+    }
+
+    private func resultLine(_ applied: ProposedAction, _ assistant: AssistantModel) -> some View {
+        HStack(alignment: .top, spacing: Theme.tight) {
+            Text(ActionWords.describe(applied, memoTitle: applied.memoID.flatMap(shortTitle)))
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: Theme.snug)
+            Button { Task { await assistant.undo() } } label: {
+                Text(L("되돌리기"))
+                    .foregroundStyle(Theme.accentInk)
+                    .padding(.horizontal, Theme.tight)
+                    .frame(minHeight: Theme.touchRow)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .spoken(L("되돌리기 — 방금 바꾼 것을 되돌립니다"))
+        }
+        .font(Theme.micro)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, Theme.loose)
+        .padding(.vertical, Theme.tight)
+        .transition(.opacity)
+    }
+
+    /// 휴지통만 되묻는다 (설계 D8).
+    private func trashLine(_ proposal: ProposedAction, _ assistant: AssistantModel) -> some View {
+        HStack(spacing: Theme.tight) {
+            Text(ActionWords.describe(proposal, memoTitle: proposal.memoID.flatMap(shortTitle))).lineLimit(3).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: Theme.snug)
+            Button { Task { await assistant.apply(confirmedTrash: true) } } label: {
+                Text(L("휴지통으로")).foregroundStyle(Theme.dangerInk).padding(.horizontal, Theme.tight)
+                    .frame(minHeight: Theme.touchRow).contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            Button { assistant.dismissProposal() } label: {
+                Text(L("아니요")).padding(.horizontal, Theme.tight).frame(minHeight: Theme.touchRow).contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+        }
+        .font(Theme.micro)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, Theme.loose)
+        .padding(.vertical, Theme.tight)
+    }
+
+    /// 「모델을 받으면 답합니다 · 받기 2.6GB」— 묻기만 막힌다. 받는 동안은 진행 막대 (설계 D11).
+    private func modelLine(_ assistant: AssistantModel) -> some View {
+        HStack(spacing: Theme.tight) {
+            if let download = assistant.download {
+                ProgressView(value: download.fraction).controlSize(.small)
+                Text(download.verifying ? L("확인 중") : L("받는 중 \(Int(download.fraction * 100))%"))
+                Button(L("취소")) { assistant.cancelDownload() }.buttonStyle(.plain).foregroundStyle(Theme.accentInk)
+            } else {
+                Text(L("모델을 받으면 답합니다")).lineLimit(1)
+                if let error = assistant.downloadError { Text(error).foregroundStyle(Theme.dangerInk).lineLimit(1) }
+                Spacer(minLength: Theme.snug)
+                Button { assistant.startDownload() } label: {
+                    Text(L("받기 \(ByteCountFormatter.string(fromByteCount: assistant.manifest.file.bytes, countStyle: .file))"))
+                        .foregroundStyle(Theme.accentInk)
+                        .padding(.horizontal, Theme.tight)
+                        .frame(minHeight: Theme.touchRow)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .font(Theme.micro)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, Theme.loose)
+        .padding(.vertical, Theme.tight)
+    }
+
+    private func statusLine(_ text: String, symbol: String) -> some View {
+        Label(ActionWords.soft(text), systemImage: symbol)
+            .font(Theme.micro)
+            .foregroundStyle(.secondary)
+            .lineLimit(2)
+            .padding(.horizontal, Theme.loose)
+            .padding(.vertical, Theme.tight)
+            .transition(.opacity)
     }
 
     /// 앱이 대신 읽어 준 것, 그리고 **그것이 어디로 가는지.**
@@ -275,9 +492,9 @@ struct QuickCaptureView: View {
     private var resultRows: some View {
         VStack(spacing: 0) {
             HStack {
-                Text(model.listing == .recent ? L("최근 메모") : L("검색 결과"))
+                Text(listingTitle)
                 Spacer()
-                Text(L("\(model.pool.count)장")).monospacedDigit()
+                if model.listing != .candidates { Text(L("\(model.pool.count)장")).monospacedDigit() }
             }
             .font(.system(size: 11, weight: .medium))
             .foregroundStyle(.secondary)
@@ -339,6 +556,17 @@ struct QuickCaptureView: View {
                 .lineLimit(1)
                 .padding(.horizontal, Theme.loose)
                 .padding(.vertical, Theme.tight)
+        }
+    }
+
+    /// 목록의 이름 — 무엇이 놓여 있는지 (설계 D9·D10).
+    private var listingTitle: String {
+        switch model.listing {
+        case .recent: return L("최근 메모")
+        case .found: return L("검색 결과")
+        case .evidence: return L("근거")
+        case .related: return L("관련 메모")
+        case .candidates: return L("어느 메모? ↓ 로 고르고 ⌘↵")
         }
     }
 
@@ -456,10 +684,13 @@ struct QuickCaptureView: View {
     /// 하나 더 얹으면 상자가 그만큼 커지고, 커진 상자는 적을 자리를 밀어낸다.
     private var hint: some View {
         HStack(spacing: Theme.snug) {
-            Text(selectedMemo == nil ? L("↵ 줄바꿈 · esc 닫기") : L("↑↓ 선택 · ⌘⌫ 지우기"))
+            Text(hintText)
                 .font(.system(size: 11))
             Spacer(minLength: 0)
-            if let commandLabel {
+            if model.assistant?.phase == .thinking {
+                // 읽는 동안 라벨은 없다 — 누를 것이 없다 (설계 E-1).
+                HStack(spacing: 8) { ProgressView().controlSize(.small); Text(L("메모를 읽는 중")).font(.system(size: 11)) }
+            } else if let commandLabel {
                 Button(action: onCommit) {
                     HStack(spacing: 12) {
                         Text(commandLabel)
@@ -474,7 +705,7 @@ struct QuickCaptureView: View {
                 .buttonStyle(.plain)
                 .spoken("\(commandLabel) — Command Return")
             } else {
-                Text(L("적으면 메모, 찾으면 검색"))
+                Text(L("적으면 메모, 찾으면 검색, 물으면 답"))
                     .font(.system(size: 11))
             }
         }
@@ -483,11 +714,29 @@ struct QuickCaptureView: View {
         .padding(.vertical, Theme.normal)
     }
 
-    /// 지금 ⌘⏎ 가 할 일. 없으면 `nil`.
+    private var hintText: String {
+        if model.assistant?.phase == .thinking { return L("esc 그만") }
+        if model.pendingQuestion != nil { return L("↵ 줄바꿈 · esc 시각 없이 남기기") }
+        if model.listing == .candidates { return L("↑↓ 고르기 · esc 닫기") }
+        return selectedMemo == nil ? L("↵ 줄바꿈 · esc 닫기") : L("↑↓ 선택 · ⌘⌫ 지우기")
+    }
+
+    /// 단추에 들어갈 만큼의 제목.
+    private static func clip(_ title: String) -> String { title.count > 12 ? String(title.prefix(11)) + "…" : title }
+
+    /// 지금 ⌘⏎ 가 할 일 — 라벨이 곧 동사다 (설계 D5). 없으면 `nil`.
     private var commandLabel: String? {
-        if selectedMemo != nil { return L("메모 열기") }
-        guard !model.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-        return model.scheduleLabel == nil ? L("메모 남기기") : L("달력에 남기기")
+        switch model.intent {
+        case .nothing: return nil
+        case .open: return L("메모 열기")
+        case .applyTo(let title): return L("「\(Self.clip(title))」에 적용")
+        case .pick(let title): return L("「\(Self.clip(title))」에게")
+        case .command: return L("시키기")
+        case .ask: return L("메모에게 묻기")
+        case .answer: return L("답하기")
+        case .memo: return L("메모 남기기")
+        case .calendar: return L("달력에 남기기")
+        }
     }
 
     /// 텍스트 뷰가 넘겨준 키 명령. `true` 를 돌려주면 텍스트 뷰는 처리하지 않는다.
@@ -500,6 +749,8 @@ struct QuickCaptureView: View {
     func handle(command: Selector, in textView: NSTextView) -> Bool {
         switch command {
         case #selector(NSResponder.cancelOperation(_:)):
+            // 읽는 중이면 그만둔다 — 상자는 남는다 (설계 E-1 「esc 그만」).
+            if model.assistant?.phase == .thinking { model.assistant?.cancel(); return true }
             onCancel()
             return true
 

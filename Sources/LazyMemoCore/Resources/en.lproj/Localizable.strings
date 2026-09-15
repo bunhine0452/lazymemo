@@ -76,3 +76,4 @@
 "받은 앱이 %@ 입니다 (%@ 를 기다렸습니다)" = "The downloaded app is %1$@ (expected %2$@)";
 "%@ 에 쓸 수 없습니다" = "Can't write to %@";
 "그 사이 메모가 바뀌었습니다: %@" = "The memo changed in the meantime: %@";
+"치과 언제였지? — 물으면 답합니다" = "When was the dentist? — ask and it answers";

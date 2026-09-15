@@ -342,3 +342,35 @@
 "메모에게 묻기" = "Ask My Memos";
 
 "이 메모에게 시키기…" = "Ask the assistant about this memo…";
+
+/* 빠른 입력 × 비서 (quick-capture-assistant-2026-09-15.md) */
+"적으면 메모, 찾으면 검색, 물으면 답" = "Write a memo, search, or ask";
+"12시야" = "12 o’clock";
+"열린 메모 · %@" = "Open memo · %@";
+"열린 메모 놓기" = "Release the open memo";
+"자리 %@" = "at %@";
+"12시" = "12:00";
+"점심" = "Lunch";
+"저녁 7시" = "7 pm";
+"시각 없이" = "No time";
+"메모에서 찾지 못했습니다" = "Not found in your memos";
+"되돌리기 — 방금 바꾼 것을 되돌립니다" = "Undo — reverts what was just changed";
+"휴지통으로" = "Move to Trash";
+"아니요" = "No";
+"모델을 받으면 답합니다" = "Download the model to get answers";
+"받기 %@" = "Download %@";
+"받는 중 %lld%%" = "Downloading %lld%%";
+"확인 중" = "Verifying";
+"취소" = "Cancel";
+"근거" = "Sources";
+"관련 메모" = "Related memos";
+"어느 메모? ↓ 로 고르고 ⌘↵" = "Which memo? Pick with ↓, then ⌘↵";
+"esc 그만" = "esc to stop";
+"↵ 줄바꿈 · esc 시각 없이 남기기" = "↵ newline · esc saves without a time";
+"↑↓ 고르기 · esc 닫기" = "↑↓ pick · esc close";
+"메모를 읽는 중" = "Reading your memos";
+"「%@」에 적용" = "Apply to “%@”";
+"「%@」에게" = "To “%@”";
+"시키기" = "Do it";
+"메모에게 묻기" = "Ask memos";
+"답하기" = "Answer";

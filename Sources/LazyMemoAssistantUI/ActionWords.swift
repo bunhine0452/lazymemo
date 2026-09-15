@@ -3,8 +3,11 @@ import LazyMemoAssistant
 import LazyMemoCore
 
 /// 제안된 변경을 사람의 말로. 정확한 시각을 보여 주고서야 실행한다 (명세 §5).
-enum ActionWords {
-    static func describe(_ action: ProposedAction, memoTitle: String?) -> String {
+public enum ActionWords {
+    /// 모델·해석기가 낸 문장 — 표에 있으면 번역하고, 없으면 그대로.
+    public static func soft(_ text: String) -> String { Lsoft(text) }
+
+    public static func describe(_ action: ProposedAction, memoTitle: String?) -> String {
         let name = memoTitle.map { "「\($0)」" } ?? L("이 메모")
         switch action.kind {
         case .ask: return action.question.map(Lsoft) ?? L("한 가지만 더 알려 주세요")
@@ -35,11 +38,15 @@ enum ActionWords {
         }
     }
 
-    static func time(_ date: Date) -> String {
-        date.formatted(date: .abbreviated, time: .shortened)
+    /// 「9월 18일 (금) 10:00」— 빠른 입력의 날짜 칩과 같은 꼴. 해는 다를 때만 붙는다.
+    public static func time(_ date: Date) -> String {
+        let sameYear = Calendar.current.isDate(date, equalTo: Date(), toGranularity: .year)
+        return sameYear
+            ? date.formatted(.dateTime.month().day().weekday(.abbreviated).hour().minute())
+            : date.formatted(.dateTime.year().month().day().weekday(.abbreviated).hour().minute())
     }
 
-    static func title(of evidence: Evidence) -> String {
+    public static func title(of evidence: Evidence) -> String {
         evidence.excerpt.split(separator: "\n").first.map(String.init) ?? L("빈 메모")
     }
 }
