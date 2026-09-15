@@ -103,10 +103,15 @@ public struct FieldPatch: Sendable, Equatable {
     public var at: FieldChange<Date> = .keep
     public var surface: FieldChange<Date> = .keep
     public var folder: FieldChange<String> = .keep
+    /// createMemo 만 — 글에서 읽은 장소·좌표(`NoteReader`). 기존 메모의 장소는 비서가 바꾸지 않는다.
+    public var place: String?
+    public var geo: Coordinate?
 
     public init(body: String? = nil, due: FieldChange<CalendarDate> = .keep, at: FieldChange<Date> = .keep,
-                surface: FieldChange<Date> = .keep, folder: FieldChange<String> = .keep) {
+                surface: FieldChange<Date> = .keep, folder: FieldChange<String> = .keep,
+                place: String? = nil, geo: Coordinate? = nil) {
         self.body = body; self.due = due; self.at = at; self.surface = surface; self.folder = folder
+        self.place = place; self.geo = geo
     }
 
     public var isEmpty: Bool { body == nil && due == .keep && at == .keep && surface == .keep && folder == .keep }
@@ -139,13 +144,15 @@ public struct ProposedAction: Sendable, Equatable, Identifiable {
     public let question: String?
     /// ask 일 때 — 「어느 메모?」에 고를 수 있는 후보. 열린 메모가 없을 때 검색이 찾은 것들.
     public let candidates: [ULID]
+    /// ask 일 때 — 한 가지만 더 들으면 완성되는 새 메모. 「약속 시간이 언제인가요?」의 뒤에 이것이 있다.
+    public let draft: FieldPatch?
 
     public init(id: UUID = UUID(), requestID: AssistantRequest.ID, kind: ActionKind, memoID: ULID? = nil,
                 expectedContentHash: String? = nil, patch: FieldPatch = FieldPatch(), question: String? = nil,
-                candidates: [ULID] = []) {
+                candidates: [ULID] = [], draft: FieldPatch? = nil) {
         self.id = id; self.requestID = requestID; self.kind = kind; self.memoID = memoID
         self.expectedContentHash = expectedContentHash; self.patch = patch; self.question = question
-        self.candidates = candidates
+        self.candidates = candidates; self.draft = draft
     }
 }
 

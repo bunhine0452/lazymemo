@@ -14,6 +14,7 @@ enum ActionWords {
             var parts = [L("새 메모: \(action.patch.body ?? "")")]
             if case .set(let at) = action.patch.at { parts.append(L("약속 \(time(at))")) }
             else if case .set(let due) = action.patch.due { parts.append(L("날짜 \(due.description)")) }
+            if let place = action.patch.place { parts.append(L("자리 \(place)")) }
             return parts.joined(separator: " · ")
         case .setRecall:
             switch action.patch.surface {

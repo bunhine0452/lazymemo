@@ -105,3 +105,51 @@ struct IntentTests {
         #expect(AssistantIntent.classify("취소, 아무것도 하지 마") == .command)
     }
 }
+
+@Suite("대화로 일정 만들기 — 날짜·장소는 읽고, 시각만 되묻고, 답이 오면 적는다")
+struct DraftConversationTests {
+    let now = ISO8601DateFormatter().date(from: "2026-09-15T00:00:00Z")!
+    let seoul = TimeZone(identifier: "Asia/Seoul")!
+    func kst(_ s: String) -> Date { ISO8601DateFormatter().date(from: s)! }
+    func request(_ text: String) -> AssistantRequest { AssistantRequest(task: .command, userText: text, now: now, timeZone: seoul) }
+
+    @Test("「9월 30일에 @홍대 친구랑 밥 먹기로 했어」 → 날짜·장소는 채우고 시각만 묻는다")
+    func asksOnlyForTime() {
+        let text = "9월 30일에 @홍대입구 친구랑 밥 먹기로 했어"
+        #expect(AssistantIntent.classify(text, now: now) == .command)
+        let action = CommandResolver.resolve(nil, request: request(text), selected: nil, candidates: [])
+        #expect(action?.kind == .ask)
+        #expect(action?.question == CommandResolver.questions.appointmentTime)
+        #expect(action?.draft?.due == .set(CalendarDate(year: 2026, month: 9, day: 30)))
+        #expect(action?.draft?.place == "홍대입구")
+        #expect(action?.draft?.body == "친구랑 밥 먹기로 했어")
+    }
+
+    @Test("「12시야」가 오면 그 날 12시 약속으로 완성된다 — 「없어」면 날짜만")
+    func completesWithReply() {
+        let draft = FieldPatch(body: "친구랑 밥", due: .set(CalendarDate(year: 2026, month: 9, day: 30)), place: "홍대입구")
+        let done = AssistantIntent.complete(draft: draft, reply: "12시야", now: now, timeZone: seoul)
+        #expect(done?.kind == .createMemo)
+        #expect(done?.patch.at == .set(kst("2026-09-30T03:00:00Z")))
+        #expect(done?.patch.place == "홍대입구")
+        let evening = AssistantIntent.complete(draft: draft, reply: "저녁 7시 반", now: now, timeZone: seoul)
+        #expect(evening?.patch.at == .set(kst("2026-09-30T10:30:00Z")))
+        let skipped = AssistantIntent.complete(draft: draft, reply: "몰라", now: now, timeZone: seoul)
+        #expect(skipped?.kind == .createMemo)
+        #expect(skipped?.patch.due == .set(CalendarDate(year: 2026, month: 9, day: 30)))
+        // 답이 아니면 새 말이다.
+        #expect(AssistantIntent.complete(draft: draft, reply: "치과 언제였지?", now: now, timeZone: seoul) == nil)
+    }
+
+    @Test("시각까지 말했거나 약속이 아니면 묻지 않고 바로 적는다")
+    func noQuestionWhenComplete() {
+        let lunch = CommandResolver.resolve(nil, request: request("9월 30일 12시에 친구랑 밥"), selected: nil, candidates: [])
+        #expect(lunch?.kind == .createMemo)
+        #expect(lunch?.patch.at == .set(kst("2026-09-30T03:00:00Z")))
+        let report = CommandResolver.resolve(nil, request: request("10월 3일까지 보고서 제출"), selected: nil, candidates: [])
+        #expect(report?.kind == .createMemo)
+        #expect(report?.patch.due == .set(CalendarDate(year: 2026, month: 10, day: 3)))
+        // 날짜가 든 물음은 적는 말이 아니다.
+        #expect(AssistantIntent.classify("9월 30일에 뭐 있지?", now: now) == .answer)
+    }
+}

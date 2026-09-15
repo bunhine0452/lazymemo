@@ -43,7 +43,7 @@ public struct AssistantView: View {
         VStack(alignment: .leading, spacing: 8) {
             // 묻는 말인지 시키는 말인지는 앱이 가린다(`AssistantIntent`). 고르는 칸을 두면 잘못 고른 채 막힌다.
             HStack {
-                TextField(selected == nil ? L("물어보거나 시켜 보세요 — 「치과 언제였지?」") : L("이 메모에게 — 「금요일 10시에 다시 알려줘」"), text: $text)
+                TextField(model.proposal?.draft != nil ? L("답을 적어 주세요 — 「12시야」") : selected == nil ? L("물어보거나 시켜 보세요 — 「치과 언제였지?」") : L("이 메모에게 — 「금요일 10시에 다시 알려줘」"), text: $text)
                     .textFieldStyle(.roundedBorder)
                     .focused($focused)
                     .onSubmit(send)
@@ -173,10 +173,17 @@ public struct AssistantView: View {
     }
 
     private func receiptBlock(_ receipt: ActionReceipt) -> some View {
-        HStack {
-            Label(L("적용했습니다"), systemImage: "checkmark").foregroundStyle(.secondary)
-            Button(L("되돌리기")) { Task { await model.undo() } }.controlSize(.small)
-            Button { openMemo(receipt.after.id) } label: { Label(L("메모 열기"), systemImage: "doc.text") }.controlSize(.small)
+        VStack(alignment: .leading, spacing: 6) {
+            // 무엇을 했는지 그대로 — 「새 메모: 친구랑 밥 · 약속 9월 30일 12:00」. 확인 대신 되돌리기.
+            if let applied = model.applied {
+                Label(ActionWords.describe(applied, memoTitle: applied.memoID.flatMap(memoTitle)), systemImage: "checkmark")
+            } else {
+                Label(L("적용했습니다"), systemImage: "checkmark").foregroundStyle(.secondary)
+            }
+            HStack {
+                Button(L("되돌리기")) { Task { await model.undo() } }.controlSize(.small)
+                Button { openMemo(receipt.after.id) } label: { Label(L("메모 열기"), systemImage: "doc.text") }.controlSize(.small)
+            }
         }
     }
 }

@@ -25,8 +25,20 @@ enum CommandResolver {
         folder: "어느 폴더로 옮길까요?",
         unsupported: "무엇을 할지 한 가지만 알려 주세요 — 다시 보기·일정·폴더·새 메모·휴지통",
         bulk: "한 번에 여러 메모를 지우지는 않습니다. 한 장씩 골라 주세요",
-        body: "새 메모에 무엇을 적을까요?"
+        body: "새 메모에 무엇을 적을까요?",
+        appointmentTime: "약속 시간이 언제인가요?"
     )
+
+    /// 시각이 있어야 뜻이 서는 일 — 날짜만 말하고 이런 말이 있으면 시각을 되묻는다.
+    static let appointmentWords = ["밥", "식사", "점심", "저녁", "아침", "브런치", "만나", "만남", "약속", "회의", "미팅", "모임", "예약",
+                                   "보기로", "먹기로", "가기로", "술", "커피", "데이트", "진료", "상담", "면접", "수업", "강의", "공연", "영화"]
+    /// 「없어」「몰라」— 시각 없이 그냥 적는다.
+    static let skipWords = ["없어", "몰라", "모름", "모르겠", "그냥", "패스", "아직", "미정", "나중에", "안 정", "안정"]
+    static let questionWords = ["뭐", "언제", "어디", "얼마", "몇", "누구", "왜", "어떻게", "있지", "였지", "했지", "더라", "까?", "나요", "인가요", "일까?"]
+
+    static func looksLikeQuestion(_ text: String) -> Bool {
+        text.hasSuffix("?") || mentions(questionWords, in: text)
+    }
 
     // MARK: 낱말표
 
@@ -185,11 +197,14 @@ enum CommandResolver {
         return nil
     }
 
-    static func body(text: String, model: String?, phrases: [String]) -> String {
-        var body = model?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if body.isEmpty { body = text }
-        body = NaturalDateParser.strip(phrases, from: body)
+    /// 새 메모의 본문 — 모델이 준 것이 있으면 그것도 같은 규칙으로 날짜를 덜어낸 뒤, 「메모 만들어」 같은 군더더기를 뗀다.
+    static func body(text: String, model: String?, now: Date) -> String {
+        var body = text
+        if let model = model?.trimmingCharacters(in: .whitespacesAndNewlines), !model.isEmpty {
+            body = NoteReader.read(model, now: now).body
+        }
         let cruft = [#"^(이거|이것|이건)\s*"#,
+                     #"^(에|에서|은|는|이|가|을|를|엔|에는)\s+"#,
                      #"\s*(새\s?)?메모(를|로)?\s*(만들어\s*줘?|추가(해\s*줘?)?|남겨\s*줘?|해\s*줘?|적어\s*줘?|하나\s*(만들어|추가)\s*줘?)?\s*[.!]?$"#,
                      #"\s*(적어\s*줘?|기록해\s*줘?|만들어\s*줘?|추가해\s*줘?)\s*[.!]?$"#]
         for pattern in cruft {
@@ -219,13 +234,17 @@ enum CommandResolver {
         let modelKind = normalizeKind(raw?.kind, folder: raw?.folder, body: raw?.body)
         let hasDate = resolveTime(text, anchor: selected?.schedule, now: now, calendar: calendar) != nil
 
+        let note = NoteReader.read(text, now: now)
+        let statement = !looksLikeQuestion(text) && (note.due != nil || note.at != nil || note.place != nil || note.geo != nil)
+
         let intended: ActionKind?
         if recallClear { intended = .setRecall }
         else if said.count == 1 { intended = said.first }
         else if let modelKind, said.contains(modelKind) { intended = modelKind }
         else if !said.isEmpty { intended = [.setRecall, .trash, .moveToFolder, .reschedule, .createMemo].first(where: said.contains) }
-        else if text.contains("메모"), hasDate { intended = .createMemo }
         else if hasDate, timeWithDirection(text) { intended = .reschedule }
+        // 「9월 30일에 @홍대 친구랑 밥 먹기로 했어」— 날짜·장소가 있는 서술은 새 메모다. 「메모」라고 말하지 않아도.
+        else if statement || (text.contains("메모") && hasDate) { intended = .createMemo }
         else if modelKind == .ask || modelKind == ActionKind.none { intended = modelKind }
         else if raw == nil { return nil }
         else { intended = nil }
@@ -235,11 +254,15 @@ enum CommandResolver {
         case .none: return ProposedAction(requestID: request.id, kind: .none)
         case .ask: return ask(modelQuestion(raw) ?? questions.unsupported, candidates: selected == nil ? candidates : [])
         case .createMemo:
-            let parsed = NaturalDateParser.parse(text, now: now, calendar: calendar)
-            let body = body(text: text, model: raw?.body, phrases: parsed?.phrases ?? [])
+            // 빠른 입력·공유와 같은 한 규칙(`NoteReader`)으로 읽는다 — 날짜·시각·@장소·지도 링크의 자리와 좌표.
+            let body = body(text: note.body, model: raw?.body, now: now)
             guard !body.isEmpty else { return ask(questions.body) }
-            var patch = FieldPatch(body: body)
-            if let at = parsed?.at { patch.at = .set(at) } else if let due = parsed?.due { patch.due = .set(due) }
+            var patch = FieldPatch(body: body, place: note.place, geo: note.geo)
+            if let at = note.at { patch.at = .set(at) } else if let due = note.due { patch.due = .set(due) }
+            // 날짜는 있는데 시각이 없는 약속 — 한 가지만 묻고, 답이 오면 `complete` 가 잇는다.
+            if note.at == nil, note.due != nil, mentions(appointmentWords, in: text) {
+                return ProposedAction(requestID: request.id, kind: .ask, question: questions.appointmentTime, draft: patch)
+            }
             return ProposedAction(requestID: request.id, kind: .createMemo, patch: patch)
         case .trash, .setRecall, .reschedule, .moveToFolder:
             if intended == .trash, mentions(bulkWords, in: text) { return ask(questions.bulk) }
@@ -268,6 +291,33 @@ enum CommandResolver {
             return ProposedAction(requestID: request.id, kind: intended, memoID: target.memoID,
                                   expectedContentHash: target.contentHash, patch: patch)
         }
+    }
+
+    /// 되물음의 답 — 「12시야」·「저녁 7시」·「없어」. 답이 아니면 nil(새 말로 본다).
+    static func complete(draft: FieldPatch, reply: String, request: AssistantRequest) -> ProposedAction? {
+        let reply = reply.trimmingCharacters(in: .whitespacesAndNewlines)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = request.timeZone
+        var patch = draft
+        if mentions(skipWords, in: reply), reply.count <= 12 {
+            return ProposedAction(requestID: request.id, kind: .createMemo, patch: patch)
+        }
+        if case .set(let day) = draft.due, let time = NaturalDateParser.timeOfDay(in: reply),
+           let midnight = day.startOfDay(calendar: calendar),
+           let moment = calendar.date(byAdding: DateComponents(hour: time.hour, minute: time.minute), to: midnight),
+           // 답이 시각 한 마디여야 한다 — 「12시야」·「오후 12시 반」. 긴 글은 새 말이다.
+           reply.count <= 16 {
+            patch.at = .set(moment)
+            patch.due = .keep
+            return ProposedAction(requestID: request.id, kind: .createMemo, patch: patch)
+        }
+        if let parsed = NaturalDateParser.parse(reply, now: request.now, calendar: calendar), let at = parsed.at,
+           NaturalDateParser.strip(parsed.phrases, from: reply).count <= 2 {
+            patch.at = .set(at)
+            patch.due = .keep
+            return ProposedAction(requestID: request.id, kind: .createMemo, patch: patch)
+        }
+        return nil
     }
 
     static func unsupportedQuestion(_ raw: RawCommand?) -> String {

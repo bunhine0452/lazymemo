@@ -60,7 +60,8 @@ public actor ActionExecutor {
             let memo = try await service.create(
                 body: action.patch.body ?? "",
                 due: action.patch.due.value, at: action.patch.at.value,
-                surface: action.patch.surface.value, folder: action.patch.folder.value, now: now)
+                surface: action.patch.surface.value, place: action.patch.place, geo: action.patch.geo,
+                folder: action.patch.folder.value, now: now)
             receipt = ActionReceipt(actionID: action.id, requestID: action.requestID, kind: .createMemo, before: nil, after: memo)
         case .trash:
             guard confirmedTrash else { throw ActionError.needsConfirmation }

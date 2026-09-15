@@ -45,6 +45,10 @@ public final class AssistantModel {
     private var downloadTask: Task<Void, Never>?
     /// 마지막 시키기 — 「어느 메모?」에 후보를 고르면 같은 말을 그 메모에게 다시 한다.
     private var lastCommand: String?
+    /// 되물음 뒤에 기다리는 새 메모 — 「약속 시간이 언제인가요?」의 답을 이것에 잇는다.
+    private var pendingDraft: FieldPatch?
+    /// 방금 적용한 것 — 되돌리기 줄이 무엇을 했는지 말한다.
+    public private(set) var applied: ProposedAction?
 
     public init(service: MemoService, support: URL, manifest: ModelManifest = .gemma4E2B, profile: ModelProfile? = nil) {
         self.service = service
@@ -104,10 +108,31 @@ public final class AssistantModel {
 
     /// 한 줄을 받아 묻는 말이면 답하고 시키는 말이면 제안한다 — 사람이 모드를 고르지 않는다.
     public func send(_ text: String, selected: ULID? = nil) {
+        // 되물음의 답이면 초안을 완성해 바로 적는다 — 「12시야」.
+        if let draft = pendingDraft, let action = AssistantIntent.complete(draft: draft, reply: text) {
+            pendingDraft = nil
+            accept(action)
+            return
+        }
+        pendingDraft = nil
         switch AssistantIntent.classify(text) {
         case .command: command(text, selected: selected)
         default: ask(text, selected: selected)
         }
+    }
+
+    /// 모델·검색 없이 정해진 것을 바로 적용한다.
+    private func accept(_ action: ProposedAction) {
+        cancel()
+        answer = nil; evidence = []; receipt = nil; applyError = nil; applied = nil
+        proposal = action
+        phase = .done
+        Task { await apply() }
+    }
+
+    /// 휴지통만 확인을 거친다. 나머지는 적고 되돌리기를 든다 — 이 앱에 저장 버튼이 없는 것과 같은 이유(명세 §5).
+    static func appliesImmediately(_ action: ProposedAction) -> Bool {
+        action.kind.writes && action.kind != .trash
     }
 
     public func ask(_ text: String, selected: ULID? = nil) {
@@ -172,7 +197,7 @@ public final class AssistantModel {
     private func run(_ request: AssistantRequest) {
         cancel()
         phase = .thinking
-        answer = nil; evidence = []; proposal = nil; receipt = nil; applyError = nil
+        answer = nil; evidence = []; proposal = nil; receipt = nil; applyError = nil; applied = nil
         if request.task == .brief { briefItems = nil }
         let task = Task { [weak self] in
             guard let self else { return }
@@ -181,14 +206,19 @@ public final class AssistantModel {
                 switch event {
                 case .loading, .textDelta: break
                 case .evidence(let list): evidence = list
-                case .proposedAction(let action): proposal = action
+                case .proposedAction(let action):
+                    proposal = action
+                    pendingDraft = action.kind == .ask ? action.draft : nil
                 case .completed(let result):
                     switch result {
                     case .answer(let a): answer = a
                     case .brief(let items):
                         briefItems = items
                         BriefCache.save(items, fingerprint: briefFingerprint(now: request.now))
-                    case .action, .tidied: break
+                    case .action(let action):
+                        phase = .done
+                        if Self.appliesImmediately(action) { await apply() }
+                    case .tidied: break
                     }
                     phase = .done
                 case .failed(let failure):
@@ -210,6 +240,7 @@ public final class AssistantModel {
         applyError = nil
         do {
             receipt = try await executor.execute(proposal, confirmedTrash: confirmedTrash)
+            applied = proposal
             self.proposal = nil
         } catch let error as ActionError {
             applyError = error.message
@@ -225,6 +256,7 @@ public final class AssistantModel {
         do {
             _ = try await executor.undo(receipt)
             self.receipt = nil
+            applied = nil
         } catch let error as ActionError {
             applyError = error.message
         } catch {
