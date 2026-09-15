@@ -10,6 +10,7 @@ let package = Package(
     products: [
         .executable(name: "LazyMemo", targets: ["LazyMemo"]),
         .executable(name: "lazymemo-mcp", targets: ["LazyMemoMCP"]),
+        .executable(name: "lazymemo-assistant-bench", targets: ["LazyMemoAssistantBench"]),
         .library(name: "LazyMemoUI", targets: ["LazyMemoUI"]),
         .library(name: "LazyMemoPlaces", targets: ["LazyMemoPlaces"]),
         .library(name: "LazyMemoCore", targets: ["LazyMemoCore"]),
@@ -70,6 +71,13 @@ let package = Package(
             dependencies: ["LazyMemoCore", "LazyMemoAssistant", "LazyMemoLocalLiteRT"],
             path: "Sources/LazyMemoAssistantUI",
             resources: [.process("Resources")]
+        ),
+        // 앱 파이프라인 벤치 — fixture 80문항을 Coordinator·검증·해석까지 태워 사용자가 받는 결과를 채점한다.
+        // 제품 번들에 들어가지 않는 개발용 실행 파일. 실모델은 --model 로 받는다.
+        .executableTarget(
+            name: "LazyMemoAssistantBench",
+            dependencies: ["LazyMemoCore", "LazyMemoAssistant", "LazyMemoLocalLiteRT"],
+            path: "Sources/LazyMemoAssistantBench"
         ),
         // LiteRT-LM 엔진 어댑터 — 앱 두 개만 링크한다. 확장·MCP·테스트는 링크하지 않는다.
         .target(

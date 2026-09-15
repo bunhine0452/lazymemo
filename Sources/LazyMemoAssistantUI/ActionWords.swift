@@ -7,7 +7,7 @@ enum ActionWords {
     static func describe(_ action: ProposedAction, memoTitle: String?) -> String {
         let name = memoTitle.map { "「\($0)」" } ?? L("이 메모")
         switch action.kind {
-        case .ask: return action.question ?? L("한 가지만 더 알려 주세요")
+        case .ask: return action.question.map(Lsoft) ?? L("한 가지만 더 알려 주세요")
         case .none: return L("바꿀 것이 없습니다")
         case .trash: return L("\(name) 을(를) 휴지통으로 옮깁니다")
         case .createMemo:

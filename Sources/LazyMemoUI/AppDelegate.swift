@@ -105,6 +105,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         self.assistant = assistant
         self.assistantWindow = assistantWindow
         menuBar.openAssistant = { [weak assistantWindow] in assistantWindow?.show() }
+        // 종이의 우클릭 「이 메모에게 시키기…」. 모델이 없어도 시각·할 일이 분명한 말은 앱이 읽으므로 늘 건다.
+        windows.adoptAssistant { [weak assistantWindow] id in assistantWindow?.show(selected: id) }
         Task { [weak windows, weak menuBar] in
             let runner = await ClaudeSupport.resolve(settings: settings)
             windows?.adoptClaude(runner)

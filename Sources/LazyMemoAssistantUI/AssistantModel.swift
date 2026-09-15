@@ -43,6 +43,8 @@ public final class AssistantModel {
     private let profile: ModelProfile
     private var current: (id: AssistantRequest.ID, task: Task<Void, Never>)?
     private var downloadTask: Task<Void, Never>?
+    /// 마지막 시키기 — 「어느 메모?」에 후보를 고르면 같은 말을 그 메모에게 다시 한다.
+    private var lastCommand: String?
 
     public init(service: MemoService, support: URL, manifest: ModelManifest = .gemma4E2B, profile: ModelProfile? = nil) {
         self.service = service
@@ -105,8 +107,18 @@ public final class AssistantModel {
     }
 
     public func command(_ text: String, selected: ULID? = nil) {
+        lastCommand = text
         run(AssistantRequest(task: .command, userText: text, selectedMemoID: selected))
     }
+
+    /// 되물음의 후보 하나를 골랐다 — 그 메모를 열린 메모 삼아 같은 말을 다시 한다.
+    public func pick(_ candidate: ULID) {
+        guard let lastCommand else { return }
+        command(lastCommand, selected: candidate)
+    }
+
+    /// 답을 못 찾았을 때 대신 보여 줄 관련 메모 — 검색이 찾은 것 중 앞의 셋.
+    public var relatedMemos: [Evidence] { Array(evidence.prefix(3)) }
 
     public func brief(now: Date = Date()) {
         if let cached = BriefCache.load(fingerprint: briefFingerprint(now: now)) {

@@ -340,3 +340,5 @@
 /* 비서 — 이 기기의 모델 */
 "메모에게 묻기…" = "Ask My Memos…";
 "메모에게 묻기" = "Ask My Memos";
+
+"이 메모에게 시키기…" = "Ask the assistant about this memo…";

@@ -55,12 +55,25 @@ public actor AssistantCoordinator {
     private func perform(_ request: AssistantRequest, gen: Int, emit: @Sendable (AssistantEvent) async -> Bool) async {
         do {
             guard await emit(.loading) else { return }
-            guard await provider.availability == .ready else { _ = await emit(.failed(.modelUnavailable)); return }
-            try await provider.prepare(profile)
+            let ready = await provider.availability == .ready
+            // 묻기·다듬기·브리핑은 모델이 있어야 한다. 시키기는 아래에서 말만으로 끝날 수 있으니 먼저 해 본다.
+            guard ready || request.task == .command else { _ = await emit(.failed(.modelUnavailable)); return }
 
             let (selected, gathered) = try await gather(request)
             guard await emit(.evidence(gathered)) else { return }
             if request.task == .tidy, selected == nil { _ = await emit(.failed(.noEvidence)); return }
+
+            // 시키기는 사용자의 말만으로 정해지는 일이 많다 — 「금요일 10시에 다시 알려줘」는 파서가 읽고
+            // 열린 메모가 대상이다. 그러면 모델을 올리지도 부르지도 않는다(즉시·결정적). 모델은 말이 낯설 때만 —
+            // 그래서 폰에 2.4GB 를 받지 않아도 시키기는 된다.
+            if request.task == .command,
+               var result = CommandResolver.resolve(nil, request: request, selected: selected, candidates: gathered).map(AssistantResult.action),
+               !Self.needsModel(result) {
+                _ = await finish(&result, request: request, emit: emit)
+                return
+            }
+            guard ready else { _ = await emit(.failed(.modelUnavailable)); return }
+            try await provider.prepare(profile)
 
             var calls = 0
             var text = try await generate(request, selected: selected, evidence: gathered, repair: nil, calls: &calls, emit: emit)
@@ -102,7 +115,18 @@ public actor AssistantCoordinator {
             break
         case .brief:
             reads += 1
-            found = try await evidence.today(now: request.now)
+            // 시각이 정해진 것부터 — 근거는 여섯 장까지라, 뒤에 선 것은 모델이 보지 못한다.
+            found = try await evidence.today(now: request.now).sorted { a, b in
+                switch (a.at, b.at) {
+                case (let x?, let y?): return x < y
+                case (.some, nil): return true
+                case (nil, .some): return false
+                case (nil, nil): return a.updated > b.updated
+                }
+            }
+        case .command where selected != nil:
+            // 열린 메모가 대상이다. 다른 메모를 보여 주면 모델이 그리로 끌려간다.
+            break
         case .answer, .command:
             let query = request.userText.trimmingCharacters(in: .whitespacesAndNewlines)
             if !query.isEmpty, reads < limits.maxReads {
@@ -136,21 +160,32 @@ public actor AssistantCoordinator {
             // JSON 은 다 받아야 뜻이 있다 — 부분 도구 토큰을 흘리지 않는다. 글은 흘린다.
             if request.task == .tidy { guard await emit(.textDelta(delta)) else { throw CancellationError() } }
         }
+        // 개발용 — 모델이 실제로 뭐라 했는지. `LAZYMEMO_ASSISTANT_TRACE=1` 일 때만, stderr 로.
+        if ProcessInfo.processInfo.environment["LAZYMEMO_ASSISTANT_TRACE"] != nil {
+            FileHandle.standardError.write("[assistant \(request.task.rawValue)] \(request.userText)\n<<< \(text)\n".data(using: .utf8)!)
+        }
         return text
     }
 
     private func validate(_ text: String, request: AssistantRequest, evidence: [Evidence]) -> AssistantResult? {
         switch request.task {
         case .answer:
-            return OutputValidator.answer(text, allowed: Set(evidence.map(\.memoID))).map(AssistantResult.answer)
+            return OutputValidator.answer(text, allowed: evidence, question: request.userText).map(AssistantResult.answer)
         case .brief:
-            return OutputValidator.brief(text, allowed: evidence).map(AssistantResult.brief)
+            return OutputValidator.brief(text, allowed: evidence, request: request).map(AssistantResult.brief)
         case .command:
-            return OutputValidator.action(text, request: request, evidence: evidence).map(AssistantResult.action)
+            let selected = request.selectedMemoID.flatMap { id in evidence.first { $0.memoID == id } }
+            return OutputValidator.action(text, request: request, selected: selected, candidates: evidence).map(AssistantResult.action)
         case .tidy:
             let cleaned = ClaudePrompts.clean(text)
             return cleaned.isEmpty ? nil : .tidied(cleaned)
         }
+    }
+
+    /// 모델 없이 낸 답이 「무엇을 할지 모르겠다」뿐이면 모델의 읽기를 한 번 빌린다.
+    static func needsModel(_ result: AssistantResult) -> Bool {
+        guard case .action(let action) = result, action.kind == .ask else { return false }
+        return action.question == CommandResolver.questions.unsupported
     }
 
     private func finish(_ result: inout AssistantResult, request: AssistantRequest, emit: @Sendable (AssistantEvent) async -> Bool) async -> Bool {

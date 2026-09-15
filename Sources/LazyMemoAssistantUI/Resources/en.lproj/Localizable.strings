@@ -46,3 +46,12 @@
 "적용했습니다" = "Applied";
 "되돌리기" = "Undo";
 "메모 열기" = "Open memo";
+"이런 메모가 있어요" = "Related memos";
+"어느 메모를 말하는지 골라 주세요" = "Which memo do you mean? Pick one";
+"언제로 할까요? 예: 「금요일 오전 10시」" = "When? e.g. “Friday 10am”";
+"몇 시에 알릴까요?" = "What time should I remind you?";
+"어느 폴더로 옮길까요?" = "Which folder?";
+"무엇을 할지 한 가지만 알려 주세요 — 다시 보기·일정·폴더·새 메모·휴지통" = "Tell me one thing to do — remind, reschedule, folder, new memo, or trash";
+"한 번에 여러 메모를 지우지는 않습니다. 한 장씩 골라 주세요" = "I won’t trash several memos at once. Pick one";
+"새 메모에 무엇을 적을까요?" = "What should the new memo say?";
+"메모에서 이 부분을 찾았어요" = "Found this in your memos";

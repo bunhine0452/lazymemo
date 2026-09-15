@@ -31,17 +31,17 @@ public struct AssistantView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ModelPanel(model: model)
-            if model.isReady {
-                if let selected, let title = memoTitle(selected) {
-                    Label(L("열린 메모: \(title)"), systemImage: "doc.text").font(.caption).foregroundStyle(.secondary)
-                }
-                inputRow
-                results
-                Spacer(minLength: 0)
+            if let selected, let title = memoTitle(selected) {
+                Label(L("열린 메모: \(title)"), systemImage: "doc.text").font(.caption).foregroundStyle(.secondary)
             }
+            // 모델이 없어도 시키기는 된다 — 시각·할 일이 분명한 말은 앱이 스스로 읽는다. 묻기·오늘은 모델이 있어야.
+            inputRow
+            results
+            Spacer(minLength: 0)
         }
         .padding()
-        .task { await model.refresh() }
+        .task { await model.refresh(); if !model.isReady { mode = .command } }
+        .onChange(of: model.isReady) { _, ready in if !ready { mode = .command } }
         .confirmationDialog(L("정말 휴지통으로 옮길까요?"), isPresented: $confirmingTrash, titleVisibility: .visible) {
             Button(L("휴지통으로"), role: .destructive) { Task { await model.apply(confirmedTrash: true) } }
         }
@@ -55,6 +55,7 @@ public struct AssistantView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            .disabled(!model.isReady)
             HStack {
                 TextField(mode == .ask ? L("메모에게 물어보세요 — 「치과 언제였지?」") : L("무엇을 할까요 — 「금요일 10시에 다시 알려줘」"), text: $text)
                     .textFieldStyle(.roundedBorder)
@@ -67,7 +68,7 @@ public struct AssistantView: View {
                     Button(L("보내기"), action: send).disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
                 Button { model.brief() } label: { Label(L("오늘"), systemImage: "sun.max") }
-                    .disabled(model.isBusy)
+                    .disabled(model.isBusy || !model.isReady)
                     .help(L("오늘 챙길 것 세 개"))
             }
         }
@@ -86,7 +87,11 @@ public struct AssistantView: View {
         case .thinking:
             HStack(spacing: 8) { ProgressView().controlSize(.small); Text(L("메모를 읽는 중")).foregroundStyle(.secondary) }
         case .failed(let message):
-            Label(message, systemImage: "exclamationmark.circle").foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 8) {
+                Label(message, systemImage: "exclamationmark.circle").foregroundStyle(.secondary)
+                // 모델이 답을 못 찾아도 검색이 찾은 종이는 보여 준다 — 사람이 직접 보면 끝나는 일이 많다.
+                if !model.relatedMemos.isEmpty { relatedBlock }
+            }
         case .done:
             VStack(alignment: .leading, spacing: 10) {
                 if let answer = model.answer { answerBlock(answer) }
@@ -100,8 +105,26 @@ public struct AssistantView: View {
 
     private func answerBlock(_ answer: AssistantAnswer) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(answer.found ? answer.text : L("메모에서 찾지 못했습니다")).textSelection(.enabled)
+            Text(answer.found ? Lsoft(answer.text) : L("메모에서 찾지 못했습니다")).textSelection(.enabled)
+            ForEach(answer.quotes, id: \.self) { line in
+                Text(line).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
+                    .padding(.leading, 8)
+                    .overlay(alignment: .leading) { Rectangle().frame(width: 2).foregroundStyle(.tertiary) }
+            }
             if !answer.evidence.isEmpty { evidenceChips(answer.evidence) }
+            else if !model.relatedMemos.isEmpty { relatedBlock }
+        }
+    }
+
+    private var relatedBlock: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(L("이런 메모가 있어요")).font(.caption).foregroundStyle(.secondary)
+            ForEach(model.relatedMemos) { e in
+                Button { openMemo(e.memoID) } label: {
+                    Label(memoTitle(e.memoID) ?? ActionWords.title(of: e), systemImage: "doc.text").lineLimit(1)
+                }
+                .buttonStyle(.bordered).controlSize(.small)
+            }
         }
     }
 
@@ -138,6 +161,19 @@ public struct AssistantView: View {
     private func proposalBlock(_ proposal: ProposedAction) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(ActionWords.describe(proposal, memoTitle: proposal.memoID.flatMap(memoTitle)))
+            // 「어느 메모?」— 검색이 찾은 후보를 누르면 그 메모에게 같은 말을 다시 한다.
+            if proposal.kind == .ask, !proposal.candidates.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(proposal.candidates, id: \.self) { id in
+                        Button { model.pick(id) } label: {
+                            Label(memoTitle(id) ?? model.evidence.first { $0.memoID == id }.map(ActionWords.title) ?? id.stringValue,
+                                  systemImage: "doc.text")
+                                .lineLimit(1)
+                        }
+                        .buttonStyle(.bordered).controlSize(.small)
+                    }
+                }
+            }
             if proposal.kind.writes {
                 HStack {
                     Button(L("적용")) {

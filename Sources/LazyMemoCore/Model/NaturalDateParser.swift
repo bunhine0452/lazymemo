@@ -65,6 +65,19 @@ public enum NaturalDateParser {
         return collapsed.isEmpty ? text : collapsed
     }
 
+    /// 시각만 — 「아침 9시」「12시 반」. 날짜 없이 시각만 필요한 곳(로컬 비서의 「전날 아침 9시」)을 위해 연다.
+    public struct TimeOfDay: Sendable, Equatable {
+        public let hour: Int
+        public let minute: Int
+        public let phrases: [String]
+        /// 오전·오후를 글이 직접 말했는가 (`TimeParser.Result.isExplicit`).
+        public let isExplicit: Bool
+    }
+
+    public static func timeOfDay(in text: String) -> TimeOfDay? {
+        TimeParser.parse(text).map { TimeOfDay(hour: $0.hour, minute: $0.minute, phrases: $0.phrases, isExplicit: $0.isExplicit) }
+    }
+
     public static func parse(
         _ text: String,
         now: Date = Date(),

@@ -55,6 +55,9 @@ struct CoordinatorTests {
                        body: "치과 예약 — 강남역 3번 출구")
     let gift = Memo(due: CalendarDate(year: 2026, month: 9, day: 20), body: "엄마 생신 선물 — 담요")
     let profile = ModelProfile(profileID: "test")
+    /// 평가 기준 시각 — 2026-09-15 화요일 09:00 KST. 「금요일」은 9/18.
+    let now = ISO8601DateFormatter().date(from: "2026-09-15T00:00:00Z")!
+    let seoul = TimeZone(identifier: "Asia/Seoul")!
 
     func events(_ provider: MockProvider, _ request: AssistantRequest, memos: [Memo]) async -> [AssistantEvent] {
         let c = AssistantCoordinator(provider: provider, evidence: MemorySource(memos: memos), profile: profile)
@@ -83,8 +86,10 @@ struct CoordinatorTests {
     @Test("「다시 알려줘」는 surface 만 바꾸고 due·at 은 keep — hash 를 함께 낸다")
     func setRecallNarrowsPatch() async {
         let provider = MockProvider([#"{"kind": "setRecall", "memoID": "\#(dentist.id)", "patch": {"surface": "2026-09-18T10:00:00+09:00", "at": "2026-09-18T10:00:00+09:00"}}"#])
-        let request = AssistantRequest(task: .command, userText: "금요일 10시에 다시 알려줘", selectedMemoID: dentist.id)
+        let request = AssistantRequest(task: .command, userText: "금요일 10시에 다시 알려줘", selectedMemoID: dentist.id, now: now, timeZone: seoul)
         let out = await events(provider, request, memos: [dentist, gift])
+        // 동사(알려줘)·시각(금요일 10시)·대상(열린 메모)이 다 있으니 모델을 부르지 않는다.
+        #expect(provider.prompts.isEmpty)
         guard case .proposedAction(let action) = out.dropLast().last else { Issue.record("\(out)"); return }
         #expect(action.kind == .setRecall)
         #expect(action.memoID == dentist.id)
@@ -94,32 +99,45 @@ struct CoordinatorTests {
         #expect(action.expectedContentHash == Evidence.hash(of: dentist.body))
     }
 
-    @Test("빈 문자열은 clear, 없는 키는 keep")
-    func clearVersusKeep() {
-        let p = OutputValidator.fieldPatch(["surface": "", "folder": "일"], timeZone: .current)!
-        #expect(p.surface == .clear)
-        #expect(p.at == .keep)
-        #expect(p.folder == .set("일"))
-        #expect(p.surface.doubleOptional == .some(nil))
-        #expect(p.at.doubleOptional == nil)
+    @Test("「다시 보기 취소해」는 surface 만 clear — 일정은 keep")
+    func clearVersusKeep() async {
+        let request = AssistantRequest(task: .command, userText: "다시 보기 취소해", selectedMemoID: dentist.id, now: now, timeZone: seoul)
+        let out = await events(MockProvider([]), request, memos: [dentist])
+        guard case .proposedAction(let action) = out.dropLast().last else { Issue.record("\(out)"); return }
+        #expect(action.kind == .setRecall)
+        #expect(action.patch.surface == .clear)
+        #expect(action.patch.at == .keep)
+        #expect(action.patch.surface.doubleOptional == .some(nil))
+        #expect(action.patch.at.doubleOptional == nil)
     }
 
-    @Test("allowlist 밖 kind 는 한 번 교정 뒤에도 실패하면 변경 없이 오류")
+    @Test("낯선 말은 모델에게 묻고, JSON 이 두 번 다 아니면 변경 없이 오류")
     func unknownKindRepairedOnce() async {
-        let provider = MockProvider([#"{"kind": "delete", "memoID": "\#(gift.id)"}"#, #"{"kind": "move", "memoID": "\#(gift.id)"}"#])
-        let out = await events(provider, AssistantRequest(task: .command, userText: "이거 지워", selectedMemoID: gift.id), memos: [gift])
+        let provider = MockProvider(["글쎄요", "모르겠어요"])
+        let out = await events(provider, AssistantRequest(task: .command, userText: "이거 없던 걸로", selectedMemoID: gift.id), memos: [gift])
         #expect(out.last == .failed(.malformedOutput))
         #expect(provider.prompts.count == 2)
         #expect(!out.contains { if case .proposedAction = $0 { return true } else { return false } })
     }
 
-    @Test("열린 메모가 있는데 다른 메모를 고르면 되묻는다")
+    @Test("모델이 allowlist 밖 이름(delete)을 써도 사용자의 말(지워)이 동작을 정한다")
+    func verbFromUserNotModel() async {
+        let provider = MockProvider([#"{"kind": "delete", "memoID": "\#(gift.id)"}"#])
+        let out = await events(provider, AssistantRequest(task: .command, userText: "이거 지워", selectedMemoID: gift.id), memos: [gift])
+        guard case .proposedAction(let action) = out.dropLast().last else { Issue.record("\(out)"); return }
+        #expect(action.kind == .trash)
+        #expect(action.memoID == gift.id)
+        #expect(provider.prompts.isEmpty)
+    }
+
+    @Test("열린 메모가 있으면 모델이 다른 메모를 골라도 열린 메모가 대상이다")
     func selectedMemoWins() async {
         let provider = MockProvider([#"{"kind": "trash", "memoID": "\#(gift.id)"}"#])
         let out = await events(provider, AssistantRequest(task: .command, userText: "이거 지워", selectedMemoID: dentist.id), memos: [dentist, gift])
         guard case .proposedAction(let action) = out.dropLast().last else { Issue.record("\(out)"); return }
-        #expect(action.kind == .ask)
-        #expect(action.memoID == nil)
+        #expect(action.kind == .trash)
+        #expect(action.memoID == dentist.id)
+        #expect(action.expectedContentHash == Evidence.hash(of: dentist.body))
     }
 
     @Test("보여 주지 않은 메모를 대상으로 삼으면 되묻는다")
@@ -153,6 +171,19 @@ struct CoordinatorTests {
         #expect(out.first == .loading)
         if case .evidence = out.last {} else { Issue.record("\(out)") }
         #expect(provider.cancelled == [request.id])
+    }
+
+    @Test("모델이 없어도 시각·할 일이 분명한 시키기는 된다 — 폰에 2.4GB 를 받지 않아도")
+    func commandWithoutModel() async {
+        let provider = MockProvider([])
+        provider.ready = false
+        let request = AssistantRequest(task: .command, userText: "금요일 10시에 다시 알려줘", selectedMemoID: dentist.id, now: now, timeZone: seoul)
+        let out = await events(provider, request, memos: [dentist])
+        guard case .proposedAction(let action) = out.dropLast().last else { Issue.record("\(out)"); return }
+        #expect(action.kind == .setRecall)
+        // 낯선 말은 모델이 필요하고, 없으면 명시 상태로 끝난다.
+        let strange = await events(provider, AssistantRequest(task: .command, userText: "이거 없던 걸로", selectedMemoID: dentist.id), memos: [dentist])
+        #expect(strange.last == .failed(.modelUnavailable))
     }
 
     @Test("모델이 없으면 명시 상태로 끝난다")

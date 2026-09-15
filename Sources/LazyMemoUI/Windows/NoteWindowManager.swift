@@ -258,6 +258,13 @@ final class NoteWindowManager {
         for controller in controllers.values { controller.model.localTidy = tidy }
     }
 
+    /// 종이의 「이 메모에게 시키기…」가 가는 길 — 비서 창.
+    private var openAssistant: ((ULID) -> Void)?
+    func adoptAssistant(_ open: ((ULID) -> Void)?) {
+        openAssistant = open
+        for controller in controllers.values { controller.model.openAssistant = open }
+    }
+
     /// 마지막으로 사람이 연 때. 「요즘 것」을 셀 때 `Memo.updated` 와 견준다.
     func lastOpened(_ id: ULID) -> Date? { layouts.opened(id) }
 
@@ -297,6 +304,7 @@ final class NoteWindowManager {
         controller.model.onDeletionSettled = { [weak self] in self?.sync() }
         controller.model.folderNames = { [weak self] in self?.folderNames() ?? [] }
         controller.model.localTidy = localTidy
+        controller.model.openAssistant = openAssistant
         controllers[memo.id] = controller
         recordFrame(frame, for: memo.id)
         if recording { layouts.setHidden(false, for: memo.id) }

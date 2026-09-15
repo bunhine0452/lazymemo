@@ -64,3 +64,27 @@ ResponseFormat JSON schema 제약 디코딩, 브리핑 출력 상한, 날짜 계
 그러나 answer 는 46% 로 오히려 내려갔다(스키마 안에서 `found:false` 로 도망치거나 `id:` 접두어를 붙임), 상대 날짜(「금요일」「다음 주 월요일」)는 여전히 틀린다.
 제약 디코딩은 **구조**를 보장하지 **뜻**을 보장하지 않는다 — 명세 §8 「정확도 실패를 JSON 파싱 성공으로 대체하지 않는다」 그대로.
 앱 쪽(`LazyMemoAssistant`)은 `id:` 접두어를 걷고 없는 id 를 버리며, 날짜 계산은 다음 실험에서 `NaturalDateParser` 로 넘긴다.
+
+## 제품 쪽으로 옮겨 간 것 (2026-09-15)
+
+`LazyMemoAssistant`(계약·Coordinator·검증·실행기·모델 저장/다운로드), `LazyMemoLocalLiteRT`(provider), `LazyMemoAssistantUI`(화면).
+실모델 배관 테스트: `LAZYMEMO_MODEL_PATH=~/Library/Caches/lazymemo-models/gemma-4-E2B-it.litertlm ./scripts/test.sh --filter RealModelTests`.
+
+## 이제 기준은 앱 파이프라인 벤치다 (2026-09-15 저녁)
+
+이 spike 벤치는 **모델의 날 출력**을 채점한다. 그런데 제품은 모델의 말을 그대로 쓰지 않는다 — 검색(`MemoRanker`)이 근거를
+모으고, 날짜·대상·동사는 앱(`CommandResolver`·`NaturalDateParser`)이 정하며, 모델의 JSON 은 검증(`OutputValidator`)을 지난다.
+그래서 지시문도 갈라졌다: `SpikeKit/Prompts.swift` 는 날 모델 기준선이고, 제품 지시문은 `Sources/LazyMemoAssistant/Prompts.swift` 다.
+**사용자가 받는 결과**는 메인 패키지의 벤치로 잰다:
+
+```sh
+swift run -c release lazymemo-assistant-bench \
+  --model ~/Library/Caches/lazymemo-models/gemma-4-E2B-it.litertlm \
+  --device "M4 Pro 24GB · macOS 27.0" \
+  --out docs/research/local-model-benchmark-$(date +%F)-app.md
+```
+
+- 기본은 fixture 의 후보를 근거로 넘긴다(spike 와 같은 조건). `--retrieval` 이면 앱의 검색으로 근거를 모은다 — 실제 앱과 같은 길.
+- `--retrieval-only` 는 모델 없이 검색 Recall@6 만. 같은 검사가 `swift test` 의 `RetrievalTests` 에도 있다.
+- `--kinds answer,command` · `--temperature 0.3` · `--verbose`.
+- 결과: `docs/research/local-model-benchmark-2026-09-15-app.md`.

@@ -75,6 +75,8 @@ final class NoteModel {
         let run: @MainActor (ULID) async throws -> String
     }
     var localTidy: LocalTidy?
+    /// 「이 메모에게 시키기…」— 비서 창을 이 종이를 열린 메모 삼아 연다. 모델이 있을 때만 메뉴에 선다.
+    var openAssistant: ((ULID) -> Void)?
 
     /// 되돌리는 줄이 머무는 시간. 달력의 되돌리기와 같은 값이다 — 이보다
     /// 길면 지운 종이가 화면에 눌어붙고, 짧으면 놓친다.

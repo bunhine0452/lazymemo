@@ -73,7 +73,7 @@ public struct Evidence: Sendable, Equatable, Identifiable {
         surface = memo.surface
         folder = memo.folder
         if memo.deleted != nil { state = .trashed }
-        else if Tidy.isFinishedChecklist(memo.body) { state = .done }
+        else if memo.tidied != nil || Tidy.isFinishedChecklist(memo.body) { state = .done }
         else { state = .active }
     }
 
@@ -137,11 +137,15 @@ public struct ProposedAction: Sendable, Equatable, Identifiable {
     public let expectedContentHash: String?
     public let patch: FieldPatch
     public let question: String?
+    /// ask 일 때 — 「어느 메모?」에 고를 수 있는 후보. 열린 메모가 없을 때 검색이 찾은 것들.
+    public let candidates: [ULID]
 
     public init(id: UUID = UUID(), requestID: AssistantRequest.ID, kind: ActionKind, memoID: ULID? = nil,
-                expectedContentHash: String? = nil, patch: FieldPatch = FieldPatch(), question: String? = nil) {
+                expectedContentHash: String? = nil, patch: FieldPatch = FieldPatch(), question: String? = nil,
+                candidates: [ULID] = []) {
         self.id = id; self.requestID = requestID; self.kind = kind; self.memoID = memoID
         self.expectedContentHash = expectedContentHash; self.patch = patch; self.question = question
+        self.candidates = candidates
     }
 }
 
@@ -149,7 +153,11 @@ public struct AssistantAnswer: Sendable, Equatable {
     public let found: Bool
     public let text: String
     public let evidence: [ULID]
-    public init(found: Bool, text: String, evidence: [ULID]) { self.found = found; self.text = text; self.evidence = evidence }
+    /// 근거 메모에서 그대로 옮긴 줄 — 모델의 한 문장 밑에 원문이 선다. 답이 모자라도 사람이 여기서 본다.
+    public let quotes: [String]
+    public init(found: Bool, text: String, evidence: [ULID], quotes: [String] = []) {
+        self.found = found; self.text = text; self.evidence = evidence; self.quotes = quotes
+    }
 }
 
 public struct BriefItem: Sendable, Equatable {
@@ -175,7 +183,7 @@ public enum AssistantFailure: Error, Sendable, Equatable {
 
     public var message: String {
         switch self {
-        case .modelUnavailable: return "이 기기에 모델이 없습니다"
+        case .modelUnavailable: return "이 기기에 모델이 없습니다 — 「금요일 10시에 다시 알려줘」처럼 시각·할 일을 분명히 말하면 모델 없이도 됩니다"
         case .cancelled: return "취소했습니다"
         case .malformedOutput: return "답의 모양이 맞지 않아 아무것도 바꾸지 않았습니다"
         case .noEvidence: return "메모에서 근거를 찾지 못했습니다"

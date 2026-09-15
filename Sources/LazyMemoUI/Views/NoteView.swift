@@ -263,6 +263,10 @@ struct NoteView: View {
     @ViewBuilder private var paperMenu: some View {
         // 다시 보기 — 일정은 두고 이 종이를 다시 펼칠 시각. 알림 켜기도 같은 창에 있다.
         Button { model.showRecall() } label: { Label(L("다시 보기…"), systemImage: "bell") }
+        // 말로 시킨다 — 「금요일 10시에 다시 알려줘」. 열린 메모가 곧 대상이고, 이런 말은 모델 없이도 앱이 읽는다.
+        if let openAssistant = model.openAssistant {
+            Button { openAssistant(model.memo.id) } label: { Label(L("이 메모에게 시키기…"), systemImage: "sparkles") }
+        }
         Divider()
         if model.canTidy {
             Button(L("다듬기")) { Task { await model.tidyWithClaude() } }
