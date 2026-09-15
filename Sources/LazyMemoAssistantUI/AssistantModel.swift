@@ -102,6 +102,14 @@ public final class AssistantModel {
 
     // MARK: 묻기·시키기·브리핑
 
+    /// 한 줄을 받아 묻는 말이면 답하고 시키는 말이면 제안한다 — 사람이 모드를 고르지 않는다.
+    public func send(_ text: String, selected: ULID? = nil) {
+        switch AssistantIntent.classify(text) {
+        case .command: command(text, selected: selected)
+        default: ask(text, selected: selected)
+        }
+    }
+
     public func ask(_ text: String, selected: ULID? = nil) {
         run(AssistantRequest(task: .answer, userText: text, selectedMemoID: selected))
     }

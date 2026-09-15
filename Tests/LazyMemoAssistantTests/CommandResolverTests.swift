@@ -92,3 +92,16 @@ struct CommandResolverTests {
         #expect(bank?.patch.at == .set(kst("2026-09-17T06:00:00Z")))
     }
 }
+
+@Suite("AssistantIntent — 묻는 말과 시키는 말을 앱이 가린다")
+struct IntentTests {
+    @Test("물음은 answer, 동사·「…시로」는 command")
+    func classify() {
+        #expect(AssistantIntent.classify("모두의 창업 마감일이 언제야?") == .answer)
+        #expect(AssistantIntent.classify("치과 예약 언제였지") == .answer)
+        #expect(AssistantIntent.classify("금요일 10시에 다시 알려줘") == .command)
+        #expect(AssistantIntent.classify("이거 목요일 저녁 8시로") == .command)
+        #expect(AssistantIntent.classify("쇼핑 폴더로") == .command)
+        #expect(AssistantIntent.classify("취소, 아무것도 하지 마") == .command)
+    }
+}

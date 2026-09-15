@@ -233,7 +233,7 @@ enum CommandResolver {
         guard let intended else { return ask(unsupportedQuestion(raw)) }
         switch intended {
         case .none: return ProposedAction(requestID: request.id, kind: .none)
-        case .ask: return ask(raw?.question.flatMap { $0.isEmpty ? nil : $0 } ?? questions.unsupported, candidates: selected == nil ? candidates : [])
+        case .ask: return ask(modelQuestion(raw) ?? questions.unsupported, candidates: selected == nil ? candidates : [])
         case .createMemo:
             let parsed = NaturalDateParser.parse(text, now: now, calendar: calendar)
             let body = body(text: text, model: raw?.body, phrases: parsed?.phrases ?? [])
@@ -271,8 +271,15 @@ enum CommandResolver {
     }
 
     static func unsupportedQuestion(_ raw: RawCommand?) -> String {
-        if let q = raw?.question?.trimmingCharacters(in: .whitespacesAndNewlines), !q.isEmpty, raw?.kind?.lowercased() == "ask" { return q }
-        return questions.unsupported
+        guard raw?.kind?.lowercased() == "ask" else { return questions.unsupported }
+        return modelQuestion(raw) ?? questions.unsupported
+    }
+
+    /// 모델의 되물음은 물음표로 끝나는 진짜 질문일 때만 쓴다 — 지시문의 낱말(「모르겠다」)을 그대로 옮겨 적는 일이 있다.
+    static func modelQuestion(_ raw: RawCommand?) -> String? {
+        guard let q = raw?.question?.trimmingCharacters(in: .whitespacesAndNewlines), q.count >= 4, q.count <= 60,
+              q.hasSuffix("?") || q.hasSuffix("요") else { return nil }
+        return q
     }
 
     static func firstMatch(_ pattern: String, in text: String) -> [String]? {

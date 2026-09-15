@@ -4,17 +4,11 @@ import SwiftUI
 
 /// 비서 — 묻기·시키기·오늘. 답에는 누를 수 있는 근거가 붙고, 변경은 말로 보여 준 뒤에만 한다.
 public struct AssistantView: View {
-    public enum Mode: String, CaseIterable, Identifiable {
-        case ask, command
-        public var id: String { rawValue }
-    }
-
     let model: AssistantModel
     let selected: ULID?
     let memoTitle: (ULID) -> String?
     let openMemo: (ULID) -> Void
 
-    @State private var mode: Mode
     @State private var text = ""
     @State private var confirmingTrash = false
     @FocusState private var focused: Bool
@@ -25,7 +19,6 @@ public struct AssistantView: View {
         self.selected = selected
         self.memoTitle = memoTitle
         self.openMemo = openMemo
-        _mode = State(initialValue: selected == nil ? .ask : .command)
     }
 
     public var body: some View {
@@ -40,8 +33,7 @@ public struct AssistantView: View {
             Spacer(minLength: 0)
         }
         .padding()
-        .task { await model.refresh(); if !model.isReady { mode = .command } }
-        .onChange(of: model.isReady) { _, ready in if !ready { mode = .command } }
+        .task { await model.refresh() }
         .confirmationDialog(L("정말 휴지통으로 옮길까요?"), isPresented: $confirmingTrash, titleVisibility: .visible) {
             Button(L("휴지통으로"), role: .destructive) { Task { await model.apply(confirmedTrash: true) } }
         }
@@ -49,15 +41,9 @@ public struct AssistantView: View {
 
     private var inputRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Picker("", selection: $mode) {
-                Text(L("묻기")).tag(Mode.ask)
-                Text(L("시키기")).tag(Mode.command)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .disabled(!model.isReady)
+            // 묻는 말인지 시키는 말인지는 앱이 가린다(`AssistantIntent`). 고르는 칸을 두면 잘못 고른 채 막힌다.
             HStack {
-                TextField(mode == .ask ? L("메모에게 물어보세요 — 「치과 언제였지?」") : L("무엇을 할까요 — 「금요일 10시에 다시 알려줘」"), text: $text)
+                TextField(selected == nil ? L("물어보거나 시켜 보세요 — 「치과 언제였지?」") : L("이 메모에게 — 「금요일 10시에 다시 알려줘」"), text: $text)
                     .textFieldStyle(.roundedBorder)
                     .focused($focused)
                     .onSubmit(send)
@@ -77,7 +63,7 @@ public struct AssistantView: View {
     private func send() {
         let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return }
-        if mode == .ask { model.ask(query, selected: selected) } else { model.command(query, selected: selected) }
+        model.send(query, selected: selected)
     }
 
     @ViewBuilder
