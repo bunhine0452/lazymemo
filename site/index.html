@@ -4,604 +4,518 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>lazymemo — sticky notes and a calendar that live on your macOS desktop</title>
-<meta name="description" content="A macOS desktop notepad and calendar, designed on the assumption that you would rather not tidy up. There is no app to open and no Save button, and every note is a Markdown file on your own Mac.">
+<title>lazymemo — notes you can write down and forget</title>
+<meta name="description" content="Notes and a calendar that live on your macOS desktop, plus an iPhone app that sees the same notes. Type one line and the app reads the date and the place; ask a question and your own notes answer. All on this device — no account, no save button.">
 <link rel="canonical" href="https://bunhine0452.github.io/lazymemo/">
 <link rel="alternate" hreflang="en" href="https://bunhine0452.github.io/lazymemo/">
 <link rel="alternate" hreflang="ko" href="https://bunhine0452.github.io/lazymemo/ko/">
 <link rel="alternate" hreflang="x-default" href="https://bunhine0452.github.io/lazymemo/">
-<meta property="og:title" content="lazymemo">
-<meta property="og:description" content="Sticky notes and a calendar that live on your macOS desktop. No app to open, no Save button, and every note is a Markdown file on your own Mac.">
+<meta property="og:title" content="lazymemo — notes you can write down and forget">
+<meta property="og:description" content="Type one line and the app reads the date and the place; ask a question and your own notes answer. All on this device.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://bunhine0452.github.io/lazymemo/">
-<meta property="og:image" content="https://bunhine0452.github.io/lazymemo/media/demo-poster.jpg">
+<meta property="og:image" content="https://bunhine0452.github.io/lazymemo/img/capture-answer.png">
 <meta property="og:locale" content="en">
 <meta property="og:locale:alternate" content="ko_KR">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23295245'/><path d='M8 11.5h16' stroke='%23FAF7EC' stroke-width='2.6' stroke-linecap='round'/><path d='M8 18.5c8 0 11.5 1.5 15 4' stroke='%23B3D69A' stroke-width='2.3' stroke-linecap='round' fill='none'/></svg>">
 <style>
-/* Cream and forest — the app's own visual rules (docs/VISUAL_DESIGN.md), carried over. */
+/* 종이 하나, 잉크 하나 — 앱의 재질(docs/VISUAL_DESIGN.md)을 그대로 씁니다. 페이지도 종이입니다. */
 :root {
-  --paper: #faf7f0;
-  --paper-warm: #f4efe3;
-  --paper-deep: #ece6d6;
-  --ink: #24221c;
-  --ink-soft: rgba(36, 34, 28, .66);
-  --ink-faint: rgba(36, 34, 28, .42);
-  --rule: rgba(36, 34, 28, .12);
-  --rule-soft: rgba(36, 34, 28, .07);
-  --forest: #295245;
-  --forest-ink: #295245;
-  --on-forest: #faf7ec;
-  --sage: #b3d69a;
-  --sage-wash: rgba(41, 82, 69, .09);
-  --dot: rgba(36, 34, 28, .13);
-  --shell: rgba(41, 82, 69, .07);
-  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 14px 40px rgba(20, 40, 33, .12);
+  --paper: #faf7f0; --paper-warm: #f4efe3; --paper-deep: #ece6d6;
+  --ink: #24221c; --ink-soft: rgba(36,34,28,.68); --ink-faint: rgba(36,34,28,.44);
+  --rule: rgba(36,34,28,.13); --rule-soft: rgba(36,34,28,.07);
+  --forest: #295245; --forest-ink: #295245; --on-forest: #faf7ec;
+  --sage: #b3d69a; --sage-wash: rgba(41,82,69,.09); --amber: #f0c24f; --amber-ink: #6a4d00;
+  --dot: rgba(36,34,28,.12); --shell: rgba(41,82,69,.07);
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 18px 48px rgba(20,40,33,.14);
+  --bubble: #faf7ee; --bubble-ink: #24221c;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #1f1e1b;
-    --paper-warm: #262521;
-    --paper-deep: #2d2b26;
-    --ink: #e8e3d9;
-    --ink-soft: rgba(232, 227, 217, .66);
-    --ink-faint: rgba(232, 227, 217, .42);
-    --rule: rgba(232, 227, 217, .14);
-    --rule-soft: rgba(232, 227, 217, .08);
-    --forest: #2f5c4d;
-    --forest-ink: #a6d4ba;
-    --on-forest: #f2f5ea;
-    --sage: #9cc487;
-    --sage-wash: rgba(166, 212, 186, .10);
-    --dot: rgba(232, 227, 217, .10);
-    --shell: rgba(166, 212, 186, .08);
-    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 44px rgba(0,0,0,.42);
+    --paper: #1f1e1b; --paper-warm: #262521; --paper-deep: #2d2b26;
+    --ink: #e8e3d9; --ink-soft: rgba(232,227,217,.68); --ink-faint: rgba(232,227,217,.46);
+    --rule: rgba(232,227,217,.14); --rule-soft: rgba(232,227,217,.08);
+    --forest: #2f5c4d; --forest-ink: #a6d4ba; --on-forest: #f2f5ea;
+    --sage: #9cc487; --sage-wash: rgba(166,212,186,.10); --amber-ink: #f0c24f;
+    --dot: rgba(232,227,217,.09); --shell: rgba(166,212,186,.08);
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 18px 48px rgba(0,0,0,.45);
+    --bubble: #2a2925; --bubble-ink: #e8e3d9;
   }
 }
-
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-
 body {
-  margin: 0;
-  background: var(--paper);
-  background-image: radial-gradient(var(--dot) 1px, transparent 1px);
-  background-size: 23px 23px;
-  color: var(--ink);
-  font: 16px/1.75 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
-        "Helvetica Neue", Arial, sans-serif;
-  letter-spacing: -.004em;
+  margin: 0; color: var(--ink); background: var(--paper);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1px); background-size: 24px 24px;
+  font: 17px/1.75 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  letter-spacing: -.008em; 
 }
-
-.wrap { max-width: 920px; margin: 0 auto; padding: 0 28px; }
-@media (max-width: 520px) { .wrap { padding: 0 20px; } }
-
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
+@media (max-width: 640px) { .wrap { padding: 0 20px; } }
 a { color: var(--forest-ink); text-decoration-thickness: 1px; text-underline-offset: 3px; }
-a:hover { text-decoration-thickness: 2px; }
-:focus-visible { outline: 2px solid var(--forest-ink); outline-offset: 3px; border-radius: 3px; }
+:focus-visible { outline: 2px solid var(--forest-ink); outline-offset: 3px; border-radius: 4px; }
+kbd, code, pre { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; }
+kbd { display: inline-block; font-size: 12.5px; font-weight: 600; line-height: 1.3; color: var(--ink); background: var(--paper-warm); border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 5px; padding: 2px 6px; white-space: nowrap; }
+code { font-size: .92em; background: var(--shell); border-radius: 4px; padding: .1em .35em; }
+p { margin: 0 0 16px; max-width: 34em; }
+h2 { font-size: 30px; line-height: 1.25; letter-spacing: -.03em; font-weight: 800; margin: 0 0 14px; max-width: 18em; }
+h3 { font-size: 17px; font-weight: 700; margin: 0 0 6px; letter-spacing: -.01em; }
+section { padding: 72px 0 0; }
+.lead { font-size: 19px; color: var(--ink-soft); max-width: 32em; }
 
-/* ── Top row ──────────────────────────── */
-.topbar {
-  display: flex; align-items: center; gap: 12px;
-  padding-top: 24px; font-size: 13.5px;
-}
-.topbar .brand { display: flex; align-items: center; gap: 9px; text-decoration: none; color: var(--ink); }
-.topbar .name { font-weight: 700; letter-spacing: -.02em; font-size: 15px; }
-.topbar nav { margin-left: auto; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+/* 위 줄 */
+.topbar { display: flex; align-items: center; gap: 14px; padding: 22px 0 0; font-size: 14px; }
+.topbar .brand { display: flex; align-items: center; gap: 9px; text-decoration: none; color: var(--ink); font-weight: 700; font-size: 15px; letter-spacing: -.02em; }
+.topbar nav { margin-left: auto; display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
 .topbar nav a { color: var(--ink-soft); text-decoration: none; }
 .topbar nav a:hover { color: var(--ink); text-decoration: underline; }
-.topbar .lang {
-  color: var(--ink-soft); border: 1px solid var(--rule);
-  border-radius: 999px; padding: 3px 11px; text-decoration: none;
-}
-.topbar .lang:hover { color: var(--ink); border-color: var(--ink-faint); text-decoration: none; }
-@media (max-width: 520px) {
-  .topbar { gap: 10px 12px; flex-wrap: wrap; }
-  .topbar nav { gap: 12px 16px; width: 100%; margin-left: 0; }
-}
+.topbar .lang { border: 1px solid var(--rule); border-radius: 999px; padding: 3px 11px; }
+@media (max-width: 640px) { .topbar { flex-wrap: wrap; } .topbar nav { width: 100%; margin-left: 0; gap: 12px 14px; } }
+.mark { width: 28px; height: 28px; border-radius: 8px; flex: 0 0 auto; }
 
-/* The app icon — a half-written note. A straight first line, a second that trails off. */
-.mark { width: 30px; height: 30px; border-radius: 8px; background: var(--forest); display: inline-block; flex: 0 0 auto; }
-
-/* ── Head ─────────────────────────────── */
-header { padding: 64px 0 0; }
-.eyebrow {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-size: 12.5px; font-weight: 600; letter-spacing: .04em;
-  color: var(--forest-ink); background: var(--sage-wash);
-  border-radius: 999px; padding: 5px 12px 5px 8px; margin-bottom: 22px;
-}
-.eyebrow b { background: var(--forest); color: var(--on-forest); border-radius: 999px; padding: 1px 8px; font-weight: 700; }
-
-h1 { font-size: 46px; line-height: 1.12; margin: 0 0 18px; letter-spacing: -.035em; font-weight: 800; max-width: 13em; }
-@media (max-width: 520px) { h1 { font-size: 33px; } }
-
-.lede { font-size: 19.5px; line-height: 1.6; margin: 0 0 12px; max-width: 26em; }
-.lede strong { font-weight: 700; }
-.sub { color: var(--ink-soft); margin: 0 0 28px; max-width: 34em; font-size: 16.5px; }
-
-.hl {
-  background: linear-gradient(rgba(240,194,79,.55), rgba(240,194,79,.55)) no-repeat;
-  background-size: 100% .9em; background-position: 0 .18em; padding: 0 .1em;
-}
-@media (prefers-color-scheme: dark) { .hl { background-image: linear-gradient(rgba(240,194,79,.30), rgba(240,194,79,.30)); } }
-
-.cta { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: center; margin: 0 0 18px; }
-.btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-weight: 700; font-size: 14.5px; text-decoration: none;
-  border-radius: 12px; padding: 12px 18px; line-height: 1;
-  border: 1px solid transparent; transition: transform .12s ease, box-shadow .12s ease;
-}
+/* 머리 — 왼쪽은 말, 오른쪽은 진짜 상자가 말한다 */
+.hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 40px 56px; align-items: center; padding: 64px 0 40px; }
+@media (max-width: 900px) { .hero { grid-template-columns: 1fr; padding-top: 44px; } }
+.hero h1 { font-size: 54px; line-height: 1.08; letter-spacing: -.04em; font-weight: 800; margin: 0 0 22px; max-width: 12.5em; }
+@media (max-width: 1000px) { .hero h1 { font-size: 48px; } }
+@media (max-width: 640px) { .hero h1 { font-size: 38px; } }
+.hero .lede { font-size: 20px; line-height: 1.65; margin: 0 0 26px; max-width: 26em; color: var(--ink); }
+.hero .lede strong { font-weight: 700; }
+.status { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; color: var(--forest-ink); background: var(--sage-wash); border-radius: 999px; padding: 6px 13px 6px 9px; margin: 0 0 20px; }
+.status i { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); display: inline-block; }
+.status.live i { background: var(--sage); }
+.cta { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: center; margin: 0 0 16px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; text-decoration: none; border-radius: 12px; padding: 13px 19px; line-height: 1; border: 1px solid transparent; }
 .btn.primary { background: var(--forest); color: var(--on-forest); box-shadow: 0 6px 18px rgba(41,82,69,.22); }
-.btn.primary:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(41,82,69,.28); text-decoration: none; }
+.btn.primary:hover { box-shadow: 0 10px 24px rgba(41,82,69,.3); }
 .btn.quiet { color: var(--forest-ink); border-color: var(--rule); background: var(--paper-warm); }
-.btn.quiet:hover { border-color: var(--ink-faint); text-decoration: none; }
+.btn.store { background: var(--ink); color: var(--paper); padding: 9px 16px 9px 12px; gap: 9px; border-color: var(--ink); }
+.btn.store svg { width: 18px; height: 22px; fill: currentColor; }
+.btn.store > span { display: flex; flex-direction: column; line-height: 1.1; text-align: left; gap: 2px; }
+.btn.store small { font-size: 10px; font-weight: 600; opacity: .78; }
+.btn.store b { font-size: 15px; }
+@media (prefers-color-scheme: dark) { .btn.store { background: var(--paper); color: var(--ink); border-color: var(--paper); } }
+.btn.store.soon { opacity: .5; cursor: default; }
+/* 출시 스위치 — <body data-store="soon"> 은 심사 중, "live" 는 스토어에 있음. 한 낱말이 단추와 문장을 같이 바꾼다. */
+body[data-store="soon"] .live-only { display: none !important; }
+body[data-store="live"] .soon-only { display: none !important; }
+.facts { font-size: 14px; color: var(--ink-faint); max-width: 30em; line-height: 1.7; margin: 0; }
 
-.meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--ink-faint); margin: 0 0 40px; }
-.meta span:not(:last-child)::after { content: " ·"; color: var(--rule); }
-
-/* ── Film ─────────────────────────────── */
-.film { margin: 0 auto 26px; }
-.film .frame {
-  position: relative; border-radius: 18px; overflow: hidden;
-  border: 1px solid var(--rule); box-shadow: var(--shadow);
-  background: var(--paper-deep);
+/* 살아 있는 상자 — 앱의 빠른 입력 말풍선을 그대로 지어 실제 대화를 재생합니다 */
+.stage { position: relative; min-height: 420px; }
+@media (max-width: 900px) { .stage { min-height: 0; } }
+.bubble {
+  width: min(100%, 440px); margin: 0 auto; background: var(--bubble); color: var(--bubble-ink);
+  border-radius: 18px; border: 1px solid var(--rule); box-shadow: var(--shadow); position: relative; z-index: 2;
+  padding: 22px 22px 14px; font-size: 14px; line-height: 1.5;
 }
-.film video, .film img { display: block; width: 100%; height: auto; }
-.film figcaption { margin-top: 12px; font-size: 13.5px; color: var(--ink-faint); line-height: 1.7; max-width: 46em; }
-.film .steps { display: grid; gap: 8px 18px; grid-template-columns: repeat(4, 1fr); margin: 18px 0 0; padding: 0; list-style: none; counter-reset: step; }
-@media (max-width: 720px) { .film .steps { grid-template-columns: 1fr 1fr; } }
-.film .steps li { font-size: 13px; color: var(--ink-soft); line-height: 1.6; padding-left: 26px; position: relative; }
-.film .steps li b { display: block; color: var(--ink); font-weight: 700; }
-.film .steps li::before {
-  content: counter(step); counter-increment: step;
-  position: absolute; left: 0; top: .15em; width: 18px; height: 18px; border-radius: 50%;
-  background: var(--forest); color: var(--on-forest); font-size: 10.5px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
+.bubble .field { font-size: 19px; line-height: 1.4; min-height: 30px; color: var(--bubble-ink); position: relative; white-space: pre-wrap; }
+.bubble .field .ph { color: var(--ink-faint); }
+.bubble .field .caret { display: inline-block; width: 2px; height: 1.05em; background: var(--forest-ink); vertical-align: -.15em; margin-left: 1px; animation: blink 1s steps(1) infinite; }
+@media (prefers-reduced-motion: reduce) { .bubble .field .caret { animation: none; } }
+@keyframes blink { 50% { opacity: 0; } }
+.bubble .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; min-height: 0; }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 5px 10px; border-radius: 999px; }
+.chip.date { color: var(--amber-ink); background: rgba(240,194,79,.28); }
+.chip.place { color: var(--forest-ink); background: var(--sage-wash); }
+.chip small { font-weight: 400; opacity: .7; }
+.bubble .ask { border-top: 1px solid var(--rule-soft); margin-top: 14px; padding-top: 14px; }
+.bubble .ask .draft { font-size: 12px; color: var(--ink-faint); margin: 0 0 4px; }
+.bubble .ask .q { font-size: 16px; font-weight: 600; margin: 0 0 10px; }
+.bubble .ask .opts { display: flex; gap: 6px; flex-wrap: wrap; }
+.bubble .ask .opts span { font-size: 11.5px; font-weight: 600; padding: 5px 10px; border-radius: 999px; background: var(--sage-wash); color: var(--forest-ink); }
+.bubble .answer { border-top: 1px solid var(--rule-soft); margin-top: 14px; padding-top: 14px; }
+.bubble .answer .a { font-size: 15px; margin: 0 0 6px; }
+.bubble .answer .quote { font-size: 12px; color: var(--ink-faint); border-left: 2px solid var(--rule); padding-left: 8px; margin: 0 0 10px; }
+.bubble .answer .head { font-size: 11.5px; font-weight: 600; color: var(--ink-faint); margin: 0 0 4px; }
+.bubble .row { display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 6px 0; }
+.bubble .row i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid rgba(240,194,79,.9); flex: 0 0 auto; }
+.bubble .row em { font-style: normal; margin-left: auto; font-size: 11.5px; color: var(--ink-faint); }
+.bubble .hint { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; font-size: 11.5px; color: var(--ink-faint); }
+.bubble .go { font-size: 12px; font-weight: 700; color: var(--on-forest); background: var(--forest); border-radius: 9px; padding: 8px 12px; display: inline-flex; gap: 10px; align-items: center; transition: transform .08s; }
+.bubble .go.press { transform: scale(.96); }
+.bubble .go span { opacity: .75; }
+.bubble .thinking { display: inline-flex; align-items: center; gap: 6px; }
+.bubble .thinking i { width: 6px; height: 6px; border-radius: 50%; background: var(--forest-ink); opacity: .35; animation: pulse 1s infinite; }
+.bubble .thinking i:nth-child(2) { animation-delay: .2s; } .bubble .thinking i:nth-child(3) { animation-delay: .4s; }
+@keyframes pulse { 50% { opacity: 1; } }
+.bubble [hidden] { display: none !important; }
+/* 적힌 메모가 종이로 잠깐 나온다 */
+.paper-card {
+  position: absolute; right: -8px; bottom: -28px; z-index: 3; width: 240px; padding: 14px 16px; border-radius: 12px;
+  background: #fff8e1; color: #24221c; border: 1px solid rgba(36,34,28,.1); box-shadow: var(--shadow);
+  font-size: 13.5px; line-height: 1.5; transform: translateY(14px) rotate(-1.5deg); opacity: 0; transition: transform .35s ease, opacity .35s ease;
 }
+@media (prefers-color-scheme: dark) { .paper-card { background: #3a3520; color: #efe9d6; } }
+.paper-card.show { transform: translateY(0) rotate(-1.5deg); opacity: 1; }
+.paper-card b { display: block; font-weight: 700; margin-bottom: 4px; }
+.paper-card span { font-size: 12px; color: rgba(36,34,28,.6); }
+@media (prefers-color-scheme: dark) { .paper-card span { color: rgba(239,233,214,.6); } }
+@media (max-width: 900px) { .paper-card { position: static; margin: 14px auto 0; width: min(100%, 440px); transform: none; } .paper-card.show { transform: none; } }
+.replay { margin: 26px auto 0; display: block; font: 600 13px/1 inherit; font-family: inherit; color: var(--forest-ink); background: transparent; border: 1px solid var(--rule); border-radius: 999px; padding: 9px 16px; cursor: pointer; }
+.replay:hover { border-color: var(--forest-ink); }
+.stage-note { text-align: center; font-size: 13px; color: var(--ink-faint); margin: 10px 0 0; }
 
-/* ── Phone ────────────────────────────── */
-.phone { display: grid; gap: 28px 40px; grid-template-columns: minmax(200px, 280px) 1fr; align-items: center; margin: 0 auto 26px; }
-@media (max-width: 640px) { .phone { grid-template-columns: 1fr; justify-items: center; } }
-.phone .frame {
-  border-radius: 34px; overflow: hidden; border: 1px solid var(--rule); box-shadow: var(--shadow);
-  background: var(--paper-deep); width: 100%; max-width: 280px;
-}
-.phone video, .phone img { display: block; width: 100%; height: auto; }
-.phone .copy p { margin: 0 0 12px; font-size: 15px; line-height: 1.8; color: var(--ink-soft); max-width: 40em; }
-.phone .copy h2 { margin: 0 0 12px; }
-.phone .copy .steps { display: grid; gap: 8px 18px; grid-template-columns: 1fr 1fr; margin: 16px 0 0; padding: 0; list-style: none; counter-reset: step; }
-.phone .copy .steps li { font-size: 13px; color: var(--ink-soft); line-height: 1.6; padding-left: 26px; position: relative; }
-.phone .copy .steps li b { display: block; color: var(--ink); font-weight: 700; }
-.phone .copy .steps li::before {
-  content: counter(step); counter-increment: step;
-  position: absolute; left: 0; top: .15em; width: 18px; height: 18px; border-radius: 50%;
-  background: var(--forest); color: var(--on-forest); font-size: 10.5px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
-}
-.phone figcaption { grid-column: 1 / -1; font-size: 13.5px; color: var(--ink-faint); line-height: 1.7; max-width: 46em; margin: 0; }
-
-/* ── Install ──────────────────────────── */
-.install { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin: 44px 0 16px; }
-@media (max-width: 640px) { .install { grid-template-columns: 1fr; } }
-.card {
-  background: var(--paper-warm); border: 1px solid var(--rule); border-radius: 14px;
-  padding: 18px 20px 20px; display: flex; flex-direction: column;
-}
-.card h3 { margin: 0 0 4px; font-size: 13px; font-weight: 700; letter-spacing: .01em; }
-.card p { margin: 0 0 12px; font-size: 13.5px; color: var(--ink-soft); line-height: 1.6; }
-
-pre, code, kbd { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
-pre {
-  margin: 0; padding: 12px 14px; overflow-x: auto;
-  white-space: pre-wrap; overflow-wrap: anywhere;
-  background: var(--shell); border-radius: 8px; font-size: 12.5px; line-height: 1.75;
-}
-pre .c { color: var(--ink-faint); }
-code { font-size: .92em; background: var(--shell); border-radius: 4px; padding: .1em .35em; }
-
-.copyable { display: flex; gap: 8px; align-items: flex-start; margin-top: auto; }
-.copyable pre { flex: 1 1 auto; min-width: 0; }
-.copy {
-  flex: 0 0 auto; margin-top: 2px;
-  font: 600 11.5px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  color: var(--forest-ink); background: transparent;
-  border: 1px solid var(--rule); border-radius: 8px; padding: 9px 10px; cursor: pointer;
-  min-width: 78px; text-align: center; white-space: nowrap;
-}
-.copy:hover { border-color: var(--forest-ink); }
-
-.note { font-size: 13.5px; color: var(--ink-faint); line-height: 1.8; max-width: 46em; margin: 0; }
-.note strong { color: var(--ink-soft); font-weight: 700; }
-
-/* ── Body ─────────────────────────────── */
-section { padding: 0 0 64px; }
-section > pre { max-width: 44em; }
-h2 {
-  font-size: 12.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--forest-ink); margin: 0 0 22px; display: flex; align-items: center; gap: 10px;
-}
-h2::after { content: ""; flex: 1; height: 1px; background: var(--rule-soft); }
-p { margin: 0 0 16px; max-width: 36em; }
-p:last-child { margin-bottom: 0; }
-
-.four { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin: 0; padding: 0; list-style: none; }
-@media (max-width: 640px) { .four { grid-template-columns: 1fr; } }
-.four li { background: var(--paper-warm); border: 1px solid var(--rule-soft); border-radius: 14px; padding: 18px 20px 20px; }
-.four h3 { margin: 0 0 6px; font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; }
-.four p { margin: 0; font-size: 14.5px; color: var(--ink-soft); line-height: 1.75; }
-
-.screens { display: grid; gap: 22px 22px; grid-template-columns: 1fr 1fr; }
-@media (max-width: 720px) { .screens { grid-template-columns: 1fr; } }
-.screens figure.wide { grid-column: 1 / -1; }
-figure { margin: 0; }
-figure .shot {
-  border-radius: 14px; overflow: hidden; border: 1px solid var(--rule); background: var(--paper-deep);
-  box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 10px 30px rgba(20,40,33,.08);
-}
-figure img { display: block; width: 100%; height: auto; }
-figcaption { margin-top: 11px; font-size: 13.5px; color: var(--ink-faint); line-height: 1.75; max-width: 40em; }
+/* 네 장면 — 실제 앱을 그대로 떠낸 그림 */
+.strip { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(360px, 1fr); gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 6px 0 18px; scrollbar-width: thin; }
+.strip figure { margin: 0; scroll-snap-align: start; }
+.strip .shot, .shot { border-radius: 14px; overflow: hidden; border: 1px solid var(--rule); background: var(--paper-deep); box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 10px 30px rgba(20,40,33,.09); }
+.shot img { display: block; width: 100%; height: auto; }
+figcaption { margin-top: 10px; font-size: 14px; color: var(--ink-faint); line-height: 1.7; max-width: 40em; }
 figcaption b { color: var(--ink); font-weight: 700; }
+@media (max-width: 640px) { .strip { grid-auto-columns: 86%; } }
 
-.keys { width: 100%; border-collapse: collapse; font-size: 14.5px; }
-.keys td { padding: 11px 0; border-top: 1px solid var(--rule-soft); vertical-align: top; line-height: 1.7; }
+/* 영상 */
+.film .frame { border-radius: 18px; overflow: hidden; border: 1px solid var(--rule); box-shadow: var(--shadow); background: var(--paper-deep); }
+.film video, .film img { display: block; width: 100%; height: auto; }
+.steps { display: grid; gap: 10px 22px; grid-template-columns: repeat(4, 1fr); margin: 20px 0 0; padding: 0; list-style: none; counter-reset: step; }
+@media (max-width: 720px) { .steps { grid-template-columns: 1fr 1fr; } }
+.steps li { font-size: 14px; color: var(--ink-soft); line-height: 1.6; padding-left: 26px; position: relative; }
+.steps li b { display: block; color: var(--ink); }
+.steps li::before { content: counter(step); counter-increment: step; position: absolute; left: 0; top: .2em; width: 18px; height: 18px; border-radius: 50%; background: var(--forest); color: var(--on-forest); font-size: 10.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+
+/* 폰 */
+.phone { display: grid; gap: 28px 48px; grid-template-columns: minmax(220px, 300px) 1fr; align-items: center; }
+@media (max-width: 700px) { .phone { grid-template-columns: 1fr; justify-items: center; } }
+.phone .frame { border-radius: 36px; overflow: hidden; border: 1px solid var(--rule); box-shadow: var(--shadow); background: var(--paper-deep); width: 100%; max-width: 300px; }
+.phone video, .phone img { display: block; width: 100%; height: auto; }
+.phone .words .steps { grid-template-columns: 1fr 1fr; }
+
+/* 규칙 — 카드가 아니라 문단. 왼쪽 세이지 줄이 네 문장을 한 묶음으로 묶는다 */
+.rules { display: grid; grid-template-columns: 1fr 1fr; gap: 26px 48px; margin: 0; padding: 0; list-style: none; }
+@media (max-width: 700px) { .rules { grid-template-columns: 1fr; } }
+.rules li { border-left: 3px solid var(--sage); padding-left: 18px; }
+.rules p { margin: 0; font-size: 15.5px; color: var(--ink-soft); }
+
+/* 표·글 */
+.keys { width: 100%; border-collapse: collapse; font-size: 15px; max-width: 46em; }
+.keys td { padding: 12px 0; border-top: 1px solid var(--rule-soft); vertical-align: top; line-height: 1.7; }
 .keys tr:first-child td { border-top: 0; }
-.keys td:first-child { width: 210px; padding-right: 20px; white-space: nowrap; }
+.keys td:first-child { width: 190px; padding-right: 20px; white-space: nowrap; }
 .keys td:last-child { color: var(--ink-soft); }
 .keys td:last-child strong { color: var(--ink); font-weight: 600; }
-@media (max-width: 560px) {
-  .keys td { display: block; border-top: 0; padding: 0; }
-  .keys tr { display: block; padding: 12px 0; border-top: 1px solid var(--rule-soft); }
-  .keys tr:first-child { border-top: 0; }
-  .keys td:first-child { width: auto; padding: 0 0 4px; white-space: normal; }
-}
-
-kbd {
-  display: inline-block;
-  font: 600 12.5px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: var(--ink); background: var(--paper-warm);
-  border: 1px solid var(--rule); border-bottom-width: 2px;
-  border-radius: 5px; padding: 3px 6px; white-space: nowrap;
-}
-.keys td:first-child .plain { font-size: 13.5px; color: var(--ink); }
-
-.crease { height: 1px; border: 0; margin: 0 0 64px;
-  background: linear-gradient(to right, transparent, var(--rule) 12%, var(--rule) 88%, transparent); }
-
-.aside {
-  border-left: 3px solid var(--sage); background: var(--sage-wash); border-radius: 0 12px 12px 0;
-  padding: 12px 16px; margin: 0 0 16px; color: var(--ink-soft); font-size: 14.5px; max-width: 36em;
-}
-.aside p { margin: 0 0 10px; font-size: inherit; }
-.aside p:last-child { margin: 0; }
-
+@media (max-width: 560px) { .keys td { display: block; border-top: 0; padding: 0; } .keys tr { display: block; padding: 12px 0; border-top: 1px solid var(--rule-soft); } .keys td:first-child { width: auto; padding-bottom: 4px; white-space: normal; } }
+pre { margin: 0; padding: 12px 14px; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--shell); border-radius: 8px; font-size: 12.5px; line-height: 1.75; }
+pre .c { color: var(--ink-faint); }
+.aside { border-left: 3px solid var(--sage); background: var(--sage-wash); border-radius: 0 12px 12px 0; padding: 12px 16px; margin: 0 0 16px; color: var(--ink-soft); font-size: 15px; max-width: 36em; }
+.aside p { margin: 0; font-size: inherit; }
+.note { font-size: 14px; color: var(--ink-faint); line-height: 1.8; max-width: 44em; margin: 0; }
+.note strong { color: var(--ink-soft); }
+.now { display: grid; gap: 10px; grid-template-columns: repeat(3, 1fr); margin: 0 0 22px; max-width: 44em; }
+@media (max-width: 640px) { .now { grid-template-columns: 1fr; } }
+.now div { background: var(--paper-warm); border: 1px solid var(--rule); border-radius: 12px; padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 3px; }
+.now em { font-style: normal; font-size: 11.5px; font-weight: 700; color: var(--forest-ink); }
+.now b { font-size: 14.5px; }
+.now span { font-size: 12px; color: var(--ink-faint); margin-top: 6px; }
 .folders { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
 .folders span { font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: var(--sage-wash); color: var(--forest-ink); }
 .folders span.on { background: var(--forest); color: var(--on-forest); }
 .folders span.new { border: 1px dashed rgba(41,82,69,.4); background: transparent; }
+.two { display: grid; gap: 22px; grid-template-columns: 1fr 1fr; }
+@media (max-width: 720px) { .two { grid-template-columns: 1fr; } }
+.two figure { margin: 0; }
 
-footer {
-  padding: 40px 0 76px; border-top: 1px solid var(--rule);
-  font-size: 13.5px; color: var(--ink-faint); line-height: 1.9;
-}
-footer .links { margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 8px 20px; }
-footer .links a { color: var(--forest-ink); }
+/* 받기 */
+.install { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin: 0 0 16px; }
+@media (max-width: 640px) { .install { grid-template-columns: 1fr; } }
+.card { background: var(--paper-warm); border: 1px solid var(--rule); border-radius: 14px; padding: 18px 20px 20px; display: flex; flex-direction: column; }
+.card h3 { font-size: 15px; }
+.card p { font-size: 14.5px; color: var(--ink-soft); margin-bottom: 12px; }
+.card .cta { margin: auto 0 0; padding-top: 4px; }
+.tag { font-size: 10.5px; font-weight: 700; color: var(--forest-ink); background: var(--sage-wash); border-radius: 999px; padding: 2px 8px; margin-left: 6px; vertical-align: middle; }
+.copyable { display: flex; gap: 8px; align-items: flex-start; margin-top: auto; }
+.copyable pre { flex: 1 1 auto; min-width: 0; }
+.copy { flex: 0 0 auto; margin-top: 2px; font: 600 11.5px/1 inherit; font-family: inherit; color: var(--forest-ink); background: transparent; border: 1px solid var(--rule); border-radius: 8px; padding: 9px 10px; cursor: pointer; min-width: 96px; white-space: nowrap; }
+.copy:hover { border-color: var(--forest-ink); }
+.subhead { font-size: 14px; font-weight: 700; color: var(--ink-faint); margin: 28px 0 10px; }
+
+footer { margin-top: 84px; padding: 36px 0 76px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--ink-faint); line-height: 1.9; }
+footer .links { margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 8px 20px; }
 </style>
 </head>
-<body>
+<body data-store="soon"> <!-- launch switch: set to "live" once the apps are on the store. One word swaps the buttons and the sentences -->
 
 <div class="topbar wrap">
   <a class="brand" href="./" aria-label="lazymemo">
     <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#295245"/><path d="M8 11.5h16" stroke="#FAF7EC" stroke-width="2.6" stroke-linecap="round"/><path d="M8 18.5c8 0 11.5 1.5 15 4" stroke="#B3D69A" stroke-width="2.3" stroke-linecap="round" fill="none"/></svg>
-    <span class="name">lazymemo</span>
+    lazymemo
   </a>
   <nav>
-    <a href="#screens">Screens</a>
-    <a href="#drawer">Drawer &amp; folders</a>
-    <a href="#files">Your files</a>
-    <a href="#claude">Claude</a>
+    <a href="#scenes">One box</a>
+    <a href="#film">Video</a>
+    <a href="#phone">iPhone</a>
+    <a href="#recall">Recall</a>
+    <a href="#privacy">Privacy</a>
+    <a href="#install">Get it</a>
     <a href="https://github.com/bunhine0452/lazymemo">GitHub</a>
     <a class="lang" href="ko/" hreflang="ko" lang="ko">한국어</a>
   </nav>
 </div>
 
-<header class="wrap">
-  <p class="eyebrow"><b>0.4</b> The drawer now has folders</p>
-  <h1>Notes that stay where you left them.</h1>
-  <p class="lede">A notepad and calendar that live on your macOS desktop, designed on
-     one assumption — <strong>that you would rather not tidy up.</strong></p>
-  <p class="sub">So lazymemo never asks you to. There is no app to open, a new note begins
-     with <kbd>⌥⌘N</kbd>, and <span class="hl">there is no Save button.</span>
-     Write <code>dentist tomorrow at 3</code> and the date is read for you.</p>
-  <div class="cta">
-    <a class="btn primary" href="#install">Install</a>
-    <a class="btn quiet" href="https://github.com/bunhine0452/lazymemo/releases/latest">Releases</a>
+<header class="hero wrap">
+  <div>
+    <p class="status soon-only"><i></i>App Store review in progress — Mac and iPhone</p>
+    <p class="status live live-only"><i></i>On the App Store — Mac and iPhone</p>
+    <h1>Write it down and forget it.<br>Your notes will answer.</h1>
+    <p class="lede">Notes and a calendar that live on your desktop, and an iPhone app that sees the same notes.
+       <strong>Type one line and the app reads the date and the place.</strong> Ask “when was the dentist?” and it
+       finds the answer in your own notes. All on this device — no account, no server, no save button.</p>
+    <div class="cta">
+      <a class="btn store live-only" href="https://apps.apple.com/app/id6811815255?platform=mac"><svg viewBox="0 0 17 20" aria-hidden="true"><path d="M13.9 10.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.8-3-.8C4.4 5.4 3 6.3 2.2 7.7c-1.6 2.8-.4 6.9 1.2 9.2.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.8 3-.8s1.8.8 3 .7c1.2 0 2-1.1 2.8-2.2.9-1.3 1.2-2.5 1.3-2.6-.1 0-2.5-.9-2.5-3.7zM11.6 3.7c.6-.8 1.1-1.9.9-3-.9 0-2 .6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.8-1.3z"/></svg><span><small>Download on the</small><b>Mac App Store</b></span></a>
+      <a class="btn store live-only" href="https://apps.apple.com/app/id6811815255?platform=iphone"><svg viewBox="0 0 17 20" aria-hidden="true"><path d="M13.9 10.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.8-3-.8C4.4 5.4 3 6.3 2.2 7.7c-1.6 2.8-.4 6.9 1.2 9.2.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.8 3-.8s1.8.8 3 .7c1.2 0 2-1.1 2.8-2.2.9-1.3 1.2-2.5 1.3-2.6-.1 0-2.5-.9-2.5-3.7zM11.6 3.7c.6-.8 1.1-1.9.9-3-.9 0-2 .6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.8-1.3z"/></svg><span><small>Download on the</small><b>App Store</b></span></a>
+      <a class="btn primary soon-only" href="#install">Get it now</a>
+      <a class="btn quiet" href="#scenes">See how it works</a>
+    </div>
+    <p class="facts">macOS 26 and iOS 26 or later. Free, MIT licensed. No account, no sign-in.</p>
   </div>
-  <p class="meta">
-    <span>macOS 26 (Tahoe) or later</span>
-    <span>3.6 MB bundle</span>
-    <span>No account needed</span>
-    <span>MIT licensed</span>
-  </p>
+
+  <div class="stage" aria-label="A replay of what the quick-input box actually does">
+    <div class="bubble" id="bubble" aria-live="polite">
+      <div class="field" id="field"><span class="ph">the thing you’re about to forget</span><span class="caret"></span></div>
+      <div class="chips" id="chips"></div>
+      <div class="ask" id="ask" hidden>
+        <p class="draft" id="draft"></p>
+        <p class="q">What time is it at?</p>
+        <div class="opts"><span>12:00</span><span>Lunch</span><span>7 pm</span><span>No time</span></div>
+      </div>
+      <div class="answer" id="answer" hidden>
+        <p class="a">Sep 18 at 2 pm — cleaning at Seoul Bright Dental, Gangnam Station.</p>
+        <p class="quote">Dentist — exit 3, Gangnam Station, Seoul Bright Dental. Cleaning, the 18th at 2 pm.</p>
+        <p class="head">Sources</p>
+        <div class="row"><i></i>Dentist — exit 3, Gangnam Station<em>in 3 days</em></div>
+      </div>
+      <div class="hint">
+        <span id="hint-left">↵ newline · esc close</span>
+        <span id="hint-right">Write a note, search, or ask</span>
+      </div>
+    </div>
+    <div class="paper-card" id="paper" aria-hidden="true">
+      <b>Dinner with a friend</b>
+      <span>Wed, Sep 30 at 12:00 · Hongdae</span>
+    </div>
+    <button class="replay" id="replay" type="button" hidden>Play again</button>
+    <p class="stage-note">The box above is a replica of the app’s quick input. The pictures below are the real app.</p>
+  </div>
 </header>
-
-<figure class="film wrap">
-  <div class="frame">
-    <video autoplay muted loop playsinline poster="media/demo-poster.jpg"
-           width="1280" height="800"
-           aria-label="lazymemo going round once: a line typed into quick capture, a date handed to the calendar, a revisit time set on that note, the drawer sorted into folders, and the note rising back onto the desktop when its time comes.">
-      <source src="media/demo.mp4" type="video/mp4">
-      <img src="media/demo.gif" alt="lazymemo going round once" width="1280" height="800">
-    </video>
-  </div>
-  <ol class="steps">
-    <li><b>Write</b> One line into ⌥⌘N. If a date is in it, a chip appears and the calendar takes it.</li>
-    <li><b>Revisit</b> Right-click a note, choose when to see it again. The event stays where it is.</li>
-    <li><b>The drawer</b> A sheet flies into the corner tab; open it, sort into folders, take one back out.</li>
-    <li><b>It comes back</b> When the time arrives the note rises onto the desktop by itself — and stays.</li>
-  </ol>
-  <figcaption>A screen recording of the real app. The hands were the app's own, and everything on screen is a real window.</figcaption>
-</figure>
-
-<figure class="phone wrap" id="phone">
-  <div class="frame">
-    <video autoplay muted loop playsinline poster="media/phone-poster.jpg"
-           width="590" height="1282"
-           aria-label="lazymemo on iPhone: a line typed with a date, a revisit time set with one tap, the note standing at the top under Now, notifications turned on, and a banner that opens the note.">
-      <source src="media/phone.mp4" type="video/mp4">
-      <img src="media/phone.gif" alt="lazymemo on iPhone going round once" width="360" height="780">
-    </video>
-  </div>
-  <div class="copy">
-    <h2>The same notes, on your phone</h2>
-    <p>The iPhone app reads the same Markdown files through iCloud — no account of ours, nothing to sync
-       by hand. Write it roughly, pick when you want it back, and the phone brings it back:
-       a <strong>Now</strong> band above the list with at most three sheets, and a notification
-       on the device you turned it on for.</p>
-    <ol class="steps">
-      <li><b>Write</b> The date is read for you; one tap leaves it on the calendar.</li>
-      <li><b>Revisit</b> The bell on a note: in an hour, tomorrow morning, or any time you like.</li>
-      <li><b>Now</b> What's coming up stands on top. Tap <em>Seen</em> to put a sheet down.</li>
-      <li><b>The banner</b> Turn notifications on once; tapping the banner opens that very note.</li>
-    </ol>
-  </div>
-  <figcaption>Recorded in the iOS Simulator with the app driving itself. The iPhone app is in TestFlight and being prepared for the App Store.</figcaption>
-</figure>
-
-<div class="wrap" id="install">
-  <div class="install">
-    <div class="card">
-      <h3>Homebrew</h3>
-      <p>Two lines, really — the tap first, then the cask itself. From then on the app
-         tells you when a new version is out.</p>
-      <div class="copyable">
-<pre id="brew">brew tap bunhine0452/lazymemo
-brew install --cask lazymemo</pre>
-        <button class="copy" type="button" data-copy="brew">Copy</button>
-      </div>
-    </div>
-    <div class="card">
-      <h3>Build from source</h3>
-      <p>Xcode is not required — Command Line Tools are enough. This is the path we
-         recommend most warmly.</p>
-      <div class="copyable">
-<pre id="src">git clone https://github.com/bunhine0452/lazymemo
-cd lazymemo
-./scripts/build-app.sh</pre>
-        <button class="copy" type="button" data-copy="src">Copy</button>
-      </div>
-    </div>
-  </div>
-  <p class="note" style="margin-bottom:64px">
-    <strong>One thing we owe you up front: lazymemo is not notarized yet.</strong>
-    Anything you download carries Apple's quarantine flag, and since macOS 15 a
-    flagged app that has not been notarized simply reports itself as damaged. The cask
-    therefore removes that flag right after installing. We would much rather say so
-    plainly than do it quietly — it is a stopgap, and it disappears the day a
-    Developer&nbsp;ID certificate is in place. If you would prefer not to rely on that,
-    please build from source instead; an app you build yourself never receives the flag
-    at all.
-  </p>
-</div>
-
-<hr class="crease">
 
 <main class="wrap">
 
+<section id="scenes">
+  <h2>One box writes, searches, asks, and does.</h2>
+  <p class="lead">You don’t pick a mode. The app works out what you mean, and the button says what it will do —
+     save a note, put it on the calendar, ask your notes, apply to “Dentist”. When the app needs one more thing,
+     it asks for that one thing and nothing else.</p>
+  <div class="strip">
+    <figure>
+      <div class="shot"><img src="img/capture-asking.png" width="1968" height="704" loading="lazy"
+           alt="The quick-input box: a summary line, the question “What time is it at?”, choice chips, and an empty field with a hint. Light mode on the left, dark mode on the right."></div>
+      <figcaption><b>It asks one thing.</b> Type “dinner with a friend at @Hongdae on Sep 30” and the date and the place are
+        already read; only the time is missing. The box stays open and asks just for that. “12” is enough to make it an event.</figcaption>
+    </figure>
+    <figure>
+      <div class="shot"><img src="img/capture-answer.png" width="1968" height="764" loading="lazy"
+           alt="A one-sentence answer with the quoted source line under it, and the list reduced to the one dentist note as the source."></div>
+      <figcaption><b>Ask, and your notes answer.</b> “When was the dentist?” — one sentence, the original line quoted under it,
+        and the list shrinks to the sources. Made-up sources are thrown away. If nothing fits, it says so and shows related notes.</figcaption>
+    </figure>
+    <figure>
+      <div class="shot"><img src="img/capture-applied.png" width="1968" height="944" loading="lazy"
+           alt="A result line reading that the dentist note will be shown again on Friday at 10:00, with an Undo button, above the recent notes list."></div>
+      <figcaption><b>Tell it, and it does — with undo.</b> Pick a note in the list and say “remind me Friday at 10”.
+        No confirmation dialog: one result line and Undo, in the same place as the undo after a delete. Only the trash asks first.</figcaption>
+    </figure>
+    <figure>
+      <div class="shot"><img src="img/capture-candidates.png" width="1968" height="764" loading="lazy"
+           alt="A “which note do you mean?” line, a list of two candidates, and a button labeled with the selected note’s title."></div>
+      <figcaption><b>When the target is unclear, you choose.</b> “Delete the Jisoo note” with two Jisoo notes — the app never
+        picks for you. The list becomes the candidates; pick with ↓, then ⌘↵ sends the same request to that note.</figcaption>
+    </figure>
+  </div>
+  <p class="note">The model is loaded only when you ask. Requests that name a time and an action — “remind me Friday at 10” —
+     are read by the app’s own parser and work instantly without any model. The model used for questions (Gemma 4 E2B, 2.6 GB)
+     is downloaded once, when you want it, and runs on this device without the internet.</p>
+</section>
+
+<section id="film" class="film">
+  <h2>One lap — write, recall, tuck away, come back.</h2>
+  <div class="frame">
+    <video autoplay muted loop playsinline poster="media/demo-poster.jpg" width="1280" height="800"
+           aria-label="lazymemo doing one lap: a line typed into quick input, the date going to the calendar, a recall time set on that note, the drawer split into folders, and the paper rising back to the desktop when the time comes.">
+      <source src="media/demo.mp4" type="video/mp4">
+      <img src="media/demo.gif" alt="lazymemo doing one lap" width="1280" height="800">
+    </video>
+  </div>
+  <ol class="steps">
+    <li><b>Write</b> One line into ⌥⌘N. If a date is read, a chip appears and the calendar takes over.</li>
+    <li><b>Recall</b> Right-click the paper to set when to see it again. The event itself stays put.</li>
+    <li><b>Drawer</b> Papers fly into the corner tab; open it, sort into folders, take them back out.</li>
+    <li><b>Come back</b> When the time comes, the paper rises to the desktop on its own and stays.</li>
+  </ol>
+  <p class="note" style="margin-top:14px">A screen recording of the real app. The app moved its own hands; every window is real. The recording is in Korean.</p>
+</section>
+
+<section id="phone" class="phone">
+  <div class="frame">
+    <video autoplay muted loop playsinline poster="media/phone-poster.jpg" width="590" height="1282"
+           aria-label="lazymemo on iPhone: a dated line is typed, a recall time set with one tap, the note rises to the top of Now, notifications turned on, and tapping the banner opens that note.">
+      <source src="media/phone.mp4" type="video/mp4">
+      <img src="media/phone.gif" alt="lazymemo on iPhone doing one lap" width="360" height="780">
+    </video>
+  </div>
+  <div class="words">
+    <h2>The same notes, on your phone.</h2>
+    <p>The iPhone app reads the same Markdown files through iCloud — no account of ours, no sync to set up.
+       Jot it down, decide when to see it again, and the phone brings it back. “Tell this note” is on the phone too,
+       and requests that need no model work without one there as well.</p>
+    <ol class="steps">
+      <li><b>Write</b> The app reads the date; one tap puts it on the calendar.</li>
+      <li><b>Recall</b> The bell on a note — in an hour, tomorrow morning, whenever.</li>
+      <li><b>Now</b> What’s coming up sits at the top. “Seen” puts it down.</li>
+      <li><b>Banner</b> Turn notifications on once. Tap the banner and that note opens.</li>
+    </ol>
+    <p class="note" style="margin-top:14px">Recorded in the iOS simulator with the app moving its own hands.
+      <span class="soon-only">The iPhone app is in App Store review. A button appears here when it’s out.</span>
+      <span class="live-only">The iPhone app is on the <a href="https://apps.apple.com/app/id6811815255?platform=iphone">App Store</a>.</span></p>
+  </div>
+</section>
+
 <section id="why">
-  <h2>Why it looks this way</h2>
-  <ul class="four">
-    <li>
-      <h3>It never asks you to finish</h3>
-      <p>Half-written, untitled, undated — those are the normal states here. There are
-         no empty fields waiting to be filled, no reminders to fill them, and no Save
-         button to forget.</p>
-    </li>
-    <li>
-      <h3>Time is the only structure</h3>
-      <p>A note on the desktop is never asked where it belongs. The calendar is something
-         you <strong>handle</strong> — pick an entry up, drop it on another day, or push it
-         back with a click. Folders exist only <em>after</em> you put a note away, inside
-         the drawer.</p>
-    </li>
-    <li>
-      <h3>Old things step aside on their own</h3>
-      <p>A checklist you have finished and a date that has passed quietly leave the
-         desktop for the drawer. <strong>Nothing is deleted</strong> — open the drawer
-         and there they are, and one click brings them all back.</p>
-    </li>
-    <li>
-      <h3>The app keeps out of your way</h3>
-      <p>A note at rest is paper and letters, nothing else. The controls fade in over the
-         content when your pointer arrives and fade out when it leaves. Nothing appears
-         in the Dock or in Alt-Tab.</p>
-    </li>
+  <h2>Why it looks like this.</h2>
+  <p class="lead">It assumes you are lazy. So it keeps four promises.</p>
+  <ul class="rules">
+    <li><h3>It never asks you to finish</h3><p>Half-written, untitled, undated — here that is the normal state. No blanks waiting to be filled, no save button to forget.</p></li>
+    <li><h3>Time is the only structure</h3><p>Paper on the desktop doesn’t ask for a category. The calendar is a thing you handle — drag an event to another day, tap once to postpone. Folders exist only inside the drawer, after you’ve put things away.</p></li>
+    <li><h3>Old things step back on their own</h3><p>Fully checked lists and past events quietly move to the drawer. Not deleted — open the drawer and they’re there, and one click brings them all back.</p></li>
+    <li><h3>The app stays out of the way</h3><p>A resting note is just paper and words. Controls appear over the content when the pointer arrives and leave with it. Nothing in the Dock, nothing in the app switcher.</p></li>
   </ul>
 </section>
 
-<section id="screens">
-  <h2>Screens</h2>
-  <div class="screens">
-    <figure class="wide">
-      <div class="shot"><img src="img/capture.png" width="1476" height="896" loading="lazy"
-           alt="Quick capture: a bubble below the menu bar icon holding a text field and a list of recent notes, in light mode on the left and dark mode on the right."></div>
-      <figcaption><b>Quick capture.</b> <kbd>⌥⌘N</kbd> — one box does the writing, the searching
-        and the date reading. Your recent notes are already waiting underneath, and
-        <code>#photo</code>, link and to-do filters sit right there.
-        <b>Whatever you were typing survives a restart.</b></figcaption>
+<section id="desk">
+  <h2>Paper on the desktop, a calendar you handle.</h2>
+  <div class="two">
+    <figure>
+      <div class="shot"><img src="img/note.png" width="960" height="378" loading="lazy" alt="A single note on the desktop, with time and place underneath and a floating control capsule."></div>
+      <figcaption><b>One sheet of paper.</b> Controls float over the content only while the pointer is there, never covering the first or last line.</figcaption>
     </figure>
     <figure>
-      <div class="shot"><img src="img/note.png" width="960" height="378" loading="lazy"
-           alt="A single note resting on the desktop, with the time and place written along the bottom and the control capsule showing."></div>
-      <figcaption><b>One sheet of paper.</b> The controls appear over the content only while your
-        pointer is there, and they cover neither the first line nor the last.</figcaption>
+      <div class="shot"><img src="img/calendar.png" width="1116" height="783" loading="lazy" alt="The calendar window: a month grid and the selected day’s events, with postpone, to-paper, and delete controls floating over a row."></div>
+      <figcaption><b>Calendar.</b> Drag an event to another day, tap once to postpone, strip the date to send it back as paper. All three leave an undo.</figcaption>
     </figure>
     <figure>
-      <div class="shot"><img src="img/calendar.png" width="1116" height="783" loading="lazy"
-           alt="The calendar window: a month grid above, the selected day's entries below, and push-back / to-paper / delete controls over one row."></div>
-      <figcaption><b>The calendar.</b> Pick an entry up and drop it on another day, push it
-        back with a click, or take the date off and send it back to the desktop. All
-        three leave an Undo.</figcaption>
+      <div class="shot"><img src="img/drawer.png" width="1272" height="1326" loading="lazy" alt="The open drawer: a search line, folder chips, and a list of color, title, second line, and time. A row shows take-out, folder, and delete controls."></div>
+      <figcaption><b>Drawer and folders.</b> The × on a note is not delete — it’s the drawer. Inside, named folders; a note taken out keeps its label. Search by initial consonants too.</figcaption>
     </figure>
-    <figure class="wide">
-      <div class="shot"><img src="img/menu.png" width="1152" height="321" loading="lazy"
-           alt="Rows of notes in the menu bar list, the highlighted row tinted with that note's own paper colour."></div>
-      <figcaption><b>The menu bar list.</b> A filled dot is a note out on the desktop; a hollow
-        one is in the drawer. Delete from the trash icon and an Undo appears on the next line.</figcaption>
+    <figure>
+      <div class="shot"><img src="img/menu.png" width="1152" height="321" loading="lazy" alt="Note rows in the menu bar list, the selected row tinted in that note’s paper color."></div>
+      <figcaption><b>Menu bar list.</b> A filled dot is out on the desktop, a hollow one is in the drawer. Delete with the trash icon and an undo line appears right below.</figcaption>
     </figure>
   </div>
 </section>
 
-<section id="drawer">
-  <h2>Drawer &amp; folders</h2>
-  <p>A small <strong>“Drawer N”</strong> tab sits in a corner of the desktop. A note goes in
-     when you press its × or drag it onto the tab, and inside, the drawer is divided into
-     <strong>named folders</strong>. Putting a note into a folder is putting it into the
-     drawer; a note you take back out keeps its label, so it returns to the same folder
-     next time.</p>
-  <div class="folders" aria-hidden="true">
-    <span class="on">All 13</span><span>Groceries 4</span><span>To read 3</span><span>Home 4</span><span class="new">+ New folder</span>
+<section id="recall">
+  <h2>Recall — it comes back when you need it.</h2>
+  <p>Jot it down and decide <strong>only when to see it again.</strong> Right-click the paper and choose “Recall…” (the bell on the phone),
+     or just tell the box: “remind me Friday at 10”. <strong>The event stays where it is</strong> — the meeting at 3, the recall at 2:30.
+     At that time the Mac brings the paper forward and the phone lifts it into “Now”.</p>
+  <div class="now" aria-hidden="true">
+    <div><em>Recall · 2:30 pm</em><b>Things to ask before the meeting</b><span>Seen</span></div>
+    <div><em>Today · 3:00 pm</em><b>Dentist</b><span>Seen</span></div>
+    <div><em>Pinned</em><b>Groceries</b><span>Seen</span></div>
   </div>
-  <div class="screens">
-    <figure>
-      <div class="shot"><img src="img/drawer.png" width="1272" height="1326" loading="lazy"
-           alt="The open drawer: a search field on top, folder chips beneath it, and a list of rows with colour, title, second line and time. One row is hovered and shows take-out, folder and delete controls."></div>
-      <figcaption><b>The open drawer.</b> Search → folder strip → list. Hover a row for
-        take out · folder · delete; click it and it unfolds to show the whole note.
-        Korean initial-consonant search works here too.</figcaption>
-    </figure>
-    <figure>
-      <div class="shot"><img src="img/drawer-folder.png" width="1272" height="576" loading="lazy"
-           alt="The drawer showing only the “Groceries” folder, with its three rows."></div>
-      <figcaption><b>One folder at a time.</b> Click a chip to see only that folder. Drag rows
-        onto chips to move them; right-click a chip to rename or delete it — deleting a
-        folder never deletes its notes. The label is a single <code>folder:</code> line
-        in the note's file, so Claude sees the same thing.</figcaption>
-    </figure>
-  </div>
+  <p><strong>System notifications only on devices where you turn them on.</strong> Enable “Notify on this device” and it asks permission once;
+     after that, event times and recall times notify you, and tapping opens the note. It never invents a morning alert for a date-only note,
+     and never schedules deleted or tucked-away notes. There is no server, so notifications are not promised to sync between devices.</p>
 </section>
 
 <section id="keys">
-  <h2>How you use it</h2>
+  <h2>How to use it.</h2>
   <table class="keys">
-    <tr>
-      <td><kbd>⌥⌘N</kbd></td>
-      <td><strong>Quick capture</strong>, in a bubble below the menu bar icon. Typing also
-        filters the notes you already have. The shortcut is yours to change in Menu → Settings.</td>
-    </tr>
-    <tr>
-      <td><kbd>⌥⌘V</kbd></td>
-      <td><strong>Paste straight to the desktop.</strong> Whatever you copied — text or
-        a picture — becomes a new sheet without opening a window.</td>
-    </tr>
-    <tr>
-      <td><kbd>esc</kbd></td>
-      <td>Close. <strong>The box remembers what you were typing</strong> — through a
-        restart and through an update. Reopen it and your words are still there, selected.</td>
-    </tr>
-    <tr>
-      <td><span class="plain">The <kbd>×</kbd> on a note</span></td>
-      <td><strong>Puts it in the drawer. It does not delete it.</strong> Right-click the
-        note to pick a folder as you put it away.</td>
-    </tr>
-    <tr>
-      <td><span class="plain">The red trash icon</span></td>
-      <td>Deletes — and the paper stays exactly where it was for eight seconds, holding
-        an Undo. After that you still have thirty days.</td>
-    </tr>
-    <tr>
-      <td><span class="plain">The calendar icon</span></td>
-      <td>Puts an undated note <strong>on the calendar</strong>; if it already has a
-        date, it shows you where that date lives.</td>
-    </tr>
-    <tr>
-      <td><span class="plain">In the drawer: <kbd>↑</kbd><kbd>↓</kbd> <kbd>Tab</kbd> <kbd>⏎</kbd></span></td>
-      <td>Walk the list, step to the next folder, unfold the row. <kbd>⌘⏎</kbd> takes a
-        note out, <kbd>⌘⌫</kbd> deletes it, and <kbd>esc</kbd> backs out one layer at a time.</td>
-    </tr>
+    <tr><td><kbd>⌥⌘N</kbd></td><td><strong>Quick input.</strong> A bubble under the menu bar icon. Write a note, search, ask, or tell it what to do. Searches by initial consonants too.</td></tr>
+    <tr><td><kbd>⌘⏎</kbd></td><td><strong>Done.</strong> The button’s label says what happens. <kbd>⏎</kbd> is a new line — notes aren’t one line long.</td></tr>
+    <tr><td><kbd>⌥⌘V</kbd></td><td><strong>Clipboard to note.</strong> What you copied — text or a picture — becomes a new paper without opening anything.</td></tr>
+    <tr><td><kbd>esc</kbd></td><td>Close. <strong>The box remembers what you were writing</strong>, even across restarts. In the middle of a follow-up question, esc saves the draft without a time.</td></tr>
+    <tr><td><kbd>×</kbd> on a note</td><td><strong>Into the drawer. Not delete.</strong> Right-click to pick a folder, or “Tell this note…” to open the box for it.</td></tr>
+    <tr><td>Red trash</td><td>Delete. The paper stays put holding Undo for 8 seconds, and stays restorable for 30 days.</td></tr>
+    <tr><td>Calendar icon</td><td>Puts an undated note <strong>on the calendar.</strong> If it already has a date, shows where that event sits.</td></tr>
   </table>
-  <p class="note" style="margin-top:24px">Finished things retire by themselves. A list
-    with every box ticked steps into the drawer three days after you last touched it, and
-    a past appointment at the end of the following day. Neither is deleted — both stay in
-    the files, in search and on the calendar. Notes you have pinned are never touched by this.</p>
+  <p class="note" style="margin-top:22px">Finished things step back on their own. A fully checked list three days after you last touched it, a past event once the next day ends —
+    both leave the desktop for the drawer. They stay in the files, in search, and in the calendar. Pinned notes are never moved.</p>
 </section>
 
-<hr class="crease">
-
 <section id="files">
-  <h2>Your notes are files</h2>
-  <p><strong>If you ever remove lazymemo, your notes stay.</strong> The source of truth
-     is a folder of Markdown files on your own Mac — open them in Finder, edit them in
-     any text editor you like.</p>
+  <h2>Notes are files.</h2>
+  <p><strong>Delete lazymemo and your notes remain.</strong> The source of truth is Markdown files on your computer; open them in Finder or edit them in any other editor.</p>
 <pre>~/Documents/lazymemo/
-  notes/2026/09/01K3ZQ….md   <span class="c">← the original — the folder label is one line inside it</span>
+  notes/2026/09/01K3ZQ….md   <span class="c">← the note. Date, place and folder are a few lines inside</span>
   .trash/                     <span class="c">← deleted notes, kept 30 days</span></pre>
-  <p style="margin-top:18px">Move that folder inside iCloud Drive and you have sync.
-     There is no backend to sign up for and nothing to configure — when you move the
-     folder, the app follows it (Menu → Settings). From an iPhone, a single Shortcut that
-     drops a <code>.md</code> into that folder is enough; the app adopts it.</p>
+  <p style="margin-top:18px">Menu → Settings → “Sync with iCloud…” moves this folder into <strong>“LazyMemo”</strong> in iCloud Drive, and the iPhone app reads the same folder.
+     The App Store edition starts there by default. Drop a <code>.md</code> file in with an iPhone Shortcut and the app picks it up.</p>
 </section>
 
 <section id="claude">
-  <h2>Claude, if you would like it</h2>
-  <p>lazymemo builds a small MCP server alongside the app. Register it and you can ask
-     Claude Desktop things like <em>“book the dentist for two o'clock next Tuesday”</em>,
-     <em>“what is on this month?”</em> or <em>“put milk in the groceries folder”</em>.</p>
-  <p><strong>No API key is needed.</strong> Claude calls lazymemo rather than the other
-     way around, so the token cost sits with your own Claude subscription. The
-     integration is entirely optional and off until you register it yourself.</p>
-  <div class="aside">
-    <p>Because Claude is able to delete notes, <strong>we did not build a tool that
-      deletes permanently.</strong> This is wiring rather than policy — no hard-delete
-      function exists anywhere in the code the MCP server can reach. Deletion moves a
-      note to <code>.trash/</code>, and restoring it is a single call.</p>
-  </div>
+  <h2>Claude integration is optional.</h2>
+  <p>The GitHub edition also builds an MCP server. Register it and you can say to Claude Desktop <em>“book the dentist next Tuesday at 2 pm”</em>
+     or <em>“put milk in the groceries folder”</em>. <strong>No API key.</strong> lazymemo doesn’t call Claude; Claude calls lazymemo, so the cost is on your Claude subscription.</p>
+  <div class="aside"><p>Because Claude can delete notes, <strong>there is no tool that deletes permanently.</strong> The code the MCP server can reach has no hard-delete function at all.
+    Delete means moving to <code>.trash/</code>, and restore is one call.</p></div>
+  <p class="note">Asking and telling in the box are a different thing — that runs on this device’s own model, and it’s in the App Store edition too.</p>
 </section>
 
 <section id="privacy">
-  <h2>Privacy</h2>
-  <p>The only route by which the text of your notes can leave your Mac is the MCP
-     integration above, and it opens only when you register it yourself.</p>
-  <p>Two other things use the network — <strong>unfolding a link into a card</strong> (the
-     address you pasted goes out, nothing else) and <strong>checking for a new version</strong>
-     (one request to GitHub, without even the version number). Both can be switched off
-     in Settings, and with them off the app contacts nothing at all.</p>
-  <p class="note">This page keeps the same promise. It makes no outbound request of any
-     kind — no trackers, no web fonts, no analytics — and the film above is served from
-     the same place as the page. The deploy workflow checks that before publishing.</p>
+  <h2>Privacy.</h2>
+  <p>Note contents leave the device in exactly two ways — <strong>your iCloud</strong> (when you turn it on in Settings; Apple moves and stores it) and the GitHub edition’s
+     <strong>Claude integration</strong> (when you register it yourself). Asking and telling in the box run on the on-device model, so nothing goes anywhere.
+     There is no server of ours and nothing comes to us — no analytics, no trackers, no crash reporter.</p>
+  <p>Everything else that leaves is a single address or coordinate — the URL when a link unfurls into a card, the coordinate a place card asks Apple Maps about,
+     the model file when you download it, the address the GitHub edition checks for a new version. All of it only when you tap or unless you turn it off.
+     Every one of these is written down in the <a href="privacy/">privacy policy</a>.</p>
+  <p class="note">This page keeps the same promise. Not a single outgoing request — no trackers, no web fonts; the videos and pictures come from the same place as the page.
+     The deploy workflow actually checks that before publishing.</p>
 </section>
 
-<section id="language">
-  <h2>A note on language</h2>
-  <p>The app's interface is currently <strong>in Korean only</strong>, and the
-     screenshots above show it exactly as it ships today. If that is a problem for you,
-     we are sorry — please treat this page as a description rather than a promise, and
-     you are very welcome to
-     <a href="https://github.com/bunhine0452/lazymemo/issues">open an issue</a> to say
-     so. This page is also available in <a href="ko/" hreflang="ko" lang="ko">한국어</a>.</p>
+<section id="install">
+  <h2>Get it.</h2>
+  <div class="install">
+    <div class="card">
+      <h3>Mac — App Store<span class="tag soon-only">in review</span></h3>
+      <p>The path for most people. Apple signs it, it runs in the sandbox, and the store handles updates. The notes folder defaults to
+         “LazyMemo” in iCloud Drive — the same place the iPhone uses. Claude integration isn’t in this edition.</p>
+      <div class="cta">
+        <a class="btn store live-only" href="https://apps.apple.com/app/id6811815255?platform=mac"><svg viewBox="0 0 17 20" aria-hidden="true"><path d="M13.9 10.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.8-3-.8C4.4 5.4 3 6.3 2.2 7.7c-1.6 2.8-.4 6.9 1.2 9.2.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.8 3-.8s1.8.8 3 .7c1.2 0 2-1.1 2.8-2.2.9-1.3 1.2-2.5 1.3-2.6-.1 0-2.5-.9-2.5-3.7zM11.6 3.7c.6-.8 1.1-1.9.9-3-.9 0-2 .6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.8-1.3z"/></svg><span><small>Download on the</small><b>Mac App Store</b></span></a>
+        <span class="btn store soon soon-only" aria-disabled="true"><svg viewBox="0 0 17 20" aria-hidden="true"><path d="M13.9 10.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.8-3-.8C4.4 5.4 3 6.3 2.2 7.7c-1.6 2.8-.4 6.9 1.2 9.2.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.8 3-.8s1.8.8 3 .7c1.2 0 2-1.1 2.8-2.2.9-1.3 1.2-2.5 1.3-2.6-.1 0-2.5-.9-2.5-3.7zM11.6 3.7c.6-.8 1.1-1.9.9-3-.9 0-2 .6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.8-1.3z"/></svg><span><small>Mac App Store</small><b>In review</b></span></span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>iPhone — App Store<span class="tag soon-only">in review</span></h3>
+      <p>Open it and the keyboard is up. Type a line, tap “Keep”, the app reads the date. Share “Write to lazymemo” from any app,
+         and the Mac sees the same files through iCloud.</p>
+      <div class="cta">
+        <a class="btn store live-only" href="https://apps.apple.com/app/id6811815255?platform=iphone"><svg viewBox="0 0 17 20" aria-hidden="true"><path d="M13.9 10.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.8-3-.8C4.4 5.4 3 6.3 2.2 7.7c-1.6 2.8-.4 6.9 1.2 9.2.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.8 3-.8s1.8.8 3 .7c1.2 0 2-1.1 2.8-2.2.9-1.3 1.2-2.5 1.3-2.6-.1 0-2.5-.9-2.5-3.7zM11.6 3.7c.6-.8 1.1-1.9.9-3-.9 0-2 .6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.8-1.3z"/></svg><span><small>Download on the</small><b>App Store</b></span></a>
+        <span class="btn store soon soon-only" aria-disabled="true"><svg viewBox="0 0 17 20" aria-hidden="true"><path d="M13.9 10.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.8-3-.8C4.4 5.4 3 6.3 2.2 7.7c-1.6 2.8-.4 6.9 1.2 9.2.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.8 3-.8s1.8.8 3 .7c1.2 0 2-1.1 2.8-2.2.9-1.3 1.2-2.5 1.3-2.6-.1 0-2.5-.9-2.5-3.7zM11.6 3.7c.6-.8 1.1-1.9.9-3-.9 0-2 .6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.8-1.3z"/></svg><span><small>App Store</small><b>In review</b></span></span>
+      </div>
+    </div>
+  </div>
+  <p class="subhead">GitHub edition — if you want the Claude integration</p>
+  <div class="install">
+    <div class="card">
+      <h3>Homebrew</h3>
+      <p>Two lines. After that the app tells you about updates itself. The <a href="#claude">Claude integration</a> and self-update are only in this edition.</p>
+      <div class="copyable"><pre id="brew">brew tap bunhine0452/lazymemo
+brew install --cask lazymemo</pre><button class="copy" type="button" data-copy="brew">Copy</button></div>
+    </div>
+    <div class="card">
+      <h3>Build from source</h3>
+      <p>Builds without Xcode — the Command Line Tools are enough. If you read and write code, this is the most honest path.</p>
+      <div class="copyable"><pre id="src">git clone https://github.com/bunhine0452/lazymemo
+cd lazymemo
+./scripts/build-app.sh</pre><button class="copy" type="button" data-copy="src">Copy</button></div>
+    </div>
+  </div>
+  <p class="note"><strong>The GitHub edition is not notarized yet.</strong> A downloaded app gets the quarantine flag, and from macOS 15 a flagged, un-notarized app simply ends
+    with “is damaged”. So the cask removes that flag right after install — a stopgap. If that doesn’t sit right with you, use the App Store edition or build from source;
+    an app you built yourself never gets the flag.</p>
 </section>
 
 </main>
@@ -611,35 +525,103 @@ cd lazymemo
     <a href="https://github.com/bunhine0452/lazymemo">GitHub</a>
     <a href="https://github.com/bunhine0452/lazymemo/blob/main/docs/DESIGN.md">Design notes</a>
     <a href="https://github.com/bunhine0452/lazymemo/releases/latest">Releases</a>
-    <a href="privacy/#en">Privacy</a>
+    <a href="privacy/">Privacy policy</a>
     <a href="ko/" hreflang="ko" lang="ko">한국어</a>
   </div>
-  MIT © 2026 Kim Hyunbin · Thank you for taking a look.
+  MIT © 2026 Kim Hyunbin. Thanks for looking.
 </footer>
 
 <script>
-// Nothing here reaches the network. It copies a command block and says so briefly.
+// 바깥으로 나가는 것은 없습니다. 위 상자는 앱의 빠른 입력이 실제로 하는 대화를 이 페이지 안에서 재생합니다.
+(function () {
+  var field = document.getElementById('field'), chips = document.getElementById('chips');
+  var ask = document.getElementById('ask'), draft = document.getElementById('draft'), answer = document.getElementById('answer');
+  var hintL = document.getElementById('hint-left'), hintR = document.getElementById('hint-right');
+  var paper = document.getElementById('paper'), replay = document.getElementById('replay');
+  var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var run = 0;
+
+  function setField(text, placeholder) {
+    field.innerHTML = '';
+    if (text) { field.appendChild(document.createTextNode(text)); }
+    else if (placeholder) { var ph = document.createElement('span'); ph.className = 'ph'; ph.textContent = placeholder; field.appendChild(ph); }
+    var caret = document.createElement('span'); caret.className = 'caret'; field.appendChild(caret);
+  }
+  function go(label) {
+    hintR.innerHTML = '';
+    if (!label) { hintR.textContent = 'Write a note, search, or ask'; return null; }
+    var b = document.createElement('span'); b.className = 'go'; b.appendChild(document.createTextNode(label));
+    var k = document.createElement('span'); k.textContent = '⌘↵'; b.appendChild(k); hintR.appendChild(b); return b;
+  }
+  function chip(cls, main, sub) {
+    var c = document.createElement('span'); c.className = 'chip ' + cls; c.textContent = main;
+    if (sub) { var s = document.createElement('small'); s.textContent = ' ' + sub; c.appendChild(s); }
+    chips.appendChild(c);
+  }
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, still ? 0 : ms); }); }
+  function type(text, my, from) {
+    return new Promise(function (resolve) {
+      var i = from || 0;
+      (function step() {
+        if (run !== my) return resolve(false);
+        if (i > text.length) return resolve(true);
+        setField(text.slice(0, i), null); i++;
+        setTimeout(step, still ? 0 : (55 + Math.random() * 60));
+      })();
+    });
+  }
+  function press(label) { var b = go(label); if (b) { b.classList.add('press'); } return wait(320); }
+
+  async function play() {
+    var my = ++run;
+    replay.hidden = true; ask.hidden = true; answer.hidden = true; paper.classList.remove('show'); chips.innerHTML = '';
+    hintL.textContent = '↵ newline · esc close'; go(null); setField('', 'the thing you’re about to forget');
+    await wait(900);
+    // 1. 서술 — 날짜와 자리가 치는 동안 읽힌다
+    var s = 'Dinner with a friend at @Hongdae on Sep 30';
+    if (!await type(s, my)) return; chip('date', 'Wed, Sep 30', 'to calendar'); go('Put on calendar');
+    var placed = false;
+    if (!placed) { chip('place', 'at Hongdae'); placed = true; }
+    await wait(1100); if (run !== my) return;
+    // 2. ⌘↵ — 약속인데 시각이 없다. 상자는 닫히지 않고 하나만 묻는다
+    await press('Put on calendar'); if (run !== my) return;
+    chips.innerHTML = ''; draft.textContent = 'Dinner with a friend · Wed, Sep 30 · at Hongdae'; ask.hidden = false;
+    hintL.textContent = '↵ newline · esc saves without a time'; go(null); setField('', '12');
+    await wait(1400); if (run !== my) return;
+    if (!await type('12', my)) return; go('Answer'); await wait(500); if (run !== my) return;
+    await press('Answer'); if (run !== my) return;
+    // 3. 적혔다 — 종이가 잠깐 나온다
+    ask.hidden = true; setField('', 'the thing you’re about to forget'); hintL.textContent = '↵ newline · esc close'; go(null);
+    paper.classList.add('show');
+    await wait(2600); if (run !== my) return;
+    paper.classList.remove('show');
+    // 4. 물음 — 메모가 답한다
+    await wait(500); if (run !== my) return;
+    if (!await type('When was the dentist?', my)) return; go('Ask my notes'); await wait(600); if (run !== my) return;
+    await press('Ask my notes'); if (run !== my) return;
+    setField('', 'the thing you’re about to forget'); hintL.textContent = 'esc to stop';
+    hintR.innerHTML = '<span class="thinking"><i></i><i></i><i></i> Reading your notes</span>';
+    await wait(1500); if (run !== my) return;
+    answer.hidden = false; hintL.textContent = '↑↓ pick · ⌘↵ open'; go(null);
+    await wait(600); if (run !== my) return;
+    replay.hidden = false;
+  }
+  if (still) {
+    // 움직임을 줄인 환경에서는 마지막 장면만 — 답이 선 상자.
+    answer.hidden = false; hintL.textContent = '↑↓ pick · ⌘↵ open'; setField('', 'the thing you’re about to forget');
+  } else {
+    play();
+  }
+  replay.addEventListener('click', play);
+})();
 document.querySelectorAll('.copy').forEach(function (button) {
   button.addEventListener('click', function () {
-    var block = document.getElementById(button.dataset.copy);
-    if (!block) return;
-    var done = function () {
-      var was = button.textContent;
-      button.textContent = 'Copied';
-      setTimeout(function () { button.textContent = was; }, 1600);
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(block.innerText).then(done, function () {});
-      return;
-    }
-    var range = document.createRange();
-    range.selectNodeContents(block);
-    var selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
+    var block = document.getElementById(button.dataset.copy); if (!block) return;
+    var done = function () { var was = button.textContent; button.textContent = 'Copied'; setTimeout(function () { button.textContent = was; }, 1600); };
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(block.innerText).then(done, function () {}); return; }
+    var range = document.createRange(); range.selectNodeContents(block); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
   });
 });
 </script>
-
 </body>
 </html>

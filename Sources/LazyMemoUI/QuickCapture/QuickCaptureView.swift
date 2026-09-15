@@ -74,7 +74,8 @@ struct QuickCaptureView: View {
 
     private var bubble: some View {
         VStack(alignment: .leading, spacing: 0) {
-            heading
+            // 머리 줄(로고·lazymemo·「잠깐, 메모 한 장」)은 걷어냈다 (2026-09-15, 사용자 요청). 상자는 자기를
+            // 드러내지 않는다 — 첫 줄부터 적는 자리다. 닫기 × 만 오른쪽 위에 겹쳐 둔다.
             // 되묻기 — 질문 하나만 남는다 (설계 D6). 초안 요약 · 질문 · 선택지, 그 아래 답을 적는 칸.
             if let question = model.pendingQuestion { pendingBlock(question) }
             input
@@ -98,28 +99,20 @@ struct QuickCaptureView: View {
         }
         .background(Theme.paper(MemoColor.gray.ink, radius: Theme.panelRadius, dotted: false))
         .overlay(Theme.edge(radius: Theme.panelRadius))
+        .overlay(alignment: .topTrailing) { closeButton }
     }
 
-    private var heading: some View {
-        HStack(spacing: 8) {
-            MemoBrandMark()
-            Text("lazymemo")
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundStyle(Theme.accentInk)
-            Text(L("잠깐, 메모 한 장"))
-                .font(.system(size: 11))
-            Spacer()
-            Button(action: onCancel) {
-                Image(systemName: "xmark").font(.system(size: 11, weight: .medium))
-                    .hitTarget(28)
-            }
-            .buttonStyle(.plain)
-            .spoken(L("닫기 — 적던 글은 앱을 사용하는 동안 남습니다"))
+    /// 닫기 — 오른쪽 위에 겹친다. 적던 글은 상자가 기억하므로 누르는 데 망설일 것이 없다.
+    private var closeButton: some View {
+        Button(action: onCancel) {
+            Image(systemName: "xmark").font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+                .hitTarget(28)
         }
-        .foregroundStyle(.secondary)
-        .padding(.leading, Theme.loose)
-        .padding(.trailing, Theme.normal)
-        .padding(.top, Theme.snug)
+        .buttonStyle(.plain)
+        .padding(.top, Theme.tight)
+        .padding(.trailing, Theme.snug)
+        .spoken(L("닫기 — 적던 글은 앱을 사용하는 동안 남습니다"))
     }
 
     private var searchShortcuts: some View {
@@ -209,7 +202,10 @@ struct QuickCaptureView: View {
             }
         }
         .padding(.horizontal, Theme.loose)
-        .padding(.vertical, Theme.normal)
+        .padding(.top, Theme.loose)
+        .padding(.bottom, Theme.normal)
+        // × 가 첫 줄의 끝과 겹치지 않게 오른쪽을 비운다.
+        .padding(.trailing, Theme.normal)
     }
 
     private func targetMemo(_ id: ULID) -> Memo? { model.listed.first { $0.id == id } ?? model.memo(id) }
