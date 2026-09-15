@@ -33,6 +33,8 @@ struct HomeView: View {
         self.session = session
         let pen = PenModel(store: session.store, draft: session.draft)
         pen.holdsLaunchFocus = !Tutorial.seen
+        // 펜이 비서를 겸한다 — 묻기·시키기·되묻기 (docs/research/quick-capture-assistant-2026-09-15.md 를 폰에 그대로).
+        pen.assistant = session.assistant
         _pen = State(initialValue: pen)
         _folders = State(initialValue: FolderModel(store: session.store, settings: session.settings))
     }

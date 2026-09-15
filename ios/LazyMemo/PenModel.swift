@@ -1,4 +1,6 @@
 import Foundation
+import LazyMemoAssistant
+import LazyMemoAssistantUI
 import LazyMemoCore
 import Observation
 
@@ -20,7 +22,68 @@ final class PenModel {
             reschedule()
             // 글을 다 지우면 끈 칩도 잊는다 — 다음 글의 날짜가 말없이 안 읽히면 안 된다.
             if text.isEmpty { readsDate = true; readsPlace = true; readsEvery = true }
+            // 글을 고치면 답은 물러나고 검색으로 돌아간다 (맥의 상자와 같은 규칙, quick-capture-assistant D9).
+            if shown != nil || assistant?.answer != nil || assistant?.proposal != nil || assistant?.phase == .thinking {
+                shown = nil
+                assistant?.reset()
+            }
         }
+    }
+
+    // MARK: 비서 — 펜 하나가 묻기·시키기·되묻기까지 겸한다 (맥의 QuickCaptureModel 과 같은 갈래)
+
+    /// 이 기기의 비서. 없으면(시험) 펜은 적기와 찾기만 한다.
+    var assistant: AssistantModel? {
+        didSet { assistant?.onSettled = { [weak self] in self?.reflectAssistant() } }
+    }
+    /// 되물음 뒤에 기다리는 새 메모 — 「약속 시간이 언제인가요?」의 답을 이것에 잇는다.
+    private(set) var pending: (question: String, draft: FieldPatch)?
+    var pendingQuestion: String? { pending?.question }
+    /// 초안 한 줄 — 「친구랑 밥 먹기로 했어 · 9월 30일 (수) · @홍대입구」.
+    var pendingSummary: String? {
+        guard let draft = pending?.draft else { return nil }
+        var parts = [draft.body ?? ""]
+        if case .set(let due) = draft.due { parts.append(DayWords.long(due)) }
+        if let place = draft.place { parts.append("@" + place) }
+        return parts.filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+    static let timeChoices = ["12시", "점심", "저녁 7시", "시각 없이"]
+
+    /// 목록의 출처 — 찾은 것, 아니면 비서가 정한 것.
+    enum Listing: Equatable { case search, evidence, related, candidates }
+    private(set) var listing: Listing = .search
+    /// 비서가 정한 목록(근거·관련·후보). 글을 고치면 놓는다.
+    private(set) var shown: [Memo]?
+    /// 목록에 놓을 것. `nil` 이면 빈 펜 — 무더기 전부.
+    var results: [Memo]? { shown ?? found }
+
+    private func showMemos(_ ids: [ULID], as listing: Listing) {
+        self.listing = listing
+        shown = ids.compactMap { store.memo($0) }
+    }
+
+    /// 비서가 방금 정한 것에 맞춰 목록을 고른다 — `AssistantModel.onSettled` 에서.
+    func reflectAssistant() {
+        guard let assistant else { return }
+        if let answer = assistant.answer {
+            showMemos(answer.found ? answer.evidence : assistant.relatedMemos.map(\.memoID), as: answer.found ? .evidence : .related)
+        } else if let proposal = assistant.proposal, proposal.kind == .ask, !proposal.candidates.isEmpty {
+            showMemos(proposal.candidates, as: .candidates)
+        } else if case .failed = assistant.phase, !assistant.relatedMemos.isEmpty {
+            showMemos(assistant.relatedMemos.map(\.memoID), as: .related)
+        } else if assistant.receipt != nil {
+            shown = nil; listing = .search
+            Task { await refresh() }
+        }
+    }
+
+    /// 「어느 메모?」의 후보 하나를 골랐다 — 같은 말을 그 메모에게.
+    func pick(_ id: ULID) { assistant?.pick(id) }
+
+    /// 답을 기다리던 초안을 놓는다 — ⊗ 를 눌렀을 때 「시각 없이」와 같다 (D12).
+    func takePendingDraft() -> FieldPatch? {
+        defer { pending = nil }
+        return pending?.draft
     }
 
     /// 달력 탭이 미리 물린 날. 적은 글에 날짜가 있으면 그쪽이 이긴다 (`QuickSchedule`).
@@ -105,11 +168,20 @@ final class PenModel {
         return note
     }
 
-    var canLeave: Bool { InboundNote.make(text: text) != nil || here != nil }
+    var canLeave: Bool {
+        if pending != nil { return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        return InboundNote.make(text: text) != nil || here != nil
+    }
 
-    /// 날짜가 읽혔으면(또는 달력이 물렸으면) 단추가 그렇게 말한다.
+    /// 단추의 라벨이 곧 동사다 (quick-capture-assistant D5): 답하기 · 시키기 · 메모에게 묻기 · 달력에 남기기 · 메모 남기기.
     /// 달력이 물린 날도 칩을 끄면 안 쓰이므로(`leave`) 단추도 같이 바뀐다.
     var leaveLabel: String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if pending != nil { return String(localized: "답하기") }
+        if assistant != nil, !trimmed.isEmpty {
+            if AssistantIntent.hasCommandVerb(trimmed) { return String(localized: "시키기") }
+            if AssistantIntent.isQuestion(trimmed) { return String(localized: "메모에게 묻기") }
+        }
         let note = reading
         let dated = note.due != nil || note.at != nil || (readsDate && presetDay != nil)
         return dated ? String(localized: "달력에 남기기") : String(localized: "메모 남기기")
@@ -139,6 +211,42 @@ final class PenModel {
     @discardableResult
     func leave() async -> Memo? {
         guard canLeave else { return nil }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // 되물음의 답 — 「12시야」. 답이 아니면 초안을 놓고 새 말로 본다.
+        if let pending {
+            if let done = AssistantIntent.complete(draft: pending.draft, reply: trimmed) {
+                self.pending = nil
+                return await create(done.patch)
+            }
+            self.pending = nil
+        }
+
+        if let assistant {
+            // 시키는 말 — 대상은 비서가 되묻고 목록이 후보가 된다 (D10). 열린 메모는 편집 화면의 시트가 맡는다.
+            if AssistantIntent.hasCommandVerb(trimmed) {
+                let said = trimmed
+                text = ""; draft.forget()
+                assistant.command(said)
+                return nil
+            }
+            // 물음 — 메모가 답한다. 목록은 근거로 줄어든다 (D9).
+            if AssistantIntent.isQuestion(trimmed) {
+                let said = trimmed
+                text = ""; draft.forget()
+                assistant.ask(said)
+                return nil
+            }
+            // 약속인데 시각이 없다 — 한 가지만 묻고 펜은 답을 기다린다 (D6).
+            if readsDate, let composed = AssistantIntent.compose(trimmed), composed.kind == .ask, var draftPatch = composed.draft {
+                let note = reading
+                if draftPatch.place == nil { draftPatch.place = note.place; draftPatch.geo = here?.geo ?? note.geo }
+                pending = (composed.question ?? String(localized: "약속 시간이 언제인가요?"), draftPatch)
+                text = ""; draft.forget()
+                return nil
+            }
+        }
+
         let note = reading
         var schedule = Schedule(due: note.due, at: note.at)
         var body = note.body
@@ -153,7 +261,23 @@ final class PenModel {
             place: note.place, geo: here?.geo ?? note.geo, folder: folder
         )
         guard let memo else { return nil }
+        finishLeaving(memo)
+        return memo
+    }
 
+    /// 비서의 초안으로 적는다 — 되물음이 끝났을 때, 또는 ⊗·시각 없이.
+    @discardableResult
+    func create(_ patch: FieldPatch) async -> Memo? {
+        let memo = try? await store.create(
+            body: patch.body ?? "", due: patch.due.value, at: patch.at.value,
+            place: patch.place, geo: patch.geo, folder: folder
+        )
+        guard let memo else { return nil }
+        finishLeaving(memo)
+        return memo
+    }
+
+    private func finishLeaving(_ memo: Memo) {
         lastLeft = memo.id
         text = ""
         draft.forget()
@@ -162,7 +286,6 @@ final class PenModel {
         readsPlace = true
         readsEvery = true
         prompt = CapturePrompt.next(after: prompt)
-        return memo
     }
 
     /// 뒤로 물러날 때 적던 글을 파일에 내린다.

@@ -1,4 +1,5 @@
 import CoreLocationUI
+import LazyMemoAssistantUI
 import LazyMemoCore
 import SwiftUI
 
@@ -59,11 +60,45 @@ struct PenBar: View {
 
     private var expanded: some View {
         VStack(spacing: 6) {
-            chips
+            if let question = pen.pendingQuestion { pendingBlock(question) } else { chips }
             penRow
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+    }
+
+    // MARK: 되묻기 — 한 가지만 묻고 펜은 답을 기다린다 (quick-capture-assistant D6)
+
+    private func pendingBlock(_ question: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let summary = pen.pendingSummary {
+                Text(summary).font(.footnote).foregroundStyle(.secondary).lineLimit(2)
+            }
+            Text(question).font(.subheadline.weight(.semibold))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(PenModel.timeChoices, id: \.self) { choice in
+                        Button {
+                            // 선택지도 답과 같은 길로 — 「시각 없이」는 「없어」와 같은 말.
+                            pen.text = choice == "시각 없이" ? "없어" : choice
+                            Task { await pen.leave() }
+                        } label: {
+                            Text(LocalizedStringKey(choice))
+                                .font(.footnote.weight(.medium))
+                                .foregroundStyle(Theme.accentInk)
+                                .padding(.horizontal, 12)
+                                .frame(minHeight: 32)
+                                .background(Theme.accentInk.opacity(0.08), in: Capsule())
+                                .frame(minHeight: 44)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
+        .padding(.horizontal, 4)
+        .accessibilityIdentifier("pending-question")
     }
 
     // MARK: 칩 — 읽은 것을 누르기 전에 보인다
@@ -144,15 +179,17 @@ struct PenBar: View {
             }
 
             HStack(alignment: .bottom, spacing: 4) {
-                TextField(pen.prompt, text: Bindable(pen).text, axis: .vertical)
+                TextField(pen.pendingQuestion == nil ? pen.prompt : String(localized: "12시야"), text: Bindable(pen).text, axis: .vertical)
                     .font(.body)
                     .lineLimit(1...5)
                     .focused($focused)
                     .frame(minHeight: 36)
                     .accessibilityLabel("적기")
                     .accessibilityIdentifier("capture")
-                if !pen.text.isEmpty {
+                if !pen.text.isEmpty || pen.pendingQuestion != nil {
                     Button {
+                        // 되묻는 중의 ⊗ 는 「시각 없이」— 이미 남기라 한 글이다 (D12).
+                        if let draft = pen.takePendingDraft() { Task { await pen.create(draft) } }
                         pen.text = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
@@ -169,17 +206,29 @@ struct PenBar: View {
             .padding(.vertical, 4)
             .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18))
 
-            Button(action: { Task { await pen.leave() } }) {
-                Text(pen.leaveLabel)
-                    .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 4)
-                    .frame(minHeight: 36)
+            if pen.assistant?.phase == .thinking {
+                // 읽는 동안 — 누르면 그만둔다 (맥의 「esc 그만」).
+                Button { pen.assistant?.cancel() } label: {
+                    HStack(spacing: 6) { ProgressView().controlSize(.small); Text("읽는 중") }
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 4)
+                        .frame(minHeight: 36)
+                }
+                .buttonStyle(.glass)
+                .accessibilityIdentifier("thinking")
+            } else {
+                Button(action: { Task { await pen.leave() } }) {
+                    Text(pen.leaveLabel)
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 4)
+                        .frame(minHeight: 36)
+                }
+                .buttonStyle(.glassProminent)
+                .tint(Theme.accent)
+                .foregroundStyle(Theme.onAccent)
+                .disabled(!pen.canLeave)
+                .accessibilityIdentifier("leave")
             }
-            .buttonStyle(.glassProminent)
-            .tint(Theme.accent)
-            .foregroundStyle(Theme.onAccent)
-            .disabled(!pen.canLeave)
-            .accessibilityIdentifier("leave")
         }
     }
 }

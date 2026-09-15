@@ -62,7 +62,6 @@
 "지도에서 못 찾은 자리" = "Not found on the map";
 "지도를 찾는 중" = "Looking it up on the map";
 "이 기기에만 · iCloud 꺼짐" = "On this device only · iCloud off";
-"%lld장 중 겹치는 것 없음 · 남기면 새 메모예요" = "No match among %lld notes · adding makes a new one";
 "%lld장 중 %lld장" = "%2$lld of %1$lld";
 "가볍게, 한 줄부터" = "Lightly, one line at a time";
 "아직 비어 있는 폴더예요" = "This folder is still empty";
@@ -119,11 +118,34 @@
 "펼쳐 봅니다" = "Opens it full screen";
 "iCloud 에서 내려받는 중" = "Downloading from iCloud";
 "아직 없는 사진 — 다른 기기가 올리면 보여요" = "Photo not here yet — it appears once the other device uploads it";
-"사진 %lld장" = "%lld photos";
 "봤어요" = "Seen";
+"나머지 %lld장" = "%lld more";
+"「지금」에서 내려놓습니다" = "Puts it down from Now";
 
 /* 비서 — 이 기기의 모델 */
 "메모에게 묻기" = "Ask My Memos";
 "이 메모에게 시키기" = "Ask About This Memo";
-"나머지 %lld장" = "%lld more";
-"「지금」에서 내려놓습니다" = "Puts it down from Now";
+
+/* 펜 × 비서 (quick-capture-assistant-2026-09-15.md) */
+"답하기" = "Answer";
+"시키기" = "Do it";
+"메모에게 묻기" = "Ask my notes";
+"약속 시간이 언제인가요?" = "What time is it at?";
+"12시야" = "12 o’clock";
+"12시" = "12:00";
+"점심" = "Lunch";
+"저녁 7시" = "7 pm";
+"시각 없이" = "No time";
+"읽는 중" = "Reading";
+"근거 %lld장" = "%lld sources";
+"관련 메모" = "Related notes";
+"어느 메모? 누르면 그 메모에게 합니다" = "Which note? Tap one to apply";
+"메모에서 찾지 못했습니다" = "Not found in your notes";
+"되돌리기" = "Undo";
+"휴지통으로" = "Move to Trash";
+"아니요" = "No";
+"확인 중" = "Verifying";
+"받는 중 %lld%%" = "Downloading %lld%%";
+"취소" = "Cancel";
+"모델을 받으면 답합니다" = "Download the model to get answers";
+"받기 %@" = "Download %@";
