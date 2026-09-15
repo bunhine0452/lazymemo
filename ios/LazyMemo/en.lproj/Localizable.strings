@@ -121,5 +121,9 @@
 "아직 없는 사진 — 다른 기기가 올리면 보여요" = "Photo not here yet — it appears once the other device uploads it";
 "사진 %lld장" = "%lld photos";
 "봤어요" = "Seen";
+
+/* 비서 — 이 기기의 모델 */
+"메모에게 묻기" = "Ask My Memos";
+"이 메모에게 시키기" = "Ask About This Memo";
 "나머지 %lld장" = "%lld more";
 "「지금」에서 내려놓습니다" = "Puts it down from Now";

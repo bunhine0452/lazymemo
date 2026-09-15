@@ -75,4 +75,4 @@
 "받은 앱의 서명이 깨져 있습니다 — 설치하지 않았습니다" = "The downloaded app's signature is broken — not installed";
 "받은 앱이 %@ 입니다 (%@ 를 기다렸습니다)" = "The downloaded app is %1$@ (expected %2$@)";
 "%@ 에 쓸 수 없습니다" = "Can't write to %@";
-"사진 %lld장" = "%lld photos";
+"그 사이 메모가 바뀌었습니다: %@" = "The memo changed in the meantime: %@";

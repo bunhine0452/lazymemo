@@ -40,3 +40,8 @@ build/
 
 # 세션 스크래치가 새어 들어온 자리 (렌더 임시 출력)
 private/
+
+# 로컬 모델 spike (spikes/) — 빌드 산출물·SwiftPM 개인 상태. 가중치는 저장소 밖(~/Library/Caches/lazymemo-models).
+spikes/*/.build/
+spikes/*/.swiftpm/
+spikes/*/Package.resolved

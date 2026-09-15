@@ -159,10 +159,31 @@ public actor MemoService {
         return try await persist(memo)
     }
 
-    /// **휴지통 이동만 한다.** 하드 삭제로 가는 공개 경로가 이 타입에 없다 (D6).
+    /// 조건부 변경 — `expectedHash` 가 지금 본문과 다르면 `MemoVault.Failure.changed`, 아무것도 안 쓴다.
+    ///
+    /// 비서가 제안한 변경은 이 길로만 들어온다: 모델이 본 글과 저장 직전의 글이 같아야
+    /// 「그 메모를 그렇게 바꾼다」는 뜻이 지켜진다. `update` 와 같은 후처리(`updated`·`tidied`)를 한다.
     @discardableResult
-    public func delete(_ id: ULID) async throws -> Memo {
-        let removed = try await vault.moveToTrash(id)
+    public func modify(
+        _ id: ULID, expectedHash: String?, now: Date = Date(), _ change: @Sendable (inout Memo) throws -> Void
+    ) async throws -> Memo {
+        let result = try await vault.modify(id, expectedHash: expectedHash) { memo in
+            try change(&memo)
+            memo.folder = MemoFolders.normalized(memo.folder)
+            memo.updated = now.truncatingSubsecond
+            memo.tidied = nil
+        }
+        try? await index.upsert(
+            result.memo, relativePath: result.relativePath, modifiedAt: result.modifiedAt
+        )
+        return result.memo
+    }
+
+    /// **휴지통 이동만 한다.** 하드 삭제로 가는 공개 경로가 이 타입에 없다 (D6).
+    /// `expectedHash` 를 주면 그 사이 바뀐 메모는 옮기지 않는다.
+    @discardableResult
+    public func delete(_ id: ULID, expectedHash: String? = nil) async throws -> Memo {
+        let removed = try await vault.moveToTrash(id, expectedHash: expectedHash)
         try? await index.remove(id)
         return removed
     }

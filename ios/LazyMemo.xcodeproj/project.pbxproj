@@ -12,6 +12,7 @@
 		4C4D000000000000000000C3 /* LazyMemoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D000000000000000000C2 /* LazyMemoCore */; };
 		4C4D00000000000000000211 /* LazyMemoPlaces in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D00000000000000000210 /* LazyMemoPlaces */; };
 		4C4D00000000000000000221 /* LazyMemoReminders in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D00000000000000000220 /* LazyMemoReminders */; };
+		4C4D00000000000000000231 /* LazyMemoAssistantUI in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D00000000000000000230 /* LazyMemoAssistantUI */; };
 		4C4D00000000000000000206 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 4C4D00000000000000000205 /* AppIcon.icns */; };
 		4C4D00000000000000000208 /* LazyMemoUI in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D00000000000000000207 /* LazyMemoUI */; };
 /* End PBXBuildFile section */
@@ -90,6 +91,7 @@
 				4C4D000000000000000000C3 /* LazyMemoCore in Frameworks */,
 				4C4D00000000000000000211 /* LazyMemoPlaces in Frameworks */,
 				4C4D00000000000000000221 /* LazyMemoReminders in Frameworks */,
+				4C4D00000000000000000231 /* LazyMemoAssistantUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -212,6 +214,7 @@
 				4C4D000000000000000000C2 /* LazyMemoCore */,
 				4C4D00000000000000000210 /* LazyMemoPlaces */,
 				4C4D00000000000000000220 /* LazyMemoReminders */,
+				4C4D00000000000000000230 /* LazyMemoAssistantUI */,
 			);
 			productName = LazyMemo;
 			productReference = 4C4D000000000000000000B2 /* LazyMemo.app */;
@@ -438,6 +441,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -499,6 +503,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -781,6 +786,10 @@
 		4C4D00000000000000000220 /* LazyMemoReminders */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = LazyMemoReminders;
+		};
+		4C4D00000000000000000230 /* LazyMemoAssistantUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LazyMemoAssistantUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

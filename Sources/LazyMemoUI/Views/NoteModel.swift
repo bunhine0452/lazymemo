@@ -67,7 +67,14 @@ final class NoteModel {
     private var thinkingTask: Task<Void, Never>?
 
     /// 이 종이를 Claude 가 다듬을 수 있는가. 없으면 조작 자체가 없다.
-    var canTidy: Bool { claude != nil && justDeleted == nil }
+    var canTidy: Bool { (claude != nil || localTidy?.isAvailable() == true) && justDeleted == nil }
+
+    /// 이 기기의 모델이 다듬는 길 — `claude` 가 없을 때(App Store 판) 쓴다. 파일을 읽으므로 먼저 내려 둔다.
+    struct LocalTidy {
+        let isAvailable: @MainActor () -> Bool
+        let run: @MainActor (ULID) async throws -> String
+    }
+    var localTidy: LocalTidy?
 
     /// 되돌리는 줄이 머무는 시간. 달력의 되돌리기와 같은 값이다 — 이보다
     /// 길면 지운 종이가 화면에 눌어붙고, 짧으면 놓친다.
@@ -310,7 +317,7 @@ final class NoteModel {
     /// 줄 더 적기에 충분한 시간이고, 그때 답을 덮어쓰면 그것은 다듬은 것이
     /// 아니라 지운 것이다. 되돌리기가 있어도 잃은 줄은 화면에서 이미 사라진 뒤다.
     func tidyWithClaude() async {
-        guard let claude, thinking == .none, justDeleted == nil else { return }
+        guard canTidy, thinking == .none else { return }
 
         await flush()
         let before = text
@@ -318,7 +325,14 @@ final class NoteModel {
 
         thinking = .working
         do {
-            let answer = try await claude.ask(ClaudePrompts.tidy, about: before)
+            let answer: String
+            if let claude {
+                answer = try await claude.ask(ClaudePrompts.tidy, about: before)
+            } else if let localTidy {
+                answer = try await localTidy.run(memo.id)
+            } else {
+                return
+            }
             guard text == before else {
                 settle(.failed(L("적는 사이에 글이 바뀌어 그대로 두었습니다")))
                 return

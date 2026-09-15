@@ -1,3 +1,4 @@
+import LazyMemoAssistantUI
 import LazyMemoCore
 import LazyMemoReminders
 import SwiftUI
@@ -22,6 +23,7 @@ struct StackView: View {
     @State private var removing: String?
     @State private var showsTutorial = false
     @State private var showsReminders = false
+    @State private var showsAssistant = false
     @State private var reminders = ReminderCenter.shared
     /// 「지금」 띠의 시계. 분이 바뀌면 다시 재고, 자정을 넘기면 「오늘」이 바뀐다.
     @State private var clock = Date()
@@ -192,6 +194,15 @@ struct StackView: View {
             MemoEditorView(store: store, id: id, reveal: reveal, listedFolders: folders.names)
         }
         .navigationDestination(isPresented: $showsTrash) { TrashView(store: store, reveal: reveal) }
+        .sheet(isPresented: $showsAssistant) {
+            NavigationStack {
+                AssistantView(model: session.assistant,
+                              memoTitle: { store.memo($0)?.title },
+                              openMemo: { id in showsAssistant = false; opened = id })
+                    .navigationTitle("메모에게 묻기")
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { showsAssistant = false } } }
+            }
+        }
         // 시트는 메모를 **살아 있는 채로** 본다 — 값을 잡아 두면 첫 누름 뒤 격자의
         // 밑줄과 시각 칩이 따라오지 않는다.
         .sheet(isPresented: Binding(get: { dating != nil }, set: { if !$0 { dating = nil } })) {
@@ -257,6 +268,10 @@ struct StackView: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button { showsAssistant = true } label: { Label("메모에게 묻기", systemImage: "sparkles") }
+                .accessibilityIdentifier("assistant-button")
+        }
         ToolbarItem(placement: .topBarTrailing) {
             Button { showsTrash = true } label: { Label("휴지통", systemImage: "trash") }
                 .accessibilityIdentifier("trash-button")

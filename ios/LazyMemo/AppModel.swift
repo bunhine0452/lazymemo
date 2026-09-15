@@ -1,4 +1,5 @@
 import Foundation
+import LazyMemoAssistantUI
 import LazyMemoCore
 import LazyMemoReminders
 import Observation
@@ -24,6 +25,8 @@ final class AppModel {
         let settings: SettingsStore
         let draft: CaptureDraftStore
         let usingCloud: Bool
+        /// 이 기기의 모델 — 묻기·시키기·오늘. 모델은 vault 밖 support 에 산다.
+        let assistant: AssistantModel
     }
 
     private(set) var phase: Phase = .opening
@@ -52,7 +55,8 @@ final class AppModel {
                 store: store,
                 settings: SettingsStore(location: resolved.paths.settings),
                 draft: CaptureDraftStore(location: resolved.paths.captureDraft),
-                usingCloud: resolved.usingCloud
+                usingCloud: resolved.usingCloud,
+                assistant: AssistantModel(service: store.service, support: resolved.paths.support)
             ))
         } catch {
             phase = .failed(String(localized: "메모 폴더를 열지 못했습니다 — \(String(describing: error))"))
@@ -64,6 +68,8 @@ final class AppModel {
     func background() {
         guard case .ready(let session) = phase else { return }
         session.draft.flush()
+        // 시스템이 곧 멈출 수 있다 — 생성을 끊고 모델을 내린다. 끝나기를 기다리지 않는다 (명세 §6).
+        Task { await session.assistant.suspend() }
     }
 
     func foreground() async {

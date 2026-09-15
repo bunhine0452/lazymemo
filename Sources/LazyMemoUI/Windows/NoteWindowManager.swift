@@ -251,6 +251,13 @@ final class NoteWindowManager {
         for controller in controllers.values { controller.model.claude = runner }
     }
 
+    /// `claude` 가 없을 때 종이의 다듬기가 가는 길 — 이 기기의 모델.
+    private var localTidy: NoteModel.LocalTidy?
+    func adoptLocalTidy(_ tidy: NoteModel.LocalTidy?) {
+        localTidy = tidy
+        for controller in controllers.values { controller.model.localTidy = tidy }
+    }
+
     /// 마지막으로 사람이 연 때. 「요즘 것」을 셀 때 `Memo.updated` 와 견준다.
     func lastOpened(_ id: ULID) -> Date? { layouts.opened(id) }
 
@@ -289,6 +296,7 @@ final class NoteWindowManager {
         // 되돌리는 줄이 스스로 물러나면 그때 창을 거둔다 (`NoteModel`).
         controller.model.onDeletionSettled = { [weak self] in self?.sync() }
         controller.model.folderNames = { [weak self] in self?.folderNames() ?? [] }
+        controller.model.localTidy = localTidy
         controllers[memo.id] = controller
         recordFrame(frame, for: memo.id)
         if recording { layouts.setHidden(false, for: memo.id) }

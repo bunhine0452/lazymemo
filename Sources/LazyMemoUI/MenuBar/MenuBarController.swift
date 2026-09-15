@@ -28,6 +28,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     let door: InboundDoor
     /// 아침에 종이를 놓는 시계. **기본은 꺼져 있다.**
     let brief: MorningBrief
+    /// 「메모에게 묻기…」 — 비서 창을 여는 길. AppDelegate 가 모델을 만든 뒤 넣는다.
+    var openAssistant: (() -> Void)?
     /// `⌥⌘L` — 지금 여기.
     private let here: HereCapture
     /// 「가면 떠오른다」. **기본은 꺼져 있다.**
@@ -309,6 +311,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         addTrashSection(to: menu)
 
         menu.addItem(.separator())
+        if openAssistant != nil {
+            menu.addItem(item(title: L("메모에게 묻기…"), action: #selector(askAssistant), key: ""))
+        }
         addUpdateLine(to: menu)
         menu.addItem(settingsItem())
         menu.addItem(item(title: L("시작하기 및 사용 안내…"), action: #selector(showWelcome), key: ""))
@@ -706,6 +711,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     private func item(title: String, action: Selector, key: String) -> NSMenuItem {
         let menuItem = NSMenuItem(title: title, action: action, keyEquivalent: key)
+    @objc private func askAssistant() { openAssistant?() }
+
         menuItem.target = self
         return menuItem
     }

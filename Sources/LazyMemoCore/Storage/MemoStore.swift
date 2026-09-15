@@ -36,7 +36,9 @@ public final class MemoStore {
     }
 
     private let paths: AppPaths
-    private let service: MemoService
+    /// 규칙의 자리. 비서의 조건부 변경(`modify`)처럼 화면 상태를 거치지 않는 길이 여기로 간다 —
+    /// 파일이 바뀌면 감시자가 이 store 를 다시 맞춘다.
+    public let service: MemoService
     private var watcher: VaultWatcher?
 
     public init(paths: AppPaths) throws {

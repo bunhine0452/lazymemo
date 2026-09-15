@@ -36,6 +36,10 @@ App Store Connect 에 붙여 넣을 글의 정본. 여기와 스토어가 다르
 >
 > Location is requested only when the user taps the pin ("here") in the composer; it reads one fix, attaches the address to that note, and stops. It is never requested at launch and never in the background.
 >
+> Notification permission is requested only when the user turns on "Notifications on this device" (iPhone: More › Reminders; Mac: Settings › Notifications…). It is off by default and never asked at launch. Reminders are local notifications built on the device — nothing is sent anywhere.
+>
+> **On-device assistant (both platforms, TestFlight preview):** "Ask my memos" answers questions from the user's own notes and can change a note (reminder time, date, folder) only after showing the change and getting a tap. It runs a small open model (Gemma 4 E2B, about 2.6 GB) entirely on the device. The model file is downloaded from Hugging Face only when the user presses "Download"; no note content is ever sent anywhere. The model can be deleted in the same screen.
+>
 > No demo account is needed. To try it: type a line such as "내일 오후 3시 치과" (or "tomorrow 3pm dentist") and the app reads the date into the calendar.
 >
 > **macOS:** the app lives in the menu bar and on the desktop — notes are small windows that stay behind other apps' windows. There is no Dock icon and no main window; press ⌥⌘N anywhere to open the composer, or use the menu bar icon (Settings › Show welcome guide shows the tour again). Calendar access is requested only when the calendar window is first opened. The app is sandboxed; the default notes folder is the iCloud container (or the app container when iCloud is off), and "Move notes folder…" uses a standard open panel with a security-scoped bookmark.

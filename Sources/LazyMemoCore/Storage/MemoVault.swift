@@ -8,11 +8,14 @@ public actor MemoVault {
     public enum Failure: Error, CustomStringConvertible {
         case notFound(ULID)
         case notInTrash(ULID)
+        /// 대조한 본문 hash 가 다르다 — 그 사이 누가 고쳤다. 아무것도 쓰지 않았다.
+        case changed(ULID)
 
         public var description: String {
             switch self {
             case .notFound(let id): L("메모를 찾을 수 없습니다: \(id.description)")
             case .notInTrash(let id): L("휴지통에 없는 메모입니다: \(id.description)")
+            case .changed(let id): L("그 사이 메모가 바뀌었습니다: \(id.description)")
             }
         }
     }
@@ -113,15 +116,32 @@ public actor MemoVault {
         )
     }
 
+    /// 읽고 대조하고 쓰기를 **한 actor 호출 안에서** 한다 — 사이에 `await` 가 없어
+    /// 다른 쓰기가 끼어들 수 없다. 밖에서 get→update 로 흉내 내면 그 사이가 열린다.
+    ///
+    /// `expectedHash` 가 있고 지금 본문의 hash 와 다르면 `Failure.changed` — 파일은 그대로다.
+    /// 같은 기기 안의 약속이다. 다른 기기의 판본은 `settleConflicts` 가 따로 정리한다.
+    @discardableResult
+    public func modify(
+        _ id: ULID, expectedHash: String?, _ change: (inout Memo) throws -> Void
+    ) throws -> SaveResult {
+        guard let location = try locate(id) else { throw Failure.notFound(id) }
+        var memo = try read(at: location, id: id)
+        if let expectedHash, memo.contentHash != expectedHash { throw Failure.changed(id) }
+        try change(&memo)
+        return try save(memo)
+    }
+
     // MARK: 삭제 — 하드 삭제로 가는 길이 없다 (D6)
 
     /// 파일을 지우지 않고 `.trash/` 로 옮긴다. 이것이 MCP 가 도달할 수 있는
     /// 삭제 경로의 전부다 (설계문서 §6).
     @discardableResult
-    public func moveToTrash(_ id: ULID, now: Date = Date()) throws -> Memo {
+    public func moveToTrash(_ id: ULID, expectedHash: String? = nil, now: Date = Date()) throws -> Memo {
         guard let location = try locate(id) else { throw Failure.notFound(id) }
 
         var memo = try read(at: location, id: id)
+        if let expectedHash, memo.contentHash != expectedHash { throw Failure.changed(id) }
         memo.deleted = now
 
         let destination = trashURL(for: id)

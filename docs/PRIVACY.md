@@ -19,6 +19,7 @@
 | Claude 연동 (맥, MCP) | 메모 본문 | Claude | `claude_desktop_config.json` 에 **직접 등록**했을 때 |
 | 종이 위 ✧ 다듬기 (맥) | 그 메모 본문 | Claude | `claude` 가 깔려 있고 **누를 때마다** |
 | 아침 브리핑 (맥) | 메모 제목과 시각 | Claude | 설정에서 **직접 켤 때만** (기본 꺼짐) |
+| 이 기기의 비서 — 묻기·시키기·오늘·다듬기 (맥·폰) | **메모는 아무것도 안 나간다** — 모델이 이 기기 안에서 읽고 답한다 | — | 모델 파일(약 2.6GB)을 **「받기」를 직접 누를 때** 한 번 Hugging Face 에서 내려받는다. 그때 나가는 것은 파일 요청뿐이다. 모델은 iCloud·백업 밖 앱 폴더에 있고 앱 안에서 지울 수 있다 |
 | 링크를 카드로 펼치기 (맥) | 주소 하나 | 그 주소 | 기본 켜짐 · 끌 수 있다 |
 | 새 판 확인 (맥) | 주소 하나 (판 번호도 안 보낸다) | GitHub | 기본 켜짐 · 끌 수 있다 |
 
@@ -73,6 +74,7 @@ By default lazymemo connects to nothing. The table below is the complete list of
 | ✧ Tidy on a note (Mac) | that memo's text | Claude | only if the `claude` CLI is installed, each time you press it |
 | Morning brief (Mac) | memo titles and times | Claude | only if you turn it on in Settings (off by default) |
 | Link cards (Mac) | one URL | that site | on by default; can be turned off |
+| On-device assistant — ask, do, today, tidy (Mac · iPhone) | **none of your memos** — the model reads and answers on this device | — | the model file (about 2.6 GB) is downloaded once from Hugging Face **when you press "Download"**; only that file request leaves. The model lives in the app folder outside iCloud and backups, and can be deleted in the app |
 | Update check (Mac) | one URL (not even the version) | GitHub | on by default; can be turned off |
 
 **Nothing comes to us.** No analytics, no trackers, no advertising identifiers, no crash reporter. The website makes no external requests either.

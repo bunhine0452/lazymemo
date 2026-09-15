@@ -59,6 +59,7 @@ struct HomeView: View {
             }
         }
         .tint(Theme.accentInk)
+        .environment(\.assistant, session.assistant)
         .sheet(item: $notified) { item in
             NavigationStack {
                 MemoEditorView(store: session.store, id: item.id, reveal: reveal, listedFolders: folders.names)

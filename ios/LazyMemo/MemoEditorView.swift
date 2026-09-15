@@ -1,3 +1,4 @@
+import LazyMemoAssistantUI
 import LazyMemoCore
 import LazyMemoPlaces
 import LazyMemoReminders
@@ -27,6 +28,8 @@ struct MemoEditorView: View {
     @State private var saveTask: Task<Void, Never>?
     @State private var datePicking = false
     @State private var recallPicking = false
+    @State private var commanding = false
+    @Environment(\.assistant) private var assistant
     @State private var folderPicking = false
     @State private var newFolder = ""
     /// 자리 카드 — 지도와 가는 길. 자리가 없는 메모에는 없다.
@@ -80,6 +83,12 @@ struct MemoEditorView: View {
         .toolbar(.hidden, for: .tabBar)
         .toolbar { if let memo { tail(memo) } }
         .toolbar {
+            if assistant != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { commanding = true } label: { Label("이 메모에게 시키기", systemImage: "sparkles") }
+                        .accessibilityIdentifier("assistant-command-button")
+                }
+            }
             // 다시 보기 — 일정은 두고 이 메모를 다시 펼칠 시각. 정해 두었으면 종이 있는 종.
             ToolbarItem(placement: .topBarTrailing) {
                 Button { recallPicking = true } label: {
@@ -93,6 +102,17 @@ struct MemoEditorView: View {
                     Button("완료") { editing = false }
                         .fontWeight(.semibold)
                         .accessibilityIdentifier("done-editing")
+                }
+            }
+        }
+        .sheet(isPresented: $commanding) {
+            if let assistant {
+                NavigationStack {
+                    AssistantView(model: assistant, selected: id,
+                                  memoTitle: { store.memo($0)?.title },
+                                  openMemo: { _ in commanding = false })
+                        .navigationTitle("이 메모에게 시키기")
+                        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { commanding = false } } }
                 }
             }
         }

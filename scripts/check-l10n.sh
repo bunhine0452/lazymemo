@@ -16,7 +16,7 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 echo "▸ 패키지 열쇠 추출"
-for TARGET in LazyMemoCore LazyMemoUI LazyMemoMCP LazyMemoReminders; do
+for TARGET in LazyMemoCore LazyMemoUI LazyMemoMCP LazyMemoReminders LazyMemoAssistantUI; do
     mkdir -p "$WORK/$TARGET"
     # 이미 지어진 파일은 다시 안 짓는다 — 손대서 전부 다시 짓게 한다.
     find "Sources/$TARGET" -name '*.swift' -exec touch {} +
@@ -66,6 +66,7 @@ def table(lproj):
 
 modules = [
     ("LazyMemoCore", f"{work}/LazyMemoCore/*.stringsdata", "/Sources/LazyMemoCore/", "Sources/LazyMemoCore/Resources"),
+    ("LazyMemoAssistantUI", f"{work}/LazyMemoAssistantUI/*.stringsdata", "/Sources/LazyMemoAssistantUI/", "Sources/LazyMemoAssistantUI/Resources"),
     ("LazyMemoUI",   f"{work}/LazyMemoUI/*.stringsdata",   "/Sources/LazyMemoUI/",   "Sources/LazyMemoUI/Resources"),
     ("LazyMemoMCP",  f"{work}/LazyMemoMCP/*.stringsdata",  "/Sources/LazyMemoMCP/",  "Sources/LazyMemoMCP/Resources"),
     ("LazyMemoReminders", f"{work}/LazyMemoReminders/*.stringsdata", "/Sources/LazyMemoReminders/", "Sources/LazyMemoReminders/Resources"),

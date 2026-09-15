@@ -336,3 +336,7 @@
 "연습 공간 · 여기에 적은 내용은 저장되지 않아요" = "Practice area · nothing typed here is saved";
 "다시 보기…" = "Revisit…";
 "알림…" = "Notifications…";
+
+/* 비서 — 이 기기의 모델 */
+"메모에게 묻기…" = "Ask My Memos…";
+"메모에게 묻기" = "Ask My Memos";

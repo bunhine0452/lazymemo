@@ -14,6 +14,9 @@ let package = Package(
         .library(name: "LazyMemoPlaces", targets: ["LazyMemoPlaces"]),
         .library(name: "LazyMemoCore", targets: ["LazyMemoCore"]),
         .library(name: "LazyMemoReminders", targets: ["LazyMemoReminders"]),
+        .library(name: "LazyMemoAssistant", targets: ["LazyMemoAssistant"]),
+        .library(name: "LazyMemoLocalLiteRT", targets: ["LazyMemoLocalLiteRT"]),
+        .library(name: "LazyMemoAssistantUI", targets: ["LazyMemoAssistantUI"]),
     ],
     targets: [
         // 진입점만. 실행 파일 타깃은 테스트에서 import 할 수 없으므로
@@ -34,7 +37,7 @@ let package = Package(
         // 앱 셸 — AppKit/SwiftUI. 도메인 로직을 두지 않는다.
         .target(
             name: "LazyMemoUI",
-            dependencies: ["LazyMemoCore", "LazyMemoPlaces", "LazyMemoReminders"],
+            dependencies: ["LazyMemoCore", "LazyMemoPlaces", "LazyMemoReminders", "LazyMemoAssistantUI"],
             path: "Sources/LazyMemoUI",
             resources: [.process("Resources")]
         ),
@@ -53,6 +56,51 @@ let package = Package(
             dependencies: ["LazyMemoCore"],
             path: "Sources/LazyMemoPlaces"
         ),
+        // 로컬 비서의 계약과 조정자 — 요청·근거·제안된 변경·provider 프로토콜 (docs/JARVIS_IMPLEMENTATION.md §3).
+        // 추론 엔진을 링크하지 않는다. 엔진 어댑터는 provider 를 구현하는 별도 타깃에 두고,
+        // Core·MCP·Share Extension 은 이 타깃조차 의존하지 않는다.
+        .target(
+            name: "LazyMemoAssistant",
+            dependencies: ["LazyMemoCore"],
+            path: "Sources/LazyMemoAssistant"
+        ),
+        // 비서 화면 — 맥과 폰이 같은 SwiftUI 를 쓴다. 모델 다운로드 패널·질문·제안 실행·되돌리기.
+        .target(
+            name: "LazyMemoAssistantUI",
+            dependencies: ["LazyMemoCore", "LazyMemoAssistant", "LazyMemoLocalLiteRT"],
+            path: "Sources/LazyMemoAssistantUI",
+            resources: [.process("Resources")]
+        ),
+        // LiteRT-LM 엔진 어댑터 — 앱 두 개만 링크한다. 확장·MCP·테스트는 링크하지 않는다.
+        .target(
+            name: "LazyMemoLocalLiteRT",
+            dependencies: ["LazyMemoAssistant", "LiteRTLM"],
+            path: "Sources/LazyMemoLocalLiteRT",
+            // 래퍼의 Conversation 이 Sendable 이 아니다 — 래퍼와 같은 모드로 컴파일한다.
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        // Google LiteRT-LM v0.16.0 의 Swift 래퍼를 그대로 들여온 것 (Sources/LiteRTLM/README.md).
+        // 바이너리는 공식 릴리스의 xcframework 를 checksum 으로 고정. 래퍼는 Swift 5 모드로 그대로 컴파일.
+        .target(
+            name: "LiteRTLM",
+            dependencies: [
+                .target(name: "CLiteRTLM", condition: .when(platforms: [.iOS])),
+                .target(name: "CLiteRTLM_mac", condition: .when(platforms: [.macOS])),
+            ],
+            path: "Sources/LiteRTLM",
+            exclude: ["LICENSE", "README.md"],
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        .binaryTarget(
+            name: "CLiteRTLM",
+            url: "https://github.com/google-ai-edge/LiteRT-LM/releases/download/v0.16.0/CLiteRTLM.xcframework.zip",
+            checksum: "4e0f683da07566ee79c143d2d58d387f77052b0e6a41562c969e5d2728fc9f4b"
+        ),
+        .binaryTarget(
+            name: "CLiteRTLM_mac",
+            url: "https://github.com/google-ai-edge/LiteRT-LM/releases/download/v0.16.0/CLiteRTLM_mac.xcframework.zip",
+            checksum: "3ae6c876abd74614b1869bfc40cb4d0b892981363564740268b1f8ac5cf895a4"
+        ),
         // 도메인·저장 계층 — AppKit 비의존. 테스트와 MCP 서버가 공유한다.
         .target(
             name: "LazyMemoCore",
@@ -68,6 +116,17 @@ let package = Package(
             name: "LazyMemoUITests",
             dependencies: ["LazyMemoUI"],
             path: "Tests/LazyMemoUITests"
+        ),
+        .testTarget(
+            name: "LazyMemoAssistantTests",
+            dependencies: ["LazyMemoAssistant"],
+            path: "Tests/LazyMemoAssistantTests"
+        ),
+        // 실모델 스위트 — LAZYMEMO_MODEL_PATH 가 있을 때만 돈다. 평소 `swift test` 에서는 건너뛴다.
+        .testTarget(
+            name: "LazyMemoLocalLiteRTTests",
+            dependencies: ["LazyMemoLocalLiteRT"],
+            path: "Tests/LazyMemoLocalLiteRTTests"
         ),
         .testTarget(
             name: "LazyMemoRemindersTests",
