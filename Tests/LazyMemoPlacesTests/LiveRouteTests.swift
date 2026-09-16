@@ -43,4 +43,29 @@ struct LiveRouteTests {
         #expect(refined.arrive <= arrive)
         #expect(refined.arrive > arrive.addingTimeInterval(-20 * 60), "너무 일찍 닿는 길이면 되재기가 헛돈 것")
     }
+
+    @Test("지하철 — 석촌고분역 → 강남역, 지하철만인 길과 갈아타는 길, 그리고 되재기")
+    func subway() async throws {
+        let origin = try #require(await PlaceLocator.locate("석촌고분역"))
+        let destination = try #require(await PlaceLocator.locate("강남역", near: origin.geo))
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Asia/Seoul")!
+        let tomorrow = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: Date()))!
+        let arrive = cal.date(bySettingHour: 18, minute: 30, second: 0, of: tomorrow)!
+
+        let finder = RouteFinder()
+        let routes = try await finder.find(from: origin, to: destination, arriveBy: arrive)
+        print("종류:", routes.map(\.kind.label).joined(separator: " · "))
+        print("되물음:", await MainActor.run { RoutePlanner.offer(routes) })
+        let subway = try #require(routes.first { $0.kind == .subway })
+        print(RouteNote.render(subway, calendar: cal))
+        #expect(subway.legs.contains { $0.mode == .subway && $0.line?.contains("호선") == true })
+        if let mixed = routes.first(where: { $0.kind == .mixed }) {
+            print("갈아타는 길 — 환승 \(mixed.transfers)회 (\(mixed.transferWords ?? "")):\n" + RouteNote.render(mixed, calendar: cal))
+        }
+        let refined = try #require(await finder.refine(subway, from: origin, to: destination, arriveBy: arrive))
+        print("되잰 것:\n" + RouteNote.render(refined, calendar: cal))
+        #expect(refined.kind == .subway)
+        #expect(refined.arrive <= arrive)
+    }
 }

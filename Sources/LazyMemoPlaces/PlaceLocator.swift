@@ -48,10 +48,18 @@ public enum PlaceLocator {
         return found
     }
 
-    /// 지도에 이름을 묻는다. 가까운 곳이 있으면 그 근처부터 — 「스타벅스」는 수천 개다.
+    /// 이름을 좌표로. 네이버 지도의 검색을 먼저, 답이 없으면 애플 지도 — 가까운 곳이 있으면 그 근처부터 (「스타벅스」는 수천 개다).
+    ///
+    /// 애플을 뒤에 두는 이유는 한국의 역 이름에 약해서다 — 「강남역」을 강남구의 한가운데로 준다 (2026-09-16 실측).
+    /// 네이버는 「강남역 2호선」의 자리를 준다. 네이버가 끊기면(캡차·모양 변경) 애플로 물러난다.
     public static func search(_ name: String, near: Coordinate?) async -> LocatedPlace? {
         let query = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return nil }
+        if let found = await NaverPlaceSearch.search(query, near: near) { return found }
+        return await appleSearch(query, near: near)
+    }
+
+    static func appleSearch(_ query: String, near: Coordinate?) async -> LocatedPlace? {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = query
         request.resultTypes = [.pointOfInterest, .address]
@@ -82,6 +90,50 @@ public enum PlaceLocator {
             break
         }
         return name.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(.init(charactersIn: ",.!~")))
+    }
+}
+
+/// 네이버 지도 웹의 **자동완성 검색** — 키 없이 이름을 자리로 (`instant-search`, 2026-09-16 실측).
+///
+/// 길찾기(`NaverWebRouter`)와 같은 부류의 문서화되지 않은 주소다. 장소(`place[]`)가 먼저, 없으면 주소(`address[]`).
+/// `x` 가 경도, `y` 가 위도이고 `coords` 는 거꾸로 위도,경도다.
+enum NaverPlaceSearch {
+    static let endpoint = "https://map.naver.com/p/api/search/instant-search"
+    static let timeout: TimeInterval = 8
+
+    static func search(_ query: String, near: Coordinate?) async -> LocatedPlace? {
+        var parts = URLComponents(string: endpoint)
+        var items: [URLQueryItem] = [.init(name: "query", value: query), .init(name: "caller", value: "pcweb"), .init(name: "lang", value: "ko")]
+        if let near { items.append(.init(name: "coords", value: "\(near.latitude),\(near.longitude)")) }
+        parts?.queryItems = items
+        guard let url = parts?.url else { return nil }
+        var request = URLRequest(url: url, timeoutInterval: timeout)
+        request.setValue(NaverWebRouter.agent, forHTTPHeaderField: "User-Agent")
+        request.setValue("https://map.naver.com/", forHTTPHeaderField: "Referer")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse).map({ (200..<300).contains($0.statusCode) }) ?? true else { return nil }
+        return parse(data)
+    }
+
+    struct Envelope: Decodable {
+        var place: [Hit]?
+        var address: [Hit]?
+    }
+    struct Hit: Decodable {
+        var title: String?
+        var x: String?
+        var y: String?
+    }
+
+    static func parse(_ data: Data) -> LocatedPlace? {
+        guard let envelope = try? JSONDecoder().decode(Envelope.self, from: data) else { return nil }
+        for hit in (envelope.place ?? []) + (envelope.address ?? []) {
+            guard let x = hit.x.flatMap(Double.init), let y = hit.y.flatMap(Double.init),
+                  let geo = Coordinate(latitude: y, longitude: x) else { continue }
+            return LocatedPlace(name: hit.title ?? geo.description, geo: geo)
+        }
+        return nil
     }
 }
 

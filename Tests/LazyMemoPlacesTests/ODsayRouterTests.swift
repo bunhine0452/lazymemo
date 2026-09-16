@@ -100,6 +100,16 @@ struct PlaceLocatorTests {
         #expect(PlaceLocator.stripped("집에서 갈게") == "집")
     }
 
+    @Test("네이버 검색의 답 — 장소가 먼저, 없으면 주소. x 가 경도다")
+    func naverSearch() {
+        let place = Data(#"{"place":[{"title":"강남역 2호선","x":"127.0276242","y":"37.4979526","ctg":"지하철,전철"}],"address":[]}"#.utf8)
+        #expect(NaverPlaceSearch.parse(place) == LocatedPlace(name: "강남역 2호선", geo: Coordinate(latitude: 37.4979526, longitude: 127.0276242)!))
+        let address = Data(#"{"place":[],"address":[{"title":"서울 송파구 송파대로 386","x":"127.110371241","y":"37.502281181"}]}"#.utf8)
+        #expect(NaverPlaceSearch.parse(address)?.name == "서울 송파구 송파대로 386")
+        #expect(NaverPlaceSearch.parse(Data(#"{"place":[],"address":[]}"#.utf8)) == nil)
+        #expect(NaverPlaceSearch.parse(Data("not json".utf8)) == nil)
+    }
+
     @Test("네이버 장소 번호와 이름표를 읽는다")
     func naver() {
         #expect(ShortMapLink.naverPlaceID(in: URL(string: "https://map.naver.com/p/entry/place/1041643501?placePath=%2Fhome")!) == "1041643501")
