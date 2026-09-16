@@ -166,7 +166,4 @@
 "잠깐만요…" = "One moment…";
 "가는 길" = "Getting there";
 "약속을 적으면 가는 길 묻기" = "Ask how to get to appointments";
-"「어디서 출발하시나요?」에 답할 때만 지도와 길찾기에 접속합니다. 묻지 않고 나가는 것은 없습니다." = "Connects to maps and routing only when you answer “Where are you leaving from?”. Nothing leaves without asking.";
-"API 키" = "API key";
-"예비 길찾기 키 (ODsay)" = "Backup routing key (ODsay)";
-"가는 길은 네이버 지도가 키 없이 답합니다. ODsay LAB(lab.odsay.com)에서 무료로 받은 키를 넣어 두면 네이버 지도가 답하지 않을 때 그것으로 버스·지하철을 찾습니다. 키는 이 기기에만 남습니다." = "Routes come from Naver Map without any key. If you paste the free key from ODsay LAB (lab.odsay.com), it finds buses and subways whenever Naver Map does not answer. The key stays on this device.";
+"「어디서 출발하시나요?」에 답할 때만 지도와 길찾기에 접속합니다. 묻지 않고 나가는 것은 없습니다. 대중교통은 네이버 지도, 택시는 애플 지도의 어림입니다." = "Connects to maps and routing only when you answer “Where are you leaving from?”. Nothing leaves without asking. Transit comes from Naver Map, the taxi is an Apple Maps estimate.";

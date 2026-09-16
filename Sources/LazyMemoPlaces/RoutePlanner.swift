@@ -29,13 +29,13 @@ public final class RoutePlanner {
     /// 바깥에 묻는 일들 — 시험은 가짜를 끼운다.
     public struct Services: Sendable {
         public var locate: @Sendable (String, Coordinate?) async -> LocatedPlace?
-        public var find: @Sendable (LocatedPlace, LocatedPlace, Date, String?) async throws -> [TransitRoute]
+        public var find: @Sendable (LocatedPlace, LocatedPlace, Date) async throws -> [TransitRoute]
         /// 고른 길을 약속에 맞춰 되잰다. nil 이면 고른 그대로.
         public var refine: @Sendable (TransitRoute, LocatedPlace, LocatedPlace, Date) async -> TransitRoute?
 
         public init(
             locate: @escaping @Sendable (String, Coordinate?) async -> LocatedPlace?,
-            find: @escaping @Sendable (LocatedPlace, LocatedPlace, Date, String?) async throws -> [TransitRoute],
+            find: @escaping @Sendable (LocatedPlace, LocatedPlace, Date) async throws -> [TransitRoute],
             refine: @escaping @Sendable (TransitRoute, LocatedPlace, LocatedPlace, Date) async -> TransitRoute? = { _, _, _, _ in nil }
         ) {
             self.locate = locate
@@ -45,8 +45,8 @@ public final class RoutePlanner {
 
         public static let live = Services(
             locate: { text, near in await PlaceLocator.locate(text, near: near) },
-            find: { origin, destination, arriveBy, key in
-                try await RouteFinder(transitKey: key).find(from: origin, to: destination, arriveBy: arriveBy)
+            find: { origin, destination, arriveBy in
+                try await RouteFinder().find(from: origin, to: destination, arriveBy: arriveBy)
             },
             refine: { route, origin, destination, arriveBy in
                 await RouteFinder().refine(route, from: origin, to: destination, arriveBy: arriveBy)
@@ -77,7 +77,7 @@ public final class RoutePlanner {
 
     private let store: MemoStore
     private let services: Services
-    /// 설정 — 물을지, ODsay 키. 매번 읽는다: 설정을 바꾼 뒤 다음 약속부터 바로 따르게.
+    /// 설정 — 물을지. 매번 읽는다: 설정을 바꾼 뒤 다음 약속부터 바로 따르게.
     private let settings: @MainActor () -> Settings
     private var memo: Memo?
     private var destination: Task<LocatedPlace?, Never>?
@@ -255,10 +255,9 @@ public final class RoutePlanner {
             finish(notice: "약속 자리를 지도에서 못 찾았어요 — 메모에 @자리 이름이나 지도 링크를 적어 주세요")
             return
         }
-        let key = settings().transitKey
         let routes: [TransitRoute]
         do {
-            routes = try await services.find(place, destination, at, key)
+            routes = try await services.find(place, destination, at)
         } catch let failure as TransitFailure {
             guard self.session == session, step == .searching else { return }
             switch failure {

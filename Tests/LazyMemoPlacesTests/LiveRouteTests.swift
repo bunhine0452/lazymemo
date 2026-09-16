@@ -4,7 +4,6 @@ import LazyMemoCore
 @testable import LazyMemoPlaces
 
 /// 진짜 접속 — `LAZYMEMO_LIVE_ROUTES=1` 일 때만 돈다. 평소 `swift test` 는 건너뛴다.
-/// ODsay 는 `LAZYMEMO_ODSAY_KEY` 가 있을 때만.
 @Suite("가는 길 — 실제 접속", .enabled(if: ProcessInfo.processInfo.environment["LAZYMEMO_LIVE_ROUTES"] == "1"))
 struct LiveRouteTests {
     @Test("네이버 짧은 링크 → 이름과 좌표")
@@ -30,7 +29,7 @@ struct LiveRouteTests {
         let tomorrow = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: Date()))!
         let arrive = cal.date(bySettingHour: 18, minute: 30, second: 0, of: tomorrow)!
 
-        let finder = RouteFinder(transitKey: ProcessInfo.processInfo.environment["LAZYMEMO_ODSAY_KEY"])
+        let finder = RouteFinder()
         let routes = try await finder.find(from: origin, to: destination, arriveBy: arrive)
         for route in routes.prefix(4) { print(RouteNote.render(route, calendar: cal)) }
         #expect(routes.contains { $0.kind == .taxi })

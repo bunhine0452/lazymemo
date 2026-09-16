@@ -384,13 +384,6 @@
 "↵ 답하기 · esc 길은 그만" = "↵ answer · esc skips the route";
 "약속을 적으면 가는 길 묻기" = "Ask how to get to appointments";
 "「어디서 출발하시나요?」에 답할 때만 지도와 길찾기에 접속합니다" = "Connects to maps and routing only when you answer “Where are you leaving from?”";
-"예비 길찾기 키 (ODsay)…" = "Backup routing key (ODsay)…";
-"넣어 두었습니다 — 네이버 지도가 답하지 않을 때 씁니다" = "Saved — used when Naver Map does not answer";
-"없어도 됩니다 — 네이버 지도가 답하지 않을 때만 · lab.odsay.com 에서 무료로 받습니다" = "Optional — only when Naver Map does not answer · free at lab.odsay.com";
-"예비 길찾기 키 (ODsay)" = "Backup routing key (ODsay)";
-"가는 길은 네이버 지도가 키 없이 답합니다. ODsay LAB(lab.odsay.com)에서 무료로 받은 API 키를 넣어 두면 네이버 지도가 답하지 않을 때 그것으로 버스·지하철을 찾습니다. 키는 이 맥에만 남고 iCloud 로 건너가지 않습니다." = "Routes come from Naver Map without any key. If you paste the free API key from ODsay LAB (lab.odsay.com), it finds buses and subways whenever Naver Map does not answer. The key stays on this Mac and never syncs through iCloud.";
-"API 키" = "API key";
-"저장" = "Save";
 "밥약속\nhttps://naver.me/GFB1MHiW" = "Dinner\nhttps://naver.me/GFB1MHiW";
 "밥약속 · 9월 16일 (수) 18:30 · 투파인드피터 잠실점" = "Dinner · Wed, Sep 16 18:30 · To Find Peter Jamsil";
 "경로 5개를 찾았어요 — 버스 21분 · 지하철 19분 (환승) · 택시 12분 (약 9,800원). 무엇으로 갈까요?" = "Found 5 routes — bus 21 min · subway 19 min (transfer) · taxi 12 min (about ₩9,800). How would you like to go?";

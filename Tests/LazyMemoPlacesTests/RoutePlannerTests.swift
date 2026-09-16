@@ -53,12 +53,12 @@ struct RoutePlannerTests {
                 if text.hasPrefix("https://naver.me/") { return LocatedPlace(name: "투파인드피터 잠실점", geo: seoul) }
                 return LocatedPlace(name: text, geo: sokchon)
             },
-            find: { _, _, _, _ in routes }
+            find: { _, _, _ in routes }
         )
     }
 
-    private func planner(_ store: MemoStore, routes: [TransitRoute], asks: Bool = true, key: String? = "k", locateFails: Bool = false) -> RoutePlanner {
-        let planner = RoutePlanner(store: store, settings: { Settings(asksRoutes: asks, transitKey: key) },
+    private func planner(_ store: MemoStore, routes: [TransitRoute], asks: Bool = true, locateFails: Bool = false) -> RoutePlanner {
+        let planner = RoutePlanner(store: store, settings: { Settings(asksRoutes: asks) },
                                    services: services(routes: routes, locateFails: locateFails))
         planner.now = { [now] in now }
         return planner
@@ -175,7 +175,7 @@ struct RoutePlannerTests {
         let apple = [
             TransitRoute(origin: "a", destination: "b", minutes: 12, arrive: appointment, legs: [.init(mode: .taxi, minutes: 12, fare: 9800, distance: 6000)]),
         ]
-        let planner = planner(store, routes: apple, key: nil)
+        let planner = planner(store, routes: apple)
         planner.begin(memo)
         planner.reply("석촌고분역")
         await settle(planner) { planner.step == .choosing }

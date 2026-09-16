@@ -105,10 +105,6 @@ public struct Settings: Codable, Sendable, Equatable {
     /// 나가는 것은 없다. 매번 「됐어」로 넘기는 사람은 여기서 끈다.
     public var asksRoutes: Bool?
 
-    /// ODsay(대중교통 길찾기) API 키. 있으면 버스 번호·지하철역·환승까지 잰다; 없으면 애플 지도의
-    /// 소요 시간만 안다. **이 기기의 값이다** — iCloud 로 건너가지 않는다.
-    public var transitKey: String?
-
     public init(
         hotkeyKeyCode: UInt32? = nil,
         hotkeyModifiers: UInt32? = nil,
@@ -125,8 +121,7 @@ public struct Settings: Codable, Sendable, Equatable {
         checksForUpdates: Bool? = nil,
         greeted: Bool? = nil,
         folders: [String]? = nil,
-        asksRoutes: Bool? = nil,
-        transitKey: String? = nil
+        asksRoutes: Bool? = nil
     ) {
         self.hotkeyKeyCode = hotkeyKeyCode
         self.hotkeyModifiers = hotkeyModifiers
@@ -144,7 +139,6 @@ public struct Settings: Codable, Sendable, Equatable {
         self.greeted = greeted
         self.folders = folders
         self.asksRoutes = asksRoutes
-        self.transitKey = transitKey
     }
 
     public static let `default` = Settings()

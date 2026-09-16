@@ -10,7 +10,7 @@ public struct TransitRoute: Sendable, Equatable {
     /// 한 구간의 탈것.
     public enum Mode: String, Sendable, CaseIterable {
         case walk, bus, subway, taxi
-        /// 애플 지도가 「대중교통 N분」만 알려 준 것 — 구간이 없다. ODsay 키가 없을 때의 길이다.
+        /// 애플 지도가 「대중교통 N분」만 알려 준 것 — 구간이 없다. 한국에서는 안 나온다.
         case transit
     }
 
@@ -61,7 +61,7 @@ public struct TransitRoute: Sendable, Equatable {
     /// 총 요금(원). 모르면 nil.
     public var fare: Int?
     public var legs: [Leg]
-    /// 누가 잰 길인가(「naver」·「odsay」·「apple」). 파일에는 적지 않는다 — 다시 재 볼 때만 쓴다.
+    /// 누가 잰 길인가(「naver」·「apple」). 파일에는 적지 않는다 — 다시 재 볼 때만 쓴다.
     public var provider: String?
 
     public init(origin: String, destination: String, minutes: Int, arrive: Date, fare: Int? = nil, legs: [Leg], provider: String? = nil) {

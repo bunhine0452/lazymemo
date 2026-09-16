@@ -126,13 +126,18 @@ final class DemoTests: XCTestCase {
         pause(0.5)
         app.buttons["닫기"].firstMatch.tap()
         pause(0.5)
+        // 키보드를 먼저 올려 둔다 — 시뮬레이터는 하드웨어 키보드가 물려 있으면 글쇠판 대신 「자동 완성」 풍선만 띄운다
+        // (첫 영상에 찍혔다). 한 글자 쳤다 지우면 글쇠판이 오르고 풍선은 사라진다.
         capture.tap()
-        pause(0.5)
+        capture.typeText("ㅁ")
+        pause(0.3)
+        capture.typeText(XCUIKeyboardKey.delete.rawValue)
+        _ = app.keyboards.firstMatch.waitForExistence(timeout: 3)
+        pause(1.5)
         signal("ready")
         pause(1.0)
 
         // 1. 지도 링크와 약속 시각을 한 줄에 — 링크는 붙여 넣은 것처럼 한 번에, 나머지는 치듯이.
-        capture.tap()
         for character in "금요일 저녁 6시반 밥약속" {
             capture.typeText(String(character))
             pause(0.07)
