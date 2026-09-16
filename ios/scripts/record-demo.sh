@@ -51,7 +51,17 @@ TEST_RUNNER_LAZYMEMO_DEMO="$MODE" TEST_RUNNER_LAZYMEMO_DEMO_SIGNAL="$WORK" xcode
 TEST_PID=$!
 
 # 시험이 배너를 청하면 보낸다 — `push` 파일의 첫 줄이 메모 id, 둘째·셋째 줄이 있으면 제목과 본문.
+# 주행이 끝났는데(`done`) xcodebuild 가 90초 넘게 안 끝나면 끊는다 — 결과 묶음을 마무리하다 멈추는 일이 있다
+# (2026-09-16, 8분을 매달렸다). 주행은 이미 끝났으니 녹화는 살아 있다.
+DONE_AT=""
+FORCED=0
 while kill -0 "$TEST_PID" 2>/dev/null; do
+    if [[ -z "$DONE_AT" && -f "$WORK/done" ]]; then DONE_AT="$(date +%s)"; fi
+    if [[ -n "$DONE_AT" && $(( $(date +%s) - DONE_AT )) -gt 90 ]]; then
+        echo "▸ 주행은 끝났는데 xcodebuild 가 안 끝난다 — 끊는다"
+        kill -INT "$TEST_PID" 2>/dev/null; FORCED=1
+        break
+    fi
     if [[ -f "$WORK/push" ]]; then
         ID="$(sed -n 1p "$WORK/push")"
         TITLE="$(sed -n 2p "$WORK/push")"; TITLE="${TITLE:-치과 예약}"
@@ -65,7 +75,9 @@ JSON
     fi
     sleep 0.3
 done
-wait "$TEST_PID" || { echo "✗ 주행 실패"; grep -E "error:|failed" "$WORK/xcodebuild.log" | sort -u | head -20; kill -INT "$REC_PID" 2>/dev/null; exit 1; }
+if ! wait "$TEST_PID" && [[ "$FORCED" != 1 || ! $(grep -c "' passed (" "$WORK/xcodebuild.log") -gt 0 ]]; then
+    echo "✗ 주행 실패"; grep -E "error:|failed" "$WORK/xcodebuild.log" | sort -u | head -20; kill -INT "$REC_PID" 2>/dev/null; exit 1
+fi
 sleep 0.6
 kill -INT "$REC_PID"
 wait "$REC_PID" 2>/dev/null || true
