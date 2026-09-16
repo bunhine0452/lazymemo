@@ -16,6 +16,11 @@
 		4C4D00000000000000000241 /* LazyMemoSpotlight in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D00000000000000000240 /* LazyMemoSpotlight */; };
 		4C4D00000000000000000206 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 4C4D00000000000000000205 /* AppIcon.icns */; };
 		4C4D00000000000000000208 /* LazyMemoUI in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D00000000000000000207 /* LazyMemoUI */; };
+		4C4D0000000000000000030A /* LazyMemoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D00000000000000000309 /* LazyMemoCore */; };
+		4C4D0000000000000000030C /* LazyMemoWidgetsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D0000000000000000030B /* LazyMemoWidgetsCore */; };
+		4C4D00000000000000000310 /* LazyMemoWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4C4D00000000000000000302 /* LazyMemoWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		4C4D00000000000000000311 /* LazyMemoWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4C4D00000000000000000302 /* LazyMemoWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		4C4D00000000000000000318 /* LazyMemoWidgetsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D00000000000000000317 /* LazyMemoWidgetsCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -26,6 +31,18 @@
 			dstSubfolderSpec = 13;
 			files = (
 				4C4D000000000000000000F5 /* LazyMemoShare.appex in Embed Foundation Extensions */,
+				4C4D00000000000000000310 /* LazyMemoWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4C4D00000000000000000312 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				4C4D00000000000000000311 /* LazyMemoWidgets.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -44,6 +61,10 @@
 		4C4D00000000000000000203 /* Mac-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Mac-Info.plist"; sourceTree = "<group>"; };
 		4C4D00000000000000000204 /* LazyMemo-macOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "LazyMemo-macOS.entitlements"; sourceTree = "<group>"; };
 		4C4D00000000000000000205 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = AppIcon.icns; path = ../../Resources/AppIcon.icns; sourceTree = "<group>"; };
+		4C4D00000000000000000302 /* LazyMemoWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LazyMemoWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C4D00000000000000000303 /* Widgets-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Widgets-Info.plist"; sourceTree = "<group>"; };
+		4C4D00000000000000000304 /* LazyMemoWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LazyMemoWidgets.entitlements; sourceTree = "<group>"; };
+		4C4D00000000000000000305 /* LazyMemoWidgets-macOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "LazyMemoWidgets-macOS.entitlements"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -65,6 +86,11 @@
 		4C4D00000000000000000201 /* LazyMemoMac */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = LazyMemoMac;
+			sourceTree = "<group>";
+		};
+		4C4D00000000000000000301 /* LazyMemoWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = LazyMemoWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -94,6 +120,7 @@
 				4C4D00000000000000000221 /* LazyMemoReminders in Frameworks */,
 				4C4D00000000000000000231 /* LazyMemoAssistantUI in Frameworks */,
 				4C4D00000000000000000241 /* LazyMemoSpotlight in Frameworks */,
+				4C4D00000000000000000318 /* LazyMemoWidgetsCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -102,6 +129,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				4C4D00000000000000000208 /* LazyMemoUI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4C4D00000000000000000307 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C4D0000000000000000030A /* LazyMemoCore in Frameworks */,
+				4C4D0000000000000000030C /* LazyMemoWidgetsCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -115,6 +151,7 @@
 				4C4D000000000000000000E4 /* LazyMemoUITests */,
 				4C4D000000000000000000F1 /* LazyMemoShare */,
 				4C4D00000000000000000201 /* LazyMemoMac */,
+				4C4D00000000000000000301 /* LazyMemoWidgets */,
 				4C4D000000000000000000A5 /* Config */,
 				4C4D000000000000000000A3 /* Products */,
 			);
@@ -127,6 +164,7 @@
 				4C4D000000000000000000E2 /* LazyMemoUITests.xctest */,
 				4C4D000000000000000000F2 /* LazyMemoShare.appex */,
 				4C4D00000000000000000202 /* LazyMemo.app */,
+				4C4D00000000000000000302 /* LazyMemoWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -141,6 +179,9 @@
 				4C4D00000000000000000203 /* Mac-Info.plist */,
 				4C4D00000000000000000204 /* LazyMemo-macOS.entitlements */,
 				4C4D00000000000000000205 /* AppIcon.icns */,
+				4C4D00000000000000000303 /* Widgets-Info.plist */,
+				4C4D00000000000000000304 /* LazyMemoWidgets.entitlements */,
+				4C4D00000000000000000305 /* LazyMemoWidgets-macOS.entitlements */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -148,6 +189,30 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		4C4D00000000000000000300 /* LazyMemoWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4C4D0000000000000000030F /* Build configuration list for PBXNativeTarget "LazyMemoWidgets" */;
+			buildPhases = (
+				4C4D00000000000000000306 /* Sources */,
+				4C4D00000000000000000307 /* Frameworks */,
+				4C4D00000000000000000308 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				4C4D00000000000000000301 /* LazyMemoWidgets */,
+			);
+			name = LazyMemoWidgets;
+			packageProductDependencies = (
+				4C4D00000000000000000309 /* LazyMemoCore */,
+				4C4D0000000000000000030B /* LazyMemoWidgetsCore */,
+			);
+			productName = LazyMemoWidgets;
+			productReference = 4C4D00000000000000000302 /* LazyMemoWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		4C4D000000000000000000F0 /* LazyMemoShare */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 4C4D000000000000000000FC /* Build configuration list for PBXNativeTarget "LazyMemoShare" */;
@@ -207,6 +272,7 @@
 			);
 			dependencies = (
 				4C4D000000000000000000FB /* PBXTargetDependency */,
+				4C4D00000000000000000314 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				4C4D000000000000000000A4 /* LazyMemo */,
@@ -218,6 +284,7 @@
 				4C4D00000000000000000220 /* LazyMemoReminders */,
 				4C4D00000000000000000230 /* LazyMemoAssistantUI */,
 				4C4D00000000000000000240 /* LazyMemoSpotlight */,
+				4C4D00000000000000000317 /* LazyMemoWidgetsCore */,
 			);
 			productName = LazyMemo;
 			productReference = 4C4D000000000000000000B2 /* LazyMemo.app */;
@@ -230,10 +297,12 @@
 				4C4D00000000000000000209 /* Sources */,
 				4C4D0000000000000000020A /* Frameworks */,
 				4C4D0000000000000000020B /* Resources */,
+				4C4D00000000000000000312 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				4C4D00000000000000000316 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				4C4D00000000000000000201 /* LazyMemoMac */,
@@ -269,6 +338,9 @@
 					4C4D0000000000000000020C = {
 						CreatedOnToolsVersion = 26.0;
 					};
+					4C4D00000000000000000300 = {
+						CreatedOnToolsVersion = 26.0;
+					};
 				};
 			};
 			buildConfigurationList = 4C4D000000000000000000D1 /* Build configuration list for PBXProject "LazyMemo" */;
@@ -293,6 +365,7 @@
 				4C4D000000000000000000E1 /* LazyMemoUITests */,
 				4C4D000000000000000000F0 /* LazyMemoShare */,
 				4C4D0000000000000000020C /* LazyMemo-macOS */,
+				4C4D00000000000000000300 /* LazyMemoWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -327,6 +400,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4C4D00000000000000000308 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -358,6 +438,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4C4D00000000000000000306 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXContainerItemProxy section */
@@ -375,6 +462,20 @@
 			remoteGlobalIDString = 4C4D000000000000000000B1;
 			remoteInfo = "LazyMemo-iOS";
 		};
+		4C4D00000000000000000313 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4C4D000000000000000000A1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4C4D00000000000000000300;
+			remoteInfo = LazyMemoWidgets;
+		};
+		4C4D00000000000000000315 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4C4D000000000000000000A1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4C4D00000000000000000300;
+			remoteInfo = LazyMemoWidgets;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXTargetDependency section */
@@ -387,6 +488,16 @@
 			isa = PBXTargetDependency;
 			target = 4C4D000000000000000000B1 /* LazyMemo-iOS */;
 			targetProxy = 4C4D000000000000000000EA /* PBXContainerItemProxy */;
+		};
+		4C4D00000000000000000314 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4C4D00000000000000000300 /* LazyMemoWidgets */;
+			targetProxy = 4C4D00000000000000000313 /* PBXContainerItemProxy */;
+		};
+		4C4D00000000000000000316 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4C4D00000000000000000300 /* LazyMemoWidgets */;
+			targetProxy = 4C4D00000000000000000315 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -712,6 +823,98 @@
 			};
 			name = Release;
 		};
+		4C4D0000000000000000030D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+					"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = Config/LazyMemoWidgets.entitlements;
+					"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Config/LazyMemoWidgets.entitlements;
+					"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "Config/LazyMemoWidgets-macOS.entitlements";
+					CODE_SIGN_STYLE = Automatic;
+					CURRENT_PROJECT_VERSION = 1;
+					DEVELOPMENT_TEAM = BP57Z7L498;
+					"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
+					GENERATE_INFOPLIST_FILE = YES;
+					INFOPLIST_FILE = "Config/Widgets-Info.plist";
+					INFOPLIST_KEY_CFBundleDisplayName = lazymemo;
+					INFOPLIST_KEY_NSHumanReadableCopyright = "MIT License. Copyright © 2026 Kim Hyunbin.";
+					IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+					"LD_RUNPATH_SEARCH_PATHS[sdk=iphoneos*]" = (
+						"$(inherited)",
+						"@executable_path/Frameworks",
+						"@executable_path/../../Frameworks",
+					);
+					"LD_RUNPATH_SEARCH_PATHS[sdk=iphonesimulator*]" = (
+						"$(inherited)",
+						"@executable_path/Frameworks",
+						"@executable_path/../../Frameworks",
+					);
+					"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+						"$(inherited)",
+						"@executable_path/../Frameworks",
+						"@executable_path/../../../../Frameworks",
+					);
+					MACOSX_DEPLOYMENT_TARGET = 26.0;
+					"MARKETING_VERSION[sdk=iphoneos*]" = 0.1.0;
+					"MARKETING_VERSION[sdk=iphonesimulator*]" = 0.1.0;
+					"MARKETING_VERSION[sdk=macosx*]" = 0.4.0;
+					PRODUCT_BUNDLE_IDENTIFIER = io.github.bunhine0452.lazymemo.widgets;
+					PRODUCT_NAME = "$(TARGET_NAME)";
+					SDKROOT = auto;
+					SKIP_INSTALL = YES;
+					SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+					SUPPORTS_MACCATALYST = NO;
+					SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+					SWIFT_EMIT_LOC_STRINGS = YES;
+					TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		4C4D0000000000000000030E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+					"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = Config/LazyMemoWidgets.entitlements;
+					"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Config/LazyMemoWidgets.entitlements;
+					"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "Config/LazyMemoWidgets-macOS.entitlements";
+					CODE_SIGN_STYLE = Automatic;
+					CURRENT_PROJECT_VERSION = 1;
+					DEVELOPMENT_TEAM = BP57Z7L498;
+					"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
+					GENERATE_INFOPLIST_FILE = YES;
+					INFOPLIST_FILE = "Config/Widgets-Info.plist";
+					INFOPLIST_KEY_CFBundleDisplayName = lazymemo;
+					INFOPLIST_KEY_NSHumanReadableCopyright = "MIT License. Copyright © 2026 Kim Hyunbin.";
+					IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+					"LD_RUNPATH_SEARCH_PATHS[sdk=iphoneos*]" = (
+						"$(inherited)",
+						"@executable_path/Frameworks",
+						"@executable_path/../../Frameworks",
+					);
+					"LD_RUNPATH_SEARCH_PATHS[sdk=iphonesimulator*]" = (
+						"$(inherited)",
+						"@executable_path/Frameworks",
+						"@executable_path/../../Frameworks",
+					);
+					"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+						"$(inherited)",
+						"@executable_path/../Frameworks",
+						"@executable_path/../../../../Frameworks",
+					);
+					MACOSX_DEPLOYMENT_TARGET = 26.0;
+					"MARKETING_VERSION[sdk=iphoneos*]" = 0.1.0;
+					"MARKETING_VERSION[sdk=iphonesimulator*]" = 0.1.0;
+					"MARKETING_VERSION[sdk=macosx*]" = 0.4.0;
+					PRODUCT_BUNDLE_IDENTIFIER = io.github.bunhine0452.lazymemo.widgets;
+					PRODUCT_NAME = "$(TARGET_NAME)";
+					SDKROOT = auto;
+					SKIP_INSTALL = YES;
+					SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+					SUPPORTS_MACCATALYST = NO;
+					SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+					SWIFT_EMIT_LOC_STRINGS = YES;
+					TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -760,6 +963,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		4C4D0000000000000000030F /* Build configuration list for PBXNativeTarget "LazyMemoWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4C4D0000000000000000030D /* Debug */,
+				4C4D0000000000000000030E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -797,6 +1009,18 @@
 		4C4D00000000000000000240 /* LazyMemoSpotlight */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = LazyMemoSpotlight;
+		};
+		4C4D00000000000000000309 /* LazyMemoCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LazyMemoCore;
+		};
+		4C4D0000000000000000030B /* LazyMemoWidgetsCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LazyMemoWidgetsCore;
+		};
+		4C4D00000000000000000317 /* LazyMemoWidgetsCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LazyMemoWidgetsCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

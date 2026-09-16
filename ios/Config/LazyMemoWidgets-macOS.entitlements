@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 맥 App Store 판의 위젯 — 확장도 샌드박스가 필수다. 하는 일은 iCloud 컨테이너의
+	     메모를 읽는 것뿐이라 그 셋만 (LazyMemo-macOS.entitlements 의 부분집합). -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.io.github.bunhine0452.lazymemo</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudDocuments</string>
+	</array>
+	<key>com.apple.developer.ubiquity-container-identifiers</key>
+	<array>
+		<string>iCloud.io.github.bunhine0452.lazymemo</string>
+	</array>
+</dict>
+</plist>

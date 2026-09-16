@@ -9,6 +9,21 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 
+	<!-- 위젯이 두드리는 문 — lazymemo://memo/<id> 는 그 메모, lazymemo://write 는 펜.
+	     맥의 lazymemo://add?text=… 와 같은 스킴이라 단축어의 그 주소도 여기서 받는다
+	     (AppModel.open). -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>io.github.bunhine0452.lazymemo</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>lazymemo</string>
+			</array>
+		</dict>
+	</array>
+
 	<!-- 자리 카드의 「가는 길」— 카카오맵·네이버 지도가 깔려 있는지 물어보려면 여기
 	     적어 둬야 한다 (canOpenURL). 깔린 앱만 단추로 선다. -->
 	<key>LSApplicationQueriesSchemes</key>

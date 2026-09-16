@@ -2,6 +2,7 @@ import LazyMemoAssistant
 import LazyMemoAssistantUI
 import LazyMemoCore
 import LazyMemoReminders
+import LazyMemoWidgetsCore
 import SwiftUI
 
 /// 목록 — 위에서 아래로, 고정 → 최근순 (MOBILE_DESIGN §4). 큰 제목 「메모」,

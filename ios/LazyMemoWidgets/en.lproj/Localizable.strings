@@ -1,0 +1,42 @@
+/* English — Korean source strings are the keys (see Sources/LazyMemoCore/Words.swift) */
+
+/* 위젯 이름과 설명 — 갤러리 */
+"지금" = "Now";
+"오늘 다시 볼 것·오늘 일정·고정한 메모 — 앱의 「지금」 그대로." = "Today's revisits, today's events and pinned notes — the app's Now band as it is.";
+"다음 약속" = "Next appointment";
+"다음 약속의 시각. 가는 길을 적어 두었으면 출발 시각도." = "When your next appointment is. With a route written down, when to leave.";
+"적기" = "Write";
+"누르면 펜이 올라와요." = "Tap to bring up the pen.";
+
+/* 「지금」 */
+"다시 보기 · %@" = "Revisit · %@";
+"다시 보기 · %@ 지남" = "Revisit · %@ passed";
+"다시 보기" = "Revisit";
+"오늘 일정 · %@" = "Today · %@";
+"오늘 일정 · %@ 지남" = "Today · %@ passed";
+"오늘 일정" = "Today";
+"고정" = "Pinned";
+"외 %lld장" = "and %lld more";
+"다음" = "Next";
+"펼칠 것이 없어요" = "Nothing to show";
+"적어 두면 여기 올라와요" = "Notes you write show up here";
+"지금 펼칠 것이 없어요" = "Nothing to show right now";
+"오늘" = "Today";
+"내일" = "Tomorrow";
+
+/* 다음 약속 */
+"약속이 없어요" = "No appointments";
+"시각을 적은 메모가 여기 서요" = "A note with a time stands here";
+"%@ 출발" = "Leave at %@";
+"%@ 출발 · %@" = "Leave at %1$@ · %2$@";
+"%@ 뒤" = "in %@";
+
+/* 적기 */
+"누르면 펜이 올라와요" = "Tap to bring up the pen";
+"lazymemo 에 적기" = "Write in lazymemo";
+
+/* 갤러리의 견본 — 진짜 메모가 아니다 */
+"치과 예약 — 강남역 3번 출구" = "Dentist — Gangnam station, exit 3";
+"설계 문서 다시 읽기" = "Re-read the design doc";
+"장보기 — 우유·계란·두부" = "Groceries — milk, eggs, tofu";
+"주간 회의" = "Weekly meeting";

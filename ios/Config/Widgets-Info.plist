@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 홈 화면·잠금 화면·알림 센터의 위젯 (ios/LazyMemoWidgets). 아이폰과 맥 스토어 판이
+	     같은 확장 하나를 품는다 — 나머지 키는 빌드 설정(INFOPLIST_KEY_*)이 만든다. -->
+	<key>NSExtension</key>
+	<dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.widgetkit-extension</string>
+	</dict>
+</dict>
+</plist>

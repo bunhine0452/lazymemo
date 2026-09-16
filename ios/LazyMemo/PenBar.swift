@@ -19,6 +19,8 @@ struct PenBar: View {
 
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
     @FocusState private var focused: Bool
+    /// 위젯의 「적기」— 앱이 이 주소로 깨어났거나 떠 있는 채 눌렸거나.
+    @State private var links = AppLinks.shared
 
     var body: some View {
         Group {
@@ -44,6 +46,14 @@ struct PenBar: View {
                 try? await Task.sleep(for: .milliseconds(50))
                 focused = true
             }
+        }
+        // 위젯의 「적기」— 펜이 서 있으면 바로, 아직 없었으면 서는 순간(`initial`) 받아 간다.
+        // 받아 가면 비운다: 탭을 옮겨 펜이 다시 서도 두 번 오르지 않는다.
+        .onChange(of: links.pendingWrite, initial: true) { _, pending in
+            guard pending, links.takeWrite() else { return }
+            // 첫 실행의 안내가 떠 있으면 그것이 닫힐 때 펜이 오른다 (`releaseLaunchFocus`).
+            guard !pen.holdsLaunchFocus else { return }
+            pen.requestFocus()
         }
     }
 
