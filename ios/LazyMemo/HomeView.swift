@@ -1,5 +1,6 @@
 import LazyMemoCore
 import LazyMemoReminders
+import LazyMemoSpotlight
 import SwiftUI
 
 /// 탭 둘(메모·달력)과 그 위의 펜 (MOBILE_DESIGN §2).
@@ -19,6 +20,7 @@ struct HomeView: View {
     @State private var here = HereFix()
     @State private var tab: Tab = .memos
     @State private var reminders = ReminderCenter.shared
+    @State private var spotlight = SpotlightCenter.shared
     /// 알림을 눌러 열 메모. 시트로 띄운다 — 어느 탭에 있든, 무엇을 보고 있든 같은 길.
     @State private var notified: NotifiedMemo?
     /// 첫 실행의 안내. 본 뒤로는 More 메뉴의 「사용법」으로만.
@@ -74,6 +76,13 @@ struct HomeView: View {
             showsTutorial = false
             notified = NotifiedMemo(id: id)
             reminders.opened = nil
+        }
+        // Spotlight 에서 눌러 온 것도 같은 시트로 연다 — 어디서 왔든 「그 메모」다.
+        .onChange(of: spotlight.opened, initial: true) { _, id in
+            guard let id else { return }
+            showsTutorial = false
+            notified = NotifiedMemo(id: id)
+            spotlight.opened = nil
         }
         // 남기면 손끝에 한 번 — 글 칸이 비는 것 말고도 「됐다」는 신호가 있어야 한다.
         .sensoryFeedback(.success, trigger: pen.lastLeft) { _, new in new != nil }

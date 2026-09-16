@@ -3,6 +3,7 @@ import LazyMemoAssistant
 import LazyMemoAssistantUI
 import LazyMemoCore
 import LazyMemoReminders
+import LazyMemoSpotlight
 
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -14,6 +15,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var dueClock: DueClock?
     /// 앱이 뜨기 전에 두드린 주소. 문이 열리면 그때 들여보낸다.
     private var pendingURLs: [URL] = []
+    /// 앱이 뜨기 전에 Spotlight 에서 누른 메모. 창이 서면 그때 앞으로 꺼낸다.
+    private var pendingReveal: ULID?
+    /// 메모를 다 읽고 창이 섰다 — 그 전에는 `reveal` 할 종이가 없다.
+    private var revealReady = false
 
     public override init() {
         super.init()
@@ -163,6 +168,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             ReminderCenter.shared.start(store: store)
             if let id = ReminderCenter.shared.opened {
                 ReminderCenter.shared.opened = nil
+                windows.reveal(id, keepingPlace: true)
+            }
+            // 메모를 시스템 검색에 — 앱을 열지 않고도 찾힌다. 메모를 다 읽은 뒤에 붙인다 (알림과 같은 이유).
+            SpotlightCenter.shared.start(store: store)
+            revealReady = true
+            if let id = pendingReveal {
+                pendingReveal = nil
                 windows.reveal(id, keepingPlace: true)
             }
             // 일정은 달력에서만 보이므로(§7.2) 달력의 열림 여부도 복원 대상이다.
@@ -340,6 +352,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         Task { for url in urls { await door.receive(url: url) } }
+    }
+
+    /// Spotlight 결과를 눌렀다 — 그 종이를 앞으로. 보는 일이지 자리를 옮기는 일이 아니다 (keepingPlace).
+    /// 앱이 아직 안 떴으면 잠깐 들고 있다가 창이 선 뒤 꺼낸다 — 이 길로 앱이 처음 깨어나는 경우가 있다.
+    public func application(
+        _ application: NSApplication, continue userActivity: NSUserActivity,
+        restorationHandler: @escaping ([any NSUserActivityRestoring]) -> Void
+    ) -> Bool {
+        guard let id = SpotlightCenter.memoID(from: userActivity) else { return false }
+        if revealReady, let windows { windows.reveal(id, keepingPlace: true) } else { pendingReveal = id }
+        return true
     }
 
     private func presentFatal(_ message: String) {

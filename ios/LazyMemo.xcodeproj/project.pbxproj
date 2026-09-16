@@ -13,6 +13,7 @@
 		4C4D00000000000000000211 /* LazyMemoPlaces in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D00000000000000000210 /* LazyMemoPlaces */; };
 		4C4D00000000000000000221 /* LazyMemoReminders in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D00000000000000000220 /* LazyMemoReminders */; };
 		4C4D00000000000000000231 /* LazyMemoAssistantUI in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D00000000000000000230 /* LazyMemoAssistantUI */; };
+		4C4D00000000000000000241 /* LazyMemoSpotlight in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D00000000000000000240 /* LazyMemoSpotlight */; };
 		4C4D00000000000000000206 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 4C4D00000000000000000205 /* AppIcon.icns */; };
 		4C4D00000000000000000208 /* LazyMemoUI in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4D00000000000000000207 /* LazyMemoUI */; };
 /* End PBXBuildFile section */
@@ -92,6 +93,7 @@
 				4C4D00000000000000000211 /* LazyMemoPlaces in Frameworks */,
 				4C4D00000000000000000221 /* LazyMemoReminders in Frameworks */,
 				4C4D00000000000000000231 /* LazyMemoAssistantUI in Frameworks */,
+				4C4D00000000000000000241 /* LazyMemoSpotlight in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -215,6 +217,7 @@
 				4C4D00000000000000000210 /* LazyMemoPlaces */,
 				4C4D00000000000000000220 /* LazyMemoReminders */,
 				4C4D00000000000000000230 /* LazyMemoAssistantUI */,
+				4C4D00000000000000000240 /* LazyMemoSpotlight */,
 			);
 			productName = LazyMemo;
 			productReference = 4C4D000000000000000000B2 /* LazyMemo.app */;
@@ -790,6 +793,10 @@
 		4C4D00000000000000000230 /* LazyMemoAssistantUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = LazyMemoAssistantUI;
+		};
+		4C4D00000000000000000240 /* LazyMemoSpotlight */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LazyMemoSpotlight;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

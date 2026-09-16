@@ -2,6 +2,7 @@ import Foundation
 import LazyMemoAssistantUI
 import LazyMemoCore
 import LazyMemoReminders
+import LazyMemoSpotlight
 import Observation
 
 /// 폰이 켜질 때 하는 일 — 자리를 정하고 저장소를 연다.
@@ -51,6 +52,8 @@ final class AppModel {
             await store.start()
             // 메모를 다 읽은 뒤에 붙인다 — 빈 목록에 대조하면 걸어 둔 것을 전부 지운다.
             reminders.start(store: store)
+            // 시스템 검색도 같다 — 빈 목록에 대조하면 올려 둔 것을 전부 내린다.
+            SpotlightCenter.shared.start(store: store)
             phase = .ready(Session(
                 store: store,
                 settings: SettingsStore(location: resolved.paths.settings),

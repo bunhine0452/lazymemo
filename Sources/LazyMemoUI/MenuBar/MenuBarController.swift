@@ -2,6 +2,7 @@ import AppKit
 import LazyMemoAssistantUI
 import LazyMemoCore
 import LazyMemoReminders
+import LazyMemoSpotlight
 
 /// 메뉴바 상주 아이콘과 그 메뉴.
 ///
@@ -522,9 +523,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// 폴더 열기. ⌥ 를 누르면 창 레벨 스파이크로 바뀐다.
     ///
     /// 스파이크는 Stage Manager·Mission Control 에서 창이 제자리에 있는지
-    /// 확인하는 개발용 통로다. 늘 보이면 "이건 뭐지" 를 남기므로 접어 둔다.
+    /// 확인하는 개발용 통로다. 늘 보이면 "이건 뭐지" 를 남기므로 접어 두고,
+    /// 스토어 판에는 아예 없다 — 심사자가 ⌥ 를 누른 채 메뉴를 열어도 시험 창이 뜨면 안 된다.
     private func addVaultItem(to menu: NSMenu) {
         menu.addItem(item(title: L("메모 폴더 열기"), action: #selector(openVault), key: ""))
+        guard !updater.source.isAppStore else { return }
 
         let spike = item(title: L("바탕화면 창 스파이크"), action: #selector(toggleSpike), key: "")
         spike.state = self.spike.isOpen ? .on : .off
@@ -634,6 +637,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // 조용히 빈 달력을 내놓으면 사용자는 연동이 고장 난 줄 안다.
         events.subtitle = EventKitFeed.access.note ?? L("달력을 처음 열 때 한 번 묻습니다 · 읽기만 합니다")
         submenu.addItem(events)
+
+        // 앱을 열지 않고도 찾힌다. 기기 밖으로 나가는 것은 없지만 이 맥의 검색에 메모가
+        // 보인다는 사실은 적어 둔다 — 같이 쓰는 맥이면 끌 이유가 있다.
+        let spotlight = item(title: L("Spotlight 에서 찾기"), action: #selector(toggleSpotlight), key: "")
+        spotlight.state = SpotlightCenter.shared.enabled ? .on : .off
+        spotlight.subtitle = SpotlightCenter.shared.trouble
+            ?? L("메모 제목과 글이 이 맥의 검색에 보입니다 — 기기 밖으로 나가지 않습니다")
+        submenu.addItem(spotlight)
         submenu.addItem(.separator())
 
         if updater.source.allowsExternalUpdates {
@@ -823,6 +834,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func toggleSystemEvents() {
         settings.update { $0.showsSystemEvents = !($0.showsSystemEvents ?? true) }
+    }
+
+    @objc private func toggleSpotlight() {
+        SpotlightCenter.shared.setEnabled(!SpotlightCenter.shared.enabled)
     }
 
     @objc private func toggleUpdateChecks() {

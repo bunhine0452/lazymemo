@@ -15,9 +15,12 @@ let package = Package(
         .library(name: "LazyMemoPlaces", targets: ["LazyMemoPlaces"]),
         .library(name: "LazyMemoCore", targets: ["LazyMemoCore"]),
         .library(name: "LazyMemoReminders", targets: ["LazyMemoReminders"]),
+        .library(name: "LazyMemoSpotlight", targets: ["LazyMemoSpotlight"]),
         .library(name: "LazyMemoAssistant", targets: ["LazyMemoAssistant"]),
         .library(name: "LazyMemoLocalLiteRT", targets: ["LazyMemoLocalLiteRT"]),
         .library(name: "LazyMemoAssistantUI", targets: ["LazyMemoAssistantUI"]),
+        // spikes/LiteRTSpike 가 path 의존으로 같은 래퍼를 쓴다 — 저장소 2.7GB 클론을 spike 에서도 피한다 (Sources/LiteRTLM/README.md).
+        .library(name: "LiteRTLM", targets: ["LiteRTLM"]),
     ],
     targets: [
         // 진입점만. 실행 파일 타깃은 테스트에서 import 할 수 없으므로
@@ -38,7 +41,7 @@ let package = Package(
         // 앱 셸 — AppKit/SwiftUI. 도메인 로직을 두지 않는다.
         .target(
             name: "LazyMemoUI",
-            dependencies: ["LazyMemoCore", "LazyMemoPlaces", "LazyMemoReminders", "LazyMemoAssistantUI"],
+            dependencies: ["LazyMemoCore", "LazyMemoPlaces", "LazyMemoReminders", "LazyMemoSpotlight", "LazyMemoAssistantUI"],
             path: "Sources/LazyMemoUI",
             resources: [.process("Resources")]
         ),
@@ -48,6 +51,14 @@ let package = Package(
             name: "LazyMemoReminders",
             dependencies: ["LazyMemoCore"],
             path: "Sources/LazyMemoReminders",
+            resources: [.process("Resources")]
+        ),
+        // 메모를 시스템 검색(Spotlight)에 — 앱을 열지 않고도 찾힌다. 폰과 맥이 같이 쓰고,
+        // Core 에 두지 않는 이유는 Reminders 와 같다: MCP 서버·테스트까지 CoreSpotlight 를 들지 않게.
+        .target(
+            name: "LazyMemoSpotlight",
+            dependencies: ["LazyMemoCore"],
+            path: "Sources/LazyMemoSpotlight",
             resources: [.process("Resources")]
         ),
         // 자리를 지도의 점으로 — MapKit 에 묻는 일. 폰과 맥의 종이가 같이 쓰고,
@@ -140,6 +151,11 @@ let package = Package(
             name: "LazyMemoRemindersTests",
             dependencies: ["LazyMemoReminders"],
             path: "Tests/LazyMemoRemindersTests"
+        ),
+        .testTarget(
+            name: "LazyMemoSpotlightTests",
+            dependencies: ["LazyMemoSpotlight", "LazyMemoCore"],
+            path: "Tests/LazyMemoSpotlightTests"
         ),
     ]
 )

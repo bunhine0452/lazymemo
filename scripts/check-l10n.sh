@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 영어 표가 코드를 다 덮는지 본다 — 한국어 열쇠 중 en.lproj 에 없는 것, 코드에서 사라진 열쇠.
 #
-#   ./scripts/check-l10n.sh            # 패키지 넷(Core·UI·MCP·Reminders)
+#   ./scripts/check-l10n.sh            # 패키지들(Core·UI·MCP·Reminders·Spotlight·AssistantUI)
 #   ./scripts/check-l10n.sh --ios      # + 아이폰 앱·공유 확장 (시뮬레이터 빌드가 한 번 돈다)
 #
 # 열쇠는 손으로 긁지 않고 컴파일러에게 묻는다(-emit-localized-strings) — 보간의 %lld·%@ 와
@@ -16,10 +16,13 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 echo "▸ 패키지 열쇠 추출"
-for TARGET in LazyMemoCore LazyMemoUI LazyMemoMCP LazyMemoReminders LazyMemoAssistantUI; do
+for TARGET in LazyMemoCore LazyMemoUI LazyMemoMCP LazyMemoReminders LazyMemoSpotlight LazyMemoAssistantUI; do
     mkdir -p "$WORK/$TARGET"
     # 이미 지어진 파일은 다시 안 짓는다 — 손대서 전부 다시 짓게 한다.
     find "Sources/$TARGET" -name '*.swift' -exec touch {} +
+    # Swift 6.2 의 빌드 시스템은 `-emit-localized-strings-path` 를 무시하고 목적 파일 옆
+    # (`out/Intermediates.noindex/**/<타깃>-t.build/**`)에 .stringsdata 를 쓴다 — 아래 modules 의
+    # 패턴이 두 자리를 다 본다. 경로 인자는 옛 툴체인을 위해 남겨 둔다.
     swift build --scratch-path "$WORK/build" --target "$TARGET" \
         -Xswiftc -emit-localized-strings -Xswiftc -emit-localized-strings-path -Xswiftc "$WORK/$TARGET" \
         2>&1 | grep -E "error:" || true
@@ -41,7 +44,9 @@ HANGUL = re.compile(r"[가-힣]")
 
 def extracted(pattern, source_prefix):
     keys = {}
-    for f in glob.glob(pattern, recursive=True):
+    # 옛 자리(-emit-localized-strings-path)와 Swift 6.2 의 자리 둘 다.
+    patterns = [pattern] if isinstance(pattern, str) else list(pattern)
+    for f in sorted({f for pat in patterns for f in glob.glob(pat, recursive=True)}):
         d = json.load(open(f))
         if source_prefix not in d["source"]: continue
         for entries in d["tables"].values():
@@ -64,12 +69,16 @@ def table(lproj):
             keys |= set(plistlib.load(f).keys())
     return keys
 
+# Swift 6.2 는 실행 파일 타깃을 `<제품>-p.build`, 라이브러리를 `<타깃>-t.build` 에 둔다 — 자리는 넓게 훑고
+# 어느 모듈의 것인지는 stringsdata 안의 source 경로(prefix)로 가른다.
+ANYWHERE = f"{work}/build/out/**/*.build/**/*.stringsdata"
 modules = [
-    ("LazyMemoCore", f"{work}/LazyMemoCore/*.stringsdata", "/Sources/LazyMemoCore/", "Sources/LazyMemoCore/Resources"),
-    ("LazyMemoAssistantUI", f"{work}/LazyMemoAssistantUI/*.stringsdata", "/Sources/LazyMemoAssistantUI/", "Sources/LazyMemoAssistantUI/Resources"),
-    ("LazyMemoUI",   f"{work}/LazyMemoUI/*.stringsdata",   "/Sources/LazyMemoUI/",   "Sources/LazyMemoUI/Resources"),
-    ("LazyMemoMCP",  f"{work}/LazyMemoMCP/*.stringsdata",  "/Sources/LazyMemoMCP/",  "Sources/LazyMemoMCP/Resources"),
-    ("LazyMemoReminders", f"{work}/LazyMemoReminders/*.stringsdata", "/Sources/LazyMemoReminders/", "Sources/LazyMemoReminders/Resources"),
+    ("LazyMemoCore", (f"{work}/LazyMemoCore/*.stringsdata", ANYWHERE), "/Sources/LazyMemoCore/", "Sources/LazyMemoCore/Resources"),
+    ("LazyMemoAssistantUI", (f"{work}/LazyMemoAssistantUI/*.stringsdata", ANYWHERE), "/Sources/LazyMemoAssistantUI/", "Sources/LazyMemoAssistantUI/Resources"),
+    ("LazyMemoUI",   (f"{work}/LazyMemoUI/*.stringsdata", ANYWHERE),   "/Sources/LazyMemoUI/",   "Sources/LazyMemoUI/Resources"),
+    ("LazyMemoMCP",  (f"{work}/LazyMemoMCP/*.stringsdata", ANYWHERE),  "/Sources/LazyMemoMCP/",  "Sources/LazyMemoMCP/Resources"),
+    ("LazyMemoReminders", (f"{work}/LazyMemoReminders/*.stringsdata", ANYWHERE), "/Sources/LazyMemoReminders/", "Sources/LazyMemoReminders/Resources"),
+    ("LazyMemoSpotlight", (f"{work}/LazyMemoSpotlight/*.stringsdata", ANYWHERE), "/Sources/LazyMemoSpotlight/", "Sources/LazyMemoSpotlight/Resources"),
 ]
 if ios:
     modules += [
