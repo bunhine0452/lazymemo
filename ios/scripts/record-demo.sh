@@ -3,6 +3,7 @@
 # 그 화면을 기록한다. 맥 쪽은 `scripts/record-demo.sh`.
 #
 #   ./ios/scripts/record-demo.sh        # → site/media/phone.mp4 · phone.gif · phone-poster.jpg
+#   ./ios/scripts/record-demo.sh route  # 가는 길 — 진짜 접속 (`DemoTests.testRoute`) → site/media/route.*
 #
 # 배너 장면은 이 스크립트가 넣는다: 시험이 `push` 파일에 메모 id 를 적으면
 # `simctl push` 로 그 메모의 알림을 보낸다 — 시험은 시뮬레이터 밖의 명령을 못 부른다.
@@ -12,6 +13,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DEVICE="${LAZYMEMO_SIM:-iPhone 17}"
 BUNDLE="io.github.bunhine0452.lazymemo"
+# 어느 주행인가 — 기본은 한 바퀴(`testTour`), `route` 는 가는 길(`testRoute`).
+MODE=1
+NAME=phone
+TEST=testTour
+if [[ "${1:-}" == "route" ]]; then MODE=route; NAME=route; TEST=testRoute; shift; fi
 OUT="${1:-$ROOT/site/media}"
 mkdir -p "$OUT"
 WORK="$(mktemp -d)"
@@ -37,19 +43,22 @@ REC_START="$(python3 -c 'import time; print(time.time())')"
 
 echo "▸ 주행 (DemoTests)"
 cd "$ROOT/ios"
-TEST_RUNNER_LAZYMEMO_DEMO=1 TEST_RUNNER_LAZYMEMO_DEMO_SIGNAL="$WORK" xcodebuild test \
+TEST_RUNNER_LAZYMEMO_DEMO="$MODE" TEST_RUNNER_LAZYMEMO_DEMO_SIGNAL="$WORK" xcodebuild test \
     -project LazyMemo.xcodeproj -scheme LazyMemo-iOS \
     -destination "platform=iOS Simulator,name=$DEVICE" \
     -derivedDataPath "${LAZYMEMO_DERIVED:-$ROOT/.build/ios}" \
-    -only-testing:"LazyMemoUITests/DemoTests" > "$WORK/xcodebuild.log" 2>&1 &
+    -only-testing:"LazyMemoUITests/DemoTests/$TEST" > "$WORK/xcodebuild.log" 2>&1 &
 TEST_PID=$!
 
-# 시험이 배너를 청하면 보낸다.
+# 시험이 배너를 청하면 보낸다 — `push` 파일의 첫 줄이 메모 id, 둘째·셋째 줄이 있으면 제목과 본문.
 while kill -0 "$TEST_PID" 2>/dev/null; do
     if [[ -f "$WORK/push" ]]; then
-        ID="$(cat "$WORK/push")"; rm -f "$WORK/push"
+        ID="$(sed -n 1p "$WORK/push")"
+        TITLE="$(sed -n 2p "$WORK/push")"; TITLE="${TITLE:-치과 예약}"
+        BODY="$(sed -n 3p "$WORK/push")"; BODY="${BODY:-다시 볼 시간이에요. 눌러서 메모를 펼치세요.}"
+        rm -f "$WORK/push"
         cat > "$WORK/payload.json" <<JSON
-{"aps":{"alert":{"title":"치과 예약","body":"다시 볼 시간이에요. 눌러서 메모를 펼치세요."},"sound":"default"},"memo":"$ID"}
+{"aps":{"alert":{"title":"$TITLE","body":"$BODY"},"sound":"default"},"memo":"$ID"}
 JSON
         sleep 0.8
         xcrun simctl push "$DEVICE" "$BUNDLE" "$WORK/payload.json" >/dev/null && echo "▸ 배너 보냄 ($ID)"
@@ -73,13 +82,13 @@ echo "▸ mp4"
 ffmpeg -v error -y -ss "$START" -i "$RAW" -t "$LENGTH" \
     -vf "scale=590:-2:flags=lanczos,fps=30" \
     -c:v libx264 -pix_fmt yuv420p -crf 22 -preset slow -movflags +faststart -an \
-    "$OUT/phone.mp4"
+    "$OUT/$NAME.mp4"
 echo "▸ gif"
-ffmpeg -v error -y -i "$OUT/phone.mp4" \
+ffmpeg -v error -y -i "$OUT/$NAME.mp4" \
     -vf "fps=12,scale=360:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=160:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" \
-    "$OUT/phone.gif"
+    "$OUT/$NAME.gif"
 echo "▸ poster"
-ffmpeg -v error -y -ss 1.0 -i "$OUT/phone.mp4" -frames:v 1 -q:v 3 "$OUT/phone-poster.jpg"
+ffmpeg -v error -y -ss 1.0 -i "$OUT/$NAME.mp4" -frames:v 1 -q:v 3 "$OUT/$NAME-poster.jpg"
 
-ls -la "$OUT"/phone.mp4 "$OUT"/phone.gif "$OUT"/phone-poster.jpg
+ls -la "$OUT"/$NAME.mp4 "$OUT"/$NAME.gif "$OUT"/$NAME-poster.jpg
 echo "✓ $OUT"

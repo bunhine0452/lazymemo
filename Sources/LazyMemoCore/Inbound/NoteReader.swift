@@ -53,7 +53,10 @@ public enum NoteReader {
             return ParsedNote(body: text, place: address, geo: spot?.geo)
         }
         // 지도 앱이 공유한 이름·주소·링크도 그대로 둔다 — 이름이 곧 제목이다.
-        if explicit == nil, let shared = PlaceParser.share(text) {
+        // 다만 첫 줄에 날짜가 있으면 그것은 자리 이름이 아니라 사람이 적은 약속이다 — 「금요일 저녁 6시반 밥약속」
+        // 밑에 링크를 붙여 넣은 것. 그때는 보통의 글로 읽어 날짜가 달력으로 간다 (2026-09-16 폰 시연에서 잡았다).
+        if explicit == nil, let shared = PlaceParser.share(text),
+           NaturalDateParser.parse(shared.place, now: now, calendar: calendar) == nil {
             return ParsedNote(body: shared.body, place: shared.place, geo: spot?.geo)
         }
 

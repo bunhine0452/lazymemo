@@ -70,7 +70,8 @@ public enum Recall {
         if let ride = route.rides.first {
             switch ride.mode {
             case .bus: parts.append([ride.from.map { "\($0)에서" }, ride.line.map { "\($0) 버스" }].compactMap { $0 }.joined(separator: " "))
-            case .subway: parts.append([ride.from.map { "\($0)역에서" }, ride.line].compactMap { $0 }.joined(separator: " "))
+            // 네이버는 「강남역」, ODsay 는 「강남」— 「역」이 이미 붙어 있으면 다시 붙이지 않는다.
+            case .subway: parts.append([ride.from.map { ($0.hasSuffix("역") ? $0 : $0 + "역") + "에서" }, ride.line].compactMap { $0 }.joined(separator: " "))
             case .taxi: parts.append("택시")
             case .transit: parts.append("대중교통")
             case .walk: break

@@ -182,6 +182,9 @@ figcaption b { color: var(--ink); font-weight: 700; }
 .phone .frame { border-radius: 36px; overflow: hidden; border: 1px solid var(--rule); box-shadow: var(--shadow); background: var(--paper-deep); width: 100%; max-width: 300px; }
 .phone video, .phone img { display: block; width: 100%; height: auto; }
 .phone .words .steps { grid-template-columns: 1fr 1fr; }
+/* 가는 길 — 같은 판형, 글이 먼저 오고 폰이 오른쪽 */
+.phone.route { grid-template-columns: 1fr minmax(220px, 300px); }
+@media (max-width: 700px) { .phone.route { grid-template-columns: 1fr; } .phone.route .words { order: 1; } }
 
 /* 규칙 — 카드가 아니라 문단. 왼쪽 세이지 줄이 네 문장을 한 묶음으로 묶는다 */
 .rules { display: grid; grid-template-columns: 1fr 1fr; gap: 26px 48px; margin: 0; padding: 0; list-style: none; }
@@ -246,6 +249,7 @@ footer .links { margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 8px 20p
     <a href="#scenes">One box</a>
     <a href="#film">Video</a>
     <a href="#phone">iPhone</a>
+    <a href="#route">Routes</a>
     <a href="#recall">Recall</a>
     <a href="#privacy">Privacy</a>
     <a href="#install">Get it</a>
@@ -378,6 +382,31 @@ footer .links { margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 8px 20p
     <p class="note" style="margin-top:14px">Recorded in the iOS simulator with the app moving its own hands.
       <span class="soon-only">The iPhone app is in App Store review. A button appears here when it’s out.</span>
       <span class="live-only">The iPhone app is on the <a href="https://apps.apple.com/app/id6811815255?platform=iphone">App Store</a>.</span></p>
+  </div>
+</section>
+
+<section id="route" class="phone route">
+  <div class="words">
+    <h2>Write the appointment. It asks where you’re leaving from.</h2>
+    <p>Paste a map link with a time — “Friday 6:30pm dinner” — and the assistant asks <i>Where are you leaving from?</i>
+       Answer with a station, an address, or another map link. It finds the routes, asks bus, subway or taxi,
+       and writes the one you pick into the note: the bus number or line, where to board, transfers, fare, and the
+       departure time that gets you there on time. Ten minutes before you should leave, the phone tells you what to catch.</p>
+    <ol class="steps">
+      <li><b>Write</b> A map link and a time in one line. The place resolves on its own.</li>
+      <li><b>Where from</b> “Gangnam station” — or “here”, or a link.</li>
+      <li><b>Pick</b> Bus · subway · taxi, with minutes and fare. Transfers are called out.</li>
+      <li><b>Leave</b> The route card sits on the note. A banner says when to go and what to board.</li>
+    </ol>
+    <p class="note" style="margin-top:14px">Recorded in the iOS simulator against the real services — Naver Map for transit, Apple Maps for the taxi estimate.
+      Nothing connects until you answer the question; the memo text never leaves.</p>
+  </div>
+  <div class="frame">
+    <video autoplay muted loop playsinline poster="media/route-poster.jpg" width="590" height="1282"
+           aria-label="lazymemo on iPhone: an appointment with a map link is typed, the assistant asks where you are leaving from, offers bus, subway and taxi, writes the subway route into the note as a card, and later a banner says when to leave.">
+      <source src="media/route.mp4" type="video/mp4">
+      <img src="media/route.gif" alt="lazymemo on iPhone planning the way to an appointment" width="360" height="780">
+    </video>
   </div>
 </section>
 

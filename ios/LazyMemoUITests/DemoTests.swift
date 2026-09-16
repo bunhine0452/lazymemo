@@ -94,6 +94,130 @@ final class DemoTests: XCTestCase {
         signal("done")
     }
 
+    // MARK: 가는 길 — 약속을 남기면 펜이 출발지를 묻고, 길을 골라 적고, 당일 출발 전에 알린다 (`record-demo.sh route`)
+
+    /// 진짜 접속이다 — 네이버 지도 웹에 링크를 풀고 길을 묻는다. 「지하철」을 고르면 2호선 카드가 선다 (강남역 → 잠실).
+    func testRoute() throws {
+        let env = ProcessInfo.processInfo.environment
+        try XCTSkipUnless(env["LAZYMEMO_DEMO"] == "route", "찍을 때만")
+        signals = URL(filePath: env["LAZYMEMO_DEMO_SIGNAL"] ?? "/tmp/lazymemo-demo", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: signals, withIntermediateDirectories: true)
+        root = URL(filePath: "/tmp/lazymemo-demo-\(UUID().uuidString)", directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try seed()
+
+        let app = XCUIApplication()
+        app.launchEnvironment["LAZYMEMO_VAULT"] = root.path(percentEncoded: false)
+        app.launchArguments += ["-tutorialSeen", "YES", "-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR"]
+        app.launch()
+        let capture = app.descendants(matching: .any)["capture"]
+        XCTAssertTrue(capture.waitForExistence(timeout: 10))
+
+        // 0. 영상 밖에서 — 알림을 켜 둔다. 마지막 배너 장면이 이것에 달렸다 (한 바퀴 영상이 그 장면을 이미 보여 준다).
+        dismissKeyboard(app)
+        app.buttons["more"].tap()
+        app.buttons["reminders-button"].tap()
+        let toggle = app.descendants(matching: .any)["recall-enable"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        toggle.tap()
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let allow = springboard.buttons.matching(NSPredicate(format: "label IN {'허용', 'Allow'}")).firstMatch
+        if allow.waitForExistence(timeout: 5) { allow.tap() }
+        pause(0.5)
+        app.buttons["닫기"].firstMatch.tap()
+        pause(0.5)
+        capture.tap()
+        pause(0.5)
+        signal("ready")
+        pause(1.0)
+
+        // 1. 지도 링크와 약속 시각을 한 줄에 — 링크는 붙여 넣은 것처럼 한 번에, 나머지는 치듯이.
+        capture.tap()
+        for character in "금요일 저녁 6시반 밥약속" {
+            capture.typeText(String(character))
+            pause(0.07)
+        }
+        capture.typeText("\n")
+        pause(0.2)
+        capture.typeText("https://naver.me/GFB1MHiW")
+        pause(1.0)
+        app.buttons["leave"].tap()
+
+        // 2. 「어디서 출발하시나요?」— 그동안 링크가 풀려 자리가 줄에 선다.
+        if !app.descendants(matching: .any)["route-question"].waitForExistence(timeout: 5) {
+            try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/lazymemo-route-demo-fail.png"))
+            XCTFail("출발지를 묻지 않았다")
+        }
+        pause(2.0)
+        for character in "강남역" {
+            capture.typeText(String(character))
+            pause(0.12)
+        }
+        pause(0.6)
+        app.buttons["leave"].tap()
+
+        // 3. 「무엇으로 갈까요?」— 버스·지하철·택시. 지하철로.
+        let subway = app.buttons["지하철"]
+        XCTAssertTrue(subway.waitForExistence(timeout: 40), "길을 찾지 못했다")
+        pause(2.2)
+        subway.tap()
+        let notice = app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "가는 길을 적었어요")).firstMatch
+        XCTAssertTrue(notice.waitForExistence(timeout: 20), "적었다는 한 줄이 없다")
+        pause(1.8)
+        dismissKeyboard(app)
+        pause(0.5)
+
+        // 4. 그 메모 — 지도 카드 밑에 가는 길 카드.
+        row(in: app, startingWith: "밥약속").tap()
+        XCTAssertTrue(app.descendants(matching: .any)["route-card"].waitForExistence(timeout: 8), "카드가 안 선다")
+        pause(3.2)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        pause(0.8)
+
+        // 5. 당일 — 출발 10분 전에 배너가 몇 시에 무엇을 타는지 말한다. 배너는 스크립트가 넣는다.
+        let (id, body) = try departure(containing: "밥약속")
+        signal("push", "\(id)\n밥약속\n\(body)")
+        let shown = springboard.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == 'NotificationShortLookView' OR label CONTAINS '밥약속'")
+        ).firstMatch
+        if shown.waitForExistence(timeout: 10) {
+            pause(1.6)
+            shown.tap()
+            XCTAssertTrue(app.descendants(matching: .any)["route-card"].waitForExistence(timeout: 8), "배너를 누르면 그 메모가 열려야 한다")
+            pause(2.4)
+        } else {
+            XCTFail("배너가 안 떴다 — 스크립트의 simctl push 가 닿았는지 볼 것")
+        }
+        signal("done")
+    }
+
+    /// 파일의 「## 가는 길」 절에서 알림의 둘째 줄을 짓는다 — 「18:12 출발 — 강남역에서 2호선 · 14분」 (`Recall.departureLine` 의 꼴).
+    private func departure(containing text: String) throws -> (id: String, body: String) {
+        let notes = root.appending(path: "vault/notes", directoryHint: .isDirectory)
+        let files = try XCTUnwrap(FileManager.default.enumerator(at: notes, includingPropertiesForKeys: nil))
+            .compactMap { $0 as? URL }.filter { $0.pathExtension == "md" }
+        for file in files {
+            let content = try String(contentsOf: file, encoding: .utf8)
+            guard content.contains(text), let section = content.range(of: "## 가는 길\n") else { continue }
+            let lines = content[section.upperBound...].split(separator: "\n").map(String.init)
+            let id = content.split(separator: "\n").first { $0.hasPrefix("id: ") }.map { String($0.dropFirst(4)) } ?? ""
+            let summary = lines.first?.components(separatedBy: " · ") ?? []
+            let depart = summary.first { $0.hasSuffix("출발") } ?? ""
+            let minutes = summary.first { $0.hasSuffix("분") } ?? ""
+            // 「- 지하철 2호선 강남역 → 잠실새내역 · 9분 …」· 「- 버스 3322 (지선) 송파문화예술회관 → … · 6분 …」
+            let ride = lines.dropFirst().first { $0.hasPrefix("- 지하철") || $0.hasPrefix("- 버스") } ?? ""
+            let head = ride.components(separatedBy: " · ").first.map { String($0.dropFirst(2)) } ?? ""
+            let words = head.split(separator: " ").map(String.init)
+            var vehicle = ""
+            if words.count >= 3 {
+                let from = words[2].hasPrefix("(") && words.count >= 4 ? words[3] : words[2]
+                vehicle = words[0] == "지하철" ? "\(from)에서 \(words[1])" : "\(from)에서 \(words[1]) 버스"
+            }
+            return (id, "\(depart) — \(vehicle) · \(minutes)")
+        }
+        throw XCTSkip("길이 적힌 메모를 못 찾았다")
+    }
+
     // MARK: 무대
 
     private func seed() throws {

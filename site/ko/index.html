@@ -182,6 +182,9 @@ figcaption b { color: var(--ink); font-weight: 700; }
 .phone .frame { border-radius: 36px; overflow: hidden; border: 1px solid var(--rule); box-shadow: var(--shadow); background: var(--paper-deep); width: 100%; max-width: 300px; }
 .phone video, .phone img { display: block; width: 100%; height: auto; }
 .phone .words .steps { grid-template-columns: 1fr 1fr; }
+/* 가는 길 — 같은 판형, 글이 먼저 오고 폰이 오른쪽 */
+.phone.route { grid-template-columns: 1fr minmax(220px, 300px); }
+@media (max-width: 700px) { .phone.route { grid-template-columns: 1fr; } .phone.route .words { order: 1; } }
 
 /* 규칙 — 카드가 아니라 문단. 왼쪽 세이지 줄이 네 문장을 한 묶음으로 묶는다 */
 .rules { display: grid; grid-template-columns: 1fr 1fr; gap: 26px 48px; margin: 0; padding: 0; list-style: none; }
@@ -246,6 +249,7 @@ footer .links { margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 8px 20p
     <a href="#scenes">한 상자</a>
     <a href="#film">영상</a>
     <a href="#phone">아이폰</a>
+    <a href="#route">가는 길</a>
     <a href="#recall">다시 보기</a>
     <a href="#privacy">프라이버시</a>
     <a href="#install">받기</a>
@@ -377,6 +381,30 @@ footer .links { margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 8px 20p
     <p class="note" style="margin-top:14px">iOS 시뮬레이터에서 앱이 스스로 움직인 것을 기록했습니다.
       <span class="soon-only">아이폰 앱은 App Store 심사 중입니다. 나오면 단추가 생깁니다.</span>
       <span class="live-only">아이폰 앱은 <a href="https://apps.apple.com/app/id6811815255?platform=iphone">App Store</a> 에 있습니다.</span></p>
+  </div>
+</section>
+
+<section id="route" class="phone route">
+  <div class="words">
+    <h2>약속을 적으면, 어디서 출발하는지 묻습니다.</h2>
+    <p>지도 링크와 시각을 한 줄에 — 「금요일 저녁 6시반 밥약속」 — 적으면 비서가 <i>어디서 출발하시나요?</i> 하고 묻습니다.
+       역 이름이든 주소든 다른 지도 링크든 답하면 길을 찾아 버스·지하철·택시를 고르게 하고, 고른 길을 메모에 적습니다 —
+       버스 번호나 노선, 타는 곳, 환승, 요금, 그리고 약속에 맞춰 출발할 시각까지. 출발 10분 전에 폰이 무엇을 타라고 알립니다.</p>
+    <ol class="steps">
+      <li><b>적기</b> 지도 링크와 시각을 한 줄에. 자리는 스스로 풀립니다.</li>
+      <li><b>어디서</b> 「강남역」— 또는 「지금 여기」, 또는 링크.</li>
+      <li><b>고르기</b> 버스 · 지하철 · 택시, 분과 요금과 함께. 환승은 따로 말합니다.</li>
+      <li><b>출발</b> 길 카드가 메모에 앉고, 배너가 몇 시에 무엇을 타는지 말합니다.</li>
+    </ol>
+    <p class="note" style="margin-top:14px">iOS 시뮬레이터에서 진짜 서비스에 대고 기록했습니다 — 대중교통은 네이버 지도, 택시는 애플 지도의 어림.
+      질문에 답하기 전에는 아무것도 접속하지 않고, 메모 본문은 나가지 않습니다.</p>
+  </div>
+  <div class="frame">
+    <video autoplay muted loop playsinline poster="../media/route-poster.jpg" width="590" height="1282"
+           aria-label="아이폰의 lazymemo: 지도 링크가 든 약속을 적으면 비서가 출발지를 묻고, 버스·지하철·택시를 내밀고, 고른 지하철 길을 카드로 메모에 적고, 나중에 배너가 출발 시각을 말합니다.">
+      <source src="../media/route.mp4" type="video/mp4">
+      <img src="../media/route.gif" alt="아이폰의 lazymemo 가 약속 가는 길을 찾는 모습" width="360" height="780">
+    </video>
   </div>
 </section>
 

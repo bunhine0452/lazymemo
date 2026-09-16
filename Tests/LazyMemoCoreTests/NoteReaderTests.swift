@@ -69,6 +69,14 @@ struct NoteReaderTests {
         #expect(!read("@강남역").body.isEmpty)
     }
 
+    @Test("첫 줄에 날짜가 있으면 공유가 아니라 약속이다 — 링크를 밑줄에 붙여 넣어도 날짜가 달력으로 간다")
+    func datedLineOverLinkIsNotAShare() {
+        let note = read("금요일 저녁 6시반 밥약속\nhttps://naver.me/GFB1MHiW")
+        #expect(note.at != nil)
+        #expect(note.place == nil)
+        #expect(note.body == "밥약속\nhttps://naver.me/GFB1MHiW")
+    }
+
     @Test("지도 앱이 공유한 글은 첫 줄이 장소고 본문은 이름표만 뗀다")
     func readsMapShare() {
         let note = read("[네이버 지도]\n스타벅스 강남R점\n서울 강남구 강남대로 390\nhttps://naver.me/5abcdef")
