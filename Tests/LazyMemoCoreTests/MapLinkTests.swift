@@ -134,4 +134,11 @@ struct MapLinkReadTests {
         #expect(MapLink.spot(in: text) == MapLink.Spot(place: "강남역", geo: gangnam))
         #expect(MapLink.spot(in: "지도 없음 https://youtu.be/abc") == nil)
     }
+
+    @Test("네이버 짧은 링크가 풀린 옛 모양 — lat·lng 가 핀이고 title 이 이름이다")
+    func naverPinLink() {
+        let spot = MapLink.read("https://map.naver.com/?menu=location&appMenu=location&version=2&lng=127.0031828&title=%EC%84%BC%ED%8A%B8%EB%9F%B4%EC%8B%9C%ED%8B%B0%ED%84%B0%EB%AF%B8%EB%84%90(%ED%98%B8%EB%82%A8%EC%84%A0)&pinType=site&pinId=11815569&app=Y&lat=37.5049856")
+        #expect(spot?.place == "센트럴시티터미널(호남선)")
+        #expect(spot?.geo == Coordinate("37.5049856,127.0031828"))
+    }
 }

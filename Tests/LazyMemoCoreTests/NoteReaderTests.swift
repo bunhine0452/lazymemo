@@ -77,6 +77,34 @@ struct NoteReaderTests {
         #expect(note.body == "밥약속\nhttps://naver.me/GFB1MHiW")
     }
 
+    @Test("네이버 지도에서 복사한 것이 한 줄로 붙어 와도 자리를 읽는다 — 이름과 주소가 붙은 채, 이름표도 붙은 채")
+    func readsGluedShare() {
+        let note = read("[네이버지도]센트럴시티터미널(호남선)서울 서초구 신반포로 176 센트럴시티https://naver.me/GFsUdKBr")
+        #expect(note.place == "센트럴시티터미널(호남선)")
+        #expect(note.body == "센트럴시티터미널(호남선)서울 서초구 신반포로 176 센트럴시티https://naver.me/GFsUdKBr")
+        #expect(note.due == nil)
+    }
+
+    @Test("공유 글에 「22일 오후 3시」를 이어 적으면 자리와 약속을 함께 읽는다 — 주소의 176 은 날짜가 아니다")
+    func readsShareWithAppointment() {
+        let appended = read("[네이버 지도]\n센트럴시티터미널(호남선)\n서울 서초구 신반포로 176 센트럴시티\nhttps://naver.me/GFsUdKBr\n22일 오후 3시 출발")
+        #expect(appended.place == "센트럴시티터미널(호남선)")
+        #expect(appended.at.map { CalendarDate($0) } == CalendarDate(year: 2026, month: 9, day: 22))
+        #expect(appended.body == "센트럴시티터미널(호남선)\n서울 서초구 신반포로 176 센트럴시티\nhttps://naver.me/GFsUdKBr\n출발")
+
+        let inline = read("[네이버 지도]\n센트럴시티터미널(호남선)\n서울 서초구 신반포로 176 센트럴시티\nhttps://naver.me/GFsUdKBr 22일 오후 3시")
+        #expect(inline.place == "센트럴시티터미널(호남선)")
+        #expect(inline.at != nil)
+
+        let before = read("22일 오후 3시 출발\n[네이버 지도]\n센트럴시티터미널(호남선)\n서울 서초구 신반포로 176 센트럴시티\nhttps://naver.me/GFsUdKBr")
+        #expect(before.place == "센트럴시티터미널(호남선)")
+        #expect(before.at != nil)
+
+        let glued = read("[네이버지도]센트럴시티터미널(호남선)서울 서초구 신반포로 176 센트럴시티https://naver.me/GFsUdKBr 22일 오후 3시")
+        #expect(glued.place == "센트럴시티터미널(호남선)")
+        #expect(glued.at.map { CalendarDate($0) } == CalendarDate(year: 2026, month: 9, day: 22))
+    }
+
     @Test("지도 앱이 공유한 글은 첫 줄이 장소고 본문은 이름표만 뗀다")
     func readsMapShare() {
         let note = read("[네이버 지도]\n스타벅스 강남R점\n서울 강남구 강남대로 390\nhttps://naver.me/5abcdef")

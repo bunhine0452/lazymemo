@@ -58,9 +58,11 @@ public enum NaturalDateParser {
                 result.replaceSubrange(range, with: " ")
             }
         }
+        // 줄마다 빈칸을 하나로 — 덜어낸 자리의 빈칸이 줄 머리에 남지 않게 (「…\n 출발」).
         let collapsed = result
-            .split(separator: " ", omittingEmptySubsequences: true)
-            .joined(separator: " ")
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { $0.split(separator: " ", omittingEmptySubsequences: true).joined(separator: " ") }
+            .joined(separator: "\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return collapsed.isEmpty ? text : collapsed
     }

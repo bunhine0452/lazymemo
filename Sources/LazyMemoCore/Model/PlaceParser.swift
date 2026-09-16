@@ -151,6 +151,123 @@ public enum PlaceParser {
         return Share(place: name, body: stamped ? (lines + links).joined(separator: "\n") : text)
     }
 
+    /// 공유 글이 **더 긴 글 속에** 있을 때 — 「22일 3시에 여기서」를 앞뒤에 덧붙였거나, 링크 줄 뒤에 말을 이었거나,
+    /// 줄바꿈이 사라져 한 줄로 붙었거나(`[네이버지도]이름주소https://naver.me/…`). 2026-09-16 에 사용자가 네이버
+    /// 지도에서 바로 복사한 것을 앱이 못 알아들었다.
+    public struct ShareBlock: Sendable, Equatable {
+        public var place: String
+        /// 이름표를 뗀 본문 전체.
+        public var body: String
+        /// 공유 덩어리 밖의 말 — 날짜·시각은 여기서 읽는다.
+        public var rest: String
+
+        public init(place: String, body: String, rest: String) {
+            self.place = place
+            self.body = body
+            self.rest = rest
+        }
+    }
+
+    public static func shareBlock(in text: String) -> ShareBlock? {
+        if let pure = share(text) { return ShareBlock(place: pure.place, body: pure.body, rest: "") }
+
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        let live = lines.enumerated().filter { !$0.element.isEmpty }.map { (offset: $0.offset, line: $0.element) }
+
+        // 지도 링크가 든 줄. 링크 앞에 글이 붙어 있으면 줄바꿈이 사라진 것이고, 뒤에 붙어 있으면 이어 적은 말이다.
+        guard let at = live.firstIndex(where: { mapLink(in: $0.line) != nil }),
+              let found = mapLink(in: live[at].line) else { return nil }
+        let linkLine = live[at]
+
+        var name: String?
+        var blockStart = linkLine.offset
+        if !found.head.isEmpty {
+            let head = strippingServiceStamp(found.head) ?? found.head
+            if let split = splitGluedNameAndAddress(head) { name = split.name }
+            else if isName(head) { name = head }
+            else { return nil }
+        } else {
+            var candidates = Array(live[max(0, at - 3)..<at])
+            var stampOffset: Int?
+            if let first = candidates.first, let stripped = strippingServiceStamp(first.line) {
+                stampOffset = first.offset
+                if stripped.isEmpty { candidates.removeFirst() } else { candidates[0] = (first.offset, stripped) }
+            }
+            // 링크 바로 위가 주소면 그 위가 이름, 아니면 링크 바로 위가 이름.
+            if candidates.count >= 2, address(candidates[candidates.count - 1].line) != nil, isName(candidates[candidates.count - 2].line) {
+                name = candidates[candidates.count - 2].line
+                blockStart = candidates[candidates.count - 2].offset
+            } else if let last = candidates.last, isName(last.line) {
+                name = last.line
+                blockStart = last.offset
+            } else if let last = candidates.last, let split = splitGluedNameAndAddress(last.line) {
+                name = split.name
+                blockStart = last.offset
+            } else {
+                return nil
+            }
+            // 이름표는 이름 바로 위에 있을 때만 덩어리의 것이다.
+            if let stampOffset, let nameAt = live.firstIndex(where: { $0.offset == blockStart }), nameAt > 0,
+               live[nameAt - 1].offset == stampOffset {
+                blockStart = stampOffset
+            }
+        }
+        guard let name, NaturalDateParser.parse(name, now: Date()) == nil else { return nil }
+
+        var rest: [String] = live.filter { $0.offset < blockStart || $0.offset > linkLine.offset }.map(\.line)
+        if !found.tail.isEmpty { rest.append(found.tail) }
+
+        let body = lines.map { strippingServiceStamp($0) ?? $0 }.joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return ShareBlock(place: name, body: body, rest: rest.joined(separator: "\n"))
+    }
+
+    /// 줄 속의 지도 링크와 그 앞뒤의 말. 지도 링크가 없으면 nil.
+    static func mapLink(in line: String) -> (head: String, link: String, tail: String)? {
+        guard let match = line.firstMatch(of: /(https?:\/\/[^\s<>()\[\]]+)/), MapLink.isMap(String(match.1)) else { return nil }
+        let head = String(line[..<match.range.lowerBound]).trimmingCharacters(in: .whitespaces)
+        let tail = String(line[match.range.upperBound...]).trimmingCharacters(in: .whitespaces)
+        return (head, String(match.1), tail)
+    }
+
+    /// 이름이라 부를 만한 줄 — 링크가 아니고, 글자로 시작하며, 짧다.
+    static func isName(_ line: String) -> Bool {
+        guard !isLink(line), line.count <= InboundNote.placeLimit, let first = line.first else { return false }
+        return first.isLetter || first.isNumber
+    }
+
+    /// 「센트럴시티터미널(호남선)서울 서초구 신반포로 176 센트럴시티」— 줄바꿈이 사라져 이름과 주소가 붙은 것.
+    /// 주소의 모양(시·군·구 → 로·길·동 → 번지)이 시작하는 자리를 찾고, 그 앞 낱말 끝에 붙은 광역 이름을 떼어 준다.
+    static func splitGluedNameAndAddress(_ line: String) -> (name: String, address: String)? {
+        let tokens = line.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard tokens.count >= 3 else { return nil }
+        for index in tokens.indices {
+            // 이 낱말부터가 주소인가.
+            if index > 0, hasAddressShape(Array(tokens[index...])) {
+                let name = tokens[..<index].joined(separator: " ")
+                if isName(name) { return (name, tokens[index...].joined(separator: " ")) }
+            }
+            // 이 낱말 끝에 광역 이름이 붙어 있는가 — 「(호남선)서울」.
+            for region in regions where tokens[index].hasSuffix(region) && tokens[index].count > region.count {
+                let head = String(tokens[index].dropLast(region.count))
+                let addressTokens = [region] + Array(tokens[(index + 1)...])
+                guard hasAddressShape(addressTokens) else { continue }
+                let name = (tokens[..<index] + [head]).joined(separator: " ")
+                if isName(name) { return (name, addressTokens.joined(separator: " ")) }
+            }
+        }
+        return nil
+    }
+
+    /// 광역 이름 — 긴 것부터, 짧은 것이 긴 것의 꼬리를 먼저 채가지 않게.
+    static let regions = [
+        "서울특별시", "인천광역시", "부산광역시", "대구광역시", "광주광역시", "대전광역시", "울산광역시", "세종특별자치시",
+        "강원특별자치도", "전북특별자치도", "제주특별자치도", "충청북도", "충청남도", "전라북도", "전라남도", "경상북도", "경상남도",
+        "경기도", "강원도", "제주도", "서울시", "인천시", "부산시", "대구시", "광주시", "대전시", "울산시", "세종시",
+        "서울", "경기", "인천", "부산", "대구", "광주", "대전", "울산", "세종", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주",
+    ]
+
     /// `[네이버 지도]` · `[카카오맵] 이름` — 앞의 `[…]` 를 뗀 나머지. 이름표가 없으면 `nil`.
     ///
     /// 두 글자 이상이어야 이름표다 — `[ ]`·`[x]` 는 체크상자다.

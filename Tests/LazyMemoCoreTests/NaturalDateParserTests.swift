@@ -164,4 +164,46 @@ struct NaturalDateParserTests {
         let result = try #require(parse("내일"))
         #expect(NaturalDateParser.strip(result.phrases, from: "내일") == "내일")
     }
+
+    // MARK: 달 없는 날 — 「22일」
+
+    @Test("달을 안 적은 날은 앞으로 가장 가까운 그 날 — 오늘 포함")
+    func bareDayOfMonth() {
+        // 지금은 8월 28일.
+        #expect(parse("22일 오후 3시 밥약속")?.at.map { CalendarDate($0) } == CalendarDate(year: 2026, month: 9, day: 22))
+        #expect(parse("22일 오후 3시 밥약속")?.phrases.contains("22일") == true)
+        #expect(parse("28일 회의")?.due == CalendarDate(year: 2026, month: 8, day: 28))
+        #expect(parse("31일 월세")?.due == CalendarDate(year: 2026, month: 8, day: 31))
+        #expect(parse("3일에 병원")?.due == CalendarDate(year: 2026, month: 9, day: 3))
+        #expect(parse("22일")?.due == CalendarDate(year: 2026, month: 9, day: 22))
+    }
+
+    @Test("그 달에 없는 날은 그다음 달로 — 9월에 적은 「31일」은 10월 31일")
+    func bareDaySkipsShortMonth() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let september = calendar.date(from: DateComponents(year: 2026, month: 9, day: 16, hour: 10))!
+        #expect(NaturalDateParser.parse("31일 정산", now: september)?.due == CalendarDate(year: 2026, month: 10, day: 31))
+        let december = calendar.date(from: DateComponents(year: 2026, month: 12, day: 30, hour: 10))!
+        #expect(NaturalDateParser.parse("3일 여행", now: december)?.due == CalendarDate(year: 2027, month: 1, day: 3))
+    }
+
+    @Test("세는 말·빈도·요일의 「일」은 날이 아니다")
+    func bareDayNotCounting() {
+        #expect(parse("3일 동안 여행")?.due == nil)
+        #expect(parse("3일째 단식") == nil)
+        #expect(parse("1일 2회 복용") == nil)
+        #expect(parse("일요일 등산")?.due != CalendarDate(year: 2026, month: 9, day: 1))
+        // 세는 표현이 먼저다.
+        #expect(parse("3일 뒤 결과 확인")?.due == CalendarDate(year: 2026, month: 8, day: 31))
+        // 못 박힌 날짜가 먼저다.
+        #expect(parse("9월 3일 점심")?.at.map { CalendarDate($0) } == CalendarDate(year: 2026, month: 9, day: 3))
+    }
+
+    @Test("「매달 22일」— 되풀이와 달 없는 날이 함께")
+    func bareDayWithRecurrence() {
+        let result = parse("매달 22일 월세")
+        #expect(result?.every == .monthly)
+        #expect(result?.due == CalendarDate(year: 2026, month: 9, day: 22))
+    }
 }

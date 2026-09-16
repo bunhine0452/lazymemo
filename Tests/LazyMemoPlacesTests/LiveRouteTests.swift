@@ -15,6 +15,14 @@ struct LiveRouteTests {
 
         let origin = try #require(await PlaceLocator.locate("https://naver.me/58NGrhb8 여기서 출발해"))
         #expect(origin.name == "스타벅스 송파사거리점")
+
+        // 2026-09-16 사용자가 네이버 지도에서 바로 복사한 것 — 한 줄로 붙은 채로도 자리와 좌표가 나와야 한다.
+        let glued = "[네이버지도]센트럴시티터미널(호남선)서울 서초구 신반포로 176 센트럴시티https://naver.me/GFsUdKBr"
+        let note = NoteReader.read(glued)
+        #expect(note.place == "센트럴시티터미널(호남선)")
+        let terminal = try #require(await PlaceLocator.locate("https://naver.me/GFsUdKBr"))
+        #expect(terminal.name.contains("센트럴시티"))
+        #expect(abs(terminal.geo.latitude - 37.5048) < 0.01)
     }
 
     @Test("이름 → 좌표, 네이버 지도 웹의 버스·지하철, 애플의 택시 — 그리고 약속에 맞춘 되재기")

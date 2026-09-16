@@ -19,6 +19,7 @@ enum DayParser {
             ?? namedWeekday(text, now: now, calendar: calendar)
             ?? wholeWeekOrMonth(text, now: now, calendar: calendar)
             ?? counted(text, now: now, calendar: calendar)
+            ?? bareDayOfMonth(text, now: now, calendar: calendar)
     }
 
     // MARK: 못 박힌 날짜
@@ -215,6 +216,37 @@ enum DayParser {
             )
         }
 
+        return nil
+    }
+
+    // MARK: 달 없는 날
+
+    /// `22일` — 달을 안 적은 날. 오늘부터 앞으로 가장 가까운 그 날(오늘 포함)로 읽는다 (2026-09-16, 사용자:
+    /// 「월 입력 없이 22일이래도 해당 월 22일로 알아먹어야 해」). 지난 날이면 다음 달, 그 달에 없는 날(30일 달의 31일)이면 그다음 달.
+    ///
+    /// 맨 뒤에 두는 이유는 위의 것들이 전부 이보다 분명해서다 — 「3일 뒤」는 세는 표현이고, 「9월 3일」은 못 박힌 날짜다.
+    /// 세는 말·되풀이·빈도가 뒤에 붙은 「3일 동안」「3일째」「1일 2회」와 「일요일」은 날이 아니다.
+    private static func bareDayOfMonth(_ text: String, now: Date, calendar: Calendar) -> Result? {
+        guard TimeWords.hasDigit(text), text.contains("일") else { return nil }
+        // Swift 의 정규식 리터럴은 뒤돌아보기(lookbehind)를 모른다 — NSRegularExpression 으로.
+        let pattern = #"(?<![\d월月년年./:-])(\d{1,2})\s*일(?![\d일日요]|\s*(?:동안|간|째|차|마다|정도|쯤|치|이내|안에|뒤|후|전|앞|이후|만에|씩|분|시간|\d+\s*(?:회|번|개|명|잔|알|정|병|장|팩|끼)))"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let whole = NSRange(text.startIndex..., in: text)
+        for match in regex.matches(in: text, range: whole) {
+            guard let dayRange = Range(match.range(at: 1), in: text), let phraseRange = Range(match.range, in: text),
+                  let day = Int(text[dayRange]), (1...31).contains(day) else { continue }
+            let today = calendar.dateComponents([.year, .month, .day], from: now)
+            var year = today.year ?? 1970, month = today.month ?? 1
+            if day < (today.day ?? 1) { month += 1; if month > 12 { month = 1; year += 1 } }
+            for _ in 0..<3 {
+                let candidate = CalendarDate(year: year, month: month, day: day)
+                if let start = candidate.startOfDay(calendar: calendar), calendar.component(.day, from: start) == day {
+                    return Result(date: candidate, phrases: [String(text[phraseRange])])
+                }
+                month += 1
+                if month > 12 { month = 1; year += 1 }
+            }
+        }
         return nil
     }
 

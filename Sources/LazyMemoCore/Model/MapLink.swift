@@ -156,12 +156,16 @@ public enum MapLink {
         return Spot(place: named(query["name"]) ?? named(query["q"]))
     }
 
-    /// `/p/search/<검색어>` · `/v5/search/<검색어>` · `?query=`. 좌표는 적혀 있지 않다.
+    /// `/p/search/<검색어>` · `/v5/search/<검색어>` · `?query=` — 좌표는 적혀 있지 않다.
+    /// 짧은 링크가 풀린 옛 모양 `/?menu=location&lat=…&lng=…&title=<이름>&pinId=…` 에는 핀의 좌표와 이름이 그대로 있다
+    /// (2026-09-16 센트럴시티터미널 링크). `c=` 와 달리 `lat`·`lng` 는 화면 중심이 아니라 핀이다.
     private static func naver(path: [String], query: [String: String]) -> Spot {
         if let index = path.firstIndex(of: "search"), index + 1 < path.count {
             return Spot(place: named(path[index + 1]))
         }
-        return Spot(place: named(query["query"]) ?? named(query["q"]))
+        var geo: Coordinate?
+        if let lat = query["lat"], let lng = query["lng"] { geo = coordinate("\(lat),\(lng)") }
+        return Spot(place: named(query["query"]) ?? named(query["q"]) ?? named(query["title"]) ?? named(query["name"]), geo: geo)
     }
 
     // MARK: 조각
