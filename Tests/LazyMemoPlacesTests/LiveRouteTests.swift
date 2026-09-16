@@ -25,6 +25,15 @@ struct LiveRouteTests {
         #expect(abs(terminal.geo.latitude - 37.5048) < 0.01)
     }
 
+    @Test("주소로 답해도 — 지번 「신천동29」와 도로명 「신반포로 176」")
+    func addresses() async throws {
+        let jibun = try #require(await PlaceLocator.locate("신천동29에서 출발"))
+        #expect(jibun.name == "신천동29")
+        #expect(abs(jibun.geo.latitude - 37.5131) < 0.005 && abs(jibun.geo.longitude - 127.1035) < 0.005)
+        let road = try #require(await PlaceLocator.locate("신반포로 176"))
+        #expect(abs(road.geo.latitude - 37.5039) < 0.005 && abs(road.geo.longitude - 127.0048) < 0.005)
+    }
+
     @Test("이름 → 좌표, 네이버 지도 웹의 버스·지하철, 애플의 택시 — 그리고 약속에 맞춘 되재기")
     func routes() async throws {
         let destination = try #require(await PlaceLocator.locate("https://naver.me/GFB1MHiW"))

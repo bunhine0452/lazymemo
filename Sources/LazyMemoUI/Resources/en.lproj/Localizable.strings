@@ -378,7 +378,7 @@
 "메모 제목과 글이 이 맥의 검색에 보입니다 — 기기 밖으로 나가지 않습니다" = "Memo titles and text appear in this Mac's search — nothing leaves the device";
 
 /* 가는 길 — 약속을 적으면 출발지를 묻고 길을 메모에 적는다 (RoutePlanner · RouteCard) */
-"석촌고분역 — 또는 지도 링크" = "Seokchon Station — or a map link";
+"석촌고분역 · 신천동29 · 지도 링크" = "Seokchon Station · an address · a map link";
 "버스 · 지하철 · 택시" = "Bus · subway · taxi";
 "잠깐만요…" = "One moment…";
 "↵ 답하기 · esc 길은 그만" = "↵ answer · esc skips the route";

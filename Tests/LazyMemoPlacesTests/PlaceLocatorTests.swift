@@ -33,6 +33,15 @@ struct PlaceLocatorTests {
         #expect(NaverPlaceSearch.parse(place) == LocatedPlace(name: "강남역 2호선", geo: Coordinate(latitude: 37.4979526, longitude: 127.0276242)!))
         let address = Data(#"{"place":[],"address":[{"title":"서울 송파구 송파대로 386","x":"127.110371241","y":"37.502281181"}]}"#.utf8)
         #expect(NaverPlaceSearch.parse(address)?.name == "서울 송파구 송파대로 386")
+        // 주소를 적었으면 장소보다 주소가 먼저 — 「신반포로 176」에 백화점이 아니라 그 번지.
+        let both = Data(#"{"place":[{"title":"신세계백화점 강남점","x":"127.0042487","y":"37.5050011"}],"address":[{"title":"서울 서초구 신반포로 176 센트럴시티","x":"127.00475","y":"37.50389"}]}"#.utf8)
+        #expect(NaverPlaceSearch.parse(both, preferAddress: true)?.name == "서울 서초구 신반포로 176 센트럴시티")
+        #expect(NaverPlaceSearch.parse(both)?.name == "신세계백화점 강남점")
+        #expect(NaverPlaceSearch.looksLikeAddress("신천동29"))
+        #expect(NaverPlaceSearch.looksLikeAddress("신반포로 176"))
+        #expect(NaverPlaceSearch.looksLikeAddress("백제고분로7길 57"))
+        #expect(!NaverPlaceSearch.looksLikeAddress("강남역"))
+        #expect(!NaverPlaceSearch.looksLikeAddress("스타벅스 송파사거리점"))
         #expect(NaverPlaceSearch.parse(Data(#"{"place":[],"address":[]}"#.utf8)) == nil)
         #expect(NaverPlaceSearch.parse(Data("not json".utf8)) == nil)
     }

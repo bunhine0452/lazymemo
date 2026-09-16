@@ -166,7 +166,7 @@ public final class RoutePlanner {
                         guard self.session == session, step == .searching else { return }
                         step = .askingOrigin; question = Self.originQuestion
                         choices = [Self.hereChoice, Self.skipChoice]
-                        trouble = "지금 자리를 못 쟀어요 — 이름이나 지도 링크로 말해 주세요"
+                        trouble = "지금 자리를 못 쟀어요 — 역 이름·주소·지도 링크로 말해 주세요"
                         return
                     }
                     guard self.session == session else { return }
@@ -237,7 +237,7 @@ public final class RoutePlanner {
                 step = .askingOrigin
                 question = Self.originQuestion
                 choices = (here == nil ? [] : [Self.hereChoice]) + [Self.skipChoice]
-                trouble = "「\(Self.shortened(text))」를 지도에서 못 찾았어요 — 다른 이름이나 지도 링크로 말해 주세요"
+                trouble = "「\(Self.shortened(text))」를 지도에서 못 찾았어요 — 역 이름·주소·지도 링크로 말해 주세요"
                 return
             }
             guard self.session == session else { return }

@@ -115,7 +115,9 @@ struct PenBar: View {
                 }
             }
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18))
         .accessibilityIdentifier("route-question")
     }
 
@@ -133,7 +135,9 @@ struct PenBar: View {
         }
         .font(.footnote)
         .foregroundStyle(.secondary)
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18))
         .accessibilityIdentifier("route-notice")
     }
 
@@ -167,7 +171,10 @@ struct PenBar: View {
                 .padding(.horizontal, 4)
             }
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        // 유리 위에 앉힌다 — 맨 글로 두면 목록의 줄 위에 겹쳐 읽을 수 없다 (2026-09-16, 사용자가 겹친다고 했다).
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18))
         .accessibilityIdentifier("pending-question")
     }
 
@@ -259,7 +266,7 @@ struct PenBar: View {
     /// 빈 칸의 안내 — 열 때마다 바뀌는 문구, 답을 기다릴 때는 답의 예, 「이거」를 들고 있으면 시키는 말의 예.
     private var placeholder: String {
         switch pen.planner?.step {
-        case .askingOrigin: return String(localized: "석촌고분역 — 또는 지도 링크")
+        case .askingOrigin: return String(localized: "석촌고분역 · 신천동29 · 지도 링크")
         case .choosing: return String(localized: "버스 · 지하철 · 택시")
         case .searching, .writing: return String(localized: "잠깐만요…")
         default: break

@@ -164,7 +164,7 @@ struct RoutePlannerTests {
         planner.reply("어딘지모를곳")
         await settle(planner) { planner.trouble != nil }
         #expect(planner.step == .askingOrigin)
-        #expect(planner.trouble == "「어딘지모를곳」를 지도에서 못 찾았어요 — 다른 이름이나 지도 링크로 말해 주세요")
+        #expect(planner.trouble == "「어딘지모를곳」를 지도에서 못 찾았어요 — 역 이름·주소·지도 링크로 말해 주세요")
     }
 
     @Test("대중교통을 못 쟀으면 택시만 — 문구가 그 사실을 말한다")

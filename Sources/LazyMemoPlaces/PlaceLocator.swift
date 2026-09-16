@@ -103,9 +103,12 @@ enum NaverPlaceSearch {
 
     static func search(_ query: String, near: Coordinate?) async -> LocatedPlace? {
         var parts = URLComponents(string: endpoint)
-        var items: [URLQueryItem] = [.init(name: "query", value: query), .init(name: "caller", value: "pcweb"), .init(name: "lang", value: "ko")]
-        if let near { items.append(.init(name: "coords", value: "\(near.latitude),\(near.longitude)")) }
-        parts?.queryItems = items
+        // `coords` 가 없으면 오류로 답한다(실측) — 가까운 곳을 모르면 서울 한가운데(시청)로.
+        let center = near ?? Coordinate(latitude: 37.5665, longitude: 126.978)!
+        parts?.queryItems = [
+            .init(name: "query", value: query), .init(name: "caller", value: "pcweb"), .init(name: "lang", value: "ko"),
+            .init(name: "coords", value: "\(center.latitude),\(center.longitude)"),
+        ]
         guard let url = parts?.url else { return nil }
         var request = URLRequest(url: url, timeoutInterval: timeout)
         request.setValue(NaverWebRouter.agent, forHTTPHeaderField: "User-Agent")
@@ -113,7 +116,13 @@ enum NaverPlaceSearch {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               (response as? HTTPURLResponse).map({ (200..<300).contains($0.statusCode) }) ?? true else { return nil }
-        return parse(data)
+        return parse(data, preferAddress: looksLikeAddress(query))
+    }
+
+    /// 「신천동29」·「신반포로 176」·「백제고분로7길 57」— 지번이든 도로명이든 주소로 보이면 장소보다 주소 답을 먼저 믿는다.
+    /// 「신반포로 176」에 네이버는 그 앞 백화점을 장소로 먼저 주는데, 사람이 번지를 적었으면 그 번지가 답이다.
+    static func looksLikeAddress(_ query: String) -> Bool {
+        query.firstMatch(of: /[동로길가리읍면리]\s*\d/) != nil || query.firstMatch(of: /\d+-\d+\s*$/) != nil
     }
 
     struct Envelope: Decodable {
@@ -126,9 +135,10 @@ enum NaverPlaceSearch {
         var y: String?
     }
 
-    static func parse(_ data: Data) -> LocatedPlace? {
+    static func parse(_ data: Data, preferAddress: Bool = false) -> LocatedPlace? {
         guard let envelope = try? JSONDecoder().decode(Envelope.self, from: data) else { return nil }
-        for hit in (envelope.place ?? []) + (envelope.address ?? []) {
+        let places = envelope.place ?? [], addresses = envelope.address ?? []
+        for hit in preferAddress ? addresses + places : places + addresses {
             guard let x = hit.x.flatMap(Double.init), let y = hit.y.flatMap(Double.init),
                   let geo = Coordinate(latitude: y, longitude: x) else { continue }
             return LocatedPlace(name: hit.title ?? geo.description, geo: geo)

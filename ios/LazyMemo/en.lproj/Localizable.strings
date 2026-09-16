@@ -161,7 +161,7 @@
 "%lld장 중 겹치는 것 없음 · 시키면 어느 메모인지 묻습니다" = "No match among %lld notes · tell it and it asks which note";
 
 /* 가는 길 — 약속을 남기면 펜이 출발지를 묻고 길을 메모에 적는다 (RoutePlanner · RouteCard · RouteSettingsView) */
-"석촌고분역 — 또는 지도 링크" = "Seokchon Station — or a map link";
+"석촌고분역 · 신천동29 · 지도 링크" = "Seokchon Station · an address · a map link";
 "버스 · 지하철 · 택시" = "Bus · subway · taxi";
 "잠깐만요…" = "One moment…";
 "가는 길" = "Getting there";

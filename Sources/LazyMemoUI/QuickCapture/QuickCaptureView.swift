@@ -256,7 +256,7 @@ struct QuickCaptureView: View {
     /// 빈 상자의 안내 — 평소엔 열 때마다 바뀌는 문구, 되물음 중엔 답의 예.
     private var inputPlaceholder: String {
         switch model.planner?.step {
-        case .askingOrigin: return L("석촌고분역 — 또는 지도 링크")
+        case .askingOrigin: return L("석촌고분역 · 신천동29 · 지도 링크")
         case .choosing: return L("버스 · 지하철 · 택시")
         case .searching, .writing: return L("잠깐만요…")
         default: return model.pendingQuestion == nil ? model.placeholder : L("12시야")
