@@ -2,9 +2,9 @@
 oculpm_plan: v1
 id: lazymemo-ios-icloud
 title: "iOS 앱 + iCloud 컨테이너 동기화 — 폰에서 던지고 맥에서 받는다"
-status: active
+status: done
 created: 2026-09-13
-updated: 2026-09-13
+updated: 2026-09-14
 owner: claude-code
 ---
 
@@ -44,9 +44,9 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 - [x] README·DESIGN §5.1·§12 에 iOS 앱과 iCloud 컨테이너를 적는다 — 단축어 절은 「앱 없이」 대안으로 남긴다 {#mac-docs}
 
 ## 손에 쥐어 본다 {#release}
-- [ ] 실기기(아이폰) 설치 + 맥과 왕복 동기화 손검증 — 지연·충돌·오프라인·플레이스홀더 {#release-device}
-- [~] App Store Connect 앱 레코드 + TestFlight 업로드 {#release-testflight}
-- [~] 개인정보 처리방침·스토어 개인정보 응답 — README 프라이버시 절을 기준으로 {#release-privacy}
+- [x] 실기기(아이폰) 설치 + 맥과 왕복 동기화 손검증 — 지연·충돌·오프라인·플레이스홀더 {#release-device}
+- [x] App Store Connect 앱 레코드 + TestFlight 업로드 {#release-testflight}
+- [x] 개인정보 처리방침·스토어 개인정보 응답 — README 프라이버시 절을 기준으로 {#release-privacy}
 
 <!-- oculpm:plan-log begin v1 -->
 | 시각 | 항목 | 에이전트 | 변화 | 일지 | 메모 |
@@ -81,4 +81,8 @@ LazyMemoCore 를 그대로 iOS 로 옮기고, 두 앱이 앱 전용 iCloud 컨�
 | 2026-09-13T04:00:52+09:00 | #ui-calendar | claude-code | ~→x | .oculpm/journal/20260913/Features_to_add/0400_feature_phone-ui-second-edition.md | 2판 — 시스템 끌기, 날짜 시트 |
 | 2026-09-13T04:00:57+09:00 | #ui-editor | claude-code | ~→x | .oculpm/journal/20260913/Features_to_add/0400_feature_phone-ui-second-edition.md | 2판 — 바닥 툴바 꼬리, 색 메뉴, detent 시트 |
 | 2026-09-13T04:01:03+09:00 | #ui-trash | claude-code | ~→x | .oculpm/journal/20260913/Features_to_add/0400_feature_phone-ui-second-edition.md | 2판 — 툴바 단추로 한 번에, 되돌린 줄 보이기 |
+| 2026-09-14T13:08:22.213413+00:00 | #release-testflight | user | ~→x |  |  |
+| 2026-09-14T13:08:23.442382+00:00 | #release-privacy | user | ~→x |  |  |
+| 2026-09-14T13:08:25.290189+00:00 | #release-device | user | ☐→~ |  |  |
+| 2026-09-14T13:08:27.814003+00:00 | #release-device | user | ~→x |  |  |
 <!-- oculpm:plan-log end -->

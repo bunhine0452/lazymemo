@@ -1,6 +1,6 @@
 # lazymemo 개인정보 처리방침 · Privacy Policy
 
-> 2026-09-13 · 맥 0.4.0 · 아이폰 0.1.0 (시험판). 근거는 [README 의 프라이버시 절](../README.md#프라이버시)과 코드다 — 이 문서가 코드보다 더 많이 약속하지 않는다.
+> 2026-09-15 · 맥 0.4.0 · 아이폰 0.1.0 (App Store 첫 판). 근거는 [README 의 프라이버시 절](../README.md#프라이버시)과 코드다 — 이 문서가 코드보다 더 많이 약속하지 않는다.
 
 ## 한 문장
 
@@ -14,14 +14,16 @@
 |---|---|---|---|
 | **iCloud 동기화** | 메모 파일 전부(본문·날짜·장소·사진) | **당신의 iCloud** (애플이 옮기고 보관한다) | 맥에서 「iCloud 로 동기화…」를 **직접 누를 때**, 아이폰은 iCloud Drive 가 켜져 있을 때 |
 | 지금 여기 (맥 `⌥⌘L` · 폰의 핀) | 좌표 하나 | 애플 지오코딩 (주소로 바꾸려고) | **누를 때마다**, 그때만 |
-| 자리 카드 (폰) | 장소 이름 하나 | 애플 지도 검색 (좌표로 바꾸려고) | 장소가 붙은 메모를 **열 때** — 파일에 좌표가 있으면 안 나간다 |
-| 「가는 길」 (폰) | 좌표와 이름 | 누른 지도 앱 (카카오맵·네이버 지도·애플 지도) | **누를 때마다** |
+| 자리 카드 (맥·폰) | 장소 이름 하나 | 애플 지도 검색 (좌표로 바꾸려고) | 장소가 붙은 메모를 폰에서 **열 때**, 맥에서 그 종이가 **바탕화면에 설 때** — 파일에 좌표가 있으면 안 나간다. 알아낸 좌표는 그 메모 파일에 적어 다음엔 묻지 않는다 |
+| 「가는 길」 (맥·폰) | 좌표와 이름 | 누른 지도 앱 (카카오맵·네이버 지도·애플 지도) | **누를 때마다**. 출발지는 그 앱이 스스로 잰다 |
 | Claude 연동 (맥, MCP) | 메모 본문 | Claude | `claude_desktop_config.json` 에 **직접 등록**했을 때 |
 | 종이 위 ✧ 다듬기 (맥) | 그 메모 본문 | Claude | `claude` 가 깔려 있고 **누를 때마다** |
 | 아침 브리핑 (맥) | 메모 제목과 시각 | Claude | 설정에서 **직접 켤 때만** (기본 꺼짐) |
 | 이 기기의 비서 — 묻기·시키기·오늘·다듬기 (맥·폰) | **메모는 아무것도 안 나간다** — 모델이 이 기기 안에서 읽고 답한다 | — | 모델 파일(약 2.6GB)을 **「받기」를 직접 누를 때** 한 번 Hugging Face 에서 내려받는다. 그때 나가는 것은 파일 요청뿐이다. 모델은 iCloud·백업 밖 앱 폴더에 있고 앱 안에서 지울 수 있다 |
 | 링크를 카드로 펼치기 (맥) | 주소 하나 | 그 주소 | 기본 켜짐 · 끌 수 있다 |
 | 새 판 확인 (맥) | 주소 하나 (판 번호도 안 보낸다) | GitHub | 기본 켜짐 · 끌 수 있다 |
+| 다시 보기 알림 (맥·폰) | **아무것도 안 나간다** — 기기 안의 로컬 알림 | — | 설정에서 「이 기기에서 알림 받기」를 **직접 켤 때만** (기본 꺼짐, 기기별). 잠금 화면에 **메모 제목**이 보인다 |
+| Spotlight 에서 찾기 (맥·폰) | **아무것도 안 나간다** — 기기 안의 시스템 검색 색인 | — | 기본 켜짐, 기기별. 이 기기의 검색에 **메모 제목과 글**이 보인다. 맥은 설정에서 끌 수 있고, 끄면 올려 둔 것을 전부 내린다 |
 
 **우리에게 오는 것은 없다.** 분석 도구도, 추적기도, 광고 식별자도, 크래시 리포터도 없다. 소개 페이지도 바깥 요청이 하나도 없다.
 
@@ -32,7 +34,7 @@
 - **위치 (사용 중)** — 맥의 `⌥⌘L` 이나 폰의 핀을 **처음 누를 때** 한 번. 한 번 재고 끊는다. 거절하면 다시 묻지 않는다. 폰은 「항상」 권한을 요구하지 않는다.
 - **위치 (항상, 맥만)** — 「가면 떠오르게 하기」를 설정에서 **직접 켤 때만.** 좌표가 이미 적힌 메모 근처에 도착했다는 사실만 받고, 위치를 저장하지도 내보내지도 않는다.
 - **캘린더 (읽기, 맥만)** — 달력 창을 처음 열 때 한 번.
-- **알림** — 요구하지 않는다.
+- **알림** — 설정(폰은 More 메뉴)에서 「이 기기에서 알림 받기」를 **직접 켤 때만** 한 번 묻는다. 첫 실행에는 묻지 않는다. 켜지 않으면 시각이 되었을 때 시스템 배너 대신 맥의 종이가 앞으로 나온다. 켜짐은 기기별이라 iCloud 로 다른 기기에 번지지 않고, 알림은 기기 안에서 만들어져 아무 데도 나가지 않는다.
 
 ## 어디에 저장되나
 
@@ -56,7 +58,7 @@ GitHub: https://github.com/bunhine0452/lazymemo/issues
 
 # Privacy Policy (English)
 
-> 2026-09-13 · Mac 0.4.0 · iPhone 0.1.0 (beta). This document promises no more than the code does.
+> 2026-09-15 · Mac 0.4.0 · iPhone 0.1.0 (first App Store release). This document promises no more than the code does.
 
 **lazymemo has no server, no accounts, and collects nothing about you.** Your memos are Markdown files on your device; what travels between your devices is your own iCloud.
 
@@ -68,14 +70,16 @@ By default lazymemo connects to nothing. The table below is the complete list of
 |---|---|---|---|
 | **iCloud sync** | your memo files (text, dates, places, photos) | **your iCloud** (Apple transports and stores them) | on Mac only after you choose "Sync to iCloud…"; on iPhone whenever iCloud Drive is on |
 | "Here" (Mac `⌥⌘L` · the pin on iPhone) | one coordinate | Apple geocoding (to turn it into an address) | each time you press it, and only then |
-| Place cards (iPhone) | one place name | Apple Maps search (to turn it into a coordinate) | when you open a memo that has a place; not sent if the file already holds a coordinate |
-| "Directions" (iPhone) | a coordinate and a name | the map app you tap (Kakao Map, Naver Map, Apple Maps) | each time you press it |
+| Place cards (Mac · iPhone) | one place name | Apple Maps search (to turn it into a coordinate) | when you open a memo that has a place on iPhone, or when that note stands on the Mac desktop; not sent if the file already holds a coordinate. The coordinate found is written into that memo file so it is never asked again |
+| "Directions" (Mac · iPhone) | a coordinate and a name | the map app you tap (Kakao Map, Naver Map, Apple Maps) | each time you press it; that app measures the starting point itself |
 | Claude integration (Mac, MCP) | memo text | Claude | only after you register it in `claude_desktop_config.json` yourself |
 | ✧ Tidy on a note (Mac) | that memo's text | Claude | only if the `claude` CLI is installed, each time you press it |
 | Morning brief (Mac) | memo titles and times | Claude | only if you turn it on in Settings (off by default) |
-| Link cards (Mac) | one URL | that site | on by default; can be turned off |
 | On-device assistant — ask, do, today, tidy (Mac · iPhone) | **none of your memos** — the model reads and answers on this device | — | the model file (about 2.6 GB) is downloaded once from Hugging Face **when you press "Download"**; only that file request leaves. The model lives in the app folder outside iCloud and backups, and can be deleted in the app |
+| Link cards (Mac) | one URL | that site | on by default; can be turned off |
 | Update check (Mac) | one URL (not even the version) | GitHub | on by default; can be turned off |
+| Revisit reminders (Mac · iPhone) | **nothing** — local notifications built on the device | — | only if you turn on "Notifications on this device" in Settings (off by default, per device). The memo title appears on the lock screen |
+| Find in Spotlight (Mac · iPhone) | **nothing** — the device's own search index | — | on by default, per device. Memo titles and text appear in this device's search. On Mac it can be turned off in Settings, which removes everything that was indexed |
 
 **Nothing comes to us.** No analytics, no trackers, no advertising identifiers, no crash reporter. The website makes no external requests either.
 
@@ -86,7 +90,7 @@ Nothing is asked at first launch.
 - **Location (When In Use)** — asked once, the first time you press `⌥⌘L` (Mac) or the pin (iPhone). One fix, then off. If you decline, it never asks again. The iPhone app never requests "Always".
 - **Location (Always, Mac only)** — only if you enable "Surface when I get there" in Settings yourself. It only receives the fact that you arrived near a memo that already has coordinates; it neither stores nor sends your location.
 - **Calendar (read, Mac only)** — once, the first time you open the calendar window.
-- **Notifications** — never requested.
+- **Notifications** — asked once, only when you turn on "Notifications on this device" in Settings (the More menu on iPhone). Never at first launch. If you leave it off, the Mac brings the note forward instead of showing a system banner. The setting is per device and does not travel through iCloud; the notifications themselves are built on the device and nothing leaves it.
 
 ## Where data lives
 

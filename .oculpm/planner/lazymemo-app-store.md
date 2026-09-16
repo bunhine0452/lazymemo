@@ -28,8 +28,8 @@ iOS 는 지금 Xcode 프로젝트를 스토어용으로 다듬고, 맥은 샌드
 ## App Store Connect {#asc}
 - [x] 개인정보 처리방침을 site/privacy/ 에 얹는다 (ko·en, 바깥 요청 없음) — Pages 로 URL 이 생긴다 {#asc-privacy-page}
 - [x] 앱 레코드 생성 — 이름·기본 언어 한국어·번들 id·SKU, iOS + macOS 플랫폼 {#asc-record}
-- [~] 아이폰 TestFlight 업로드 + 내부 테스터로 설치 {#asc-testflight-ios}
-- [~] 맥 TestFlight 업로드 + 설치해서 샌드박스 판이 실제로 뜨는지 {#asc-testflight-mac}
+- [x] 아이폰 TestFlight 업로드 + 내부 테스터로 설치 {#asc-testflight-ios}
+- [x] 맥 TestFlight 업로드 + 설치해서 샌드박스 판이 실제로 뜨는지 {#asc-testflight-mac}
 - [x] 메타데이터 — 설명(ko·en)·키워드·카테고리 생산성·무료·연령 4+·지원 URL·개인정보 URL·앱 개인정보 「수집 안 함」·심사 메모 {#asc-metadata}
 - [x] 맥 스크린샷 — render-ui.sh 산출물을 스토어 규격(2880×1800)으로 {#asc-mac-screenshots}
 - [x] 영어 풀 지원 — 맥·아이폰·공유 확장·MCP 의 화면 말이 en.lproj 를 지나고, 날짜는 DateWords 가 그 말의 어순으로, check-l10n.sh 가 빠진 열쇠를 잡는다 {#l10n-english}
@@ -60,4 +60,7 @@ iOS 는 지금 Xcode 프로젝트를 스토어용으로 다듬고, 맥은 샌드
 | 2026-09-14T20:40:02+09:00 | #asc-testflight-mac | claude-code | ~→~ | .oculpm/journal/20260914/Chores/2039_chore_testflight-upload-ux-polish.md | c130fe1 맥 판 둘째 빌드 업로드 — 설치·손검증 남음 |
 | 2026-09-14T21:19:46+09:00 | #asc-testflight-ios | claude-code | ~→~ | .oculpm/journal/20260914/Chores/2119_chore_testflight-upload-place-cards.md | 88e4026 자리 카드 판 셋째 빌드 — 깨끗한 워킹트리에서 업로드 |
 | 2026-09-14T21:45:00+09:00 | #l10n-english | claude-code | ☐→x | .oculpm/journal/20260914/Features_to_add/2144_feature_english-full-localization.md | 전 모듈 en 표 완비(check-l10n 0 빠짐) · 개발 언어 en · swift test 736 · uitest 11 · 영어 스토어 샷은 후속 |
+| 2026-09-14T13:08:09.029795+00:00 | #asc-testflight-ios | user | ~→x |  |  |
+| 2026-09-14T13:08:11.126103+00:00 | #asc-testflight-mac | user | ~→x |  |  |
+| 2026-09-15T13:40:16+09:00 | #asc-submit | claude-code | ☐→☐ | .oculpm/journal/20260915/Chores/1339_chore_release-readiness-tests-privacy-store-copy.md | 출시 점검 — ASC 빌드에 「1 photos」 있음, 커밋 뒤 재업로드·설명/심사 메모 갱신 뒤 제출 (READINESS 「출시 날 할 일」) |
 <!-- oculpm:plan-log end -->
