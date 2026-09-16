@@ -198,10 +198,10 @@ enum CommandResolver {
     }
 
     /// 새 메모의 본문 — 모델이 준 것이 있으면 그것도 같은 규칙으로 날짜를 덜어낸 뒤, 「메모 만들어」 같은 군더더기를 뗀다.
-    static func body(text: String, model: String?, now: Date) -> String {
+    static func body(text: String, model: String?, now: Date, calendar: Calendar = .current) -> String {
         var body = text
         if let model = model?.trimmingCharacters(in: .whitespacesAndNewlines), !model.isEmpty {
-            body = NoteReader.read(model, now: now).body
+            body = NoteReader.read(model, now: now, calendar: calendar).body
         }
         let cruft = [#"^(이거|이것|이건)\s*"#,
                      #"^(에|에서|은|는|이|가|을|를|엔|에는|까지|부터|에도|이후|전에)\s+"#,
@@ -234,7 +234,7 @@ enum CommandResolver {
         let modelKind = normalizeKind(raw?.kind, folder: raw?.folder, body: raw?.body)
         let hasDate = resolveTime(text, anchor: selected?.schedule, now: now, calendar: calendar) != nil
 
-        let note = NoteReader.read(text, now: now)
+        let note = NoteReader.read(text, now: now, calendar: calendar)
         let statement = !looksLikeQuestion(text) && (note.due != nil || note.at != nil || note.place != nil || note.geo != nil)
 
         let intended: ActionKind?
@@ -255,7 +255,7 @@ enum CommandResolver {
         case .ask: return ask(modelQuestion(raw) ?? questions.unsupported, candidates: selected == nil ? candidates : [])
         case .createMemo:
             // 빠른 입력·공유와 같은 한 규칙(`NoteReader`)으로 읽는다 — 날짜·시각·@장소·지도 링크의 자리와 좌표.
-            let body = body(text: note.body, model: raw?.body, now: now)
+            let body = body(text: note.body, model: raw?.body, now: now, calendar: calendar)
             guard !body.isEmpty else { return ask(questions.body) }
             var patch = FieldPatch(body: body, place: note.place, geo: note.geo)
             if let at = note.at { patch.at = .set(at) } else if let due = note.due { patch.due = .set(due) }

@@ -38,8 +38,10 @@ public struct ParsedNote: Sendable, Equatable {
 /// 주소에 적힌 검색어. 좌표는 지도 주소에서만 나오고, 밖에서 장소를 준 경우에는
 /// 읽지 않는다 — 그 이름과 이 좌표가 다른 곳일 수 있어서다.
 public enum NoteReader {
+    /// - Parameter calendar: 날짜를 읽는 시간대. 기본은 이 기계의 것이고, 비서는 요청이 든 시간대를 준다 —
+    ///   안 그러면 「12시」가 기계의 정오가 되어 요청의 시간대와 어긋난다 (UTC 러너에서 시험이 잡았다).
     public static func read(
-        _ raw: String, place explicit: String? = nil, now: Date = Date()
+        _ raw: String, place explicit: String? = nil, now: Date = Date(), calendar: Calendar = .current
     ) -> ParsedNote {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return ParsedNote(body: raw) }
@@ -64,7 +66,7 @@ public enum NoteReader {
         }
         if place == nil { place = spot?.place }
 
-        guard let schedule = NaturalDateParser.parse(body, now: now) else {
+        guard let schedule = NaturalDateParser.parse(body, now: now, calendar: calendar) else {
             return ParsedNote(body: body, place: place, geo: spot?.geo)
         }
         let stripped = NaturalDateParser.strip(schedule.phrases, from: body)
@@ -74,7 +76,7 @@ public enum NoteReader {
         )
     }
 
-    public static func read(_ note: InboundNote, now: Date = Date()) -> ParsedNote {
-        read(note.text, place: note.place, now: now)
+    public static func read(_ note: InboundNote, now: Date = Date(), calendar: Calendar = .current) -> ParsedNote {
+        read(note.text, place: note.place, now: now, calendar: calendar)
     }
 }
