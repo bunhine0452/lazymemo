@@ -18,6 +18,12 @@
 #     + LAZYMEMO_NOTARY_PROFILE  `xcrun notarytool store-credentials` 로 저장한 이름.
 #                             있으면 공증하고 스테이플한다. 이것까지 되면 cask 의
 #                             검역 딱지 떼기(§12.2)가 필요 없어진다.
+#       또는 LAZYMEMO_NOTARY_KEY(.p8 경로) + LAZYMEMO_NOTARY_KEY_ID + LAZYMEMO_NOTARY_ISSUER —
+#                             App Store Connect API 키. 키체인이 없는 CI(release.yml)가 쓰는 길이다.
+#
+# 번들에는 실행 파일 둘 말고 **로컬 비서의 추론 엔진**(LiteRT-LM 의 dylib)이 든다 — 실행 파일이
+# `@rpath` 로 찾으므로 이것이 없으면 앱이 켜지지 않는다. xcframework 는 x86_64 를 함께 담고
+# 있지만 `swift build` 는 이 기계의 아키텍처로만 지으므로 실행 파일과 같은 슬라이스만 남긴다.
 set -euo pipefail
 
 CONFIG="${1:-release}"
@@ -42,6 +48,23 @@ cp "$BIN_PATH/LazyMemo" "$APP/Contents/MacOS/LazyMemo"
 # MCP 서버도 번들 안에 둔다. Claude Desktop 의 설정이 가리킬 경로가
 # swift build 산출물이면 리빌드나 clean 에 끊어진다 (설계문서 §9).
 cp "$BIN_PATH/lazymemo-mcp" "$APP/Contents/MacOS/lazymemo-mcp"
+
+# 추론 엔진. 실행 파일의 LC_RPATH 는 `@loader_path` 뿐이라 Frameworks 를 찾는 길을 하나 더 적는다 —
+# 서명 앞에서 해야 한다 (바이너리를 고치면 서명이 깨진다).
+ENGINE="$BIN_PATH/libCLiteRTLM_mac.dylib"
+if [[ -f "$ENGINE" ]]; then
+    mkdir -p "$APP/Contents/Frameworks"
+    ARCHS="$(lipo -archs "$APP/Contents/MacOS/LazyMemo")"
+    if [[ "$ARCHS" == *" "* ]]; then
+        cp "$ENGINE" "$APP/Contents/Frameworks/"
+    else
+        lipo "$ENGINE" -thin "$ARCHS" -output "$APP/Contents/Frameworks/libCLiteRTLM_mac.dylib"
+    fi
+    install_name_tool -add_rpath "@loader_path/../Frameworks" "$APP/Contents/MacOS/LazyMemo" 2>/dev/null || true
+    echo "  엔진 포함: libCLiteRTLM_mac.dylib ($ARCHS, $(du -sh "$APP/Contents/Frameworks/libCLiteRTLM_mac.dylib" | cut -f1))"
+else
+    echo "::warning::$ENGINE 이 없습니다 — 로컬 비서 없이 묶습니다. 실행 파일이 그것을 링크했다면 앱이 켜지지 않습니다."
+fi
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 # SPM 이 만든 리소스 번들(메뉴바 아이콘·번역 표)도 함께 넣는다.
@@ -66,10 +89,17 @@ fi
 IDENTITY="${LAZYMEMO_SIGN_IDENTITY:-}"
 PROFILE="${LAZYMEMO_PROFILE:-}"
 NOTARY="${LAZYMEMO_NOTARY_PROFILE:-}"
+NOTARY_KEY="${LAZYMEMO_NOTARY_KEY:-}"
+NOTARY_KEY_ID="${LAZYMEMO_NOTARY_KEY_ID:-}"
+NOTARY_ISSUER="${LAZYMEMO_NOTARY_ISSUER:-}"
 
 if [[ -z "$IDENTITY" ]]; then
     # ad-hoc 서명. 유료 개발자 계정 없이 로컬 실행에 필요한 전부다 (설계문서 §12).
     echo "▸ ad-hoc 서명"
+    # 안에 든 것부터 — 엔진은 남이 서명한 채 들어오므로 우리 것으로 다시 찍는다.
+    for NESTED in "$APP"/Contents/Frameworks/*.dylib; do
+        [[ -f "$NESTED" ]] && codesign --force --sign - "$NESTED"
+    done
     codesign --force --sign - "$APP"
 else
     echo "▸ Developer ID 서명: $IDENTITY"
@@ -81,7 +111,11 @@ else
     else
         echo "  프로필 없음 → iCloud entitlement 없이 서명한다 (Mobile Documents 폴더로는 여전히 동기화된다)"
     fi
-    # 안에 든 실행 파일부터. --deep 은 순서를 보장하지 않아 공증에서 걸린다.
+    # 안에 든 것부터. --deep 은 순서를 보장하지 않아 공증에서 걸린다. 엔진은 다른 팀의 서명으로
+    # 들어오는데, 강화된 런타임은 다른 팀의 라이브러리를 열어 주지 않으므로 우리 서명으로 다시 찍는다.
+    for NESTED in "$APP"/Contents/Frameworks/*.dylib; do
+        [[ -f "$NESTED" ]] && codesign --force --options runtime --timestamp --sign "$IDENTITY" "$NESTED"
+    done
     codesign --force --options runtime --timestamp --sign "$IDENTITY" \
         "$APP/Contents/MacOS/lazymemo-mcp"
     codesign --force --options runtime --timestamp --sign "$IDENTITY" \
@@ -89,14 +123,28 @@ else
 fi
 codesign --verify --verbose=1 "$APP"
 
-if [[ -n "$IDENTITY" && -n "$NOTARY" ]]; then
-    echo "▸ 공증 (notarytool: $NOTARY)"
+NOTARY_FLAGS=()
+NOTARY_HOW=""
+if [[ -n "$NOTARY" ]]; then
+    NOTARY_FLAGS=(--keychain-profile "$NOTARY")
+    NOTARY_HOW="키체인 프로필 $NOTARY"
+elif [[ -n "$NOTARY_KEY" && -n "$NOTARY_KEY_ID" && -n "$NOTARY_ISSUER" ]]; then
+    NOTARY_FLAGS=(--key "$NOTARY_KEY" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER")
+    NOTARY_HOW="API 키 $NOTARY_KEY_ID"
+fi
+
+if [[ -n "$IDENTITY" && ${#NOTARY_FLAGS[@]} -gt 0 ]]; then
+    echo "▸ 공증 (notarytool · $NOTARY_HOW)"
     NOTARY_ZIP="$(mktemp -d)/LazyMemo.zip"
     ditto -c -k --keepParent "$APP" "$NOTARY_ZIP"
-    xcrun notarytool submit "$NOTARY_ZIP" --keychain-profile "$NOTARY" --wait
+    # 거절되면 여기서 멈춘다 — 거절된 앱을 스테이플 없이 내보내는 것이 지금과 같은 미공증 상태라
+    # 조용히 지나갈 수 있는데, 그러면 「공증했다」는 말이 거짓이 된다.
+    xcrun notarytool submit "$NOTARY_ZIP" "${NOTARY_FLAGS[@]}" --wait
     xcrun stapler staple "$APP"
     spctl -a -t exec -vv "$APP"
     rm -f "$NOTARY_ZIP"
+elif [[ -n "$IDENTITY" ]]; then
+    echo "▸ 공증 자격이 없어 서명만 했습니다 — 내려받은 앱에는 검역 딱지가 남습니다"
 fi
 
 echo

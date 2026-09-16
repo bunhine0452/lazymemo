@@ -32,8 +32,22 @@ jobs:
 
     # `secrets` 는 step 의 `if` 에서 못 읽는다 (허용 컨텍스트에 없다 — 여기에
     # 직접 쓰면 워크플로가 통째로 파싱에 실패한다). 한 번 env 로 받아서 본다.
+    #
+    # 서명·공증 시크릿 다섯 (+선택 하나). 전부 있어야 그 길로 간다 — 하나라도 없으면 지금처럼
+    # ad-hoc 으로 나가고, 요약에 그렇게 적는다 (설계문서 §12.2).
+    #   DEVELOPER_ID_P12           Developer ID Application 인증서+개인키를 .p12 로 내보내 base64 한 것
+    #   DEVELOPER_ID_P12_PASSWORD  그 .p12 의 암호
+    #   NOTARY_KEY_P8              App Store Connect API 키(.p8) — base64 또는 원문
+    #   NOTARY_KEY_ID · NOTARY_ISSUER_ID   그 키의 ID 와 발급자 ID
+    #   DEVELOPER_ID_PROFILE       (선택) iCloud 컨테이너가 든 Developer ID .provisionprofile 의 base64
     env:
       TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
+      DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
+      DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+      NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+      NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+      NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+      DEVELOPER_ID_PROFILE: ${{ secrets.DEVELOPER_ID_PROFILE }}
 
     steps:
       # 릴리스 노트가 «지난 태그 이후» 를 세므로 얕게 받으면 셀 것이 없다.
@@ -69,6 +83,55 @@ jobs:
       - name: 시험
         run: ./scripts/test.sh
 
+      # 인증서를 러너의 임시 키체인에 들이고, build-app.sh 가 읽는 변수로 넘긴다.
+      # 키체인·키 파일은 이 실행이 끝나면 지운다 (아래 「서명 자취 지우기」) — 러너 자체도 사라지지만
+      # 남기지 않는 습관이 맞다. 시크릿이 하나라도 없으면 이 단계는 통째로 건너뛴다.
+      - name: 서명 준비
+        if: ${{ env.DEVELOPER_ID_P12 != '' && env.DEVELOPER_ID_P12_PASSWORD != '' && env.NOTARY_KEY_P8 != '' && env.NOTARY_KEY_ID != '' && env.NOTARY_ISSUER_ID != '' }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/lazymemo-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+
+          printf '%s' "$DEVELOPER_ID_P12" | base64 --decode > "$RUNNER_TEMP/developer-id.p12"
+          security import "$RUNNER_TEMP/developer-id.p12" -P "$DEVELOPER_ID_P12_PASSWORD" \
+            -f pkcs12 -A -t cert -k "$KEYCHAIN"
+          # codesign 이 묻지 않고 키를 쓰게 한다.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          # 검색 목록에 넣어야 `codesign --sign "이름"` 이 찾는다.
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+
+          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" \
+            | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"')"
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::.p12 안에 Developer ID Application 인증서가 없습니다"
+            exit 1
+          fi
+
+          # .p8 은 base64 로도 원문으로도 받는다 — 붙여 넣는 사람이 어느 쪽인지 외우지 않게.
+          if printf '%s' "$NOTARY_KEY_P8" | grep -q 'BEGIN PRIVATE KEY'; then
+            printf '%s\n' "$NOTARY_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+          else
+            printf '%s' "$NOTARY_KEY_P8" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          fi
+          chmod 600 "$RUNNER_TEMP/AuthKey.p8"
+
+          if [ -n "$DEVELOPER_ID_PROFILE" ]; then
+            printf '%s' "$DEVELOPER_ID_PROFILE" | base64 --decode > "$RUNNER_TEMP/LazyMemo.provisionprofile"
+            echo "LAZYMEMO_PROFILE=$RUNNER_TEMP/LazyMemo.provisionprofile" >> "$GITHUB_ENV"
+          fi
+
+          {
+            echo "LAZYMEMO_SIGN_IDENTITY=$IDENTITY"
+            echo "LAZYMEMO_NOTARY_KEY=$RUNNER_TEMP/AuthKey.p8"
+            echo "LAZYMEMO_NOTARY_KEY_ID=$NOTARY_KEY_ID"
+            echo "LAZYMEMO_NOTARY_ISSUER=$NOTARY_ISSUER_ID"
+            echo "LAZYMEMO_SIGNING_KEYCHAIN=$KEYCHAIN"
+          } >> "$GITHUB_ENV"
+          echo "서명: $IDENTITY · 공증: API 키 $NOTARY_KEY_ID"
+
       - name: 묶기
         id: pkg
         run: |
@@ -82,6 +145,14 @@ jobs:
           echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
           echo "sum=$ZIP.sha256" >> "$GITHUB_OUTPUT"
           echo "sha=$(shasum -a 256 "$ZIP" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+          # 이 판이 어떤 서명으로 나갔는지는 요약에 남아야 한다 — cask 의 검역 딱지 떼기를
+          # 지울 수 있는지가 여기에 달렸다.
+          if [ -n "${LAZYMEMO_SIGN_IDENTITY:-}" ]; then
+            echo "✅ Developer ID 로 서명하고 공증했습니다 (\`$LAZYMEMO_SIGN_IDENTITY\`). 스테이플까지 든 zip 입니다." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "⚠️ **미공증(ad-hoc) 판입니다.** 서명·공증 시크릿이 없어 지금까지처럼 나갑니다 — cask 의 검역 딱지 떼기가 여전히 필요합니다." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: 릴리스 노트 짓기
         id: notes
@@ -197,3 +268,9 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::error::탭이 갱신되지 않아 cask 의 sha256 이 어긋나 있습니다 (요약 참고)"
           exit 1
+
+      - name: 서명 자취 지우기
+        if: ${{ always() && env.LAZYMEMO_SIGNING_KEYCHAIN != '' }}
+        run: |
+          security delete-keychain "$LAZYMEMO_SIGNING_KEYCHAIN" || true
+          rm -f "$RUNNER_TEMP/developer-id.p12" "$RUNNER_TEMP/AuthKey.p8" "$RUNNER_TEMP/LazyMemo.provisionprofile"
