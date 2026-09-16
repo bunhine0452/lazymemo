@@ -133,18 +133,15 @@ public final class RoutePlanner {
         summary = Self.describe(memo, destination: nil)
         // 약속 자리는 답을 기다리는 동안 미리 찾아 둔다 — 링크를 푸는 데 두 번 접속한다.
         let services = self.services
-        destination = Task { [store] in
+        destination = Task { [weak self, store] in
             let found = await Self.resolveDestination(memo, services: services)
             // 좌표를 알게 됐으면 파일에 적어 둔다 — 자리 카드가 서고, 다음엔 묻지 않는다.
             if let found, memo.geo == nil {
                 _ = try? await store.update(memo.id, place: memo.place == nil ? .some(found.name) : nil, geo: .some(found.geo))
             }
+            // 한 줄 요약에 자리 이름을 — 같은 일 안에서 바로 (따로 띄우면 시험이 먼저 읽는다, CI 2026-09-16).
+            if let found, let self, self.memoID == memo.id { self.summary = Self.describe(memo, destination: found.name) }
             return found
-        }
-        let currentID = memo.id
-        Task { [weak self] in
-            guard let self, let found = await destination?.value, memoID == currentID else { return }
-            summary = Self.describe(memo, destination: found.name)
         }
         return true
     }

@@ -83,8 +83,9 @@ struct RoutePlannerTests {
         #expect(planner.question == RoutePlanner.originQuestion)
         #expect(planner.choices == [RoutePlanner.skipChoice])
         // 약속 자리는 기다리는 동안 찾아 파일에 적힌다 — 자리 카드가 선다.
-        await settle(planner) { store.memo(memo.id)?.geo != nil }
+        await settle(planner) { planner.summary?.contains("투파인드피터 잠실점") == true }
         #expect(store.memo(memo.id)?.place == "투파인드피터 잠실점")
+        #expect(store.memo(memo.id)?.geo != nil)
         #expect(planner.summary?.contains("투파인드피터 잠실점") == true)
 
         #expect(planner.reply("석촌고분역에서 출발해"))
