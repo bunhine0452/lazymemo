@@ -74,6 +74,9 @@ struct NoteView: View {
             // 종이는 누레지지만 잉크는 그만큼 사라지지 않는다. 오래된 메모도
             // 읽을 수는 있어야 한다 — 물러나는 것과 안 보이는 것은 다르다.
             .opacity(0.72 + 0.28 * age.presence)
+            // 머리의 손잡이 — 색띠이자 종이를 집는 자리. 조작(×)보다 **아래**에
+            // 두어 모서리에서는 치우기가 이긴다 (`PaperGrip`).
+            .overlay(alignment: .top) { PaperGrip(tint: color.tint) }
 
             if showsControls, model.justDeleted == nil {
                 // 치우기는 모서리에 남고, 나머지는 종이 아래로 내려간다.
@@ -97,12 +100,6 @@ struct NoteView: View {
             }
         }
         .overlay(Theme.edge())
-        .overlay(alignment: .top) {
-            Capsule().fill(color.tint)
-                .frame(width: 38, height: 3)
-                .padding(.top, 7)
-                .allowsHitTesting(false)
-        }
         .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
         // 캡슐에서 덜어 낸 것들이 여기 있다. macOS 사람이 이미 아는 자리이고,
         // 화면에 자리를 차지하지 않으므로 철학 4 와도 부딪히지 않는다.

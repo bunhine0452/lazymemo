@@ -41,6 +41,9 @@ enum PreviewRenderer {
         try? await Task.sleep(for: .milliseconds(300))
 
         // 자리가 적힌 종이는 지도 카드가 서서 창이 자란다 (`NoteWindowController.paperWithMap`).
+        // `ImageRenderer` 는 `.task` 를 돌리지 않으므로 자리를 여기서 직접 세운다 —
+        // 표본은 좌표가 적혀 있어 지도에 묻지 않는다.
+        await scheduled.places.load(places: scheduled.placeList)
         await render(
             name: "note",
             size: CGSize(width: 268, height: NoteWindowController.paperWithMap),

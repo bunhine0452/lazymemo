@@ -24,7 +24,7 @@ struct PlaceCardsView: View {
         if rendersStatically, let first = resolver.spots.first {
             PlaceCard(spot: first, mapHeight: mapHeight)
                 .padding(.horizontal, Theme.snug)
-                .padding(.top, 14)
+                .padding(.top, PaperGrip.height)
         } else {
             paged
         }
@@ -58,8 +58,8 @@ struct PlaceCardsView: View {
                 .accessibilityHidden(true)
             }
         }
-        // 위의 색띠(7 + 3pt) 아래에 앉는다.
-        .padding(.top, 14)
+        // 머리의 손잡이(`PaperGrip`) 아래에 앉는다 — 그 줄은 창을 끄는 자리라 카드가 덮지 않는다.
+        .padding(.top, PaperGrip.height)
         .accessibilityIdentifier("place-cards")
     }
 }
