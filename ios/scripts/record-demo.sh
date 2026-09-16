@@ -87,7 +87,8 @@ cd "$ROOT"
 [ -s "$RAW" ] || { echo "✗ 녹화 파일이 비어 있습니다"; exit 1; }
 [ -f "$WORK/ready" ] && [ -f "$WORK/done" ] || { echo "✗ 주행 신호가 없습니다"; exit 1; }
 START="$(python3 -c "print(round($(cat "$WORK/ready") - $REC_START - 0.3, 2))")"
-LENGTH="$(python3 -c "print(round($(cat "$WORK/done") - $(cat "$WORK/ready") + 0.3, 2))")"
+# 끝은 `done` 바로 앞에서 — 시험이 끝나면 앱이 내려가 홈 화면이 찍힌다.
+LENGTH="$(python3 -c "print(round($(cat "$WORK/done") - $(cat "$WORK/ready") - 0.2, 2))")"
 echo "▸ 앞 ${START}s 자르고 ${LENGTH}s"
 
 echo "▸ mp4"
@@ -96,8 +97,9 @@ ffmpeg -v error -y -ss "$START" -i "$RAW" -t "$LENGTH" \
     -c:v libx264 -pix_fmt yuv420p -crf 22 -preset slow -movflags +faststart -an \
     "$OUT/$NAME.mp4"
 echo "▸ gif"
+# 4MB 안에 — 긴 영상은 프레임을 성기게, 폭을 좁게 (AGENTS 용량 규칙 7).
 ffmpeg -v error -y -i "$OUT/$NAME.mp4" \
-    -vf "fps=12,scale=360:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=160:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" \
+    -vf "fps=8,scale=300:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" \
     "$OUT/$NAME.gif"
 echo "▸ poster"
 ffmpeg -v error -y -ss 1.0 -i "$OUT/$NAME.mp4" -frames:v 1 -q:v 3 "$OUT/$NAME-poster.jpg"

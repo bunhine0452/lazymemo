@@ -27,67 +27,107 @@ final class DemoTests: XCTestCase {
         app.launch()
         let capture = app.descendants(matching: .any)["capture"]
         XCTAssertTrue(capture.waitForExistence(timeout: 10))
-        signal("ready")
-        pause(1.0)
-
-        // 1. 한 줄 적는다 — 날짜를 앱이 읽어 칩이 선다.
+        // 글쇠판을 먼저 올려 둔다 — 하드웨어 키보드가 물린 시뮬레이터는 글쇠판 대신 「자동 완성」 풍선을 띄운다.
         capture.tap()
-        for character in "내일 3시 치과 예약" {
+        capture.typeText("ㅁ")
+        pause(0.3)
+        capture.typeText(XCUIKeyboardKey.delete.rawValue)
+        _ = app.keyboards.firstMatch.waitForExistence(timeout: 3)
+        pause(1.2)
+        signal("ready")
+        pause(1.2)
+
+        // 1. 한 줄 적는다 — 날짜를 앱이 읽어 칩이 선다. 사람이 치는 속도로.
+        for character in "내일 오후 3시 치과 예약" {
             capture.typeText(String(character))
-            pause(0.07)
+            pause(0.09)
         }
-        pause(0.9)
+        pause(1.2)
         app.buttons["leave"].tap()
-        pause(1.0)
+        pause(1.4)
+
+        // 2. 자리가 있는 약속 — 지도 링크를 붙여 넣은 것처럼 한 번에. 펜이 「어디서 출발하시나요?」를 세운다.
+        for character in "금요일 저녁 6시반 밥약속" {
+            capture.typeText(String(character))
+            pause(0.09)
+        }
+        capture.typeText("\n")
+        pause(0.3)
+        capture.typeText("https://naver.me/GFB1MHiW")
+        pause(1.2)
+        app.buttons["leave"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["route-question"].waitForExistence(timeout: 5), "약속을 남기면 출발지를 물어야 한다")
+        pause(2.2)
+        for character in "강남역" {
+            capture.typeText(String(character))
+            pause(0.14)
+        }
+        pause(0.7)
+        app.buttons["leave"].tap()
+
+        // 3. 「무엇으로 갈까요?」— 버스·지하철·택시. 지하철로. 메모에 길이 적힌다.
+        let subway = app.buttons["지하철"]
+        XCTAssertTrue(subway.waitForExistence(timeout: 40), "길을 찾지 못했다")
+        pause(2.4)
+        subway.tap()
+        let notice = app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "가는 길을 적었어요")).firstMatch
+        XCTAssertTrue(notice.waitForExistence(timeout: 20), "적었다는 한 줄이 없다")
+        pause(2.0)
         dismissKeyboard(app)
         pause(0.6)
 
-        // 2. 그 메모를 열어 다시 볼 시각을 정한다 — 종 → 한 시간 뒤 → 이때 다시 보기.
+        // 4. 그 메모 — 지도 카드 밑에 가는 길 카드. 읽고 돌아온다.
+        row(in: app, startingWith: "밥약속").tap()
+        XCTAssertTrue(app.descendants(matching: .any)["route-card"].waitForExistence(timeout: 8), "카드가 안 선다")
+        pause(3.4)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        pause(1.0)
+
+        // 5. 치과 메모를 열어 다시 볼 시각을 정한다 — 종 → 한 시간 뒤 → 이때 다시 보기.
         row(in: app, startingWith: "치과 예약").tap()
-        pause(0.9)
+        pause(1.0)
         app.buttons["recall-button"].tap()
         XCTAssertTrue(app.buttons["recall-save"].waitForExistence(timeout: 5))
-        pause(1.0)
+        pause(1.1)
         app.buttons["한 시간 뒤"].tap()
-        pause(0.7)
+        pause(0.8)
         app.buttons["recall-save"].tap()
-        pause(0.6)
+        pause(0.7)
         app.navigationBars.buttons.element(boundBy: 0).tap()
 
-        // 3. 「지금」 — 다시 볼 것이 맨 위에 섰다.
+        // 6. 「지금」 — 다시 볼 것이 맨 위에 섰다.
         XCTAssertTrue(app.descendants(matching: .any)["now-band"].waitForExistence(timeout: 5))
-        pause(1.8)
+        pause(2.0)
 
-        // 4. 이 기기에서 알림 받기 — 켤 때 한 번 묻는다.
+        // 7. 이 기기에서 알림 받기 — 켤 때 한 번 묻는다.
         app.buttons["more"].tap()
-        pause(0.6)
+        pause(0.7)
         app.buttons["reminders-button"].tap()
         let toggle = app.descendants(matching: .any)["recall-enable"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
-        pause(0.8)
+        pause(0.9)
         toggle.tap()
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let allow = springboard.buttons.matching(NSPredicate(format: "label IN {'허용', 'Allow'}")).firstMatch
         if allow.waitForExistence(timeout: 5) {
-            pause(0.7)
+            pause(0.8)
             allow.tap()
         }
         pause(1.2)
         app.buttons["닫기"].firstMatch.tap()
-        pause(0.6)
+        pause(0.8)
 
-        // 5. 시각이 되었다 — 배너를 누르면 그 메모가 열린다.
-        let id = try memoID(containing: "치과 예약")
-        signal("push", id)
-        // 배너는 `Other` 가 아니라 제 나름의 종류라 `.any` 로 찾는다 — 그리고 대여섯 초면 사라지므로 한 번에.
+        // 8. 당일 — 출발 10분 전, 배너가 몇 시에 무엇을 타는지 말한다. 누르면 그 메모가 열린다.
+        let (id, body) = try departure(containing: "밥약속")
+        signal("push", "\(id)\n밥약속\n\(body)")
         let shown = springboard.descendants(matching: .any).matching(
-            NSPredicate(format: "identifier == 'NotificationShortLookView' OR label CONTAINS '치과 예약'")
+            NSPredicate(format: "identifier == 'NotificationShortLookView' OR label CONTAINS '밥약속'")
         ).firstMatch
         if shown.waitForExistence(timeout: 10) {
-            pause(1.3)
+            pause(1.6)
             shown.tap()
-            XCTAssertTrue(app.textViews["paper"].waitForExistence(timeout: 5), "배너를 누르면 그 메모가 열려야 한다")
-            pause(2.2)
+            XCTAssertTrue(app.descendants(matching: .any)["route-card"].waitForExistence(timeout: 8), "배너를 누르면 그 메모가 열려야 한다")
+            pause(2.6)
         } else {
             XCTFail("배너가 안 떴다 — 스크립트의 simctl push 가 닿았는지 볼 것")
         }

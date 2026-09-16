@@ -140,6 +140,11 @@ final class QuickCaptureController {
     /// ⌘⏎ 를 누른 것과 같다 — 소개 영상 주행(`DemoTour`)이 부른다.
     func commitForDemo() { commit() }
 
+    /// 소개 영상 — 가는 길 되물음이 어디까지 왔나, 그리고 탈것 고르기.
+    var routeStepForDemo: RoutePlanner.Step? { model.planner?.step }
+    var queryForDemo: String { model.query }
+    func chooseRouteForDemo(_ kind: String) { model.planner?.choose(kind) }
+
     /// 표준 편집 단축키가 실제로 글 쓰는 곳까지 닿는지 확인한다.
     ///
     /// 메인 메뉴가 없으면 ⌘A 는 어디에도 도달하지 못한다 (`StandardMenu`).

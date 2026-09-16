@@ -148,11 +148,47 @@ final class DemoTour {
         capture.commitForDemo()
         await pause(1.8)
 
+        // 2¼. 자리가 있는 약속 — 지도 링크는 붙여 넣은 것처럼 한 번에. 상자가 「어디서 출발하시나요?」를 세우고,
+        // 출발지를 답하면 길을 찾아 「무엇으로 갈까요?」, 지하철을 고르면 메모에 적고 종이에 카드가 선다 (진짜 접속).
+        capture.show()
+        await pause(0.6)
+        await type(L("금요일 저녁 6시반 밥약속"))
+        await pause(0.5)
+        capture.typeForTesting(L("금요일 저녁 6시반 밥약속") + " https://naver.me/GFB1MHiW")
+        await pause(1.3)
+        capture.commitForDemo()
+        await pause(2.4)
+        if capture.routeStepForDemo == .askingOrigin {
+            await type(L("강남역"))
+            await pause(0.8)
+            capture.commitForDemo()
+            for _ in 0..<80 where capture.routeStepForDemo != .choosing { await pause(0.5) }
+            await pause(2.6)
+            capture.chooseRouteForDemo(L("지하철"))
+            for _ in 0..<60 where capture.routeStepForDemo != .idle { await pause(0.5) }
+            await pause(1.6)
+            // 적힌 종이를 앞에 세운다 — 지도 카드 밑에 가는 길 카드.
+            if let dinner = store.memos.first(where: { RouteNote.contains($0.body) }) {
+                calendar.close()
+                await pause(0.4)
+                // 무대 한가운데에 세운다 — 자리 없는 종이의 첫 자리는 화면 기준이라 무대 밖으로 걸칠 수 있다.
+                // 지도·가는 길·링크 카드가 서면 키가 크므로 처음부터 그 키로.
+                layouts.set(
+                    WindowLayout(frame: CGRect(x: region.midX - 150, y: region.midY - 300, width: 300, height: 600), hidden: true),
+                    for: dinner.id
+                )
+                windows.reveal(dinner.id, keepingPlace: true)
+                await pause(4.0)
+                windows.hide(dinner.id)
+                await pause(0.8)
+            }
+        }
+
         // 2½. 다시 보기 — 달력이 맡은 치과 메모를 **이 종이가 나올 시각**에 꺼낸다.
         // 회의는 3시, 종이는 2시 30분. 시각은 이 주행이 끝나갈 무렵으로 잡아,
         // 서랍을 다 보고 돌아온 바탕화면에 그 종이가 스스로 올라와 있게 한다.
         var risesAt: Date?
-        if let dentist = store.memos.first(where: { $0.at != nil }) {
+        if let dentist = store.memos.first(where: { $0.title == L("치과 예약") }) {
             let moment = Date().addingTimeInterval(Self.recallLead)
             _ = try? await store.update(dentist.id, surface: .some(moment))
             risesAt = moment
@@ -211,9 +247,9 @@ final class DemoTour {
 
         // 9. 시각이 되었다 — 달력에 있던 종이가 바탕화면으로 나온다 (`DueClock`).
         if let risesAt {
-            let wait = risesAt.timeIntervalSinceNow + 0.6
+            let wait = risesAt.timeIntervalSinceNow + 1.2
             if wait > 0 { await pause(wait) }
-            await pause(2.6)
+            await pause(3.4)
         }
     }
 
@@ -315,13 +351,13 @@ final class DemoTour {
         FileHandle.standardError.write(Data("[shots] \(name)\n".utf8))
     }
 
-    /// 사람이 치는 것처럼 한 자씩.
+    /// 사람이 치는 것처럼 한 자씩 — 상자에 이미 글이 있으면 그 뒤에 잇는다.
     private func type(_ text: String) async {
-        var typed = ""
+        var typed = capture.queryForDemo
         for character in text {
             typed.append(character)
             capture.typeForTesting(typed)
-            await pause(0.075)
+            await pause(0.085)
         }
     }
 

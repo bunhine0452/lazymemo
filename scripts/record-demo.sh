@@ -44,15 +44,15 @@ Y=$(( SH - TOP - H ))
 
 RAW="$VAULT/raw.mov"
 echo "▸ 무대 ${W}×${H} @ ${X},${TOP} (화면 ${SW}×${SH}) — 녹화 시작"
-screencapture -x -V 55 -R "$X,$TOP,$W,$H" "$RAW" &
+screencapture -x -V 80 -R "$X,$TOP,$W,$H" "$RAW" &
 REC_PID=$!
 sleep 1.0
 
 START=$(date +%s.%N)
 LAZYMEMO_VAULT="$VAULT" LAZYMEMO_DEMO="$X,$Y,$W,$H" "$BIN" >/dev/null 2>&1 || true
 END=$(date +%s.%N)
-# 앱이 돈 만큼만 남긴다 — 녹화는 넉넉히 걸어 두었다.
-LENGTH="$(python3 -c "print(round($END - $START - 2.0, 2))")"
+# 앱이 돈 만큼만 남긴다 — 녹화는 넉넉히(80초) 걸어 두었다. 주행이 그보다 길면 끝이 잘린다 (가는 길 장면을 더한 뒤 55초로는 모자랐다).
+LENGTH="$(python3 -c "print(round($END - $START - 2.6, 2))")"
 echo "▸ 앱 주행 ${LENGTH}s — 녹화가 끝나기를 기다린다"
 wait "$REC_PID" || true
 
