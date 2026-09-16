@@ -1,0 +1,72 @@
+# 밀 때마다 시험한다.
+#
+# release.yml 은 태그를 밀 때만 돌고, 그 안의 시험은 «내보내기 직전의 마지막 문» 이다.
+# 여러 세션이 한 워킹트리에서 번갈아 커밋하는 지금은 그 문 앞에 빨간 것이 며칠씩
+# 쌓일 수 있다 — 그래서 main 에 밀거나 PR 을 열면 같은 시험을 바로 돌린다.
+# 단위 테스트만이 릴리스의 문지기다 (README 「개발」) — verify-*.sh 는 자기 화면이
+# 필요해 여기 없다.
+name: ci
+
+on:
+  push:
+    branches: [main]
+    # 일지·플래너·문서·소개 페이지만 바뀐 커밋은 시험할 것이 없다.
+    paths-ignore:
+      - ".oculpm/**"
+      - "docs/**"
+      - "site/**"
+      - "**.md"
+      - ".github/workflows/pages.yml"
+      - ".github/workflows/release.yml"
+  pull_request:
+    paths-ignore:
+      - ".oculpm/**"
+      - "docs/**"
+      - "site/**"
+      - "**.md"
+      - ".github/workflows/pages.yml"
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 같은 브랜치에 연달아 밀면 앞 것은 볼 필요가 없다.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # 플랫폼 목표가 macOS 26 이라 그보다 낮은 러너에서는 컴파일 자체가 안 된다 (release.yml 과 같다).
+    runs-on: macos-26
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 무엇으로 짓는지 적어 둔다
+        run: |
+          sw_vers
+          swift --version
+
+      # LiteRT-LM xcframework 두 개(128MB zip)는 매번 받을 것이 아니다 — SwiftPM 의
+      # 전역 캐시를 Package.swift 의 checksum 이 바뀔 때까지 들고 간다.
+      - name: SwiftPM 바이너리 캐시
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: swiftpm-${{ runner.os }}-${{ hashFiles('Package.swift') }}
+          restore-keys: swiftpm-${{ runner.os }}-
+
+      # .build 는 소스가 바뀌면 부분만 다시 짓는다. 러너 이미지가 같으면 경로가 같아
+      # 증분이 살고, 키가 어긋나면 그냥 전체 빌드다 — 틀린 결과가 나오는 길은 없다.
+      - name: 빌드 캐시
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: build-${{ runner.os }}-${{ hashFiles('Package.swift', 'Sources/**/*.swift', 'Tests/**/*.swift') }}
+          restore-keys: build-${{ runner.os }}-
+
+      - name: 시험
+        run: ./scripts/test.sh
