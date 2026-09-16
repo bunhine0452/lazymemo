@@ -6,7 +6,7 @@
 | 패키지 | 역할 | 의존 |
 |---|---|---|
 | `SpikeKit` | fixture 읽기·채점·속도/메모리 기록·보고서. 엔진 무관 | 없음 |
-| `LiteRTSpike` | `litert-spike` CLI — Gemma 4 E2B/LiteRT-LM 로딩·스트리밍·취소·벤치 | LiteRT-LM **v0.16.0 고정** |
+| `LiteRTSpike` | `litert-spike` CLI — Gemma 4 E2B/LiteRT-LM 로딩·스트리밍·취소·벤치 | 루트 패키지의 `LiteRTLM`(v0.16.0 래퍼, path 의존) — 저장소 클론 없음 |
 | `MLXSpike` | `mlx-spike` CLI — Qwen3-4B-Instruct-2507/MLX 비교 경로 | mlx-swift-lm **3.31.4 고정** |
 
 ## 가중치 — 저장소 밖, 파일 하나만

@@ -65,3 +65,25 @@ frontmatter 필수: `schema_version: 1` · `type` · `slug` · `status`(planned|
 
 사용자가 *"옵션을 비교하자 / 이 문제를 정리하자 / 큰 계획을 세우자"* 고 **명시적으로 요청**할 때만 `.oculpm/discussion/<slug>/discussion.md` 를 씁니다 — 그때 **`.oculpm/agents/discussion-spec.md` 를 읽고** 그 규격을 따르세요. 일반 작업에는 만들지 말 것 (작업이 끝나면 일지·플래너가 정답).
 <!-- oculpm:end -->
+
+# 용량 규칙 — 파생물은 쌓이지 않게
+
+이 저장소의 소스·문서·git 은 **80MB** 다. 2026-09-16 에 재 보니 7.1GB 였고 6.9GB 가 파생물이었다 — spike 하나가
+LiteRT-LM 저장소를 통째로 클론(2.7GB)했고, 업로드 끝난 xcarchive 와 세 벌의 빌드 디렉터리가 나머지였다.
+어디에 무엇이 쌓이는지는 README 「개발」절의 표, 회수는 `./scripts/clean.sh`. 아래는 **모든 세션(Claude Code·Codex·그 외)이 지키는 규칙**이다.
+
+1. **저장소를 클론하는 의존을 만들지 않는다.** 모델 자산이 git 에 든 저장소(LiteRT-LM 등)를 `.package(url:)` 로 받지 말 것 —
+   루트 `Package.swift` 의 vendored `LiteRTLM` product 를 `.package(path:)` 로 빌린다 (`Sources/LiteRTLM/README.md`, `spikes/LiteRTSpike/Package.swift`).
+   새 패키지·spike 를 만들면 첫 `swift build` 뒤 `du -sh .build/repositories .build/checkouts` 를 본다. **500MB 를 넘으면 멈추고 사용자에게 말한다.**
+2. **가중치는 한 자리, 한 파일.** `~/Library/Caches/lazymemo-models/` 에 파일 하나씩. HF snapshot·저장소 전체 다운로드 금지.
+   `Tests/`·`spikes/`·vault·iCloud 안에 두지 않는다. 받기 전에 크기와 자리를 말한다. 이 폴더는 `clean.sh` 도 지우지 않는다 — 다시 받으면 2.6GB 다.
+3. **xcodebuild 는 `derivedDataPath` 를 `.build/ios` 로.** `ios/scripts/uitest.sh`·`record-demo.sh` 가 그렇게 하고 `LAZYMEMO_DERIVED` 로 바꿀 수 있다.
+   새 스크립트도 그 변수를 따른다. 임의 경로나 홈의 DerivedData 에 흩뜨리지 않는다.
+4. **끝난 산출물은 만든 세션이 지운다.** xcarchive 는 업로드가 끝나면 `build/ios` 를 비운다. render-ui PNG 는 확인이 끝나면.
+   spike `.build` 는 결과를 `docs/research/*.md` 로 옮긴 뒤. 확인용으로 만든 `dist/LazyMemo.app` 도 같다.
+5. **300MB 넘는 것을 받거나 만들기 전에 사용자에게 크기를 말한다.** 큰 빌드(iOS 시뮬레이터 derived data ~600MB, 앱 아카이브 ~250MB)도 처음 만들 때 한 번은 적는다.
+6. **세션을 마칠 때 `./scripts/clean.sh`** (기본 = `ModuleCache`·`index` 만, 다음 빌드는 증분). `--all` 은 사용자가 요청했거나 프로젝트가 **4GB 를 넘었을 때** (맥 debug 빌드 0.8GB + 시뮬레이터·스토어 판 derived data 1.5GB 가 평상시라 2.5GB 안팎은 정상이다).
+   지우기 전에 다른 세션의 빌드가 도는지 본다 — 스크립트가 `pgrep -x swift-build|swift-frontend|xcodebuild` 로 스스로 멈춘다 (`pgrep -f` 는 자기 셸의 명령줄에 걸려 거짓 양성이 난다).
+   **`.build` 는 세션들이 공유한다** — 남의 빌드 도중에 빼면 그쪽이 깨진다.
+7. **저장소에 큰 파일을 넣지 않는다.** 미디어는 `site/media` 만, 한 파일 4MB 이하(GIF 앞에 mp4). 벤치는 결과 `.md` 만 — 원시 로그·모델 출력 덤프·xcresult 는 커밋하지 않는다.
+   재기: `du -sh -- * .[!.]* | sort -rh | head`.
