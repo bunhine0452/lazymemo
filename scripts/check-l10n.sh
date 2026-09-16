@@ -2,7 +2,7 @@
 # 영어 표가 코드를 다 덮는지 본다 — 한국어 열쇠 중 en.lproj 에 없는 것, 코드에서 사라진 열쇠.
 #
 #   ./scripts/check-l10n.sh            # 패키지들(Core·UI·MCP·Reminders·Spotlight·AssistantUI)
-#   ./scripts/check-l10n.sh --ios      # + 아이폰 앱·공유 확장 (시뮬레이터 빌드가 한 번 돈다)
+#   ./scripts/check-l10n.sh --ios      # + 아이폰 앱·공유 확장·위젯 (시뮬레이터 빌드가 한 번 돈다)
 #
 # 열쇠는 손으로 긁지 않고 컴파일러에게 묻는다(-emit-localized-strings) — 보간의 %lld·%@ 와
 # 여러 줄 리터럴의 줄바꿈까지 코드가 실제로 찾는 모양 그대로 나온다. 빠진 열쇠가 있으면
@@ -84,6 +84,7 @@ if ios:
     modules += [
         ("iOS",   f"{ios}/Build/Intermediates.noindex/**/*.stringsdata", "/ios/LazyMemo/",      "ios/LazyMemo"),
         ("Share", f"{ios}/Build/Intermediates.noindex/**/*.stringsdata", "/ios/LazyMemoShare/", "ios/LazyMemoShare"),
+        ("Widgets", f"{ios}/Build/Intermediates.noindex/**/*.stringsdata", "/ios/LazyMemoWidgets/", "ios/LazyMemoWidgets"),
     ]
 
 trouble = 0

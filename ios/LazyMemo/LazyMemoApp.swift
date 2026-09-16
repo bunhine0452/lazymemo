@@ -18,6 +18,8 @@ struct LazyMemoApp: App {
                 .onContinueUserActivity(SpotlightCenter.activityType) { activity in
                     SpotlightCenter.shared.opened = SpotlightCenter.memoID(from: activity)
                 }
+                // 위젯·단축어의 `lazymemo://…` — 메모는 같은 시트로, 「적기」는 펜으로 (`AppModel.open`).
+                .onOpenURL { url in model.open(url: url) }
         }
         // 뒤로 물러날 때 적던 글을 내리고, 앞으로 올 때 밖에서 온 변경을 본다 —
         // 폰이 자는 동안 맥에서 적은 것.

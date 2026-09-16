@@ -203,6 +203,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         capture.show()
     }
 
+    /// 위젯의 「적기」— 빠른 입력 상자를 연다. 단축키를 누른 것과 같다.
+    func showCapture() { capture.show() }
+
     func closeCapture() { capture.close(returningFocus: false) }
     /// 이 기기의 비서를 빠른 입력 상자에 끼운다.
     func adoptAssistant(_ assistant: AssistantModel?) { capture.adoptAssistant(assistant) }

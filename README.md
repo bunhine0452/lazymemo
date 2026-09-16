@@ -74,7 +74,7 @@ release 번들은 **70MB**, 내려받는 zip 은 **23MB** 다 — 그중 65MB �
 swift run LazyMemo
 ```
 
-**App Store 판**(준비 중)은 다른 껍데기다 — 샌드박스 안이라 [Claude 연동](#claude-연동-선택)과 자체 업데이트가 없고, 메모 폴더의 기본 자리가 iCloud Drive 의 「LazyMemo」 폴더(아이폰과 같은 자리)다. 나머지는 전부 같다 ([설계문서 §12.6](docs/DESIGN.md)). Claude 를 쓰려면 이 GitHub 판을 쓰면 된다.
+**App Store 판**(준비 중)은 다른 껍데기다 — 샌드박스 안이라 [Claude 연동](#claude-연동-선택)과 자체 업데이트가 없고, 메모 폴더의 기본 자리가 iCloud Drive 의 「LazyMemo」 폴더(아이폰과 같은 자리)다. 대신 **[위젯](#위젯--홈-화면잠금-화면알림-센터의-지금)이 그 판에만 있다** — 이 GitHub 판은 SwiftPM 이 조립한 번들이라 확장(appex)을 품지 못한다. 나머지는 전부 같다 ([설계문서 §12.6](docs/DESIGN.md)). Claude 를 쓰려면 이 GitHub 판을 쓰면 된다.
 
 ## 처음 켜면
 
@@ -180,7 +180,7 @@ swift run LazyMemo
 | 다른 앱 | 글자를 고르고 **우클릭 → 서비스 → 「lazymemo 에 적기」** |
 | 터미널·cron·스크립트 | `/Applications/LazyMemo.app/Contents/MacOS/lazymemo-mcp add "내일 3시 치과 @강남역"` |
 | Raycast·Alfred·단축어 | `open "lazymemo://add?text=장보기"` |
-| 아이폰 | **lazymemo 앱** — 공유 시트의 「lazymemo 에 적기」, 또는 앱 없이 단축어 (아래) |
+| 아이폰 | **lazymemo 앱** — 공유 시트의 「lazymemo 에 적기」, 홈 화면의 「적기」 [위젯](#위젯--홈-화면잠금-화면알림-센터의-지금), `open "lazymemo://add?text=장보기"` 단축어, 또는 앱 없이 단축어 (아래) |
 
 터미널에서 자주 쓸 거라면 별칭을 하나 두면 짧아진다.
 
@@ -200,6 +200,20 @@ lazymemo add "우유 사기"
 iCloud 가 꺼져 있으면 폰은 자기 안에만 적고 화면 바닥에 그렇게 적어 둔다 — 조용히 로컬로 떨어지지 않는다.
 
 Xcode 로 연다: `open ios/LazyMemo.xcodeproj`. 시뮬레이터에서 조작 경로를 손 없이 도는 것은 `./ios/scripts/uitest.sh` 다.
+
+### 위젯 — 홈 화면·잠금 화면·알림 센터의 「지금」
+
+앱을 열지 않아도 오늘 볼 것이 보인다. 아이폰과 **맥 App Store 판**이 같은 위젯 확장 하나(`ios/LazyMemoWidgets`, 번들 id `….lazymemo.widgets`)를 품고, 셋이 있다.
+
+| 위젯 | 무엇 | 크기 |
+|---|---|---|
+| **지금** | 앱의 「지금」 띠 그대로 — 오늘 다시 볼 것·오늘 일정·고정, 다가오는 것부터 세 장 (`Recall.nowCards`). 작은 것은 한 장, 중간은 세 장, 큰 것은 세 장 아래 「다음」 — 오늘 뒤에 올 일정 여섯 줄까지. 카드를 누르면 그 메모가 열린다 | 작게·중간·크게 · 잠금 화면 네모·한 줄 |
+| **다음 약속** | 시각이 적힌 것 중 가장 가까운 한 장 — 큰 글자가 시각, 그 아래 제목. 가는 길을 적어 두었으면 **「18:39 출발 · 2호선」**, 아니면 남은 시간이 흐른다 | 작게 · 잠금 화면 네모·동그라미·한 줄 |
+| **적기** | 누르면 펜이 올라온다 — 폰은 글 칸에 키보드가, 맥은 빠른 입력 상자가 (⌥⌘N 과 같다) | 작게 · 잠금 화면 동그라미·한 줄 |
+
+위젯은 **앱과 같은 파일을 읽는다** — 인덱스를 열지 않고 iCloud 의 「LazyMemo」 폴더(iCloud 가 꺼진 폰은 App Group 폴더)의 마크다운만 훑는다. 그래서 맥에서 메모 폴더를 다른 곳으로 옮겨 둔 사람의 위젯은 비어 있다 — 그 폴더의 열쇠는 앱만 쥐고 있다. 화면이 바뀌는 순간(각 메모의 시각, 자정)이 시간표에 미리 적히고, 앱이 파일을 바꾸면 위젯을 다시 그리게 한다 (`WidgetRefresher`). 폰에서 「봤어요」로 내려놓은 카드는 위젯에서도 내려간다.
+
+위젯이 앱을 두드리는 주소는 `lazymemo://memo/<ULID>`(그 메모)와 `lazymemo://write`(펜)다 — 맥의 `lazymemo://add?text=…` 와 같은 스킴이라 **폰도 이제 그 주소를 받는다**: 단축어에서 `lazymemo://add?text=장보기` 를 열면 폰 앱에 메모가 꽂힌다. 무엇을 보이는지는 `Sources/LazyMemoWidgetsCore` 가 앱과 같은 규칙으로 정하고 시험이 GUI 없이 돈다.
 
 ### 아이폰에서 던지기 — 앱 없이
 
@@ -441,6 +455,9 @@ Sources/
   LazyMemoUI/     AppKit·SwiftUI 셸 — 종이·달력·서랍·빠른 입력·시작 화면
   LazyMemo/       진입점 (main.swift 한 줄)
   LazyMemoMCP/    MCP 서버 — Claude Desktop 이 띄우는 별도 프로세스
+  LazyMemoWidgetsCore/  위젯이 보이는 것과 바뀌는 순간, 딥링크 — WidgetKit 없이 시험된다
+ios/
+  LazyMemo/       아이폰 앱 · LazyMemoShare/ 공유 확장 · LazyMemoWidgets/ 위젯 확장 (아이폰·맥 스토어 판)
 ```
 
 앱과 MCP 서버는 같은 `MemoService` 를 쓴다. "파일에 먼저 쓰고 인덱스에 통지한다", "삭제는 휴지통 이동뿐" 같은 규칙이 두 곳에 따로 있으면 한쪽만 고쳐지는 순간 깨지기 때문이다.

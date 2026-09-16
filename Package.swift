@@ -16,6 +16,7 @@ let package = Package(
         .library(name: "LazyMemoCore", targets: ["LazyMemoCore"]),
         .library(name: "LazyMemoReminders", targets: ["LazyMemoReminders"]),
         .library(name: "LazyMemoSpotlight", targets: ["LazyMemoSpotlight"]),
+        .library(name: "LazyMemoWidgetsCore", targets: ["LazyMemoWidgetsCore"]),
         .library(name: "LazyMemoAssistant", targets: ["LazyMemoAssistant"]),
         .library(name: "LazyMemoLocalLiteRT", targets: ["LazyMemoLocalLiteRT"]),
         .library(name: "LazyMemoAssistantUI", targets: ["LazyMemoAssistantUI"]),
@@ -41,7 +42,7 @@ let package = Package(
         // 앱 셸 — AppKit/SwiftUI. 도메인 로직을 두지 않는다.
         .target(
             name: "LazyMemoUI",
-            dependencies: ["LazyMemoCore", "LazyMemoPlaces", "LazyMemoReminders", "LazyMemoSpotlight", "LazyMemoAssistantUI"],
+            dependencies: ["LazyMemoCore", "LazyMemoPlaces", "LazyMemoReminders", "LazyMemoSpotlight", "LazyMemoAssistantUI", "LazyMemoWidgetsCore"],
             path: "Sources/LazyMemoUI",
             resources: [.process("Resources")]
         ),
@@ -60,6 +61,14 @@ let package = Package(
             dependencies: ["LazyMemoCore"],
             path: "Sources/LazyMemoSpotlight",
             resources: [.process("Resources")]
+        ),
+        // 위젯이 보는 것 — 「지금」의 시간표·다음 약속·딥링크·앱이 위젯을 다시 그리게 하는 문.
+        // WidgetKit 은 링크하지 않는다(`WidgetRefresher` 만 canImport 뒤에 선다): 위젯 확장과 두 앱이
+        // 같은 판단을 쓰고, 시험이 GUI 없이 돈다. Core 에 두지 않는 이유는 MCP 서버까지 끌고 가지 않으려는 것.
+        .target(
+            name: "LazyMemoWidgetsCore",
+            dependencies: ["LazyMemoCore"],
+            path: "Sources/LazyMemoWidgetsCore"
         ),
         // 자리를 지도의 점으로 — MapKit 에 묻는 일. 폰과 맥의 종이가 같이 쓰고,
         // Core 에 두지 않는 이유는 MCP 서버까지 MapKit 을 들지 않게 하려는 것.
@@ -163,6 +172,12 @@ let package = Package(
             name: "LazyMemoSpotlightTests",
             dependencies: ["LazyMemoSpotlight", "LazyMemoCore"],
             path: "Tests/LazyMemoSpotlightTests"
+        ),
+        // 위젯의 시간표·다음 약속·딥링크 — WidgetKit 없이 도는 순수 판단.
+        .testTarget(
+            name: "LazyMemoWidgetsCoreTests",
+            dependencies: ["LazyMemoWidgetsCore", "LazyMemoCore"],
+            path: "Tests/LazyMemoWidgetsCoreTests"
         ),
     ]
 )

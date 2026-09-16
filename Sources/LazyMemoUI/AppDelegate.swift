@@ -4,6 +4,7 @@ import LazyMemoAssistantUI
 import LazyMemoCore
 import LazyMemoReminders
 import LazyMemoSpotlight
+import LazyMemoWidgetsCore
 
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -15,8 +16,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var dueClock: DueClock?
     /// 앱이 뜨기 전에 두드린 주소. 문이 열리면 그때 들여보낸다.
     private var pendingURLs: [URL] = []
-    /// 앱이 뜨기 전에 Spotlight 에서 누른 메모. 창이 서면 그때 앞으로 꺼낸다.
+    /// 앱이 뜨기 전에 Spotlight·위젯에서 누른 메모. 창이 서면 그때 앞으로 꺼낸다.
     private var pendingReveal: ULID?
+    /// 앱이 뜨기 전에 위젯의 「적기」를 눌렀다. 창이 서면 빠른 입력 상자를 연다.
+    private var pendingWrite = false
     /// 메모를 다 읽고 창이 섰다 — 그 전에는 `reveal` 할 종이가 없다.
     private var revealReady = false
 
@@ -172,10 +175,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             // 메모를 시스템 검색에 — 앱을 열지 않고도 찾힌다. 메모를 다 읽은 뒤에 붙인다 (알림과 같은 이유).
             SpotlightCenter.shared.start(store: store)
+            // 알림 센터·바탕화면의 위젯(App Store 판)도 같은 파일을 본다 — 바뀌면 다시 그리게 한다.
+            // GitHub 판에는 위젯이 없어 부르는 것이 아무 일도 아니다.
+            WidgetRefresher.shared.start(store: store)
             revealReady = true
             if let id = pendingReveal {
                 pendingReveal = nil
                 windows.reveal(id, keepingPlace: true)
+            }
+            if pendingWrite {
+                pendingWrite = false
+                menuBar.showCapture()
             }
             // 일정은 달력에서만 보이므로(§7.2) 달력의 열림 여부도 복원 대상이다.
             menuBar.restoreCalendar()
@@ -340,18 +350,32 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         FileHandle.standardError.write(Data("[capture] \(message)\n".utf8))
     }
 
-    /// 저장소를 못 여는 상황은 복구 경로가 없다 — 조용히 죽지 않고 이유를 보여준 뒤 종료한다.
     /// `lazymemo://add?text=…` — 다른 앱·단축어·스크립트가 두드리는 문 (`InboundLink`).
+    /// 위젯의 두 동사(`lazymemo://memo/<id>`·`lazymemo://write`, `WidgetLink`)도 같은 스킴으로 온다 —
+    /// 그 메모를 앞으로, 또는 빠른 입력 상자를.
     ///
-    /// **글자만 받는다.** 무엇을 받는지는 `InboundLink` 한 곳에서만 정하고,
+    /// **글자만 받는다.** 무엇을 받는지는 `InboundLink`·`WidgetLink` 두 곳에서만 정하고,
     /// 여기서는 늘리지 않는다. 앱이 아직 안 떴으면 잠깐 들고 있다가 들여보낸다 —
     /// 이 주소로 앱이 처음 깨어나는 경우가 있기 때문이다.
     public func application(_ application: NSApplication, open urls: [URL]) {
+        var inbound: [URL] = []
+        for url in urls {
+            switch WidgetLink.destination(of: url) {
+            case .memo(let id):
+                // Spotlight 와 같은 길 — 보는 일이지 자리를 옮기는 일이 아니다 (keepingPlace).
+                if revealReady, let windows { windows.reveal(id, keepingPlace: true) } else { pendingReveal = id }
+            case .write:
+                if revealReady, let menuBar { menuBar.showCapture() } else { pendingWrite = true }
+            case nil:
+                inbound.append(url)
+            }
+        }
+        guard !inbound.isEmpty else { return }
         guard let door = menuBar?.door else {
-            pendingURLs.append(contentsOf: urls)
+            pendingURLs.append(contentsOf: inbound)
             return
         }
-        Task { for url in urls { await door.receive(url: url) } }
+        Task { for url in inbound { await door.receive(url: url) } }
     }
 
     /// Spotlight 결과를 눌렀다 — 그 종이를 앞으로. 보는 일이지 자리를 옮기는 일이 아니다 (keepingPlace).
@@ -365,6 +389,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    /// 저장소를 못 여는 상황은 복구 경로가 없다 — 조용히 죽지 않고 이유를 보여준 뒤 종료한다.
     private func presentFatal(_ message: String) {
         let alert = NSAlert()
         alert.alertStyle = .critical
