@@ -23,8 +23,10 @@ final class PenModel {
             // 글을 다 지우면 끈 칩도 잊는다 — 다음 글의 날짜가 말없이 안 읽히면 안 된다.
             if text.isEmpty { readsDate = true; readsPlace = true; readsEvery = true }
             // 글을 고치면 답은 물러나고 검색으로 돌아간다 (맥의 상자와 같은 규칙, quick-capture-assistant D9).
-            if shown != nil || assistant?.answer != nil || assistant?.proposal != nil || assistant?.phase == .thinking {
+            if shown != nil || asked != nil || assistant?.answer != nil || assistant?.proposal != nil || assistant?.phase == .thinking {
                 shown = nil
+                listing = .search
+                asked = nil
                 assistant?.reset()
             }
         }
@@ -35,6 +37,21 @@ final class PenModel {
     /// 이 기기의 비서. 없으면(시험) 펜은 적기와 찾기만 한다.
     var assistant: AssistantModel? {
         didSet { assistant?.onSettled = { [weak self] in self?.reflectAssistant() } }
+    }
+    /// 편집 화면의 ✦ 로 들고 온 메모 — 「이거」다 (D10). 칩의 × 로 놓거나, 답·결과가 오면 놓는다.
+    var target: ULID?
+    var targetTitle: String? { target.flatMap { store.memo($0)?.title } }
+    /// 방금 비서에게 한 말 — 「읽는 중」 머리글과 답 카드가 이것을 인용한다. 글을 고치면 잊는다.
+    private(set) var asked: String?
+
+    /// 편집 화면의 ✦ — 그 메모를 들고 펜을 올린다. 편집 화면이 다 물러난 뒤에 불린다 (`MemoEditorView.onDisappear`):
+    /// 그 전에는 글 칸이 화면에 없어 포커스를 줘도 받지 못한다.
+    func adopt(target id: ULID) {
+        target = id
+        Task {
+            try? await Task.sleep(for: .milliseconds(150))
+            requestFocus()
+        }
     }
     /// 되물음 뒤에 기다리는 새 메모 — 「약속 시간이 언제인가요?」의 답을 이것에 잇는다.
     private(set) var pending: (question: String, draft: FieldPatch)?
@@ -49,8 +66,8 @@ final class PenModel {
     }
     static let timeChoices = ["12시", "점심", "저녁 7시", "시각 없이"]
 
-    /// 목록의 출처 — 찾은 것, 아니면 비서가 정한 것.
-    enum Listing: Equatable { case search, evidence, related, candidates }
+    /// 목록의 출처 — 찾은 것, 아니면 비서가 정한 것. `reading` 은 묻는 동안 그대로 둔 후보다 (맥 E-1 「목록 그대로」).
+    enum Listing: Equatable { case search, reading, evidence, related, candidates }
     private(set) var listing: Listing = .search
     /// 비서가 정한 목록(근거·관련·후보). 글을 고치면 놓는다.
     private(set) var shown: [Memo]?
@@ -65,20 +82,42 @@ final class PenModel {
     /// 비서가 방금 정한 것에 맞춰 목록을 고른다 — `AssistantModel.onSettled` 에서.
     func reflectAssistant() {
         guard let assistant else { return }
+        // 답이 왔거나 바꿨으면 「이거」는 할 일을 다했다 — 결과 줄이 그 메모의 이름을 든다.
+        if assistant.answer != nil || assistant.receipt != nil { target = nil }
         if let answer = assistant.answer {
             showMemos(answer.found ? answer.evidence : assistant.relatedMemos.map(\.memoID), as: answer.found ? .evidence : .related)
-        } else if let proposal = assistant.proposal, proposal.kind == .ask, !proposal.candidates.isEmpty {
-            showMemos(proposal.candidates, as: .candidates)
+        } else if let proposal = assistant.proposal, AssistantIntent.asksWhichMemo(proposal) {
+            // 「어느 메모?」— 비서가 후보를 못 찾았으면(「금요일 10시에 다시 알려줘」는 어느 메모의 낱말도 아니다)
+            // 지금 목록이 곧 후보다. 줄을 누르면 여는 대신 그 메모에게 같은 말을 한다 (D10).
+            let candidates = proposal.candidates.isEmpty ? (shown ?? found ?? store.active).map(\.id) : proposal.candidates
+            showMemos(candidates, as: .candidates)
         } else if case .failed = assistant.phase, !assistant.relatedMemos.isEmpty {
             showMemos(assistant.relatedMemos.map(\.memoID), as: .related)
-        } else if assistant.receipt != nil {
+        } else {
+            // 결과 줄·휴지통 되물음·실패 — 읽는 동안 세워 둔 후보는 내리고 검색으로 돌아간다. 바꿨으면 다시 짓는다.
             shown = nil; listing = .search
-            Task { await refresh() }
+            if assistant.receipt != nil { Task { await refresh() } }
         }
     }
 
     /// 「어느 메모?」의 후보 하나를 골랐다 — 같은 말을 그 메모에게.
     func pick(_ id: ULID) { assistant?.pick(id) }
+
+    /// 읽는 중에 그만둔다 — 세워 둔 후보도 내린다 (`cancel` 은 `onSettled` 를 부르지 않는다).
+    func cancelReading() {
+        assistant?.cancel()
+        shown = nil; listing = .search; asked = nil
+    }
+
+    /// 비서에게 말을 넘기기 전에 — 펜은 비우고, 지금 목록은 읽는 동안 그대로 세워 둔다.
+    /// 글이 비면 목록이 무더기 전부로 튀었다가 답이 오면 근거로 줄어드는데, 그 두 번의 뜀이 답을 기다리는 사람을 흔든다.
+    private func handOff(_ said: String) {
+        let candidates = found ?? []
+        text = ""
+        draft.forget()
+        asked = said
+        if !candidates.isEmpty { shown = candidates; listing = .reading }
+    }
 
     /// 답을 기다리던 초안을 놓는다 — ⊗ 를 눌렀을 때 「시각 없이」와 같다 (D12).
     func takePendingDraft() -> FieldPatch? {
@@ -174,17 +213,29 @@ final class PenModel {
     }
 
     /// 단추의 라벨이 곧 동사다 (quick-capture-assistant D5): 답하기 · 시키기 · 메모에게 묻기 · 달력에 남기기 · 메모 남기기.
+    /// 맥의 「「치과 예약」에 적용」은 폰의 좁은 단추에 두 줄로 꺾여 — 누구에게인지는 바로 위의 「열린 메모」 칩이 말한다.
     /// 달력이 물린 날도 칩을 끄면 안 쓰이므로(`leave`) 단추도 같이 바뀐다.
     var leaveLabel: String {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if pending != nil { return String(localized: "답하기") }
-        if assistant != nil, !trimmed.isEmpty {
-            if AssistantIntent.hasCommandVerb(trimmed) { return String(localized: "시키기") }
-            if AssistantIntent.isQuestion(trimmed) { return String(localized: "메모에게 묻기") }
+        switch saying {
+        case .asking: return String(localized: "메모에게 묻기")
+        case .telling: return String(localized: "시키기")
+        case .writing: break
         }
         let note = reading
         let dated = note.due != nil || note.at != nil || (readsDate && presetDay != nil)
         return dated ? String(localized: "달력에 남기기") : String(localized: "메모 남기기")
+    }
+
+    /// 지금 글이 누구에게 가는가 — 단추의 동사, 칩의 유무, 빈 목록의 한 줄이 이것으로 갈린다.
+    /// 「이거」를 들고 있으면 묻는 말이 아닌 것은 전부 그 메모에게 시키는 말이다 — 동사가 없어도 (「금요일 10시」).
+    enum Saying: Equatable { case writing, asking, telling }
+    var saying: Saying {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard assistant != nil, !trimmed.isEmpty, pending == nil else { return .writing }
+        if AssistantIntent.isQuestion(trimmed) { return .asking }
+        if target != nil || AssistantIntent.hasCommandVerb(trimmed) { return .telling }
+        return .writing
     }
 
     /// 칩 하나 — 날짜. 끈 뒤에도 글이 그대로면 칩도 그대로다 (꺼진 모양으로).
@@ -223,18 +274,16 @@ final class PenModel {
         }
 
         if let assistant {
-            // 시키는 말 — 대상은 비서가 되묻고 목록이 후보가 된다 (D10). 열린 메모는 편집 화면의 시트가 맡는다.
-            if AssistantIntent.hasCommandVerb(trimmed) {
-                let said = trimmed
-                text = ""; draft.forget()
-                assistant.command(said)
+            // 물음 — 메모가 답한다. 목록은 근거로 줄어든다 (D9). 「이거」가 있으면 그 메모부터 읽는다.
+            if AssistantIntent.isQuestion(trimmed) {
+                handOff(trimmed)
+                assistant.ask(trimmed, selected: target)
                 return nil
             }
-            // 물음 — 메모가 답한다. 목록은 근거로 줄어든다 (D9).
-            if AssistantIntent.isQuestion(trimmed) {
-                let said = trimmed
-                text = ""; draft.forget()
-                assistant.ask(said)
+            // 시키는 말 — 대상은 편집 화면에서 들고 온 「이거」, 없으면 비서가 되묻고 목록이 후보가 된다 (D10).
+            if target != nil || AssistantIntent.hasCommandVerb(trimmed) {
+                handOff(trimmed)
+                assistant.command(trimmed, selected: target)
                 return nil
             }
             // 약속인데 시각이 없다 — 한 가지만 묻고 펜은 답을 기다린다 (D6).
@@ -313,14 +362,24 @@ final class PenModel {
     /// 두 걸음 — 인덱스는 낱말만 알고, 생김새·장소·날짜는 메모를 손에 쥐어야
     /// 볼 수 있다 (`QuickCaptureModel.find` 와 같다).
     private func find(_ query: String) async {
+        // 비서에게 갈 말은 낱말로 줄 세운다 (맥의 상자와 같다, D9·D10) — 「치과 언제였지?」는 어느 메모의 문장도
+        // 아니라 구(phrase)로는 안 잡힌다. 이 목록이 곧 근거 후보고, 시키는 말이면 대상 후보다. 시키는 말에 걸리는
+        // 낱말이 없으면 목록을 비우지 않는다 — 「금요일 10시에 다시 알려줘」는 어느 메모의 낱말도 아니다.
+        if assistant != nil, saying != .writing {
+            let ranked = MemoRanker.search(query, in: store.active, limit: Self.searchCeiling)
+            if !ranked.isEmpty || saying == .asking { found = ranked }
+            return
+        }
         let condition = MemoFilter.read(query)
         let words = condition.words.trimmingCharacters(in: .whitespacesAndNewlines)
-        let pool: [Memo]
+        var pool: [Memo]
         if HangulInitials.isInitialsQuery(words) {
             // 첫소리는 인덱스가 모른다 — 메모리를 훑는다.
             pool = store.memos.filter { HangulInitials.matches($0.title + "\n" + $0.body, query: words) }
         } else {
             pool = await store.search(words, limit: Self.searchCeiling)
+            // 구로 못 찾은 여러 낱말은 낱말 랭킹으로 한 번 더 — 「엄마 선물」이 「엄마 생신 선물」을 찾게 (맥과 같다).
+            if pool.isEmpty, words.contains(" ") { pool = MemoRanker.search(words, in: store.active, limit: Self.searchCeiling) }
         }
         guard !Task.isCancelled else { return }
         found = condition.narrows ? pool.filter { condition.matches($0) } : pool

@@ -63,6 +63,9 @@ struct StackView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
 
+                // 비서의 답·결과 — 「지금」보다 위, 목록 맨 위에 선다. 목록은 그 답의 근거·후보로 갈려 있다 (`PenModel.reflectAssistant`).
+                if let assistant, pen.pendingQuestion == nil { assistantBlock(assistant) }
+
                 if !nowCards.isEmpty {
                     NowBand(cards: nowCards, now: clock, open: open, putDown: putDown, pin: pin, delete: delete)
                 }
@@ -81,9 +84,6 @@ struct StackView: View {
                         .listRowSeparator(.hidden)
                 }
 
-                // 비서의 답·결과 — 목록 위에 선다. 목록은 그 답의 근거·후보로 갈려 있다 (`PenModel.reflectAssistant`).
-                if let assistant, pen.pendingQuestion == nil { assistantBlock(assistant) }
-
                 if let heading = listingHeading {
                     Text(heading)
                         .font(.footnote)
@@ -97,9 +97,7 @@ struct StackView: View {
                     // 전부다 — 적는 중에 「없어요」라는 큰 제목이 서면 새 메모를 쓰는 사람이
                     // 무언가 틀린 것처럼 읽는다. 펜은 적기가 먼저고 찾기는 곁이다.
                     let scope = MemoFolders.filter(store.active, folder: folders.selected).count
-                    Text(listed.isEmpty
-                         ? String(localized: "\(scope)장 중 겹치는 것 없음 · 남기면 새 메모예요")
-                         : String(localized: "\(scope)장 중 \(listed.count)장"))
+                    Text(listed.isEmpty ? emptyScopeLine(scope) : String(localized: "\(scope)장 중 \(listed.count)장"))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .listRowBackground(Color.clear)
@@ -204,7 +202,8 @@ struct StackView: View {
         .toolbarTitleDisplayMode(.large)
         .toolbar { toolbar }
         .navigationDestination(item: $opened) { id in
-            MemoEditorView(store: store, id: id, reveal: reveal, listedFolders: folders.names)
+            // ✦ — 화면이 물러나고 펜이 「열린 메모 · …」 칩을 들고 올라온다.
+            MemoEditorView(store: store, id: id, reveal: reveal, listedFolders: folders.names) { pen.adopt(target: $0) }
         }
         .navigationDestination(isPresented: $showsTrash) { TrashView(store: store, reveal: reveal) }
         // 시트는 메모를 **살아 있는 채로** 본다 — 값을 잡아 두면 첫 누름 뒤 격자의
@@ -307,9 +306,19 @@ struct StackView: View {
         guard pen.shown != nil else { return nil }
         switch pen.listing {
         case .search: return nil
+        case .reading: return String(localized: "「\(pen.asked ?? "")」 · 이 중에서 읽는 중")
         case .evidence: return String(localized: "근거 \(listed.count)장")
         case .related: return String(localized: "관련 메모")
         case .candidates: return String(localized: "어느 메모? 누르면 그 메모에게 합니다")
+        }
+    }
+
+    /// 겹치는 메모가 없을 때의 한 줄 — 단추가 「남기기」일 때만 「남기면 새 메모예요」. 묻거나 시키는 말이면 그 다음을 말한다.
+    private func emptyScopeLine(_ scope: Int) -> String {
+        switch pen.saying {
+        case .writing: return String(localized: "\(scope)장 중 겹치는 것 없음 · 남기면 새 메모예요")
+        case .asking: return String(localized: "\(scope)장 중 겹치는 것 없음 · 물으면 메모를 읽고 답합니다")
+        case .telling: return String(localized: "\(scope)장 중 겹치는 것 없음 · 시키면 어느 메모인지 묻습니다")
         }
     }
 
@@ -323,8 +332,10 @@ struct StackView: View {
         case .done:
             if let answer = assistant.answer { answerRow(answer) }
             if let proposal = assistant.proposal {
-                if proposal.kind == .ask { noticeRow(ActionWords.describe(proposal, memoTitle: nil), symbol: "questionmark.circle") }
-                else if proposal.kind == .trash { trashRow(proposal, assistant) }
+                // 「어느 메모?」는 목록 머리글이 말한다 — 같은 물음을 두 줄로 세우지 않는다.
+                if proposal.kind == .ask, !(pen.listing == .candidates && AssistantIntent.asksWhichMemo(proposal)) {
+                    noticeRow(ActionWords.describe(proposal, memoTitle: nil), symbol: "questionmark.circle")
+                } else if proposal.kind == .trash { trashRow(proposal, assistant) }
             }
             if let applied = assistant.applied { resultRow(applied, assistant) }
             if let error = assistant.applyError { noticeRow(error, symbol: "exclamationmark.circle") }
@@ -333,6 +344,10 @@ struct StackView: View {
 
     private func answerRow(_ answer: AssistantAnswer) -> some View {
         VStack(alignment: .leading, spacing: 6) {
+            // 펜은 비었으니 무엇을 물었는지는 카드가 든다 — 맥은 상자 안에 답이 서지만 폰의 답은 목록 위에 혼자 선다.
+            if let asked = pen.asked {
+                Text(asked).font(.footnote.weight(.medium)).foregroundStyle(.secondary).lineLimit(2)
+            }
             Text(answer.found ? ActionWords.soft(answer.text) : String(localized: "메모에서 찾지 못했습니다"))
                 .font(.body)
                 .textSelection(.enabled)

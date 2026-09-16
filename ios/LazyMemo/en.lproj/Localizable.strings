@@ -90,6 +90,7 @@
 "아래 펜에 적고, 남기기" = "Write in the pen below, then add";
 "한 줄이면 메모가 됩니다. 적던 글은 앱을 닫아도 남아 있어요." = "One line makes a note. What you were typing survives closing the app.";
 "같은 칸에 치면 메모를 **찾습니다** — 「ㅊㄱ」처럼 첫소리만 쳐도 「치과」가 나와요." = "Typing in the same box also **searches** your notes.";
+"「치과 언제였지?」처럼 **물으면** 메모가 답하고, 「금요일에 다시 알려줘」처럼 **시키면** 합니다 — 전부 이 폰 안에서요." = "**Ask** — “when was the dentist?” — and your notes answer; **tell** it — “remind me on Friday” — and it does it, all on this phone.";
 "날짜와 장소는 앱이 읽어요" = "Dates and places are read for you";
 "「내일 3시 치과 @강남역」이라고 적으면 날짜·시각·장소가 **칩**으로 먼저 보여요. 단추는 「달력에 남기기」가 됩니다." = "Write “dentist tomorrow at 3 @Union Square” and the date, time and place show up as **chips** first. The button becomes “Add to calendar”.";
 "칩을 누르면 그 해석만 끕니다. 글은 그대로예요. 왼쪽 끝 위치 단추는 「지금 여기」를 붙입니다." = "Tap a chip to switch off just that reading. The text stays as is. The location button on the far left attaches “here now”.";
@@ -149,3 +150,12 @@
 "취소" = "Cancel";
 "모델을 받으면 답합니다" = "Download the model to get answers";
 "받기 %@" = "Download %@";
+
+/* 펜 × 비서 — 편집 화면의 ✦ 가 펜에 넘긴 「이거」, 읽는 동안의 목록, 묻고 시킬 때의 빈 줄 */
+"열린 메모 · %@" = "Open note · %@";
+"열린 메모 %@" = "Open note %@";
+"누르면 열린 메모를 놓습니다" = "Tap to let go of the open note";
+"「내일로 미뤄줘」" = "“push it to tomorrow”";
+"「%@」 · 이 중에서 읽는 중" = "“%@” · reading these";
+"%lld장 중 겹치는 것 없음 · 물으면 메모를 읽고 답합니다" = "No match among %lld notes · ask and it reads them to answer";
+"%lld장 중 겹치는 것 없음 · 시키면 어느 메모인지 묻습니다" = "No match among %lld notes · tell it and it asks which note";

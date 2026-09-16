@@ -20,6 +20,7 @@ struct TutorialView: View {
             lines: [
                 String(localized: "한 줄이면 메모가 됩니다. 적던 글은 앱을 닫아도 남아 있어요."),
                 String(localized: "같은 칸에 치면 메모를 **찾습니다** — 「ㅊㄱ」처럼 첫소리만 쳐도 「치과」가 나와요."),
+                String(localized: "「치과 언제였지?」처럼 **물으면** 메모가 답하고, 「금요일에 다시 알려줘」처럼 **시키면** 합니다 — 전부 이 폰 안에서요."),
             ]
         ),
         Page(

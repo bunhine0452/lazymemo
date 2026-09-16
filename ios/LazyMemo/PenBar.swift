@@ -34,7 +34,16 @@ struct PenBar: View {
             try? await Task.sleep(for: .milliseconds(80))
             focused = true
         }
-        .onChange(of: pen.focusRequest) { _, _ in focused = true }
+        .onChange(of: pen.focusRequest) { _, _ in
+            // 편집 화면에 다녀오면 `focused` 는 켜진 채인데 키보드는 내려가 있다 — 같은 값을 다시 넣어서는 안 올라온다.
+            // 껐다가 다음 턴에 켠다 (2026-09-16 시뮬레이터: 캐럿만 서고 키보드가 안 오르던 것).
+            guard focused else { focused = true; return }
+            focused = false
+            Task {
+                try? await Task.sleep(for: .milliseconds(50))
+                focused = true
+            }
+        }
     }
 
     /// 접힌 탭바 옆의 한 줄. 누르면 펜을 올린다.
@@ -105,12 +114,17 @@ struct PenBar: View {
 
     @ViewBuilder
     private var chips: some View {
-        let date = pen.dateChip
-        let place = pen.placeChip
-        let every = pen.everyChip
-        if date != nil || place != nil || every != nil || hereTrouble != nil {
+        // 묻거나 시키는 말에는 읽은 칩을 세우지 않는다 — 「금요일 10시에 다시 알려줘」의 날짜는 달력으로 가지 않는다.
+        // 무엇이 될지는 단추의 동사와, 끝난 뒤의 결과 줄이 말한다.
+        let writing = pen.saying == .writing
+        let date = writing ? pen.dateChip : nil
+        let place = writing ? pen.placeChip : nil
+        let every = writing ? pen.everyChip : nil
+        let target = pen.targetTitle
+        if date != nil || place != nil || every != nil || hereTrouble != nil || target != nil {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
+                    if let target { targetChip(target) }
                     if let hereTrouble, pen.here == nil {
                         Text(hereTrouble)
                             .font(.footnote)
@@ -141,6 +155,26 @@ struct PenBar: View {
         }
     }
 
+    /// 「열린 메모 · 치과 예약 ×」— 편집 화면의 ✦ 로 들고 온 「이거」가 누구인지 (quick-capture-assistant D10). × 로 놓는다.
+    private func targetChip(_ title: String) -> some View {
+        Button { pen.target = nil } label: {
+            HStack(spacing: 6) {
+                Text(String(localized: "열린 메모 · \(title)")).lineLimit(1)
+                Image(systemName: "xmark").font(.caption2.weight(.semibold))
+            }
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 10)
+            .frame(minHeight: 32)
+            .background(Capsule().fill(Paper.ink.opacity(0.08)))
+            .frame(minHeight: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(String(localized: "열린 메모 \(title)"))
+        .accessibilityHint(String(localized: "누르면 열린 메모를 놓습니다"))
+        .accessibilityIdentifier("chip-target")
+    }
+
     /// 켜진 칩은 바탕 + 글, 꺼진 칩은 테두리만 — 눌리게 생겨야 한다.
     private func chip(_ label: String, on: Bool, hint: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
@@ -161,6 +195,13 @@ struct PenBar: View {
 
     // MARK: 펜 줄 — 위치 단추 · 글 칸 · 남기기
 
+    /// 빈 칸의 안내 — 열 때마다 바뀌는 문구, 답을 기다릴 때는 답의 예, 「이거」를 들고 있으면 시키는 말의 예.
+    private var placeholder: String {
+        if pen.pendingQuestion != nil { return String(localized: "12시야") }
+        if pen.target != nil { return String(localized: "「내일로 미뤄줘」") }
+        return pen.prompt
+    }
+
     private var penRow: some View {
         HStack(alignment: .bottom, spacing: 8) {
             if fixing {
@@ -179,7 +220,7 @@ struct PenBar: View {
             }
 
             HStack(alignment: .bottom, spacing: 4) {
-                TextField(pen.pendingQuestion == nil ? pen.prompt : String(localized: "12시야"), text: Bindable(pen).text, axis: .vertical)
+                TextField(placeholder, text: Bindable(pen).text, axis: .vertical)
                     .font(.body)
                     .lineLimit(1...5)
                     .focused($focused)
@@ -208,7 +249,7 @@ struct PenBar: View {
 
             if pen.assistant?.phase == .thinking {
                 // 읽는 동안 — 누르면 그만둔다 (맥의 「esc 그만」).
-                Button { pen.assistant?.cancel() } label: {
+                Button { pen.cancelReading() } label: {
                     HStack(spacing: 6) { ProgressView().controlSize(.small); Text("읽는 중") }
                         .font(.subheadline.weight(.semibold))
                         .padding(.horizontal, 4)

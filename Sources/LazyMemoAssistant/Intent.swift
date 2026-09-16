@@ -39,6 +39,11 @@ public enum AssistantIntent {
         return action
     }
 
+    /// 「어느 메모를 말하는지 골라 주세요」인가 — 대상이 빈 시키기. 화면은 이때 목록을 후보로 바꾼다 (D10 「목록이 곧 후보」).
+    public static func asksWhichMemo(_ action: ProposedAction) -> Bool {
+        action.kind == .ask && action.question == CommandResolver.questions.noTarget
+    }
+
     /// 되물음(「약속 시간이 언제인가요?」)에 온 답을 초안에 잇는다. 답이 아니면 nil.
     public static func complete(draft: FieldPatch, reply: String, now: Date = Date(), timeZone: TimeZone = .current) -> ProposedAction? {
         CommandResolver.complete(draft: draft, reply: reply, request: AssistantRequest(task: .command, userText: reply, now: now, timeZone: timeZone))

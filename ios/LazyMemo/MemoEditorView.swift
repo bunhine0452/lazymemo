@@ -1,4 +1,3 @@
-import LazyMemoAssistantUI
 import LazyMemoCore
 import LazyMemoPlaces
 import LazyMemoReminders
@@ -15,6 +14,9 @@ struct MemoEditorView: View {
     let reveal: Reveal
     /// 설정에 적힌 폴더 차례 — 메모가 한 장도 없는 폴더도 고를 수 있게.
     var listedFolders: [String] = []
+    /// ✦ 「이 메모에게 시키기」— 이 메모를 「이거」로 펜에 넘긴다. 시키는 자리는 펜 하나다 (맥의 상자와 같다,
+    /// quick-capture-assistant D1·D10): 여기 또 하나의 글 칸을 띄우면 같은 일을 하는 자리가 둘이 된다. 없으면 ✦ 도 없다.
+    var onCommand: ((ULID) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.undoManager) private var undoManager
@@ -28,7 +30,8 @@ struct MemoEditorView: View {
     @State private var saveTask: Task<Void, Never>?
     @State private var datePicking = false
     @State private var recallPicking = false
-    @State private var commanding = false
+    /// ✦ 를 눌렀다 — 화면이 다 물러난 뒤(`onDisappear`) 펜에 넘긴다. 물러나는 중에는 펜이 포커스를 받지 못한다.
+    @State private var handingOff = false
     @Environment(\.assistant) private var assistant
     @State private var folderPicking = false
     @State private var newFolder = ""
@@ -83,9 +86,10 @@ struct MemoEditorView: View {
         .toolbar(.hidden, for: .tabBar)
         .toolbar { if let memo { tail(memo) } }
         .toolbar {
-            if assistant != nil {
+            if assistant != nil, let onCommand {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { commanding = true } label: { Label("이 메모에게 시키기", systemImage: "sparkles") }
+                    // 화면이 물러나고 펜이 올라온다 — 적던 글도 `onDisappear` 가 내린다.
+                    Button { handingOff = true; dismiss() } label: { Label("이 메모에게 시키기", systemImage: "sparkles") }
                         .accessibilityIdentifier("assistant-command-button")
                 }
             }
@@ -105,17 +109,6 @@ struct MemoEditorView: View {
                 }
             }
         }
-        .sheet(isPresented: $commanding) {
-            if let assistant {
-                NavigationStack {
-                    AssistantView(model: assistant, selected: id,
-                                  memoTitle: { store.memo($0)?.title },
-                                  openMemo: { _ in commanding = false })
-                        .navigationTitle("이 메모에게 시키기")
-                        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { commanding = false } } }
-                }
-            }
-        }
         .onAppear {
             guard !loaded, let memo else { return }
             text = memo.body
@@ -132,7 +125,10 @@ struct MemoEditorView: View {
             text = external
             lastSaved = external
         }
-        .onDisappear { flush() }
+        .onDisappear {
+            flush()
+            if handingOff { handingOff = false; onCommand?(id) }
+        }
         // 뒤로 물러날 때도 즉시 — 600ms 안에 앱이 죽으면 마지막 글자가 사라진다.
         .onChange(of: scenePhase) { _, phase in if phase == .background { flush() } }
         .sheet(isPresented: $datePicking) {

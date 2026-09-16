@@ -54,7 +54,10 @@ struct CalendarView: View {
         // 편집 화면은 제 막대를 따로 가진다.
         .navigationTitle("달력")
         .toolbar(.hidden, for: .navigationBar)
-        .navigationDestination(item: $opened) { id in MemoEditorView(store: store, id: id, reveal: reveal) }
+        .navigationDestination(item: $opened) { id in
+            // ✦ 는 펜에 넘긴다 — 결과 줄은 메모 탭에 서므로 탭도 그리로 (`HomeView`).
+            MemoEditorView(store: store, id: id, reveal: reveal) { pen.adopt(target: $0) }
+        }
         // 시트가 준 자리를 통째로 쓴다 — 날만 받아 `move` 로 옮기면 시트에서 고른
         // 시각이 사라진다. 메모는 살아 있는 채로 본다 (`StackView` 와 같다).
         .sheet(isPresented: Binding(get: { dating != nil }, set: { if !$0 { dating = nil } })) {

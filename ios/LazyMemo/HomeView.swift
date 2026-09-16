@@ -33,8 +33,6 @@ struct HomeView: View {
         self.session = session
         let pen = PenModel(store: session.store, draft: session.draft)
         pen.holdsLaunchFocus = !Tutorial.seen
-        // 펜이 비서를 겸한다 — 묻기·시키기·되묻기 (docs/research/quick-capture-assistant-2026-09-15.md 를 폰에 그대로).
-        pen.assistant = session.assistant
         _pen = State(initialValue: pen)
         _folders = State(initialValue: FolderModel(store: session.store, settings: session.settings))
     }
@@ -64,10 +62,10 @@ struct HomeView: View {
         .environment(\.assistant, session.assistant)
         .sheet(item: $notified) { item in
             NavigationStack {
-                MemoEditorView(store: session.store, id: item.id, reveal: reveal, listedFolders: folders.names)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) { Button("닫기") { notified = nil } }
-                    }
+                MemoEditorView(store: session.store, id: item.id, reveal: reveal, listedFolders: folders.names) { pen.adopt(target: $0) }
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) { Button("닫기") { notified = nil } }
+                }
             }
         }
         // 꺼진 채 눌렀으면 화면이 생기기 전에 담겨 있다 (`initial`). 열면 비운다.
@@ -79,7 +77,13 @@ struct HomeView: View {
         }
         // 남기면 손끝에 한 번 — 글 칸이 비는 것 말고도 「됐다」는 신호가 있어야 한다.
         .sensoryFeedback(.success, trigger: pen.lastLeft) { _, new in new != nil }
-        .onAppear { if !Tutorial.seen { showsTutorial = true } }
+        .onAppear {
+            // 펜이 비서를 겸한다 — 묻기·시키기·되묻기 (docs/research/quick-capture-assistant-2026-09-15.md 를 폰에 그대로).
+            // `init` 에서 잇지 않는다: SwiftUI 는 이 뷰를 다시 만들 수 있고, 그때의 펜은 화면이 쥔 펜이 아니다 —
+            // 비서의 「끝났다」 신호가 버려진 펜으로 가서 답이 목록에 서지 않았다 (2026-09-16 시뮬레이터에서 봤다).
+            pen.assistant = session.assistant
+            if !Tutorial.seen { showsTutorial = true }
+        }
         .sheet(isPresented: $showsTutorial, onDismiss: {
             Tutorial.markSeen()
             pen.releaseLaunchFocus()
@@ -93,6 +97,10 @@ struct HomeView: View {
         .onChange(of: pen.lastLeft) { _, left in
             // 새 줄이 맨 위에 생기고 화면이 그리로 간다.
             if let left { reveal.show(left) }
+        }
+        // 「이 메모에게 시키기」는 메모 탭의 펜에서 — 답·결과 줄이 서는 목록이 거기에 있다.
+        .onChange(of: pen.target) { _, target in
+            if target != nil { tab = .memos }
         }
     }
 }
