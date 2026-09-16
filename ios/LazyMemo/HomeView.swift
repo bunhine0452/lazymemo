@@ -1,4 +1,5 @@
 import LazyMemoCore
+import LazyMemoPlaces
 import LazyMemoReminders
 import LazyMemoSpotlight
 import SwiftUI
@@ -91,6 +92,16 @@ struct HomeView: View {
             // `init` 에서 잇지 않는다: SwiftUI 는 이 뷰를 다시 만들 수 있고, 그때의 펜은 화면이 쥔 펜이 아니다 —
             // 비서의 「끝났다」 신호가 버려진 펜으로 가서 답이 목록에 서지 않았다 (2026-09-16 시뮬레이터에서 봤다).
             pen.assistant = session.assistant
+            // 약속을 남기면 가는 길을 묻는다 — 「지금 여기」는 펜의 위치 단추와 같은 길로 잰다.
+            if pen.planner == nil {
+                let planner = RoutePlanner(store: session.store, settings: { [settings = session.settings] in settings.current })
+                planner.here = { [here] in
+                    guard let fix = await here.fix(), let geo = fix.geo else { return nil }
+                    return LocatedPlace(name: fix.place, geo: geo)
+                }
+                planner.onWritten = { memo, _ in reveal.show(memo.id) }
+                pen.planner = planner
+            }
             if !Tutorial.seen { showsTutorial = true }
         }
         .sheet(isPresented: $showsTutorial, onDismiss: {

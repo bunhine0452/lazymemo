@@ -164,7 +164,7 @@ public final class ReminderCenter {
             let request = ReminderRequest(
                 id: Self.prefix + item.id.stringValue,
                 title: item.title,
-                body: L("다시 볼 시간이에요. 눌러서 메모를 펼치세요."),
+                body: item.body ?? L("다시 볼 시간이에요. 눌러서 메모를 펼치세요."),
                 date: item.date
             )
             if pending.contains(request) { count += 1; continue }

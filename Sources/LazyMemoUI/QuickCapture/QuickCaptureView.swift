@@ -2,6 +2,7 @@ import AppKit
 import LazyMemoAssistant
 import LazyMemoAssistantUI
 import LazyMemoCore
+import LazyMemoPlaces
 import SwiftUI
 
 /// 단축키 한 번으로 열리는 입력 (설계문서 §8).
@@ -69,6 +70,8 @@ struct QuickCaptureView: View {
         .animation(reduceMotion ? nil : Theme.reveal, value: model.lastDeleted?.id)
         .animation(reduceMotion ? nil : Theme.reveal, value: model.isExpanded)
         .animation(reduceMotion ? nil : Theme.reveal, value: model.pendingQuestion)
+        .animation(reduceMotion ? nil : Theme.reveal, value: model.planner?.step)
+        .animation(reduceMotion ? nil : Theme.reveal, value: model.planner?.notice)
         .animation(reduceMotion ? nil : Theme.reveal, value: model.assistant?.phase)
     }
 
@@ -78,14 +81,20 @@ struct QuickCaptureView: View {
             // 드러내지 않는다 — 첫 줄부터 적는 자리다. 닫기 × 만 오른쪽 위에 겹쳐 둔다.
             // 되묻기 — 질문 하나만 남는다 (설계 D6). 초안 요약 · 질문 · 선택지, 그 아래 답을 적는 칸.
             if let question = model.pendingQuestion { pendingBlock(question) }
+            // 가는 길 — 「어디서 출발하시나요?」·「무엇으로 갈까요?」. 시각의 되물음과 같은 자리, 같은 모양.
+            if let planner = model.planner, planner.isActive { routeBlock(planner) }
             input
 
-            if model.query.isEmpty, model.pendingQuestion == nil, model.assistant?.phase ?? .idle == .idle { searchShortcuts }
+            if model.query.isEmpty, !model.isAsking, model.assistant?.phase ?? .idle == .idle { searchShortcuts }
 
             // 비서의 답·결과 — 목록 위에 선다. 목록은 그 답의 근거·후보로 갈려 있다 (`reflectAssistant`).
-            if model.pendingQuestion == nil, let assistant = model.assistant { assistantBlock(assistant) }
+            if !model.isAsking, let assistant = model.assistant { assistantBlock(assistant) }
+            // 길을 다 적었거나 못 찾았다 — 한 줄로. 다음 말에 지워진다.
+            if let notice = model.planner?.notice {
+                statusLine(notice, symbol: notice.hasPrefix("가는 길을 적었어요") ? "checkmark.circle" : "exclamationmark.circle")
+            }
 
-            if !model.listed.isEmpty, model.pendingQuestion == nil {
+            if !model.listed.isEmpty, !model.isAsking {
                 Divider().opacity(0.3)
                 results
             }
@@ -168,7 +177,7 @@ struct QuickCaptureView: View {
                 onPasteImage: { model.markdown(forPastedImage: $0, fileExtension: $1) },
                 onPasteLink: { LinkLabel.markdown(for: $0) },
                 // 열 때마다 바뀐다 (`CapturePrompt`). 답을 기다릴 때는 답의 예.
-                placeholder: model.pendingQuestion == nil ? model.placeholder : L("12시야"),
+                placeholder: inputPlaceholder,
                 onCommand: handle(command:in:),
                 onCommandReturn: onCommit,
                 // 글이 자라면 **그 자리에서** 상자도 자라야 한다.
@@ -242,6 +251,52 @@ struct QuickCaptureView: View {
         .background(Capsule().fill(Theme.softAccent))
         .transition(.opacity.combined(with: .scale(scale: 0.9)))
         .fixedSize()
+    }
+
+    /// 빈 상자의 안내 — 평소엔 열 때마다 바뀌는 문구, 되물음 중엔 답의 예.
+    private var inputPlaceholder: String {
+        switch model.planner?.step {
+        case .askingOrigin: return L("석촌고분역 — 또는 지도 링크")
+        case .choosing: return L("버스 · 지하철 · 택시")
+        case .searching, .writing: return L("잠깐만요…")
+        default: return model.pendingQuestion == nil ? model.placeholder : L("12시야")
+        }
+    }
+
+    // MARK: 가는 길 되묻기 (`RoutePlanner`)
+
+    /// 약속 한 줄 · 질문 · 선택지. 찾는 동안은 질문 자리에 「…찾는 중」과 바퀴.
+    private func routeBlock(_ planner: RoutePlanner) -> some View {
+        VStack(alignment: .leading, spacing: Theme.snug) {
+            if let summary = planner.summary {
+                Text(summary).font(Theme.micro).foregroundStyle(.secondary).lineLimit(2)
+            }
+            HStack(spacing: Theme.snug) {
+                if planner.isBusy { ProgressView().controlSize(.small) }
+                Text(planner.question ?? "").font(Theme.body)
+            }
+            if let trouble = planner.trouble {
+                Text(trouble).font(Theme.micro).foregroundStyle(.orange)
+            }
+            if !planner.choices.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(planner.choices, id: \.self) { choice in
+                        Button { planner.choose(choice) } label: {
+                            Text(L(String.LocalizationValue(choice)))
+                                .font(.system(size: 11, weight: .medium))
+                                .padding(.horizontal, 10)
+                                .frame(height: 26)
+                                .background(Theme.softAccent, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, Theme.loose)
+        .padding(.top, Theme.normal)
+        .transition(.opacity)
+        .accessibilityIdentifier("route-question")
     }
 
     // MARK: 되묻기 (설계 D6)
@@ -712,6 +767,7 @@ struct QuickCaptureView: View {
 
     private var hintText: String {
         if model.assistant?.phase == .thinking { return L("esc 그만") }
+        if model.planner?.isActive == true { return L("↵ 답하기 · esc 길은 그만") }
         if model.pendingQuestion != nil { return L("↵ 줄바꿈 · esc 시각 없이 남기기") }
         if model.listing == .candidates { return L("↑↓ 고르기 · esc 닫기") }
         return selectedMemo == nil ? L("↵ 줄바꿈 · esc 닫기") : L("↑↓ 선택 · ⌘⌫ 지우기")

@@ -2,6 +2,7 @@ import Foundation
 import LazyMemoAssistant
 import LazyMemoAssistantUI
 import LazyMemoCore
+import LazyMemoPlaces
 import Observation
 
 /// 빠른 입력 상자의 상태 (설계문서 §8).
@@ -154,11 +155,19 @@ final class QuickCaptureModel {
             showMemos(proposal.candidates, as: .candidates)
         } else if case .failed = assistant.phase, !assistant.relatedMemos.isEmpty {
             showMemos(assistant.relatedMemos.map(\.memoID), as: .related)
-        } else if assistant.receipt != nil {
+        } else if let receipt = assistant.receipt {
             // 바꾼 메모가 목록에 있다 — 새 값으로 다시 그린다.
             Task { await refreshListing() }
+            // 비서가 만든 약속 메모도 같은 되물음을 받는다 — 「메모 만들어」로 적었든 서술로 적었든.
+            if receipt.kind == .createMemo, receipt.id != routedReceipt {
+                routedReceipt = receipt.id
+                planner?.begin(receipt.after)
+            }
         }
     }
+
+    /// 가는 길을 이미 물은 비서의 결과 — 같은 결과에 두 번 묻지 않는다.
+    private var routedReceipt: UUID?
 
     // 창 높이를 다시 잡아 달라고 여기서 부탁하던 길은 **버렸다.**
     //
@@ -170,6 +179,10 @@ final class QuickCaptureModel {
 
     /// 이 기기의 비서. 없으면(시험·렌더) 상자는 적기와 찾기만 한다.
     var assistant: AssistantModel?
+    /// 약속 메모의 가는 길 — 「어디서 출발하시나요?」부터 메모에 적기까지 (`RoutePlanner`). 없으면(시험·렌더) 묻지 않는다.
+    var planner: RoutePlanner?
+    /// 되물음이 서 있는가 — 시각이든 가는 길이든. 그동안 목록·근거는 물러난다.
+    var isAsking: Bool { pending != nil || planner?.isActive == true }
     /// 「이 메모에게 시키기…」로 열렸을 때 — 그 메모가 「이거」다. 닫으면 놓는다.
     var target: ULID?
     /// 되물음 뒤에 기다리는 새 메모 — 「약속 시간이 언제인가요?」의 답을 이것에 잇는다.
@@ -208,6 +221,8 @@ final class QuickCaptureModel {
 
     var intent: Intent {
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if planner?.isWaiting == true { return text.isEmpty ? .nothing : .answer }
+        if planner?.isBusy == true { return .nothing }
         if pending != nil { return text.isEmpty ? .nothing : .answer }
         if let selection, listed.indices.contains(selection) {
             let title = listed[selection].title
@@ -566,6 +581,8 @@ final class QuickCaptureModel {
         case command(String, target: ULID?)
         /// 「어느 메모?」의 후보 하나를 골랐다 — 같은 말을 그 메모에게.
         case pick(ULID)
+        /// 가는 길의 되물음(출발지·탈것)에 온 답.
+        case routeReply(String)
         case nothing
     }
 
@@ -573,6 +590,13 @@ final class QuickCaptureModel {
     /// 되물음의 답 → 고른 줄 열기(시키는 말이면 그 줄에 적용) → 시키는 말 → 물음 → 날짜·자리 든 서술 → 그냥 글.
     func commit() -> Commit {
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // 가는 길을 묻는 중 — 무슨 말이든 그 답이다 (「됐어」는 물러나는 답).
+        if let planner {
+            planner.acknowledge()
+            if planner.isWaiting { return text.isEmpty ? .nothing : .routeReply(text) }
+            if planner.isBusy { return .nothing }
+        }
 
         if let pending {
             if !text.isEmpty, let done = AssistantIntent.complete(draft: pending.draft, reply: text) {

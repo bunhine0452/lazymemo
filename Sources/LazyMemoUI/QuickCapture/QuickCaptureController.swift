@@ -1,6 +1,7 @@
 import AppKit
 import LazyMemoAssistantUI
 import LazyMemoCore
+import LazyMemoPlaces
 import SwiftUI
 
 /// 빠른 입력의 표시와 지연 측정 (설계문서 §8, §11).
@@ -66,7 +67,7 @@ final class QuickCaptureController {
     /// 두 번 붙지 않는다.
     private var editingKeyMonitor: Any?
 
-    init(store: MemoStore, windows: NoteWindowManager, draft: CaptureDraftStore? = nil) {
+    init(store: MemoStore, windows: NoteWindowManager, draft: CaptureDraftStore? = nil, settings: SettingsStore? = nil) {
         self.store = store
         self.windows = windows
         self.model = QuickCaptureModel(
@@ -74,6 +75,11 @@ final class QuickCaptureController {
             lastOpened: { [weak windows] id in windows?.lastOpened(id) },
             draft: draft
         )
+        // 약속을 적으면 가는 길을 묻는다 — 설정이 없는 자리(시험·렌더)에서는 묻지 않는다.
+        if let settings {
+            let planner = RoutePlanner(store: store, settings: { settings.current })
+            model.planner = planner
+        }
 
         let initialSize = NSSize(width: Self.width, height: 120)
         self.panel = QuickCapturePanel(contentRect: NSRect(origin: .zero, size: initialSize))
@@ -93,6 +99,11 @@ final class QuickCaptureController {
         panel.contentView = hosting
         commit = { [weak self] in self?.commit() }
         cancel = { [weak self] in self?.close() }
+        // 길을 다 적었다 — 상자는 닫히고 달력이 그 날을 보인다 (적은 것이 곧 나온다, §8).
+        model.planner?.onWritten = { [weak self] memo, _ in
+            self?.close()
+            self?.announce(memo)
+        }
 
         // 줄이 늘거나, 결과가 바뀌거나, 날짜 칩이 뜨면 창이 따라가야 한다.
         // **뷰가 실제로 다시 그려진 그 자리에서** 알려 온다 — 모델 쪽에서
@@ -471,6 +482,9 @@ final class QuickCaptureController {
     ///   허공으로 간다. 메모를 열어 보여줄 때만 예외다.
     func close(returningFocus: Bool = true) {
         model.target = nil
+        // 가는 길을 묻던 중에 닫으면 「됐어」와 같다 — 메모는 이미 적혔다.
+        model.planner?.dismiss()
+        model.planner?.acknowledge()
         // 되묻기 중에 닫으면 「시각 없이」와 같다 — 이미 ⌘⏎ 로 적으라 한 글이다 (설계 D12).
         if let draft = model.takePendingDraft() {
             Task {
@@ -568,15 +582,24 @@ final class QuickCaptureController {
 
         case .compose(let patch):
             // 같은 길 — 다만 비서의 파서가 자리·좌표까지 읽어 왔다.
+            // 앞으로 올 약속에 자리가 있으면 상자는 열린 채 「어디서 출발하시나요?」를 세운다 (`RoutePlanner`).
+            let asksRoute = model.planner != nil
+                && RoutePlanner.applies(body: patch.body ?? "", at: patch.at.value, place: patch.place, geo: patch.geo)
             model.clear()
-            close()
+            if !asksRoute { close() }
             Task {
                 guard let memo = try? await store.create(
                     body: patch.body ?? "", due: patch.due.value, at: patch.at.value,
                     place: patch.place, geo: patch.geo
                 ) else { return }
+                if asksRoute, model.planner?.begin(memo) == true { return }
+                if asksRoute { close() }
                 announce(memo)
             }
+
+        case .routeReply(let text):
+            model.query = ""
+            model.planner?.reply(text)
 
         case .askTime:
             // 상자는 열린 채, 글만 비운다 — 다음에 치는 것은 답이다.
@@ -601,6 +624,8 @@ final class QuickCaptureController {
             windows.reveal(id)
 
         case .nothing:
+            // 길을 찾는 중의 빈 ⌘⏎ 는 기다리라는 뜻으로 둔다 — 닫으면 찾던 것을 버린다.
+            if model.planner?.isBusy == true { return }
             close()
         }
     }

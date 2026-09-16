@@ -2,6 +2,7 @@ import AppKit
 import LazyMemoAssistant
 import LazyMemoAssistantUI
 import LazyMemoCore
+import LazyMemoPlaces
 import SwiftUI
 
 /// 실제 뷰를 PNG 로 렌더한다 (`LAZYMEMO_RENDER=<디렉터리>`).
@@ -248,6 +249,47 @@ enum PreviewRenderer {
         )
         assistant.reset()
         for extra in [dentist, jisoo, jisoo2].compactMap({ $0 }) { try? await store.delete(extra.id) }
+
+        // 약속을 적은 뒤의 가는 길 되물음 — 출발지, 그리고 탈것 (`RoutePlanner`). 접속 없이 모습만 세운다.
+        let planner = RoutePlanner(store: store, settings: { Settings() })
+        let routing = QuickCaptureModel(store: store)
+        routing.planner = planner
+        let summary = L("밥약속 · 9월 16일 (수) 18:30 · 투파인드피터 잠실점")
+        planner.stageForPreview(step: .askingOrigin, question: RoutePlanner.originQuestion, choices: [RoutePlanner.hereChoice, RoutePlanner.skipChoice], summary: summary)
+        await render(
+            name: "capture-route-origin",
+            size: CGSize(width: QuickCaptureController.width, height: 200),
+            content: QuickCaptureView(model: routing, onCommit: {}, onCancel: {}),
+            into: directory
+        )
+        planner.stageForPreview(
+            step: .choosing,
+            question: L("경로 5개를 찾았어요 — 버스 21분 · 지하철 19분 (환승) · 택시 12분 (약 9,800원). 무엇으로 갈까요?"),
+            choices: ["버스", "지하철", "택시", RoutePlanner.skipChoice], summary: summary
+        )
+        await render(
+            name: "capture-route-mode",
+            size: CGSize(width: QuickCaptureController.width, height: 220),
+            content: QuickCaptureView(model: routing, onCommit: {}, onCancel: {}),
+            into: directory
+        )
+        planner.dismiss()
+
+        // 길이 적힌 종이 — 본문 끝의 절(`RouteNote`)이 카드로 선다. 지도 카드 밑, 글 아래.
+        if let routed = try? await store.create(body: L("밥약속\nhttps://naver.me/GFB1MHiW"), at: samples.route.arrive,
+                                                 place: L("투파인드피터 잠실점"), geo: Coordinate(latitude: 37.5109, longitude: 127.0853)) {
+            let body = RouteNote.append(samples.route, to: routed.body)
+            if let written = try? await store.update(routed.id, body: body) {
+                let routedModel = NoteModel(memo: written, store: store, previews: previews)
+                await render(
+                    name: "note-route",
+                    size: CGSize(width: 300, height: NoteWindowController.paperWithMap + NoteWindowController.routeCardHeight),
+                    content: NoteView(model: routedModel, onClose: {}),
+                    into: directory
+                )
+            }
+            try? await store.delete(routed.id)
+        }
 
         await render(
             name: "palette",
@@ -645,6 +687,8 @@ enum PreviewRenderer {
     private struct Samples {
         let scheduled: Memo
         let plain: Memo
+        /// 가는 길 한 벌 — 버스 둘에 걷기, 환승 한 번 (사용자가 가져온 네이버 지도의 보기 그대로).
+        let route: TransitRoute
     }
 
     private static func makeSamples(store: MemoStore) async -> Samples {
@@ -710,7 +754,14 @@ enum PreviewRenderer {
             body: L("전기요금"), due: today.adding(days: 3, calendar: calendar), color: .yellow
         )
 
-        return Samples(scheduled: scheduled, plain: plain)
+        let dinner = calendar.date(from: DateComponents(year: 2026, month: 9, day: 16, hour: 18, minute: 30)) ?? appointment
+        let route = TransitRoute(origin: L("석촌고분역"), destination: L("투파인드피터 잠실점"), minutes: 21, arrive: dinner, fare: 1500, legs: [
+            .init(mode: .walk, minutes: 2),
+            .init(mode: .bus, minutes: 8, line: "3314", kind: L("지선"), from: L("잠실여고후문"), to: L("잠실역.롯데월드"), stops: 4),
+            .init(mode: .bus, minutes: 6, line: "4318", kind: L("간선"), from: L("잠실역.롯데월드"), to: L("잠실새내역2번출구"), stops: 2),
+            .init(mode: .walk, minutes: 4),
+        ])
+        return Samples(scheduled: scheduled, plain: plain, route: route)
     }
 
     /// 붙여넣기 결과를 그려 보기 위한 가짜 사진.

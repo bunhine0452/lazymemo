@@ -32,11 +32,15 @@ public enum Recall {
         public let id: ULID
         public let date: Date
         public let title: String
+        /// 알림의 둘째 줄. 가는 길이 적힌 약속이면 「18:09 출발 — 잠실여고후문에서 3314 버스 · 21분」,
+        /// 아니면 nil — 알림이 「다시 볼 시간이에요」를 쓴다.
+        public let body: String?
 
-        public init(id: ULID, date: Date, title: String) {
+        public init(id: ULID, date: Date, title: String, body: String? = nil) {
             self.id = id
             self.date = date
             self.title = title
+            self.body = body
         }
     }
 
@@ -48,11 +52,32 @@ public enum Recall {
     ) -> [Reservation] {
         memos.compactMap { memo -> Reservation? in
             guard eligible(memo), let date = memo.surfacesAt, date > now else { return nil }
-            return Reservation(id: memo.id, date: date, title: String(memo.title.prefix(180)))
+            return Reservation(id: memo.id, date: date, title: String(memo.title.prefix(180)), body: departureLine(memo))
         }
         .sorted { $0.date == $1.date ? $0.id < $1.id : $0.date < $1.date }
         .prefix(max(0, limit))
         .map { $0 }
+    }
+
+    /// 가는 길이 적힌 약속의 알림 둘째 줄 — 출발 시각과 첫 탈것. 길이 없으면 nil.
+    ///
+    /// 알림이 오는 때는 다시 볼 시각(`surface`)인데, 길이 적힌 메모는 그것이 출발 10분 전이다
+    /// (`RoutePlanner.lead`). 그 순간 사람에게 필요한 것은 「다시 보라」가 아니라 **몇 시에 무엇을
+    /// 타는가**다.
+    public static func departureLine(_ memo: Memo, calendar: Calendar = .current) -> String? {
+        guard let at = memo.at, let route = RouteNote.read(memo.body, day: at, calendar: calendar) else { return nil }
+        var parts = ["\(RouteNote.clock(route.depart, calendar: calendar)) 출발"]
+        if let ride = route.rides.first {
+            switch ride.mode {
+            case .bus: parts.append([ride.from.map { "\($0)에서" }, ride.line.map { "\($0) 버스" }].compactMap { $0 }.joined(separator: " "))
+            case .subway: parts.append([ride.from.map { "\($0)역에서" }, ride.line].compactMap { $0 }.joined(separator: " "))
+            case .taxi: parts.append("택시")
+            case .transit: parts.append("대중교통")
+            case .walk: break
+            }
+        }
+        let head = parts.filter { !$0.isEmpty }.joined(separator: " — ")
+        return "\(head) · \(route.minutes)분"
     }
 
     /// 「지금」 띠에 오른 이유. 이 차례가 곧 띠의 차례다.

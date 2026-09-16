@@ -32,7 +32,15 @@ enum MarkdownStyler {
         // 매번 바탕부터 다시 깐다. 지운 마커의 흔적이 남지 않게 하는 가장 확실한 길이다.
         storage.setAttributes(baseAttributes(baseFont, paragraph), range: full)
 
-        let spans = MarkdownScanner.spans(in: text)
+        let allSpans = MarkdownScanner.spans(in: text)
+        // 가는 길의 절은 카드가 대신 선다 (`RouteCard`). 커서가 그 안에 없으면 통째로 감추고,
+        // 그 안의 제목·붙임표에는 꾸밈도 줄머리 표시도 입히지 않는다 — 감춘 줄에 점이 줄지어 서면 안 된다.
+        let routeRange = allSpans.first { $0.kind == .route }?.range
+        let hiddenRoute = routeRange.flatMap { isOffActiveLine($0, activeLine) ? $0 : nil }
+        let spans = allSpans.filter { span in
+            guard let hiddenRoute, span.kind != .route else { return true }
+            return NSIntersectionRange(span.range, hiddenRoute).length == 0
+        }
 
         // 블록(제목·인용·체크)을 먼저, 인라인을 그 위에, 마커를 맨 마지막에.
         for span in spans where isBlock(span.kind) {
@@ -201,7 +209,7 @@ enum MarkdownStyler {
 
     private static func shouldHide(_ span: Span, activeLine: NSRange?) -> Bool {
         switch span.kind {
-        case .syntax, .image: break
+        case .syntax, .image, .route: break
         default: return false
         }
         return isOffActiveLine(span.range, activeLine)
@@ -319,6 +327,10 @@ enum MarkdownStyler {
                 .font: NSFont.monospacedSystemFont(ofSize: baseFont.pointSize * 0.62, weight: .regular),
                 .foregroundColor: Paper.inkNSColor.withAlphaComponent(0.30),
             ], range: range)
+
+        case .route:
+            // 커서가 들어와 보일 때는 그냥 글이다 — 꾸밈은 그 안의 제목·붙임표가 입는다.
+            break
 
         case .syntax:
             storage.addAttribute(.foregroundColor, value: Paper.inkNSColor.withAlphaComponent(0.22), range: range)

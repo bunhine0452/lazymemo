@@ -2,6 +2,7 @@ import Foundation
 import LazyMemoAssistant
 import LazyMemoAssistantUI
 import LazyMemoCore
+import LazyMemoPlaces
 import Observation
 
 /// 펜 — 화면 바닥의 적는 칸. 적기와 찾기를 겸한다 (MOBILE_DESIGN §3).
@@ -29,8 +30,15 @@ final class PenModel {
                 asked = nil
                 assistant?.reset()
             }
+            // 가는 길의 끝난 한 줄도 다음 글자에 물러난다.
+            if !text.isEmpty { planner?.acknowledge() }
         }
     }
+
+    // MARK: 가는 길 — 약속을 남기면 「어디서 출발하시나요?」 (`RoutePlanner`, 맥의 상자와 같은 대화)
+
+    /// 없으면(시험) 묻지 않는다. `HomeView` 가 끼운다.
+    var planner: RoutePlanner?
 
     // MARK: 비서 — 펜 하나가 묻기·시키기·되묻기까지 겸한다 (맥의 QuickCaptureModel 과 같은 갈래)
 
@@ -96,9 +104,19 @@ final class PenModel {
         } else {
             // 결과 줄·휴지통 되물음·실패 — 읽는 동안 세워 둔 후보는 내리고 검색으로 돌아간다. 바꿨으면 다시 짓는다.
             shown = nil; listing = .search
-            if assistant.receipt != nil { Task { await refresh() } }
+            if let receipt = assistant.receipt {
+                Task { await refresh() }
+                // 비서가 만든 약속 메모도 같은 되물음을 받는다 — 「메모 만들어」로 적었든 서술로 적었든.
+                if receipt.kind == .createMemo, receipt.id != routedReceipt {
+                    routedReceipt = receipt.id
+                    planner?.begin(receipt.after)
+                }
+            }
         }
     }
+
+    /// 가는 길을 이미 물은 비서의 결과 — 같은 결과에 두 번 묻지 않는다.
+    private var routedReceipt: UUID?
 
     /// 「어느 메모?」의 후보 하나를 골랐다 — 같은 말을 그 메모에게.
     func pick(_ id: ULID) { assistant?.pick(id) }
@@ -208,7 +226,8 @@ final class PenModel {
     }
 
     var canLeave: Bool {
-        if pending != nil { return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        if planner?.isWaiting == true || pending != nil { return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        if planner?.isBusy == true { return false }
         return InboundNote.make(text: text) != nil || here != nil
     }
 
@@ -216,7 +235,7 @@ final class PenModel {
     /// 맥의 「「치과 예약」에 적용」은 폰의 좁은 단추에 두 줄로 꺾여 — 누구에게인지는 바로 위의 「열린 메모」 칩이 말한다.
     /// 달력이 물린 날도 칩을 끄면 안 쓰이므로(`leave`) 단추도 같이 바뀐다.
     var leaveLabel: String {
-        if pending != nil { return String(localized: "답하기") }
+        if pending != nil || planner?.isWaiting == true { return String(localized: "답하기") }
         switch saying {
         case .asking: return String(localized: "메모에게 묻기")
         case .telling: return String(localized: "시키기")
@@ -232,7 +251,7 @@ final class PenModel {
     enum Saying: Equatable { case writing, asking, telling }
     var saying: Saying {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard assistant != nil, !trimmed.isEmpty, pending == nil else { return .writing }
+        guard assistant != nil, !trimmed.isEmpty, pending == nil, planner?.isActive != true else { return .writing }
         if AssistantIntent.isQuestion(trimmed) { return .asking }
         if target != nil || AssistantIntent.hasCommandVerb(trimmed) { return .telling }
         return .writing
@@ -263,6 +282,13 @@ final class PenModel {
     func leave() async -> Memo? {
         guard canLeave else { return nil }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // 가는 길의 되물음 — 출발지든 탈것이든 무슨 말이든 그 답이다 (「됐어」는 물러나는 답).
+        if let planner, planner.isWaiting {
+            planner.reply(trimmed)
+            text = ""; draft.forget()
+            return nil
+        }
 
         // 되물음의 답 — 「12시야」. 답이 아니면 초안을 놓고 새 말로 본다.
         if let pending {
@@ -335,6 +361,8 @@ final class PenModel {
         readsPlace = true
         readsEvery = true
         prompt = CapturePrompt.next(after: prompt)
+        // 앞으로 올 약속에 자리가 있으면 펜이 「어디서 출발하시나요?」를 세운다. 아니면 아무 일도 없다.
+        planner?.begin(memo)
     }
 
     /// 뒤로 물러날 때 적던 글을 파일에 내린다.

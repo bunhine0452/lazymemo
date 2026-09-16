@@ -24,6 +24,7 @@ struct StackView: View {
     @State private var removing: String?
     @State private var showsTutorial = false
     @State private var showsReminders = false
+    @State private var showsRoutes = false
     @State private var reminders = ReminderCenter.shared
     /// 「지금」 띠의 시계. 분이 바뀌면 다시 재고, 자정을 넘기면 「오늘」이 바뀐다.
     @State private var clock = Date()
@@ -230,6 +231,17 @@ struct StackView: View {
             }
             .presentationDetents([.medium, .large])
         }
+        .sheet(isPresented: $showsRoutes) {
+            NavigationStack {
+                RouteSettingsView(settings: session.settings)
+                    .navigationTitle("가는 길")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) { Button("닫기") { showsRoutes = false } }
+                    }
+            }
+            .presentationDetents([.medium, .large])
+        }
         // 분이 바뀔 때마다 「지금」을 다시 잰다. 앞으로 올 때·시계가 크게 뛸 때도.
         .task {
             while !Task.isCancelled {
@@ -290,6 +302,8 @@ struct StackView: View {
                 Divider()
                 Button { showsReminders = true } label: { Label("알림", systemImage: "bell") }
                     .accessibilityIdentifier("reminders-button")
+                Button { showsRoutes = true } label: { Label("가는 길", systemImage: "bus") }
+                    .accessibilityIdentifier("routes-button")
                 Button { showsTutorial = true } label: { Label("사용법", systemImage: "questionmark.circle") }
                     .accessibilityIdentifier("tutorial-button")
             } label: {

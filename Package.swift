@@ -152,6 +152,12 @@ let package = Package(
             dependencies: ["LazyMemoReminders"],
             path: "Tests/LazyMemoRemindersTests"
         ),
+        // 가는 길 — ODsay 응답 읽기·되물음의 갈래·짧은 지도 링크 읽기. 네트워크는 가짜가 선다.
+        .testTarget(
+            name: "LazyMemoPlacesTests",
+            dependencies: ["LazyMemoPlaces", "LazyMemoCore"],
+            path: "Tests/LazyMemoPlacesTests"
+        ),
         .testTarget(
             name: "LazyMemoSpotlightTests",
             dependencies: ["LazyMemoSpotlight", "LazyMemoCore"],

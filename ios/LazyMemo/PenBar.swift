@@ -1,6 +1,7 @@
 import CoreLocationUI
 import LazyMemoAssistantUI
 import LazyMemoCore
+import LazyMemoPlaces
 import SwiftUI
 
 /// 유리 위의 펜 (MOBILE_DESIGN §3).
@@ -69,11 +70,71 @@ struct PenBar: View {
 
     private var expanded: some View {
         VStack(spacing: 6) {
-            if let question = pen.pendingQuestion { pendingBlock(question) } else { chips }
+            if let question = pen.pendingQuestion { pendingBlock(question) }
+            else if let planner = pen.planner, planner.isActive { routeBlock(planner) }
+            else if let notice = pen.planner?.notice { noticeRow(notice) }
+            else { chips }
             penRow
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        .animation(.snappy, value: pen.planner?.step)
+    }
+
+    // MARK: 가는 길 되묻기 — 「어디서 출발하시나요?」·「무엇으로 갈까요?」 (`RoutePlanner`, 맥의 상자와 같은 대화)
+
+    private func routeBlock(_ planner: RoutePlanner) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let summary = planner.summary {
+                Text(summary).font(.footnote).foregroundStyle(.secondary).lineLimit(2)
+            }
+            HStack(spacing: 8) {
+                if planner.isBusy { ProgressView().controlSize(.small) }
+                Text(planner.question ?? "").font(.subheadline.weight(.semibold))
+            }
+            if let trouble = planner.trouble {
+                Text(trouble).font(.footnote).foregroundStyle(.orange)
+            }
+            if !planner.choices.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(planner.choices, id: \.self) { choice in
+                            Button { planner.choose(choice) } label: {
+                                Text(LocalizedStringKey(choice))
+                                    .font(.footnote.weight(.medium))
+                                    .foregroundStyle(Theme.accentInk)
+                                    .padding(.horizontal, 12)
+                                    .frame(minHeight: 32)
+                                    .background(Theme.accentInk.opacity(0.08), in: Capsule())
+                                    .frame(minHeight: 44)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                }
+            }
+        }
+        .padding(.horizontal, 4)
+        .accessibilityIdentifier("route-question")
+    }
+
+    /// 길을 다 적었거나 못 찾았다 — 한 줄. 다음 글자에 물러난다.
+    private func noticeRow(_ notice: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: notice.hasPrefix("가는 길을 적었어요") ? "checkmark.circle" : "exclamationmark.circle")
+            Text(notice).lineLimit(2)
+            Spacer(minLength: 0)
+            Button { pen.planner?.acknowledge() } label: {
+                Image(systemName: "xmark").font(.caption2.weight(.semibold)).frame(width: 32, height: 32)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("닫기")
+        }
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 4)
+        .accessibilityIdentifier("route-notice")
     }
 
     // MARK: 되묻기 — 한 가지만 묻고 펜은 답을 기다린다 (quick-capture-assistant D6)
@@ -197,6 +258,12 @@ struct PenBar: View {
 
     /// 빈 칸의 안내 — 열 때마다 바뀌는 문구, 답을 기다릴 때는 답의 예, 「이거」를 들고 있으면 시키는 말의 예.
     private var placeholder: String {
+        switch pen.planner?.step {
+        case .askingOrigin: return String(localized: "석촌고분역 — 또는 지도 링크")
+        case .choosing: return String(localized: "버스 · 지하철 · 택시")
+        case .searching, .writing: return String(localized: "잠깐만요…")
+        default: break
+        }
         if pen.pendingQuestion != nil { return String(localized: "12시야") }
         if pen.target != nil { return String(localized: "「내일로 미뤄줘」") }
         return pen.prompt
@@ -227,10 +294,11 @@ struct PenBar: View {
                     .frame(minHeight: 36)
                     .accessibilityLabel("적기")
                     .accessibilityIdentifier("capture")
-                if !pen.text.isEmpty || pen.pendingQuestion != nil {
+                if !pen.text.isEmpty || pen.pendingQuestion != nil || pen.planner?.isActive == true {
                     Button {
-                        // 되묻는 중의 ⊗ 는 「시각 없이」— 이미 남기라 한 글이다 (D12).
+                        // 되묻는 중의 ⊗ 는 「시각 없이」— 이미 남기라 한 글이다 (D12). 가는 길을 묻는 중이면 「됐어」.
                         if let draft = pen.takePendingDraft() { Task { await pen.create(draft) } }
+                        pen.planner?.dismiss()
                         pen.text = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")

@@ -17,6 +17,11 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
     private var isFlying = false
     /// 자리 카드 때문에 종이를 늘린 적이 있는가 — 한 번뿐이다. 그 뒤로 줄이는 것은 사람의 몫.
     private var grewForPlaces = false
+    private var grewForRoute = false
+    /// 기본 종이의 키. 카드가 서면 여기에 더한다.
+    static let defaultPaper: CGFloat = 200
+    /// 가는 길 카드 한 장의 몫 — 머리·큰 줄·띠·탈것 두 줄·하차·꼬리.
+    static let routeCardHeight: CGFloat = 280
 
     /// 지도가 앉은 종이의 키. 기본 종이(200pt)에 카드(~110pt)가 서면 글이 두 줄만 남는다 —
     /// 사진과 달리 지도는 몫을 나눠 줄일 수 없어(작으면 지도가 아니다) 종이가 자란다.
@@ -48,6 +53,7 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
             appearance: appearance
         ))
         hosting.rootView.onPlacesAppear = { [weak self] in self?.growForPlaces() }
+        hosting.rootView.onRouteAppear = { [weak self] in self?.growForRoute() }
         // 창 크기는 layout.json 이 정본이다. 뷰가 끌고 가게 두지 않는다.
         hosting.sizingOptions = []
 
@@ -87,13 +93,25 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
 
     /// 자리 카드가 서면 종이를 아래로 늘린다 — 윗변은 그대로, 사람이 둔 자리가 안 흔들린다.
     private func growForPlaces() {
-        guard !grewForPlaces, !isFlying else { return }
+        guard !grewForPlaces else { return }
         grewForPlaces = true
+        grow(toAtLeast: Self.paperWithMap + (grewForRoute ? Self.routeCardHeight : 0))
+    }
+
+    /// 가는 길 카드가 서면 그만큼 더 — 카드는 줄이 여럿이라 접을 수 없다.
+    private func growForRoute() {
+        guard !grewForRoute else { return }
+        grewForRoute = true
+        grow(toAtLeast: (grewForPlaces ? Self.paperWithMap : Self.defaultPaper) + Self.routeCardHeight)
+    }
+
+    private func grow(toAtLeast height: CGFloat) {
+        guard !isFlying else { return }
         var frame = window.frame
-        guard frame.height < Self.paperWithMap else { return }
-        let delta = Self.paperWithMap - frame.height
+        guard frame.height < height else { return }
+        let delta = height - frame.height
         frame.origin.y -= delta
-        frame.size.height = Self.paperWithMap
+        frame.size.height = height
         if let screen = window.screen?.visibleFrame, frame.minY < screen.minY {
             frame.origin.y = screen.minY
         }

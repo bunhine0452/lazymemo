@@ -401,6 +401,66 @@ final class SmokeTests: XCTestCase {
         XCTAssertEqual(toggle.value as? String, "0", "첫 실행에는 꺼져 있어야 한다")
     }
 
+    // MARK: 가는 길 — 지도 링크가 든 약속을 남기면 펜이 「어디서 출발하시나요?」를 세운다
+
+    func testAppointmentWithMapLinkAsksWhereToLeaveFrom() throws {
+        let app = launch()
+        let capture = app.descendants(matching: .any)["capture"]
+        XCTAssertTrue(capture.waitForExistence(timeout: 10))
+        capture.tap()
+        capture.typeText("https://naver.me/GFB1MHiW 다음주 금요일 오후 6시반에 밥약속")
+        let leave = app.buttons["leave"]
+        XCTAssertEqual(leave.label, "달력에 남기기")
+        leave.tap()
+
+        let question = app.descendants(matching: .any)["route-question"]
+        XCTAssertTrue(question.waitForExistence(timeout: 5), "약속을 남기면 출발지를 물어야 한다")
+        XCTAssertTrue(app.staticTexts["어디서 출발하시나요?"].exists)
+        XCTAssertEqual(leave.label, "답하기", "답을 기다리는 동안 단추는 「답하기」")
+        try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/lazymemo-route-question.png"))
+
+        // 「됐어」— 조용히 물러난다. 메모는 이미 파일이다.
+        app.buttons["됐어"].tap()
+        XCTAssertFalse(question.waitForExistence(timeout: 1), "됐어 뒤에는 질문이 없어야 한다")
+        XCTAssertTrue(row(in: app, startingWith: "https://naver.me").waitForExistence(timeout: 5), "줄이 안 보인다")
+        let files = try markdownFiles(under: root.appending(path: "vault/notes", directoryHint: .isDirectory))
+        let text = try String(contentsOf: try XCTUnwrap(files.first), encoding: .utf8)
+        XCTAssertTrue(text.contains("\nat: "), "약속 시각이 파일에 없다: \(text)")
+        XCTAssertFalse(text.contains("## 가는 길"), "됐어 뒤에 길이 적히면 안 된다")
+    }
+
+    /// 진짜 접속 — 링크를 풀고 지도에 묻고 택시 길을 잰다. `TEST_RUNNER_LAZYMEMO_LIVE_ROUTES=1` 일 때만.
+    func testAnsweringTheOriginWritesARouteCard() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["LAZYMEMO_LIVE_ROUTES"] == "1", "접속하는 시험 — LAZYMEMO_LIVE_ROUTES=1 로 켠다")
+        let app = launch()
+        let capture = app.descendants(matching: .any)["capture"]
+        XCTAssertTrue(capture.waitForExistence(timeout: 10))
+        capture.tap()
+        capture.typeText("https://naver.me/GFB1MHiW 다음주 금요일 오후 6시반에 밥약속")
+        app.buttons["leave"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["route-question"].waitForExistence(timeout: 5))
+
+        capture.typeText("석촌고분역")
+        app.buttons["leave"].tap()
+        // 키가 없는 시뮬레이터에서는 택시만 찾는다 — 그 선택지가 서면 길을 잰 것이다.
+        let taxi = app.buttons["택시"]
+        XCTAssertTrue(taxi.waitForExistence(timeout: 30), "길을 찾지 못했다: \(app.staticTexts.allElementsBoundByIndex.map { $0.label })")
+        taxi.tap()
+
+        let notice = app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "가는 길을 적었어요")).firstMatch
+        XCTAssertTrue(notice.waitForExistence(timeout: 10), "적었다는 한 줄이 없다")
+
+        // 파일에 절이, 종이에 카드가.
+        let files = try markdownFiles(under: root.appending(path: "vault/notes", directoryHint: .isDirectory))
+        let text = try String(contentsOf: try XCTUnwrap(files.first), encoding: .utf8)
+        XCTAssertTrue(text.contains("## 가는 길\n석촌고분역 → 투파인드피터 잠실점 ·"), text)
+        XCTAssertTrue(text.contains("\nsurface: "), "출발 알림이 걸려야 한다: \(text)")
+        dismissKeyboard(app)
+        scrolledRow(in: app, startingWith: "https://naver.me").tap()
+        XCTAssertTrue(app.descendants(matching: .any)["route-card"].waitForExistence(timeout: 5), "카드가 안 선다")
+        try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/lazymemo-route-card.png"))
+    }
+
     private func launch(tutorialSeen: Bool = true) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["LAZYMEMO_VAULT"] = root.path(percentEncoded: false)

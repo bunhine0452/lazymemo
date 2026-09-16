@@ -99,6 +99,16 @@ public struct Settings: Codable, Sendable, Equatable {
     /// 잃어도 메모는 제 폴더 이름표를 그대로 달고 있으므로 폴더는 되살아난다.
     public var folders: [String]?
 
+    /// 약속 메모를 적으면 비서가 「어디서 출발하시나요?」를 물을지 (`RoutePlanner`). `nil` 이면 켜짐.
+    ///
+    /// 되물음에 답할 때만 네트워크를 쓴다 — 자리 이름을 지도에 묻고, 길을 잰다. 묻지 않고
+    /// 나가는 것은 없다. 매번 「됐어」로 넘기는 사람은 여기서 끈다.
+    public var asksRoutes: Bool?
+
+    /// ODsay(대중교통 길찾기) API 키. 있으면 버스 번호·지하철역·환승까지 잰다; 없으면 애플 지도의
+    /// 소요 시간만 안다. **이 기기의 값이다** — iCloud 로 건너가지 않는다.
+    public var transitKey: String?
+
     public init(
         hotkeyKeyCode: UInt32? = nil,
         hotkeyModifiers: UInt32? = nil,
@@ -114,7 +124,9 @@ public struct Settings: Codable, Sendable, Equatable {
         showsSystemEvents: Bool? = nil,
         checksForUpdates: Bool? = nil,
         greeted: Bool? = nil,
-        folders: [String]? = nil
+        folders: [String]? = nil,
+        asksRoutes: Bool? = nil,
+        transitKey: String? = nil
     ) {
         self.hotkeyKeyCode = hotkeyKeyCode
         self.hotkeyModifiers = hotkeyModifiers
@@ -131,6 +143,8 @@ public struct Settings: Codable, Sendable, Equatable {
         self.checksForUpdates = checksForUpdates
         self.greeted = greeted
         self.folders = folders
+        self.asksRoutes = asksRoutes
+        self.transitKey = transitKey
     }
 
     public static let `default` = Settings()

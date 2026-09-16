@@ -1,4 +1,5 @@
 import LazyMemoCore
+import LazyMemoPlaces
 import SwiftUI
 
 /// 바탕화면에 놓인 메모 한 장.
@@ -19,6 +20,8 @@ struct NoteView: View {
     var onCalendar: () -> Void = {}
     /// 자리 카드가 처음 섰다 — 창이 종이를 늘릴 자리다 (`NoteWindowController`).
     var onPlacesAppear: () -> Void = {}
+    /// 가는 길 카드가 섰다 — 같은 이유로 종이가 자란다.
+    var onRouteAppear: () -> Void = {}
     /// 종이가 얼마나 진한가. 창 전체가 함께 쓰는 값이다 (`PaperAppearance`).
     var appearance: PaperAppearance? = nil
     /// 화면 밖 렌더에서 조작 줄을 펴 보이기 위한 연출값 (설계문서 §14.9).
@@ -62,6 +65,7 @@ struct NoteView: View {
             VStack(alignment: .leading, spacing: 0) {
                 if !model.placeList.isEmpty { placeCards }
                 editor
+                if let route = model.route { routeCard(route) }
                 if !model.images.isEmpty { photographs }
                 if !model.links.isEmpty { linkCards }
                 if model.isUnsaved { unsavedMark }
@@ -114,6 +118,9 @@ struct NoteView: View {
         .animation(Theme.settle, value: paperOpacity)
         // 이름이 바뀔 때만 다시 묻는다. 좌표는 카드가 알아내 파일에 적는 것이라 그것까지
         // 열쇠에 넣으면 적는 순간 자기 자신을 다시 시작한다.
+        .onChange(of: model.route != nil, initial: true) { _, hasRoute in
+            if hasRoute { onRouteAppear() }
+        }
         .task(id: model.placeList.map(\.name)) {
             let places = model.placeList
             guard !places.isEmpty else { return }
@@ -137,6 +144,22 @@ struct NoteView: View {
     private var mapHeight: CGFloat {
         let share = paperHeight > 0 ? paperHeight * 0.34 : 68
         return max(56, min(share, 120))
+    }
+
+    /// 가는 길 — 글 아래, 사진 위. 본문 끝의 절(`RouteNote`)을 카드로 (폰과 같은 물건, `RouteCard`).
+    private func routeCard(_ route: TransitRoute) -> some View {
+        RouteCard(
+            route: route,
+            style: RouteCardStyle(
+                ink: Paper.ink, faded: Paper.fadedInk, accent: Theme.accentInk, softAccent: Theme.softAccent,
+                surface: Paper.ink.opacity(0.04), edge: Paper.ink.opacity(0.08), radius: Theme.controlRadius
+            ),
+            // 맥에는 지도 앱이 애플뿐이고 애플은 한국의 대중교통을 모른다 — 웹의 카카오맵으로.
+            open: { route in if let url = RouteLinks.kakaoWeb(route) { NSWorkspace.shared.open(url) } },
+            remove: { Task { await model.removeRoute() } }
+        )
+        .padding(.horizontal, Theme.loose)
+        .padding(.bottom, Theme.snug)
     }
 
     // MARK: 본문

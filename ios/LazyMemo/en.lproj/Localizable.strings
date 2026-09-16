@@ -159,3 +159,14 @@
 "「%@」 · 이 중에서 읽는 중" = "“%@” · reading these";
 "%lld장 중 겹치는 것 없음 · 물으면 메모를 읽고 답합니다" = "No match among %lld notes · ask and it reads them to answer";
 "%lld장 중 겹치는 것 없음 · 시키면 어느 메모인지 묻습니다" = "No match among %lld notes · tell it and it asks which note";
+
+/* 가는 길 — 약속을 남기면 펜이 출발지를 묻고 길을 메모에 적는다 (RoutePlanner · RouteCard · RouteSettingsView) */
+"석촌고분역 — 또는 지도 링크" = "Seokchon Station — or a map link";
+"버스 · 지하철 · 택시" = "Bus · subway · taxi";
+"잠깐만요…" = "One moment…";
+"가는 길" = "Getting there";
+"약속을 적으면 가는 길 묻기" = "Ask how to get to appointments";
+"「어디서 출발하시나요?」에 답할 때만 지도와 길찾기에 접속합니다. 묻지 않고 나가는 것은 없습니다." = "Connects to maps and routing only when you answer “Where are you leaving from?”. Nothing leaves without asking.";
+"API 키" = "API key";
+"대중교통 길찾기 키 (ODsay)" = "Transit routing key (ODsay)";
+"ODsay LAB(lab.odsay.com)에서 무료로 받은 키를 넣으면 버스 번호·지하철역·환승까지 적힙니다. 없으면 택시만 찾습니다. 키는 이 기기에만 남습니다." = "Paste the free key from ODsay LAB (lab.odsay.com) and routes include bus numbers, subway stations and transfers. Without it only taxi is estimated. The key stays on this device.";

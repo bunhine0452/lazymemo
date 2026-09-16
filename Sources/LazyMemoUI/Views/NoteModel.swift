@@ -33,6 +33,23 @@ final class NoteModel {
     /// 적힌 대로(파일)를 본다: 치는 중의 글은 아직 자리가 아니다.
     var placeList: [MemoPlaces.Place] { MemoPlaces.of(memo) }
 
+    /// 본문 끝의 「## 가는 길」 절 — 비서가 적은 길 (`RouteNote`). 자리와 같이 파일을 본다.
+    var route: TransitRoute? {
+        guard let at = memo.at else { return nil }
+        return RouteNote.read(memo.body, day: at)
+    }
+
+    /// 길을 뗀다 — 절을 지우고, 그 길의 출발 알림이었던 다시 보기도 함께.
+    func removeRoute() async {
+        guard let route else { return }
+        let alarm = route.depart.addingTimeInterval(-RoutePlanner.lead)
+        let surface: Date?? = memo.surface == alarm ? .some(nil) : nil
+        let body = RouteNote.remove(from: memo.body)
+        guard let updated = try? await store.update(memo.id, body: body, surface: surface) else { return }
+        memo = updated
+        if !isDirty { text = updated.body }
+    }
+
     /// 나이를 재는 기준 시각 (`MemoAge`, 철학 3).
     ///
     /// 이것이 없을 때는 창이 다시 그려질 이유가 없어서 **어제 손댄 메모가 계속

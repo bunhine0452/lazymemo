@@ -20,6 +20,8 @@ public enum MarkdownScanner {
             case checkbox(done: Bool)
             case link(destination: String)
             case image(path: String)
+            /// 본문 끝의 「## 가는 길」 절 통째로 (`RouteNote`). 카드가 대신 서므로 편집기는 감춘다.
+            case route
             /// 마커 자체 (`**`, `#`, `[]()`). 흐리게 눌러 둔다.
             case syntax
         }
@@ -41,6 +43,11 @@ public enum MarkdownScanner {
             line, lineRange, _, _ in
             guard let line else { return }
             result.append(contentsOf: scanLine(line, at: lineRange, in: text))
+        }
+
+        // 가는 길의 절은 한 덩어리다 — 줄마다 감추면 커서가 한 줄에 들어갔을 때 그 줄만 보인다.
+        if let section = RouteNote.sectionRange(in: text) {
+            result.append(Span(range: NSRange(section, in: text), kind: .route))
         }
 
         return result

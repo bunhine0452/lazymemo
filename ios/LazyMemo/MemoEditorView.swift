@@ -46,6 +46,11 @@ struct MemoEditorView: View {
     private var folderNames: [String] { MemoFolders.names(listed: listedFolders, memos: store.memos) }
     private var places: [MemoPlaces.Place] { memo.map(MemoPlaces.of) ?? [] }
     private var imagePaths: [String] { memo.map { MarkdownScanner.imagePaths(in: $0.body) } ?? [] }
+    /// 본문 끝의 「## 가는 길」— 비서가 적은 길 (`RouteNote`). 파일을 본다.
+    private var route: TransitRoute? {
+        guard let memo, let at = memo.at else { return nil }
+        return RouteNote.read(memo.body, day: at)
+    }
 
     var body: some View {
         Group {
@@ -63,6 +68,8 @@ struct MemoEditorView: View {
             if !editing {
                 VStack(spacing: 0) {
                     if !places.isEmpty { PlaceCardsView(resolver: resolver) }
+                    // 가는 길도 머리에 — 지도 아래, 글 위. 맥과 같은 카드다 (`RouteCard`).
+                    if let route { routeCard(route) }
                     // 사진도 머리에 앉는다 — 폰의 종이는 화면 전체가 글 칸이라 아래가 없다.
                     if !imagePaths.isEmpty { PhotoCardsView(loader: photos) }
                 }
@@ -154,6 +161,49 @@ struct MemoEditorView: View {
                 move(to: name)
             }
             Button("그만두기", role: .cancel) { newFolder = "" }
+        }
+    }
+
+    // MARK: 가는 길 카드
+
+    private func routeCard(_ route: TransitRoute) -> some View {
+        RouteCard(
+            route: route,
+            style: RouteCardStyle(
+                ink: Paper.ink, faded: Color.secondary, accent: Theme.accentInk, softAccent: Theme.accentInk.opacity(0.08),
+                surface: Paper.card, edge: Paper.ink.opacity(0.08), radius: Theme.controlRadius
+            ),
+            open: { route in openRoute(route) },
+            remove: { removeRoute(route) }
+        )
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+    }
+
+    /// 깔린 지도 앱으로 — 네이버 → 카카오 → 웹의 카카오맵. 애플 지도는 한국의 대중교통을 모른다.
+    private func openRoute(_ route: TransitRoute) {
+        let app = UIApplication.shared
+        let appName = Bundle.main.bundleIdentifier ?? "lazymemo"
+        if let geo = memo?.geo {
+            if let probe = URL(string: "nmap://open"), app.canOpenURL(probe),
+               let url = RouteLinks.naverApp(route, destination: geo, appName: appName) { app.open(url); return }
+            if let probe = URL(string: "kakaomap://open"), app.canOpenURL(probe),
+               let url = RouteLinks.kakaoApp(route, destination: geo) { app.open(url); return }
+        }
+        if let url = RouteLinks.kakaoWeb(route) { app.open(url) }
+    }
+
+    /// 절을 떼고, 그 길의 출발 알림이었던 다시 보기도 함께.
+    private func removeRoute(_ route: TransitRoute) {
+        guard let memo else { return }
+        let alarm = route.depart.addingTimeInterval(-RoutePlanner.lead)
+        let surface: Date?? = memo.surface == alarm ? .some(nil) : nil
+        let body = RouteNote.remove(from: memo.body)
+        flush()
+        Task {
+            guard let updated = try? await store.update(id, body: body, surface: surface) else { return }
+            text = updated.body
+            lastSaved = updated.body
         }
     }
 

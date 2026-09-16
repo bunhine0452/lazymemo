@@ -82,7 +82,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             store: store, windows: windows,
             // 적던 글은 앱이 죽어도 남는다 — 판을 갈 때 앱이 스스로 닫혔다 뜨므로
             // 여기 없으면 「새 판으로 바꾸기」가 초안을 지우는 버튼이 된다.
-            draft: CaptureDraftStore(location: paths.captureDraft)
+            draft: CaptureDraftStore(location: paths.captureDraft),
+            settings: settings
         )
         let door = InboundDoor(store: store, windows: windows)
         self.door = door
@@ -662,6 +663,20 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         embed.subtitle = L("제목과 그림을 가져오려고 그 주소에 접속합니다")
         submenu.addItem(embed)
 
+        submenu.addItem(.separator())
+        // 약속의 가는 길 — 되물음에 답할 때만 지도·길찾기에 접속한다. 세 번째로 §9.3 이 갈리는 자리.
+        let routes = item(title: L("약속을 적으면 가는 길 묻기"), action: #selector(toggleRouteAsking), key: "")
+        routes.state = settings.current.asksRoutes ?? true ? .on : .off
+        routes.subtitle = L("「어디서 출발하시나요?」에 답할 때만 지도와 길찾기에 접속합니다")
+        submenu.addItem(routes)
+
+        let key = item(title: L("대중교통 길찾기 키 (ODsay)…"), action: #selector(changeTransitKey), key: "")
+        let hasKey = !(settings.current.transitKey ?? "").isEmpty
+        key.subtitle = hasKey
+            ? L("넣어 두었습니다 — 버스 번호·지하철역·환승까지 찾습니다")
+            : L("없으면 택시만 찾습니다 · lab.odsay.com 에서 무료로 받습니다")
+        submenu.addItem(key)
+
         parent.submenu = submenu
         return parent
     }
@@ -846,6 +861,28 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func toggleLinkEmbedding() {
         settings.update { $0.embedsLinks = !($0.embedsLinks ?? true) }
+    }
+
+    @objc private func toggleRouteAsking() {
+        settings.update { $0.asksRoutes = !($0.asksRoutes ?? true) }
+    }
+
+    /// ODsay 키를 넣거나 지운다. 창 하나에 칸 하나 — 키는 이 맥의 설정 파일에만 남는다.
+    @objc private func changeTransitKey() {
+        let alert = NSAlert()
+        alert.messageText = L("대중교통 길찾기 키")
+        alert.informativeText = L("ODsay LAB(lab.odsay.com)에서 무료로 받은 API 키를 넣으면 약속의 가는 길에 버스 번호·지하철역·환승이 적힙니다. 키는 이 맥에만 남고 iCloud 로 건너가지 않습니다.")
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
+        field.stringValue = settings.current.transitKey ?? ""
+        field.placeholderString = L("API 키")
+        alert.accessoryView = field
+        alert.addButton(withTitle: L("저장"))
+        alert.addButton(withTitle: L("그만두기"))
+        NSApp.activate()
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let entered = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        settings.update { $0.transitKey = entered.isEmpty ? nil : entered }
     }
 
     @objc private func newMemo() {
