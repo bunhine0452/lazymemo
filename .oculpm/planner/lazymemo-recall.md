@@ -22,7 +22,7 @@ owner: codex
 ## 실기기와 사용자 검증 {#release}
 - [ ] 폰 잠금·앱 종료 알림, 거절·재허용, 맥 왕복 동기화 실기기 검증 {#recall-device}
 - [ ] 사용자 10명 일주일 검증 — 도움 된 회상·방해·재사용 기록 {#recall-field}
-- [ ] 검증 뒤 위젯·잠금 화면 입력과 전환 연출 확장 {#recall-capture}
+- [~] 검증 뒤 위젯·잠금 화면 입력과 전환 연출 확장 {#recall-capture}
 
 <!-- oculpm:plan-log begin v1 -->
 | 시각 | 항목 | 에이전트 | 변화 | 일지 | 메모 |
@@ -33,4 +33,5 @@ owner: codex
 | 2026-09-15T01:08:28+09:00 | #recall-now | claude-code | ☐→x | .oculpm/journal/20260915/Features_to_add/0108_feature_recall-notifications-first-release.md | NowBand 세 장 + NoticeRow 저장·알림 오류, XCUITest·스크린샷 확인 |
 | 2026-09-15T01:08:35+09:00 | #recall-validation | claude-code | ☐→~ | .oculpm/journal/20260915/Features_to_add/0108_feature_recall-notifications-first-release.md | swift test 765 · iOS 빌드+UI 시험 2 · l10n 0 빠짐 · 문서 — 맥 번들 실행과 LazyMemo-macOS Xcode 빌드는 미확인(사용자 중단) |
 | 2026-09-15T02:17:44+09:00 | #recall-validation | claude-code | ~→x | .oculpm/journal/20260915/Chores/0217_chore_testflight-upload-recall-photos.md | 맥 App Store 타깃 아카이브로 양 플랫폼 빌드 확인 · 폰 스모크 15 · 두 판 TestFlight 업로드 |
+| 2026-09-16T23:19:45+09:00 | #recall-capture | claude-code | ☐→~ | .oculpm/journal/20260916/Features_to_add/2319_feature_widgetkit-now-next-write.md | 위젯(지금·다음 약속·적기)·잠금 화면 입력 위젯 구현, 워크트리 브랜치 — 전환 연출·실기기 검증 남음 |
 <!-- oculpm:plan-log end -->
