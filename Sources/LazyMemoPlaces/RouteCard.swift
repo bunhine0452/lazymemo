@@ -225,6 +225,7 @@ public struct RouteCard: View {
     private func detail(_ leg: TransitRoute.Leg) -> String {
         var parts = ["\(leg.minutes)분"]
         if let stops = leg.stops { parts.append("\(stops)" + (leg.mode == .bus ? "정류장" : "정거장")) }
+        if let boardAt = leg.boardAt { parts.append("\(clock(boardAt)) 승차") }
         if leg.mode == .taxi {
             if let fare = leg.fare { parts.append("약 " + TransitRoute.won(fare)) }
             if let distance = leg.distance { parts.append(String(format: "%.1fkm", Double(distance) / 1000)) }

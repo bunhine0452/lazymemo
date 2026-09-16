@@ -29,9 +29,9 @@ struct RouteSettingsView: View {
                     }
                     .accessibilityIdentifier("transit-key")
             } header: {
-                Text("대중교통 길찾기 키 (ODsay)")
+                Text("예비 길찾기 키 (ODsay)")
             } footer: {
-                Text("ODsay LAB(lab.odsay.com)에서 무료로 받은 키를 넣으면 버스 번호·지하철역·환승까지 적힙니다. 없으면 택시만 찾습니다. 키는 이 기기에만 남습니다.")
+                Text("가는 길은 네이버 지도가 키 없이 답합니다. ODsay LAB(lab.odsay.com)에서 무료로 받은 키를 넣어 두면 네이버 지도가 답하지 않을 때 그것으로 버스·지하철을 찾습니다. 키는 이 기기에만 남습니다.")
             }
         }
         .onAppear {

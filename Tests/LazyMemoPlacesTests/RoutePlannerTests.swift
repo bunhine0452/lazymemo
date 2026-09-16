@@ -166,24 +166,50 @@ struct RoutePlannerTests {
         #expect(planner.trouble == "「어딘지모를곳」를 지도에서 못 찾았어요 — 다른 이름이나 지도 링크로 말해 주세요")
     }
 
-    @Test("키가 없으면 애플의 시간만 — 문구가 그 사실과 키 넣는 길을 말한다")
-    func withoutKey() async throws {
+    @Test("대중교통을 못 쟀으면 택시만 — 문구가 그 사실을 말한다")
+    func taxiOnly() async throws {
         let (store, paths) = try makeStore()
         defer { cleanUp(paths) }
         let memo = try await store.create(body: "밥약속", at: appointment, place: "잠실", geo: seoul)
         let apple = [
-            TransitRoute(origin: "a", destination: "b", minutes: 25, arrive: appointment, legs: [.init(mode: .transit, minutes: 25)]),
             TransitRoute(origin: "a", destination: "b", minutes: 12, arrive: appointment, legs: [.init(mode: .taxi, minutes: 12, fare: 9800, distance: 6000)]),
         ]
         let planner = planner(store, routes: apple, key: nil)
         planner.begin(memo)
         planner.reply("석촌고분역")
         await settle(planner) { planner.step == .choosing }
-        #expect(planner.question == "길을 찾았어요 — 대중교통 약 25분 · 택시 12분 (약 9,800원). 무엇으로 갈까요? (버스 번호까지 보려면 설정에 ODsay 키를 넣어 주세요)")
-        #expect(planner.choices == ["대중교통", "택시", RoutePlanner.skipChoice])
+        #expect(planner.question == "대중교통 길은 지금 못 찾았어요 — 택시 12분 (약 9,800원). 무엇으로 갈까요?")
+        #expect(planner.choices == ["택시", RoutePlanner.skipChoice])
         planner.reply("택시")
         await settle(planner) { planner.step == .idle && planner.notice != nil }
         #expect(store.memo(memo.id)?.body.contains("- 택시 12분 · 약 9,800원 · 6.0km") == true)
+    }
+
+    @Test("시간표를 아는 길은 고른 뒤 약속에 맞춰 되재어 적는다")
+    func refinesBeforeWriting() async throws {
+        let (store, paths) = try makeStore()
+        defer { cleanUp(paths) }
+        let memo = try await store.create(body: "밥약속", at: appointment, place: "잠실", geo: seoul)
+        var naver = routes(arrive: appointment.addingTimeInterval(-30 * 60))
+        for index in naver.indices { naver[index].provider = "naver" }
+        let refined = TransitRoute(origin: "석촌고분역", destination: "투파인드피터 잠실점", minutes: 22, arrive: appointment.addingTimeInterval(-3 * 60), fare: 1500,
+                                   legs: [.init(mode: .bus, minutes: 22, line: "3317", kind: "지선", from: "석촌역", to: "잠실새내역", stops: 4, boardAt: appointment.addingTimeInterval(-20 * 60))],
+                                   provider: "naver")
+        var services = services(routes: naver)
+        services.refine = { chosen, _, _, _ in chosen.kind == .bus ? refined : nil }
+        let planner = RoutePlanner(store: store, settings: { Settings() }, services: services)
+        planner.now = { [now] in now }
+        var written: TransitRoute?
+        planner.onWritten = { written = $1 }
+        planner.begin(memo)
+        planner.reply("석촌고분역")
+        await settle(planner) { planner.step == .choosing }
+        planner.choose("버스")
+        await settle(planner) { written != nil }
+        #expect(written == refined)
+        let saved = try #require(store.memo(memo.id))
+        #expect(saved.body.contains("· \(RouteNote.clock(refined.legs[0].boardAt!)) 승차"))
+        #expect(saved.surface == refined.depart.addingTimeInterval(-RoutePlanner.lead))
     }
 
     @Test("탈것의 말 — 「버스랑 지하철」은 갈아타는 길, 「빠른 걸로」는 가장 빠른 것")

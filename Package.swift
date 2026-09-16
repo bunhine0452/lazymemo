@@ -156,7 +156,8 @@ let package = Package(
         .testTarget(
             name: "LazyMemoPlacesTests",
             dependencies: ["LazyMemoPlaces", "LazyMemoCore"],
-            path: "Tests/LazyMemoPlacesTests"
+            path: "Tests/LazyMemoPlacesTests",
+            resources: [.copy("Fixtures")]
         ),
         .testTarget(
             name: "LazyMemoSpotlightTests",

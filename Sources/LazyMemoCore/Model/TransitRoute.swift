@@ -35,15 +35,17 @@ public struct TransitRoute: Sendable, Equatable {
         public var fare: Int?
         /// 택시의 거리(m).
         public var distance: Int?
+        /// 타는 시각 — 시간표를 아는 길(네이버)만 준다. 「18:12 승차」.
+        public var boardAt: Date?
 
         public init(
             mode: Mode, minutes: Int, line: String? = nil, kind: String? = nil,
             from: String? = nil, to: String? = nil, stops: Int? = nil, heading: String? = nil,
-            exit: String? = nil, fare: Int? = nil, distance: Int? = nil
+            exit: String? = nil, fare: Int? = nil, distance: Int? = nil, boardAt: Date? = nil
         ) {
             self.mode = mode; self.minutes = max(0, minutes); self.line = line; self.kind = kind
             self.from = from; self.to = to; self.stops = stops; self.heading = heading
-            self.exit = exit; self.fare = fare; self.distance = distance
+            self.exit = exit; self.fare = fare; self.distance = distance; self.boardAt = boardAt
         }
 
         /// 타는 구간인가 — 걷기는 아니다.
@@ -59,14 +61,17 @@ public struct TransitRoute: Sendable, Equatable {
     /// 총 요금(원). 모르면 nil.
     public var fare: Int?
     public var legs: [Leg]
+    /// 누가 잰 길인가(「naver」·「odsay」·「apple」). 파일에는 적지 않는다 — 다시 재 볼 때만 쓴다.
+    public var provider: String?
 
-    public init(origin: String, destination: String, minutes: Int, arrive: Date, fare: Int? = nil, legs: [Leg]) {
+    public init(origin: String, destination: String, minutes: Int, arrive: Date, fare: Int? = nil, legs: [Leg], provider: String? = nil) {
         self.origin = origin
         self.destination = destination
         self.minutes = max(0, minutes)
         self.arrive = arrive
         self.fare = fare
         self.legs = legs
+        self.provider = provider
     }
 
     /// 출발할 시각 — 도착에서 소요 시간을 뺀 것.

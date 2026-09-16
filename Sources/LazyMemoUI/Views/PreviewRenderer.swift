@@ -757,8 +757,10 @@ enum PreviewRenderer {
         let dinner = calendar.date(from: DateComponents(year: 2026, month: 9, day: 16, hour: 18, minute: 30)) ?? appointment
         let route = TransitRoute(origin: L("석촌고분역"), destination: L("투파인드피터 잠실점"), minutes: 21, arrive: dinner, fare: 1500, legs: [
             .init(mode: .walk, minutes: 2),
-            .init(mode: .bus, minutes: 8, line: "3314", kind: L("지선"), from: L("잠실여고후문"), to: L("잠실역.롯데월드"), stops: 4),
-            .init(mode: .bus, minutes: 6, line: "4318", kind: L("간선"), from: L("잠실역.롯데월드"), to: L("잠실새내역2번출구"), stops: 2),
+            .init(mode: .bus, minutes: 8, line: "3314", kind: L("지선"), from: L("잠실여고후문"), to: L("잠실역.롯데월드"), stops: 4,
+                  boardAt: dinner.addingTimeInterval(-19 * 60)),
+            .init(mode: .bus, minutes: 6, line: "4318", kind: L("간선"), from: L("잠실역.롯데월드"), to: L("잠실새내역2번출구"), stops: 2,
+                  boardAt: dinner.addingTimeInterval(-10 * 60)),
             .init(mode: .walk, minutes: 4),
         ])
         return Samples(scheduled: scheduled, plain: plain, route: route)

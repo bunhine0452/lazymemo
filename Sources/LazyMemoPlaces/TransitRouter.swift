@@ -227,26 +227,28 @@ public enum TaxiFare {
     }
 }
 
-/// 둘을 합친 것 — 키가 있으면 ODsay 가 대중교통을, 없으면 애플이 시간만. 택시는 늘 애플.
+/// 셋을 합친 것 — 대중교통은 네이버 지도 웹(키 없음)이 먼저, 그것이 답하지 않으면 ODsay(키가 있으면).
+/// 택시는 늘 애플. 둘 다 없으면 택시만 남는다.
 public struct RouteFinder: Sendable {
     public var transitKey: String?
     public init(transitKey: String? = nil) {
         self.transitKey = transitKey?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? transitKey : nil
     }
 
-    /// 버스 번호까지 아는 길인가 — 되물음의 문구가 이것으로 갈린다.
-    public var isDetailed: Bool { transitKey != nil }
-
     public func find(from origin: LocatedPlace, to destination: LocatedPlace, arriveBy: Date) async throws -> [TransitRoute] {
         let apple = AppleRouter()
         async let taxi = apple.taxi(from: origin, to: destination, arriveBy: arriveBy)
-        var routes: [TransitRoute]
-        if let transitKey {
+        var routes = (try? await NaverWebRouter().routes(from: origin, to: destination, arriveBy: arriveBy)) ?? []
+        if routes.isEmpty, let transitKey {
             routes = try await ODsayRouter(key: transitKey).routes(from: origin, to: destination, arriveBy: arriveBy)
-        } else {
-            routes = (try? await apple.routes(from: origin, to: destination, arriveBy: arriveBy)) ?? []
         }
         routes.append(await taxi)
         return routes
+    }
+
+    /// 고른 길을 약속에 맞춰 되잰다 — 시간표를 아는 길(네이버)만. 아니면 nil 이고 고른 그대로 적는다.
+    public func refine(_ route: TransitRoute, from origin: LocatedPlace, to destination: LocatedPlace, arriveBy: Date) async -> TransitRoute? {
+        guard route.provider == "naver" else { return nil }
+        return await NaverWebRouter().refine(route, from: origin, to: destination, arriveBy: arriveBy)
     }
 }

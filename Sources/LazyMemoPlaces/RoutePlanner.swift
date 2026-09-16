@@ -30,19 +30,26 @@ public final class RoutePlanner {
     public struct Services: Sendable {
         public var locate: @Sendable (String, Coordinate?) async -> LocatedPlace?
         public var find: @Sendable (LocatedPlace, LocatedPlace, Date, String?) async throws -> [TransitRoute]
+        /// 고른 길을 약속에 맞춰 되잰다. nil 이면 고른 그대로.
+        public var refine: @Sendable (TransitRoute, LocatedPlace, LocatedPlace, Date) async -> TransitRoute?
 
         public init(
             locate: @escaping @Sendable (String, Coordinate?) async -> LocatedPlace?,
-            find: @escaping @Sendable (LocatedPlace, LocatedPlace, Date, String?) async throws -> [TransitRoute]
+            find: @escaping @Sendable (LocatedPlace, LocatedPlace, Date, String?) async throws -> [TransitRoute],
+            refine: @escaping @Sendable (TransitRoute, LocatedPlace, LocatedPlace, Date) async -> TransitRoute? = { _, _, _, _ in nil }
         ) {
             self.locate = locate
             self.find = find
+            self.refine = refine
         }
 
         public static let live = Services(
             locate: { text, near in await PlaceLocator.locate(text, near: near) },
             find: { origin, destination, arriveBy, key in
                 try await RouteFinder(transitKey: key).find(from: origin, to: destination, arriveBy: arriveBy)
+            },
+            refine: { route, origin, destination, arriveBy in
+                await RouteFinder().refine(route, from: origin, to: destination, arriveBy: arriveBy)
             }
         )
     }
@@ -274,19 +281,27 @@ public final class RoutePlanner {
             return
         }
         step = .choosing
-        question = Self.offer(found, detailed: key?.isEmpty == false)
+        question = Self.offer(found)
         choices = Self.kinds(among: found).map(\.label) + [Self.skipChoice]
     }
 
-    private func write(_ route: TransitRoute) {
-        guard let memo else { return }
+    private func write(_ chosen: TransitRoute) {
+        guard let memo, let at = memo.at else { return }
         step = .writing
-        question = "메모에 적는 중…"
+        question = "약속에 맞춰 출발 시각을 재는 중…"
         choices = []
         let destination = self.destination
+        let origin = self.origin
         let session = self.session
+        let services = self.services
         work = Task { [weak self] in
             guard let self else { return }
+            // 시간표를 아는 길은 약속에 맞춰 한 번 더 잰다 — 고를 때 본 것은 어림의 출발이었다.
+            var route = chosen
+            if let origin, let place = await destination?.value,
+               let refined = await services.refine(chosen, origin, place, at) { route = refined }
+            guard self.session == session else { return }
+            question = "메모에 적는 중…"
             let body = RouteNote.append(route, to: (store.memo(memo.id) ?? memo).body)
             let surfaceAt = route.depart.addingTimeInterval(-Self.lead)
             let surface: Date?? = surfaceAt > now() ? .some(surfaceAt) : nil
@@ -358,7 +373,8 @@ public final class RoutePlanner {
     // MARK: 문구
 
     /// 「경로 5개를 찾았어요 — 버스 21분 · 지하철 25분 · 택시 12분 (약 9,800원). 무엇으로 갈까요?」
-    static func offer(_ routes: [TransitRoute], detailed: Bool) -> String {
+    /// 대중교통을 못 쟀으면 「대중교통 길은 지금 못 찾았어요 — 택시 12분 (약 9,800원). 무엇으로 갈까요?」.
+    static func offer(_ routes: [TransitRoute]) -> String {
         var parts: [String] = []
         for kind in kinds(among: routes) {
             let best: TransitRoute?
@@ -374,11 +390,9 @@ public final class RoutePlanner {
             else if best.kind == .transit { piece = "대중교통 약 \(best.minutes)분" }
             parts.append(piece)
         }
-        let count = routes.count
-        let head = detailed ? "경로 \(count)개를 찾았어요" : "길을 찾았어요"
-        var text = "\(head) — \(parts.joined(separator: " · ")). \(modeQuestion)"
-        if !detailed { text += " (버스 번호까지 보려면 설정에 ODsay 키를 넣어 주세요)" }
-        return text
+        let transit = routes.contains { $0.kind != .taxi }
+        let head = transit ? "경로 \(routes.count)개를 찾았어요" : "대중교통 길은 지금 못 찾았어요"
+        return "\(head) — \(parts.joined(separator: " · ")). \(modeQuestion)"
     }
 
     /// 「가는 길을 적었어요 — 버스 21분, 18:09 출발 · 환승 1회 (버스 → 지하철) · 10분 전에 알려요」

@@ -442,10 +442,10 @@ final class SmokeTests: XCTestCase {
 
         capture.typeText("석촌고분역")
         app.buttons["leave"].tap()
-        // 키가 없는 시뮬레이터에서는 택시만 찾는다 — 그 선택지가 서면 길을 잰 것이다.
-        let taxi = app.buttons["택시"]
-        XCTAssertTrue(taxi.waitForExistence(timeout: 30), "길을 찾지 못했다: \(app.staticTexts.allElementsBoundByIndex.map { $0.label })")
-        taxi.tap()
+        // 네이버 지도 웹이 키 없이 버스·지하철을 준다 — 「버스」 선택지가 서면 길을 잰 것이다.
+        let bus = app.buttons["버스"]
+        XCTAssertTrue(bus.waitForExistence(timeout: 30), "길을 찾지 못했다: \(app.staticTexts.allElementsBoundByIndex.map { $0.label })")
+        bus.tap()
 
         let notice = app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "가는 길을 적었어요")).firstMatch
         XCTAssertTrue(notice.waitForExistence(timeout: 10), "적었다는 한 줄이 없다")
@@ -454,6 +454,7 @@ final class SmokeTests: XCTestCase {
         let files = try markdownFiles(under: root.appending(path: "vault/notes", directoryHint: .isDirectory))
         let text = try String(contentsOf: try XCTUnwrap(files.first), encoding: .utf8)
         XCTAssertTrue(text.contains("## 가는 길\n석촌고분역 → 투파인드피터 잠실점 ·"), text)
+        XCTAssertTrue(text.contains("\n- 버스 ") && text.contains(" 승차"), "버스 번호와 승차 시각이 적혀야 한다: \(text)")
         XCTAssertTrue(text.contains("\nsurface: "), "출발 알림이 걸려야 한다: \(text)")
         dismissKeyboard(app)
         scrolledRow(in: app, startingWith: "https://naver.me").tap()

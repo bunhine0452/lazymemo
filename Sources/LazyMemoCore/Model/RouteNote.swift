@@ -11,7 +11,7 @@ import Foundation
 /// 석촌고분역 → 투파인드피터 잠실점 · 21분 · 18:09 출발 · 18:30 도착 · 1,500원 · 환승 1회
 /// - 걷기 2분
 /// - 버스 3314 (지선) 잠실여고후문 → 잠실역.롯데월드 · 8분 · 4정류장
-/// - 지하철 2호선 잠실 → 강남 · 12분 · 6정거장 · 강남 방면 · 2번 출구로
+/// - 지하철 2호선 잠실 → 강남 · 12분 · 6정거장 · 강남 방면 · 2번 출구로 · 18:20 승차
 /// - 걷기 4분
 /// ```
 ///
@@ -44,7 +44,7 @@ public enum RouteNote {
 
     public static func render(_ route: TransitRoute, calendar: Calendar = .current) -> String {
         var lines = [heading, summary(route, calendar: calendar)]
-        for leg in route.legs { lines.append("- " + render(leg)) }
+        for leg in route.legs { lines.append("- " + render(leg, calendar: calendar)) }
         return lines.joined(separator: "\n")
     }
 
@@ -56,7 +56,7 @@ public enum RouteNote {
         return parts.joined(separator: separator)
     }
 
-    static func render(_ leg: TransitRoute.Leg) -> String {
+    static func render(_ leg: TransitRoute.Leg, calendar: Calendar = .current) -> String {
         switch leg.mode {
         case .walk:
             return "걷기 \(leg.minutes)분"
@@ -69,6 +69,7 @@ public enum RouteNote {
             if let stops = leg.stops { parts.append("\(stops)" + (leg.mode == .bus ? "정류장" : "정거장")) }
             if let heading = leg.heading { parts.append(heading.hasSuffix("방면") ? heading : heading + " 방면") }
             if let exit = leg.exit { parts.append("\(exit)번 출구로") }
+            if let boardAt = leg.boardAt { parts.append("\(clock(boardAt, calendar: calendar)) 승차") }
             return parts.joined(separator: separator)
         case .taxi:
             var parts = ["택시 \(leg.minutes)분"]
@@ -95,7 +96,7 @@ public enum RouteNote {
         for line in lines.dropFirst(2) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard trimmed.hasPrefix("- ") else { break }
-            guard let leg = readLeg(String(trimmed.dropFirst(2))) else { return nil }
+            guard let leg = readLeg(String(trimmed.dropFirst(2)), day: day, calendar: calendar) else { return nil }
             legs.append(leg)
         }
         guard !legs.isEmpty else { return nil }
@@ -126,7 +127,7 @@ public enum RouteNote {
         return (origin, destination, minutes, arrive, fare)
     }
 
-    static func readLeg(_ line: String) -> TransitRoute.Leg? {
+    static func readLeg(_ line: String, day: Date = Date(), calendar: Calendar = .current) -> TransitRoute.Leg? {
         let parts = line.split(separator: separator, omittingEmptySubsequences: false).map { $0.trimmingCharacters(in: .whitespaces) }
         guard let head = parts.first, !head.isEmpty else { return nil }
 
@@ -177,6 +178,8 @@ public enum RouteNote {
                 leg.exit = String(part.dropLast(5))
             } else if part.hasSuffix("방면") {
                 leg.heading = part
+            } else if part.hasSuffix("승차") {
+                leg.boardAt = time(String(part.dropLast(2)), day: day, calendar: calendar)
             } else if minutes == nil, part.hasSuffix("분") {
                 minutes = number(before: "분", in: part)
             }

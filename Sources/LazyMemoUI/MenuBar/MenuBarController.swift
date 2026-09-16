@@ -670,11 +670,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         routes.subtitle = L("「어디서 출발하시나요?」에 답할 때만 지도와 길찾기에 접속합니다")
         submenu.addItem(routes)
 
-        let key = item(title: L("대중교통 길찾기 키 (ODsay)…"), action: #selector(changeTransitKey), key: "")
+        // 대중교통은 네이버 지도 웹이 키 없이 답한다(`NaverWebRouter`). ODsay 키는 그것이 끊겼을 때의 예비다.
+        let key = item(title: L("예비 길찾기 키 (ODsay)…"), action: #selector(changeTransitKey), key: "")
         let hasKey = !(settings.current.transitKey ?? "").isEmpty
         key.subtitle = hasKey
-            ? L("넣어 두었습니다 — 버스 번호·지하철역·환승까지 찾습니다")
-            : L("없으면 택시만 찾습니다 · lab.odsay.com 에서 무료로 받습니다")
+            ? L("넣어 두었습니다 — 네이버 지도가 답하지 않을 때 씁니다")
+            : L("없어도 됩니다 — 네이버 지도가 답하지 않을 때만 · lab.odsay.com 에서 무료로 받습니다")
         submenu.addItem(key)
 
         parent.submenu = submenu
@@ -870,8 +871,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// ODsay 키를 넣거나 지운다. 창 하나에 칸 하나 — 키는 이 맥의 설정 파일에만 남는다.
     @objc private func changeTransitKey() {
         let alert = NSAlert()
-        alert.messageText = L("대중교통 길찾기 키")
-        alert.informativeText = L("ODsay LAB(lab.odsay.com)에서 무료로 받은 API 키를 넣으면 약속의 가는 길에 버스 번호·지하철역·환승이 적힙니다. 키는 이 맥에만 남고 iCloud 로 건너가지 않습니다.")
+        alert.messageText = L("예비 길찾기 키 (ODsay)")
+        alert.informativeText = L("가는 길은 네이버 지도가 키 없이 답합니다. ODsay LAB(lab.odsay.com)에서 무료로 받은 API 키를 넣어 두면 네이버 지도가 답하지 않을 때 그것으로 버스·지하철을 찾습니다. 키는 이 맥에만 남고 iCloud 로 건너가지 않습니다.")
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
         field.stringValue = settings.current.transitKey ?? ""
         field.placeholderString = L("API 키")

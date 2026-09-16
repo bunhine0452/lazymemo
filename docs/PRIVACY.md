@@ -16,7 +16,7 @@
 | 지금 여기 (맥 `⌥⌘L` · 폰의 핀) | 좌표 하나 | 애플 지오코딩 (주소로 바꾸려고) | **누를 때마다**, 그때만 |
 | 자리 카드 (맥·폰) | 장소 이름 하나 | 애플 지도 검색 (좌표로 바꾸려고) | 장소가 붙은 메모를 폰에서 **열 때**, 맥에서 그 종이가 **바탕화면에 설 때** — 파일에 좌표가 있으면 안 나간다. 알아낸 좌표는 그 메모 파일에 적어 다음엔 묻지 않는다 |
 | 「가는 길」 (맥·폰) | 좌표와 이름 | 누른 지도 앱 (카카오맵·네이버 지도·애플 지도) | **누를 때마다**. 출발지는 그 앱이 스스로 잰다 |
-| 약속의 가는 길 묻기 (맥·폰) | 출발지 이름(또는 지도 링크)과 약속 자리의 좌표 | 애플 지도 검색(이름→좌표) · 지도 링크의 서비스(네이버 등, 짧은 링크를 풀려고) · 애플 지도 길찾기(택시) · **설정에 키를 넣었을 때만** ODsay(대중교통) | 약속을 적은 뒤 「어디서 출발하시나요?」에 **답할 때만**. 「됐어」면 아무것도 안 나간다. 설정에서 묻지 않게 끌 수 있다. 메모 본문은 나가지 않는다 |
+| 약속의 가는 길 묻기 (맥·폰) | 출발지·약속 자리의 좌표와 이름 | 애플 지도 검색(이름→좌표) · 지도 링크의 서비스(네이버 등, 짧은 링크를 풀려고) · 네이버 지도 웹 길찾기(버스·지하철) · 애플 지도 길찾기(택시) · **설정에 키를 넣었을 때만** ODsay(네이버가 답하지 않을 때의 예비) | 약속을 적은 뒤 「어디서 출발하시나요?」에 **답할 때만**. 「됐어」면 아무것도 안 나간다. 설정에서 묻지 않게 끌 수 있다. 메모 본문은 나가지 않는다 |
 | Claude 연동 (맥, MCP) | 메모 본문 | Claude | `claude_desktop_config.json` 에 **직접 등록**했을 때 |
 | 종이 위 ✧ 다듬기 (맥) | 그 메모 본문 | Claude | `claude` 가 깔려 있고 **누를 때마다** |
 | 아침 브리핑 (맥) | 메모 제목과 시각 | Claude | 설정에서 **직접 켤 때만** (기본 꺼짐) |
@@ -73,7 +73,7 @@ By default lazymemo connects to nothing. The table below is the complete list of
 | "Here" (Mac `⌥⌘L` · the pin on iPhone) | one coordinate | Apple geocoding (to turn it into an address) | each time you press it, and only then |
 | Place cards (Mac · iPhone) | one place name | Apple Maps search (to turn it into a coordinate) | when you open a memo that has a place on iPhone, or when that note stands on the Mac desktop; not sent if the file already holds a coordinate. The coordinate found is written into that memo file so it is never asked again |
 | "Directions" (Mac · iPhone) | a coordinate and a name | the map app you tap (Kakao Map, Naver Map, Apple Maps) | each time you press it; that app measures the starting point itself |
-| Routes for appointments (Mac · iPhone) | the starting place name (or map link) and the appointment's coordinate | Apple Maps search (name → coordinate) · the map link's service (Naver etc., to resolve a short link) · Apple Maps directions (taxi) · ODsay (transit) **only if you entered a key in Settings** | only when you answer "Where are you leaving from?" after writing an appointment. "Skip" sends nothing. Can be turned off in Settings. Memo text is never sent |
+| Routes for appointments (Mac · iPhone) | the coordinates and names of the starting place and the appointment | Apple Maps search (name → coordinate) · the map link's service (Naver etc., to resolve a short link) · Naver Map web directions (bus · subway) · Apple Maps directions (taxi) · ODsay **only if you entered a key in Settings** (backup when Naver does not answer) | only when you answer "Where are you leaving from?" after writing an appointment. "Skip" sends nothing. Can be turned off in Settings. Memo text is never sent |
 | Claude integration (Mac, MCP) | memo text | Claude | only after you register it in `claude_desktop_config.json` yourself |
 | ✧ Tidy on a note (Mac) | that memo's text | Claude | only if the `claude` CLI is installed, each time you press it |
 | Morning brief (Mac) | memo titles and times | Claude | only if you turn it on in Settings (off by default) |
