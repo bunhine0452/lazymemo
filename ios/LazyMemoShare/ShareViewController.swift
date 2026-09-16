@@ -2,6 +2,7 @@ import LazyMemoCore
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
+import UserNotifications
 
 /// 공유 시트의 「lazymemo 에 적기」 — 맥의 서비스 메뉴와 같은 문.
 ///
@@ -113,7 +114,9 @@ private struct ShareSheet: View {
                 container: container, shared: AppPaths.sharedContainer()
             ).paths
             do {
-                try await InboxDrop.drop(inbound, into: paths)
+                let memo = try await InboxDrop.drop(inbound, into: paths)
+                // 자리가 있는 약속이면 앱이 「어디서 출발하시나요?」를 묻게 남긴다 — 여기엔 펜이 없다 (`RouteAsk`).
+                if RouteAsk.applies(memo) { await RouteAskDrop.leave(memo) }
                 context?.completeRequest(returningItems: nil)
             } catch {
                 trouble = String(localized: "적지 못했습니다 — \(String(describing: error))")
@@ -146,5 +149,27 @@ enum SharedInput {
         let loaded = try? await provider.loadItem(forTypeIdentifier: type.identifier)
         if let data = loaded as? Data, type == .plainText { return String(decoding: data, as: UTF8.self) }
         return loaded
+    }
+}
+
+/// 공유 시트가 남기는 「어디서 출발하시나요?」 — 알림 하나와 앱 그룹의 표 (`RouteAsk`).
+///
+/// 알림은 앱이 「이 기기에서 알림 받기」로 권한을 받아 둔 기기에서만 걸린다(확장은 권한을 묻지 못한다).
+/// 권한이 없으면 표만 남고, 앱을 다음에 열 때 펜이 묻는다.
+enum RouteAskDrop {
+    static func leave(_ memo: Memo) async {
+        RouteAsk.remember(memo.id, in: AppPaths.sharedContainer())
+        let center = UNUserNotificationCenter.current()
+        guard case .authorized = await center.notificationSettings().authorizationStatus else { return }
+        let content = UNMutableNotificationContent()
+        content.title = memo.title
+        content.body = RouteAsk.notificationBody
+        content.sound = .default
+        content.userInfo = ["memo": memo.id.stringValue, RouteAsk.askKey: RouteAsk.askValue]
+        let request = UNNotificationRequest(
+            identifier: RouteAsk.notificationPrefix + memo.id.stringValue, content: content,
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 2, repeats: false)
+        )
+        try? await center.add(request)
     }
 }

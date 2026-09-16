@@ -1,4 +1,5 @@
 import Foundation
+import LazyMemoCore
 import UserNotifications
 
 /// `UNUserNotificationCenter` 를 `ReminderQueue` 의 모양으로.
@@ -16,6 +17,7 @@ import UserNotifications
     }
 
     var onTap: ((String) -> Void)?
+    var onAskRoute: ((String) -> Void)?
     private let center = UNUserNotificationCenter.current()
     private nonisolated static let memoKey = "memo"
     private nonisolated static let dateKey = "date"
@@ -92,9 +94,13 @@ import UserNotifications
         _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        let raw = response.notification.request.content.userInfo[Self.memoKey] as? String
+        let info = response.notification.request.content.userInfo
+        let raw = info[Self.memoKey] as? String
+        let asksRoute = info[RouteAsk.askKey] as? String == RouteAsk.askValue
         if let raw {
-            Task { @MainActor [weak self] in self?.onTap?(raw) }
+            Task { @MainActor [weak self] in
+                if asksRoute { self?.onAskRoute?(raw) } else { self?.onTap?(raw) }
+            }
         }
         completionHandler()
     }

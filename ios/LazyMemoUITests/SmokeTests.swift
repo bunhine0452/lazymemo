@@ -429,6 +429,34 @@ final class SmokeTests: XCTestCase {
         XCTAssertFalse(text.contains("## 가는 길"), "됐어 뒤에 길이 적히면 안 된다")
     }
 
+    // MARK: 공유 시트가 남긴 질문 — 앱을 열면 펜이 「어디서 출발하시나요?」를 세운다
+
+    func testShareLeftQuestionIsAskedOnLaunch() throws {
+        try seed()
+        // 공유 시트가 떨군 약속 메모(자리 있음, 앞으로 올 시각)와 앱 그룹의 표.
+        let notes = root.appending(path: "vault/notes/2026/09", directoryHint: .isDirectory)
+        let id = Self.ulid(day: 16, tail: "RA")
+        let stamp = DateFormatter()
+        stamp.locale = Locale(identifier: "en_US_POSIX")
+        stamp.dateFormat = "yyyy-MM-dd'T'HH:mm:ssxxx"
+        let at = stamp.string(from: Date().addingTimeInterval(3 * 3600))
+        let text = "---\nid: \(id)\ncreated: 2026-09-16T10:00:00+09:00\nupdated: 2026-09-16T10:00:00+09:00\nat: \(at)\nplace: 광주종합버스터미널(유.스퀘어)\ntags: []\ncolor: yellow\npinned: false\n---\n광주종합버스터미널(유.스퀘어)\n전남광주 서구 무진대로 904\nhttps://naver.me/xqbpqrZD\n"
+        try text.write(to: notes.appending(path: id + ".md"), atomically: true, encoding: .utf8)
+        let group = root.appending(path: "group", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: group, withIntermediateDirectories: true)
+        try "[\"\(id)\"]".write(to: group.appending(path: "route-ask.json"), atomically: true, encoding: .utf8)
+
+        let app = launch(group: group)
+        let question = app.descendants(matching: .any)["route-question"]
+        if !question.waitForExistence(timeout: 10) {
+            try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/lazymemo-route-ask-fail.png"))
+            XCTFail("앱을 열면 펜이 출발지를 물어야 한다")
+        }
+        XCTAssertTrue(app.staticTexts["어디서 출발하시나요?"].exists)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "광주종합버스터미널")).firstMatch.exists, "어느 약속인지 한 줄이 있어야 한다")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: group.appending(path: "route-ask.json").path(percentEncoded: false)), "거둔 표는 비워야 한다")
+    }
+
     /// 진짜 접속 — 링크를 풀고 지도에 묻고 택시 길을 잰다. `TEST_RUNNER_LAZYMEMO_LIVE_ROUTES=1` 일 때만.
     func testAnsweringTheOriginWritesARouteCard() throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["LAZYMEMO_LIVE_ROUTES"] == "1", "접속하는 시험 — LAZYMEMO_LIVE_ROUTES=1 로 켠다")
@@ -462,9 +490,10 @@ final class SmokeTests: XCTestCase {
         try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/lazymemo-route-card.png"))
     }
 
-    private func launch(tutorialSeen: Bool = true) -> XCUIApplication {
+    private func launch(tutorialSeen: Bool = true, group: URL? = nil) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["LAZYMEMO_VAULT"] = root.path(percentEncoded: false)
+        if let group { app.launchEnvironment["LAZYMEMO_GROUP"] = group.path(percentEncoded: false) }
         app.launchArguments += ["-tutorialSeen", tutorialSeen ? "YES" : "NO"]
         // 기기별 기억은 시뮬레이터에 남는다 — 소개 영상(DemoTests)이 알림을 켜 두고 가도, 앞 시험이
         // 「봤어요」로 카드를 내려놓았어도 첫 실행으로 시작한다 (인자 도메인이 저장된 값을 가린다).

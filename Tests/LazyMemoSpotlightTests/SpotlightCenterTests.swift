@@ -163,18 +163,19 @@ struct SpotlightCenterTests {
 
     @Test("지문은 UserDefaults 에 남아 다음 실행이 바뀐 것만 올린다")
     func remembersFingerprints() async throws {
-        let made = try make()
-        let (index, store, paths) = (made.1, made.2, made.3)
-        var center: SpotlightCenter? = made.0
+        let (store, paths) = try makeStore()
+        let index = FakeIndex()
         defer { cleanUp(paths) }
         let a = try await store.create(body: "첫 장")
         let b = try await store.create(body: "둘째 장")
-        center?.start(store: store)
-        await center?.settle()
 
-        // 앱을 끈다 — 첫 center 를 놓아야 저장소 관찰이 멎는다. 살려 두면 아래 변경에 둘이 함께 올려
-        // `indexedIDs` 가 두 번 적힌다 (실제로 한 번 그렇게 빨개졌다).
-        center = nil
+        // 첫 실행은 닫힌 범위 안에서 — 범위를 나가면 center 가 놓여 저장소 관찰이 멎는다. 튜플로 받아 두면
+        // 튜플이 그것을 붙들고 있어 아래 변경에 둘이 함께 올려 `indexedIDs` 가 두 번 적혔다 (셋 중 하나꼴로 빨갰다).
+        do {
+            let first = SpotlightCenter(index: index, defaults: defaults(for: paths))
+            first.start(store: store)
+            await first.settle()
+        }
         // 같은 defaults 로 새 center — 앱을 다시 켠 것과 같다.
         let again = SpotlightCenter(index: index, defaults: defaults(for: paths, keep: true))
         index.indexedIDs.removeAll()

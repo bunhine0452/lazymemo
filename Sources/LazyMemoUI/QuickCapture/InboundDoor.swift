@@ -14,6 +14,8 @@ final class InboundDoor: NSObject {
     private let store: MemoStore
     private let windows: NoteWindowManager
     var onScheduled: (CalendarDate) -> Void = { _ in }
+    /// 자리가 있는 약속이 밖에서 들어왔다 — 상자가 「어디서 출발하시나요?」를 세울 자리 (`RouteAsk`).
+    var onRouteAsk: (Memo) -> Void = { _ in }
 
     init(store: MemoStore, windows: NoteWindowManager) {
         self.store = store
@@ -28,6 +30,7 @@ final class InboundDoor: NSObject {
             place: note.place, geo: note.geo
         ) else { return nil }
         announce(memo)
+        if RouteAsk.applies(memo) { onRouteAsk(memo) }
         return memo
     }
 

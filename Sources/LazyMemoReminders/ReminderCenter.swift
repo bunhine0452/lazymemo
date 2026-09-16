@@ -42,6 +42,8 @@ public final class ReminderCenter {
     public var opened: ULID?
     /// 화면이 있으면 바로 부른다 (맥). 없으면 `opened` 에 남긴다 (폰).
     public var onOpen: ((ULID) -> Void)?
+    /// 「어디서 출발하시나요?」 알림을 눌렀다 — 편집 화면이 아니라 펜의 질문이 설 메모 (`RouteAsk`). 화면이 읽고 `nil` 로.
+    public var askedRoute: ULID?
     /// 이 실행 파일이 알림을 걸 수 있나. 앱 번들 밖(bare `swift run`·`swift test`)에서는 못 건다.
     public var available: Bool { queue != nil }
 
@@ -62,6 +64,10 @@ public final class ReminderCenter {
             guard let self, let id = ULID(raw) else { return }
             open(id)
         }
+        queue?.onAskRoute = { [weak self] raw in
+            guard let self, let id = ULID(raw) else { return }
+            askedRoute = id
+        }
     }
 
     /// 저장소를 붙이고 첫 대조를 돈다. 두 번 불러도 붙인 저장소는 그대로다.
@@ -80,6 +86,13 @@ public final class ReminderCenter {
                 self?.refresh()
             }
         }
+    }
+
+    /// 「어디서 출발하시나요?」 알림을 거둔다 — 펜이 그 질문을 세웠거나 그 메모가 더는 물을 것이 아닐 때.
+    public func clearRouteAsk(_ id: ULID) {
+        let identifier = RouteAsk.notificationPrefix + id.stringValue
+        queue?.removePending([identifier])
+        queue?.removeDelivered([identifier])
     }
 
     /// 「이 기기에서 알림 받기」. 켤 때만 시스템에 묻는다 — 첫 실행에는 묻지 않는다.
@@ -204,6 +217,8 @@ public struct ReminderRequest: Sendable, Equatable {
 @MainActor public protocol ReminderQueue: AnyObject {
     /// 알림을 눌렀다 — 메모 id 문자열.
     var onTap: ((String) -> Void)? { get set }
+    /// 「어디서 출발하시나요?」 알림을 눌렀다 — 메모 id 문자열 (`RouteAsk`).
+    var onAskRoute: ((String) -> Void)? { get set }
     func authorization() async -> ReminderAuthorization
     /// 시스템 창을 띄운다. 이미 답했으면 그 답을 그대로 돌려준다.
     func requestAuthorization() async throws -> Bool

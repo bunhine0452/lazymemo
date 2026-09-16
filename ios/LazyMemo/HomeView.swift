@@ -40,6 +40,41 @@ struct HomeView: View {
         _folders = State(initialValue: FolderModel(store: session.store, settings: session.settings))
     }
 
+    /// 펜이 비서를 겸한다 — 묻기·시키기·되묻기 (docs/research/quick-capture-assistant-2026-09-15.md 를 폰에 그대로).
+    /// `init` 에서 잇지 않는다: SwiftUI 는 이 뷰를 다시 만들 수 있고, 그때의 펜은 화면이 쥔 펜이 아니다 —
+    /// 비서의 「끝났다」 신호가 버려진 펜으로 가서 답이 목록에 서지 않았다 (2026-09-16 시뮬레이터에서 봤다).
+    private func attachAssistant() {
+        pen.assistant = session.assistant
+        // 약속을 남기면 가는 길을 묻는다 — 「지금 여기」는 펜의 위치 단추와 같은 길로 잰다.
+        guard pen.planner == nil else { return }
+        let planner = RoutePlanner(store: session.store, settings: { [settings = session.settings] in settings.current })
+        planner.here = { [here] in
+            guard let fix = await here.fix(), let geo = fix.geo else { return nil }
+            return LocatedPlace(name: fix.place, geo: geo)
+        }
+        planner.onWritten = { memo, _ in reveal.show(memo.id) }
+        pen.planner = planner
+    }
+
+    /// 앱 밖에서 적힌 약속 메모의 가는 길을 묻는다 — 가장 나중 것 하나. 이미 묻고 있으면 그대로 둔다.
+    /// 파일은 공유 시트가 떨군 것이라 저장소가 아직 모를 수 있다 — 한 번 대조한 뒤 찾는다.
+    private func askRoute(for ids: [ULID]) {
+        guard !ids.isEmpty else { return }
+        attachAssistant()
+        Task {
+            await session.store.reconcile()
+            // 물을 것이 아니게 된 메모(지웠거나, 이미 길이 있거나)의 알림은 거둔다.
+            for id in ids { reminders.clearRouteAsk(id) }
+            guard let planner = pen.planner, !planner.isActive,
+                  let memo = ids.reversed().lazy.compactMap({ session.store.memo($0) }).first(where: { RouteAsk.applies($0) })
+            else { return }
+            showsTutorial = false
+            notified = nil
+            tab = .memos
+            if planner.begin(memo) { pen.requestFocus() }
+        }
+    }
+
     private var penBar: some View {
         PenBar(pen: pen, fixing: here.fixing, hereTrouble: here.trouble) {
             Task { if let fix = await here.fix() { pen.here = fix } }
@@ -85,23 +120,21 @@ struct HomeView: View {
             notified = NotifiedMemo(id: id)
             spotlight.opened = nil
         }
+        // 「어디서 출발하시나요?」 알림을 눌렀다 — 편집 화면이 아니라 펜이 그 질문을 세운다 (`RouteAsk`).
+        .onChange(of: reminders.askedRoute, initial: true) { _, id in
+            guard let id else { return }
+            reminders.askedRoute = nil
+            askRoute(for: [id])
+        }
+        // 공유 시트가 남긴 질문 — 알림을 안 눌렀어도, 권한이 없어도, 앱을 열면 펜이 묻는다.
+        .onAppear { askRoute(for: RouteAsk.takePending(in: AppPaths.sharedContainer())) }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            askRoute(for: RouteAsk.takePending(in: AppPaths.sharedContainer()))
+        }
         // 남기면 손끝에 한 번 — 글 칸이 비는 것 말고도 「됐다」는 신호가 있어야 한다.
         .sensoryFeedback(.success, trigger: pen.lastLeft) { _, new in new != nil }
         .onAppear {
-            // 펜이 비서를 겸한다 — 묻기·시키기·되묻기 (docs/research/quick-capture-assistant-2026-09-15.md 를 폰에 그대로).
-            // `init` 에서 잇지 않는다: SwiftUI 는 이 뷰를 다시 만들 수 있고, 그때의 펜은 화면이 쥔 펜이 아니다 —
-            // 비서의 「끝났다」 신호가 버려진 펜으로 가서 답이 목록에 서지 않았다 (2026-09-16 시뮬레이터에서 봤다).
-            pen.assistant = session.assistant
-            // 약속을 남기면 가는 길을 묻는다 — 「지금 여기」는 펜의 위치 단추와 같은 길로 잰다.
-            if pen.planner == nil {
-                let planner = RoutePlanner(store: session.store, settings: { [settings = session.settings] in settings.current })
-                planner.here = { [here] in
-                    guard let fix = await here.fix(), let geo = fix.geo else { return nil }
-                    return LocatedPlace(name: fix.place, geo: geo)
-                }
-                planner.onWritten = { memo, _ in reveal.show(memo.id) }
-                pen.planner = planner
-            }
+            attachAssistant()
             if !Tutorial.seen { showsTutorial = true }
         }
         .sheet(isPresented: $showsTutorial, onDismiss: {

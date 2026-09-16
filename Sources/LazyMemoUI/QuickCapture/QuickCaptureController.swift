@@ -564,6 +564,14 @@ final class QuickCaptureController {
         show()
     }
 
+    /// 밖에서 들어온 약속 메모 — 상자를 열고 「어디서 출발하시나요?」를 세운다 (`InboundDoor.onRouteAsk`).
+    /// 상자가 다른 되물음 중이면 끼어들지 않는다.
+    func askRoute(_ memo: Memo) {
+        guard let planner = model.planner, !planner.isActive, model.pendingQuestion == nil else { return }
+        show()
+        planner.begin(memo)
+    }
+
     /// ⌘⏎ — 적기 끝.
     private func commit() {
         switch model.commit() {

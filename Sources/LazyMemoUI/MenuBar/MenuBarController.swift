@@ -128,6 +128,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         capture.onScheduled = { [weak self] day in self?.calendar.announce(day) }
         clipboardCapture.onScheduled = { [weak self] day in self?.calendar.announce(day) }
         door.onScheduled = { [weak self] day in self?.calendar.announce(day) }
+        // 서비스 메뉴·URL 로 들어온 약속에 자리가 있으면 상자가 가는 길을 묻는다 — 상자에서 적었을 때와 같다.
+        door.onRouteAsk = { [weak self] memo in self?.capture.askRoute(memo) }
 
         // 종이에서 달력으로 건너가는 길 (§7.2). 두 창이 서로를 모르므로
         // 여기서 잇는다 — 날짜가 없으면 놓을 날을 고르러 가고, 있으면 그

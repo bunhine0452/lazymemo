@@ -7,6 +7,7 @@ import Testing
 @MainActor
 final class FakeQueue: ReminderQueue {
     var onTap: ((String) -> Void)?
+    var onAskRoute: ((String) -> Void)?
     var status: ReminderAuthorization = .undecided
     var answer = true
     var requests: [ReminderRequest] = []

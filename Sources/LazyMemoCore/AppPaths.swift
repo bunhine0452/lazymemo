@@ -210,8 +210,14 @@ public struct AppPaths: Sendable, Equatable {
     /// 앱과 공유 확장이 함께 닿는 폴더 (iOS). iCloud 가 꺼져 있을 때의 Vault 자리.
     public static let appGroupIdentifier = "group.io.github.bunhine0452.lazymemo"
 
-    public static func sharedContainer(fileManager: FileManager = .default) -> URL? {
-        fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)
+    /// 시험은 `LAZYMEMO_GROUP` 으로 아무 폴더나 앱 그룹 자리에 세운다 — 시험 실행 파일에는 앱 그룹 권한이 없다.
+    public static func sharedContainer(
+        fileManager: FileManager = .default, environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> URL? {
+        if let path = environment["LAZYMEMO_GROUP"], !path.isEmpty {
+            return URL(filePath: path, directoryHint: .isDirectory)
+        }
+        return fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)
     }
 
     public static func sharedVault(inGroup group: URL) -> URL {

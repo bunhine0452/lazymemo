@@ -96,7 +96,7 @@ public final class RoutePlanner {
 
     // MARK: 말
 
-    public static let originQuestion = "어디서 출발하시나요?"
+    public static let originQuestion = RouteAsk.question
     public static let modeQuestion = "무엇으로 갈까요?"
     public static let skipChoice = "됐어"
     public static let hereChoice = "지금 여기"
@@ -107,11 +107,9 @@ public final class RoutePlanner {
 
     // MARK: 시작
 
-    /// 이 메모에 길을 물을 만한가 — 앞으로 올 약속이고, 자리(좌표·이름·지도 링크)가 있다.
+    /// 이 메모에 길을 물을 만한가 — 앞으로 올 약속이고, 자리(좌표·이름·지도 링크)가 있으며, 아직 길이 없다 (`RouteAsk`).
     public static func applies(_ memo: Memo, now: Date = Date()) -> Bool {
-        guard let at = memo.at, at > now else { return false }
-        if memo.geo != nil || memo.place?.isEmpty == false { return true }
-        return MarkdownScanner.linkDestinations(in: memo.body).contains(where: MapLink.isMap)
+        RouteAsk.applies(memo, now: now)
     }
 
     /// 비서의 초안이 길을 물을 만한가 — 메모가 생기기 전에 화면이 갈래를 정하려고.
