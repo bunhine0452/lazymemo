@@ -76,12 +76,23 @@ struct ReminderCenterTests {
         return (try MemoStore(paths: paths), paths)
     }
 
+    /// 임시 폴더와 `UserDefaults` 도메인이 같은 이름을 쓴다 — 폴더를 지울 때 도메인도
+    /// 같이 지우려고. 도메인을 남기면 시험 한 번마다 `~/Library/Preferences` 에
+    /// plist 가 하나씩 쌓인다 (실제로 아흔여섯 개가 쌓여 있었다). 도메인을 비워도
+    /// cfprefsd 는 빈 plist 를 남기므로, 비운 것을 내려쓰게 한 뒤 파일까지 지운다.
     private func cleanUp(_ paths: AppPaths) {
-        try? FileManager.default.removeItem(at: paths.vault.deletingLastPathComponent())
+        let root = paths.vault.deletingLastPathComponent()
+        try? FileManager.default.removeItem(at: root)
+        let name = root.lastPathComponent
+        let defaults = UserDefaults(suiteName: name)
+        defaults?.removePersistentDomain(forName: name)
+        defaults?.synchronize()
+        let plist = URL.libraryDirectory.appending(path: "Preferences/\(name).plist")
+        try? FileManager.default.removeItem(at: plist)
     }
 
-    private func defaults() -> UserDefaults {
-        let name = "lazymemo-reminders-\(UUID().uuidString)"
+    private func defaults(for paths: AppPaths) -> UserDefaults {
+        let name = paths.vault.deletingLastPathComponent().lastPathComponent
         let defaults = UserDefaults(suiteName: name)!
         defaults.removePersistentDomain(forName: name)
         return defaults
@@ -95,7 +106,7 @@ struct ReminderCenterTests {
         let (store, paths) = try makeStore()
         let queue = FakeQueue()
         queue.status = status
-        let defaults = defaults()
+        let defaults = defaults(for: paths)
         defaults.set(enabled, forKey: "recall.notifications.enabled")
         let center = ReminderCenter(queue: queue, defaults: defaults)
         return (center, queue, store, paths)

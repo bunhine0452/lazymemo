@@ -106,7 +106,7 @@ public enum ClaudePrompts {
     public static var tidy: String { tidy() }
 
     /// 사용자의 말로 시킨다 — 한국어로 시키면 영어 메모도 한국어 투로 돌아온다.
-    public static func tidy(locale: Locale = .current) -> String {
+    public static func tidy(locale: Locale = Words.locale) -> String {
         L("""
         아래는 사용자의 메모다. 읽기 좋게 다듬어라.
 
@@ -126,7 +126,7 @@ public enum ClaudePrompts {
     /// 뭐부터」와 같은 규칙이다.
     public static var morningBrief: String { morningBrief() }
 
-    public static func morningBrief(locale: Locale = .current) -> String {
+    public static func morningBrief(locale: Locale = Words.locale) -> String {
         L("""
         아래는 오늘 사용자의 메모다. 오늘 손대야 할 것을 **세 개만** 골라라.
 

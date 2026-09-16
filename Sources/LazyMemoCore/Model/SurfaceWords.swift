@@ -13,7 +13,7 @@ public enum SurfaceWords {
     /// 이보다 가까우면 같은 시각으로 친다. 「1분 전」은 알려 주는 값이 없다.
     static let grain: TimeInterval = 60
 
-    public static func lead(surface: Date, event: Date, locale: Locale = .current) -> String? {
+    public static func lead(surface: Date, event: Date, locale: Locale = Words.locale) -> String? {
         let seconds = event.timeIntervalSince(surface)
         guard abs(seconds) >= grain else { return nil }
 

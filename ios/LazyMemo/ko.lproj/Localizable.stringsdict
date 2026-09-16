@@ -2,52 +2,49 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- 영어 stringsdict 에 있는 열쇠는 여기에도 있어야 한다. 없으면 Foundation 이 ko 표를 건너뛰고
+	     영어 stringsdict 를 쓰는데, 한국어에는 단·복수가 없어 「other」 꼴을 골라 「1 photos」가 된다.
+	     한국어는 수에 따라 꼴이 갈리지 않으므로 other 하나면 된다. -->
 	<key>%@, 일정 %lld</key>
 	<dict>
 		<key>NSStringLocalizedFormatKey</key>
-		<string>%1$@, %2$#@n@</string>
+		<string>%1$@, 일정 %2$#@n@</string>
 		<key>n</key>
 		<dict>
 			<key>NSStringFormatSpecTypeKey</key>
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>lld</string>
-			<key>one</key>
-			<string>%2$lld item</string>
 			<key>other</key>
-			<string>%2$lld items</string>
+			<string>%2$lld</string>
 		</dict>
 	</dict>
 	<key>iCloud · %lld장</key>
 	<dict>
 		<key>NSStringLocalizedFormatKey</key>
-		<string>iCloud · %#@n@</string>
+		<string>%#@n@</string>
 		<key>n</key>
 		<dict>
 			<key>NSStringFormatSpecTypeKey</key>
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>lld</string>
-			<key>one</key>
-			<string>%lld note</string>
 			<key>other</key>
-			<string>%lld notes</string>
+			<string>iCloud · %lld장</string>
 		</dict>
 	</dict>
 	<key>치워 둔 %lld장 도로 꺼내기</key>
 	<dict>
 		<key>NSStringLocalizedFormatKey</key>
-		<string>Bring back %#@n@</string>
+		<string>%#@n@</string>
 		<key>n</key>
 		<dict>
 			<key>NSStringFormatSpecTypeKey</key>
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>lld</string>
-			<key>one</key>
-			<string>%lld retired note</string>
 			<key>other</key>
-			<string>%lld retired notes</string>
+			<string>치워 둔 %lld장 도로 꺼내기</string>
 		</dict>
 	</dict>
 	<key>사진 %lld장</key>
@@ -60,10 +57,8 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>lld</string>
-			<key>one</key>
-			<string>%lld photo</string>
 			<key>other</key>
-			<string>%lld photos</string>
+			<string>사진 %lld장</string>
 		</dict>
 	</dict>
 	<key>%lld장 중 겹치는 것 없음 · 남기면 새 메모예요</key>
@@ -76,10 +71,8 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>lld</string>
-			<key>one</key>
-			<string>No match among %lld note · adding makes a new one</string>
 			<key>other</key>
-			<string>No match among %lld notes · adding makes a new one</string>
+			<string>%lld장 중 겹치는 것 없음 · 남기면 새 메모예요</string>
 		</dict>
 	</dict>
 </dict>

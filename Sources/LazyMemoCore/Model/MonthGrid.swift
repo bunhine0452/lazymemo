@@ -33,7 +33,7 @@ public struct MonthGrid: Sendable, Equatable {
     /// 「2026년 9월」 · 「September 2026」.
     public var title: String { title() }
 
-    public func title(locale: Locale = .current) -> String {
+    public func title(locale: Locale = Words.locale) -> String {
         DateWords.yearMonth(year: year, month: month, locale: locale)
     }
 

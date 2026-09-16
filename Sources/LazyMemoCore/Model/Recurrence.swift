@@ -23,7 +23,7 @@ public enum Recurrence: Sendable, Equatable, CaseIterable {
     }
 
     /// 화면에 적히는 말. 사용자의 말을 따른다.
-    public func text(locale: Locale = .current) -> String {
+    public func text(locale: Locale = Words.locale) -> String {
         switch self {
         case .daily: L("매일", locale: locale)
         case .weekly: L("매주", locale: locale)

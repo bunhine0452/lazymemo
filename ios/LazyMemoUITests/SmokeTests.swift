@@ -405,6 +405,9 @@ final class SmokeTests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["LAZYMEMO_VAULT"] = root.path(percentEncoded: false)
         app.launchArguments += ["-tutorialSeen", tutorialSeen ? "YES" : "NO"]
+        // 기기별 기억은 시뮬레이터에 남는다 — 소개 영상(DemoTests)이 알림을 켜 두고 가도, 앞 시험이
+        // 「봤어요」로 카드를 내려놓았어도 첫 실행으로 시작한다 (인자 도메인이 저장된 값을 가린다).
+        app.launchArguments += ["-recall.notifications.enabled", "NO", "-now-seen", "{}"]
         // 시험은 한국어 낱말을 읽는다 — 시뮬레이터의 말과 상관없이 같은 화면을 보게 고정한다.
         app.launchArguments += ["-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR"]
         app.launch()

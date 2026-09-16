@@ -11,6 +11,11 @@ set -euo pipefail
 
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# 시험은 한 말에 고정한다. `swift test` 의 실행 파일은 툴체인의 헬퍼라 lproj 가
+# 없고, 그러면 표 고르기가 기계의 말과 상관없이 개발 언어(영어)로 떨어진다 —
+# 한국어 원문을 기대하는 시험이 한국어 기계에서도 빨개진다 (Words.locale 참조).
+export LAZYMEMO_LANGUAGE="${LAZYMEMO_LANGUAGE:-ko}"
+
 DEV="$(xcode-select -p)/Library/Developer"
 
 if [ -d "$DEV/Frameworks/Testing.framework" ]; then

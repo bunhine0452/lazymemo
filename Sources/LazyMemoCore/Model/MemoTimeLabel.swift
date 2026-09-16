@@ -10,7 +10,7 @@ import Foundation
 /// 한쪽에서는 「오늘 오후 3시」로 보이면 사람은 두 앱을 쓰는 것이 된다.
 public enum MemoTimeLabel {
     public static func text(
-        for memo: Memo, now: Date = Date(), calendar: Calendar = .current, locale: Locale = .current
+        for memo: Memo, now: Date = Date(), calendar: Calendar = .current, locale: Locale = Words.locale
     ) -> String {
         if let at = memo.at {
             let day = relativeDay(CalendarDate(at, calendar: calendar), now: now, calendar: calendar, locale: locale)
@@ -42,7 +42,7 @@ public enum MemoTimeLabel {
     /// 지나간 날. 일정이 없는 메모는 마지막으로 손댄 때를 보인다. 휴지통은
     /// 「N일 전 지움」에 같은 낱말을 쓴다.
     public static func elapsed(
-        _ date: Date, now: Date = Date(), calendar: Calendar = .current, locale: Locale = .current
+        _ date: Date, now: Date = Date(), calendar: Calendar = .current, locale: Locale = Words.locale
     ) -> String {
         let target = CalendarDate(date, calendar: calendar)
         guard let offset = dayOffset(target, from: now, calendar: calendar) else {

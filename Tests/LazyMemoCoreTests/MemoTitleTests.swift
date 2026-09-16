@@ -26,6 +26,13 @@ struct MemoTitleTests {
         #expect(memo.previewLine == nil)
     }
 
+    @Test("영어는 한 장과 여러 장을 가른다 — 「1 photos」는 말이 아니다")
+    func englishPluralPhotos() {
+        let en = Locale(identifier: "en")
+        #expect(L("사진 \(1)장", locale: en) == "1 photo")
+        #expect(L("사진 \(3)장", locale: en) == "3 photos")
+    }
+
     @Test("아무것도 없으면 여전히 「빈 메모」")
     func empty() {
         #expect(Memo(body: "  \n").title == "빈 메모")

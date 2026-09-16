@@ -8,7 +8,6 @@
 "이 기기에서 알림 받기" = "Notifications on this device";
 "시스템에서 알림이 꺼져 있어요. 설정에서 허용하면 이 기기에서 다시 걸어요." = "Notifications are off in system settings. Allow them there and this device schedules them again.";
 "알림 설정 열기" = "Open notification settings";
-"걸어 둔 알림 %lld개" = "%lld reminders scheduled";
 "가까운 %lld개를 걸었어요. 나머지 %lld개는 앱을 다시 열 때 채워져요." = "The nearest %lld are scheduled. The remaining %lld fill in when you reopen the app.";
 "다시 시도" = "Try again";
 "다른 기기에서 바꾼 것은 이 앱이 그 파일을 읽은 뒤에 반영돼요. 양쪽 기기에서 켜면 양쪽에서 울릴 수 있어요. 집중 모드와 시스템 설정에 따라 전달이 달라져요." = "Changes made on another device apply after this app reads the file. Turning this on for both devices can notify you on both. Focus modes and system settings affect delivery.";
