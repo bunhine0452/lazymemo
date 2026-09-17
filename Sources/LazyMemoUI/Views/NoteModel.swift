@@ -233,11 +233,18 @@ final class NoteModel {
     func adopt(_ updated: Memo) {
         memo = updated
         guard !isDirty else { return }
-        if text != updated.body {
+        // 앞뒤 줄바꿈만 다른 것은 바뀐 것이 아니다 — 파일은 본문의 끝 줄바꿈을 떼고 읽힌다(`MemoFile.decode`).
+        // 그것을 되밀면 커서가 글 끝으로 튀는데, 사진을 막 붙인 뒤라면 그 끝이 `![](…)` 줄이라 감춰 둔 참조가
+        // 드러나고 다음 글자가 그 줄에 붙는다 (2026-09-17 사용자: 「사진 붙이면 텍스트가 보여」).
+        if Self.trimmed(text) != Self.trimmed(updated.body) {
             text = updated.body
             reloadImages()
             reloadLinks()
         }
+    }
+
+    private static func trimmed(_ body: String) -> String {
+        body.trimmingCharacters(in: .newlines)
     }
 
     // MARK: 편집
