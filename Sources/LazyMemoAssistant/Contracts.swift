@@ -4,9 +4,9 @@ import LazyMemoCore
 // 명세 §3 — 앱 내부 계약. 엔진(LiteRT·MLX)은 이 모듈을 모르고, 이 모듈도 엔진을 모른다.
 // 엔진 어댑터는 `LocalModelProvider` 를 구현하는 별도 타깃에 산다.
 
-/// 무엇을 시키는가.
+/// 무엇을 시키는가. `webAnswer` 는 근거가 메모가 아니라 웹 검색 결과인 `answer` — 검색은 앱이 하고 모델은 읽기만 한다.
 public enum AssistantTask: String, Sendable, Codable, CaseIterable {
-    case answer, tidy, brief, command
+    case answer, tidy, brief, command, webAnswer
 }
 
 public struct AssistantRequest: Sendable, Identifiable {
@@ -45,13 +45,13 @@ public enum TokenBudget {
     public static func output(for task: AssistantTask) -> Int {
         switch task {
         case .tidy, .brief: return 192
-        case .answer: return 384
+        case .answer, .webAnswer: return 384
         case .command: return 256
         }
     }
 }
 
-/// 모델에게 보여 준 메모 한 장. 답의 인용은 이 목록 안의 id 만 허용된다.
+/// 모델에게 보여 준 근거 한 장 — 메모, 또는 웹 검색 결과 하나. 답의 인용은 이 목록 안의 id 만 허용된다.
 public struct Evidence: Sendable, Equatable, Identifiable {
     public var id: ULID { memoID }
     public let memoID: ULID
@@ -62,6 +62,9 @@ public struct Evidence: Sendable, Equatable, Identifiable {
     public let surface: Date?
     public let folder: String?
     public let state: State
+    /// 웹 검색 결과면 그 주소와 제목. 메모면 nil — 검증·인용 규칙은 같고, 화면이 링크로 그린다.
+    public let url: URL?
+    public let title: String?
 
     public enum State: String, Sendable { case active, done, trashed, unreadable }
 
@@ -75,7 +78,24 @@ public struct Evidence: Sendable, Equatable, Identifiable {
         if memo.deleted != nil { state = .trashed }
         else if memo.tidied != nil || Tidy.isFinishedChecklist(memo.body) { state = .done }
         else { state = .active }
+        url = nil
+        title = nil
     }
+
+    /// 웹 검색 결과 하나. id 는 이 요청 안에서만 뜻이 있는 새 ULID — 모델이 인용할 26자가 필요할 뿐이다.
+    public init(hit: WebHit) {
+        memoID = ULID()
+        contentHash = Memo.contentHash(of: hit.snippet)
+        excerpt = hit.snippet
+        schedule = Schedule(due: nil, at: nil)
+        surface = nil
+        folder = nil
+        state = .active
+        url = hit.url
+        title = hit.title
+    }
+
+    public var isWeb: Bool { url != nil }
 
     public static func hash(of body: String) -> String { Memo.contentHash(of: body) }
 }
@@ -162,9 +182,22 @@ public struct AssistantAnswer: Sendable, Equatable {
     public let evidence: [ULID]
     /// 근거 메모에서 그대로 옮긴 줄 — 모델의 한 문장 밑에 원문이 선다. 답이 모자라도 사람이 여기서 본다.
     public let quotes: [String]
-    public init(found: Bool, text: String, evidence: [ULID], quotes: [String] = []) {
-        self.found = found; self.text = text; self.evidence = evidence; self.quotes = quotes
+    /// 웹에서 찾은 답이면 인용한 페이지들 — `evidence` 와 같은 순서. 메모 답이면 빈 배열.
+    public let sources: [WebSource]
+    public init(found: Bool, text: String, evidence: [ULID], quotes: [String] = [], sources: [WebSource] = []) {
+        self.found = found; self.text = text; self.evidence = evidence; self.quotes = quotes; self.sources = sources
     }
+    public var isWeb: Bool { !sources.isEmpty }
+}
+
+/// 답이 인용한 웹 페이지 하나 — 화면이 제목·주소로 그리고, 누르면 브라우저로.
+public struct WebSource: Sendable, Equatable, Identifiable {
+    public let id: ULID
+    public let title: String
+    public let url: URL
+    public init(id: ULID, title: String, url: URL) { self.id = id; self.title = title; self.url = url }
+    /// 「weather.go.kr」— 제목 옆에 서는 출처.
+    public var host: String { (url.host() ?? url.absoluteString).replacingOccurrences(of: "www.", with: "") }
 }
 
 public struct BriefItem: Sendable, Equatable {
@@ -185,6 +218,10 @@ public enum AssistantFailure: Error, Sendable, Equatable {
     case cancelled
     case malformedOutput
     case noEvidence
+    /// 웹 검색이 답하지 않았다 — 연결이 없거나, 검색 사이트가 브라우저 아닌 요청을 막았다.
+    case webUnavailable
+    /// 웹 검색은 됐는데 답이 될 결과가 없다.
+    case webEmpty
     case budgetExceeded(String)
     case provider(String)
 
@@ -194,6 +231,8 @@ public enum AssistantFailure: Error, Sendable, Equatable {
         case .cancelled: return "취소했습니다"
         case .malformedOutput: return "답의 모양이 맞지 않아 아무것도 바꾸지 않았습니다"
         case .noEvidence: return "메모에서 근거를 찾지 못했습니다"
+        case .webUnavailable: return "웹에 닿지 못했습니다 — 연결을 확인하고 다시 해 보세요"
+        case .webEmpty: return "웹에서 찾지 못했습니다"
         case .budgetExceeded(let what): return "한도를 넘었습니다: \(what)"
         case .provider(let detail): return detail
         }

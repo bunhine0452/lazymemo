@@ -28,7 +28,7 @@ final class QuickCaptureModel {
             filter = MemoFilter.read(query)
             reloadImages()
             // 글을 고치면 답은 물러나고 검색으로 돌아간다 (설계 D9). 되돌리기 줄은 남는다.
-            if assistant?.answer != nil || assistant?.proposal != nil || assistant?.phase == .thinking { assistant?.reset() }
+            if assistant?.answer != nil || assistant?.proposal != nil || assistant?.phase == .thinking || assistant?.offersWeb != nil { assistant?.reset() }
             // 낱말이 바뀌면 목록은 다른 물건이다. 넓혀 둔 것은 그때 것이라
             // 도로 접는다 — 지운 뒤의 다시 짓기(`refreshListing`)는 같은
             // 목록이므로 접지 않는다.
@@ -149,7 +149,10 @@ final class QuickCaptureModel {
     /// 비서가 방금 정한 것에 맞춰 목록을 고른다 — `AssistantModel.onSettled` 에서.
     func reflectAssistant() {
         guard let assistant else { return }
-        if let answer = assistant.answer {
+        if let answer = assistant.answer, answer.isWeb {
+            // 웹의 답 — 근거는 메모가 아니라 링크다. 답 밑에 서고, 목록은 비운다.
+            showMemos([], as: .evidence)
+        } else if let answer = assistant.answer {
             showMemos(answer.found ? answer.evidence : assistant.relatedMemos.map(\.memoID), as: answer.found ? .evidence : .related)
         } else if let proposal = assistant.proposal, proposal.kind == .ask, !proposal.candidates.isEmpty {
             showMemos(proposal.candidates, as: .candidates)
@@ -216,7 +219,7 @@ final class QuickCaptureModel {
 
     /// 지금 ⌘⏎ 가 할 일 — 라벨이 곧 동사다 (설계 D5). `commit()` 과 같은 갈래, 다만 아무것도 바꾸지 않는다.
     enum Intent: Equatable {
-        case nothing, open(String), applyTo(String), pick(String), command, ask, answer, memo, calendar
+        case nothing, open(String), applyTo(String), pick(String), command, ask, web, answer, memo, calendar
     }
 
     var intent: Intent {
@@ -230,7 +233,10 @@ final class QuickCaptureModel {
             if !text.isEmpty, AssistantIntent.hasCommandVerb(text) { return .applyTo(title) }
             return .open(title)
         }
+        // 메모에서 못 찾은 뒤의 빈 상자 — ⌘↵ 한 번이 그 물음을 웹에 한다.
+        if text.isEmpty, assistant?.offersWeb != nil { return .web }
         guard !text.isEmpty else { return .nothing }
+        if AssistantIntent.wantsWeb(text) { return .web }
         if AssistantIntent.hasCommandVerb(text) { return .command }
         if target == nil, AssistantIntent.isQuestion(text) { return .ask }
         return schedule == nil ? .memo : .calendar
@@ -577,6 +583,8 @@ final class QuickCaptureModel {
         case askTime(String)
         /// 물음 — 비서가 메모에서 찾아 답한다.
         case ask(String)
+        /// 웹에서 찾기 — 「웹에서 …」라 했거나, 메모에서 못 찾은 물음을 빈 상자의 ⌘↵ 로 다시.
+        case searchWeb(String)
         /// 시키는 말 — 대상은 고른 줄이거나 「이 메모에게」로 연 메모, 없으면 비서가 되묻는다.
         case command(String, target: ULID?)
         /// 「어느 메모?」의 후보 하나를 골랐다 — 같은 말을 그 메모에게.
@@ -614,7 +622,9 @@ final class QuickCaptureModel {
             return .open(picked)
         }
 
+        if text.isEmpty, let question = assistant?.offersWeb { return .searchWeb(question) }
         guard !text.isEmpty else { return .nothing }
+        if AssistantIntent.wantsWeb(text) { return .searchWeb(text) }
         if AssistantIntent.hasCommandVerb(text) { return .command(text, target: target) }
         if target == nil, AssistantIntent.isQuestion(text) { return .ask(text) }
         if let composed = AssistantIntent.compose(text) {

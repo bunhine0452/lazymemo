@@ -6,6 +6,8 @@ import LazyMemoCore
 /// 정해진 답을 흘리는 provider. 호출 횟수와 취소를 센다.
 final class MockProvider: LocalModelProvider, @unchecked Sendable {
     var answers: [String]
+    /// prompt 를 보고 답을 짓는다 — 근거 id 가 요청 안에서 새로 나는 웹 답에 쓴다. 있으면 `answers` 보다 먼저.
+    var answerFor: (@Sendable (AssistantPrompt) -> String)?
     private(set) var prompts: [AssistantPrompt] = []
     private(set) var cancelled: [AssistantRequest.ID] = []
     var ready = true
@@ -23,6 +25,7 @@ final class MockProvider: LocalModelProvider, @unchecked Sendable {
     func stream(_ prompt: AssistantPrompt) -> AsyncThrowingStream<String, Error> {
         let answer: String = lock.withLock {
             prompts.append(prompt)
+            if let answerFor { return answerFor(prompt) }
             return answers.isEmpty ? "" : answers.removeFirst()
         }
         let hook = onStream

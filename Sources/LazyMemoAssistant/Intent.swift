@@ -8,6 +8,8 @@ import LazyMemoCore
 public enum AssistantIntent {
     public static func classify(_ text: String, now: Date = Date()) -> AssistantTask {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 「웹에서 …」·「… 검색해줘」는 메모를 거치지 않고 바로 웹이다 — 「알려줘」가 시키는 동사라도 이것이 먼저.
+        if wantsWeb(text) { return .webAnswer }
         if CommandResolver.mentions(CommandResolver.abortWords, in: text) { return .command }
         if CommandResolver.looksLikeQuestion(text) { return .answer }
         if !CommandResolver.verbs(in: text).isEmpty { return .command }
@@ -16,6 +18,11 @@ public enum AssistantIntent {
         let note = NoteReader.read(text, now: now)
         if note.due != nil || note.at != nil || note.place != nil || note.geo != nil { return .command }
         return .answer
+    }
+
+    /// 웹을 찾으라는 말인가 — 「웹에서 서울 날씨 검색해줘」. 메모 질문이 아니라 검색이다.
+    public static func wantsWeb(_ text: String) -> Bool {
+        WebQuery.mentionsWeb(text.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     /// 물음말·물음표가 있는가 — 「치과 언제였지?」. 빠른 입력 상자가 「적기」와 「묻기」를 가르는 기준.

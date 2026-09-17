@@ -1,5 +1,6 @@
 import Foundation
 import LazyMemoAssistant
+import LazyMemoAssistantUI
 import LazyMemoCore
 import Testing
 @testable import LazyMemoUI
@@ -26,6 +27,32 @@ struct CaptureAssistTests {
         #expect(model.commit() == .command("금요일 10시에 다시 알려줘", target: nil))
         model.query = "우유 사기"
         #expect(model.commit() == .create(QuickCaptureModel.Draft(text: "우유 사기", due: nil, at: nil)))
+    }
+
+    @Test("「웹에서 …」·「… 검색해줘」는 바로 웹, 메모에서 못 찾은 뒤의 빈 상자 ⌘↵ 도 웹 — 글을 고치면 권유는 물러난다")
+    func webRouting() throws {
+        let store = try makeStore()
+        let model = QuickCaptureModel(store: store)
+        model.query = "웹에서 서울 내일 날씨 알려줘"
+        #expect(model.intent == .web)
+        #expect(model.commit() == .searchWeb("웹에서 서울 내일 날씨 알려줘"))
+        model.query = "달러 환율 검색해줘"
+        #expect(model.commit() == .searchWeb("달러 환율 검색해줘"))
+        // 권유 없는 빈 상자는 닫기다.
+        model.query = ""
+        #expect(model.intent == .nothing)
+        #expect(model.commit() == .nothing)
+
+        let assistant = AssistantModel(service: store.service, support: FileManager.default.temporaryDirectory
+            .appending(path: "lazymemo-assist-web-\(UUID().uuidString)", directoryHint: .isDirectory))
+        model.assistant = assistant
+        assistant.stageForPreview(failed: "메모에서 근거를 찾지 못했습니다", offersWeb: "달러 환율 얼마야?")
+        #expect(model.intent == .web)
+        #expect(model.commit() == .searchWeb("달러 환율 얼마야?"))
+        // 새 글을 치면 권유는 잊는다 — 옛 물음이 몰래 나가지 않는다.
+        model.query = "우유"
+        #expect(assistant.offersWeb == nil)
+        #expect(model.intent == .memo)
     }
 
     @Test("「이 메모에게」로 열렸으면 그 메모가 대상이고, 물음도 그 메모에게 시키는 말로 본다")

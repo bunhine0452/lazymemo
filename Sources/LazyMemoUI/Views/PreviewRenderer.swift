@@ -250,6 +250,38 @@ enum PreviewRenderer {
             content: QuickCaptureView(model: choosing, onCommit: {}, onCancel: {}),
             into: directory
         )
+
+        // 메모에 없다 — 「웹에서 찾기」를 권하는 줄 (빈 상자의 ⌘↵ 도 같은 일).
+        let offering = QuickCaptureModel(store: store)
+        offering.arrowOffset = QuickCaptureController.width - 70
+        offering.assistant = assistant
+        assistant.stageForPreview(failed: L("메모에서 근거를 찾지 못했습니다"), offersWeb: L("달러 환율 얼마야?"))
+        offering.prepareForShow()
+        await render(
+            name: "capture-web-offer",
+            size: CGSize(width: QuickCaptureController.width, height: 330),
+            content: QuickCaptureView(model: offering, onCommit: {}, onCancel: {}),
+            into: directory
+        )
+
+        // 웹의 답 — 문장 밑에 출처 링크와 발췌. 근거는 메모가 아니라 목록이 비어 있다.
+        let webbing = QuickCaptureModel(store: store)
+        webbing.arrowOffset = QuickCaptureController.width - 70
+        webbing.assistant = assistant
+        let kma = WebSource(id: ULID(), title: L("홈 - 기상청 날씨누리"), url: URL(string: "https://www.weather.go.kr/")!)
+        let meteo = WebSource(id: ULID(), title: L("서울 내일 날씨 - Meteocast"), url: URL(string: "https://ko.meteocast.net/tomorrow-forecast/kr/seoul/")!)
+        assistant.stageForPreview(answer: AssistantAnswer(
+            found: true, text: L("내일 서울은 경상권 해안과 제주도 중심으로 비, 강풍과 풍랑에 유의하래요."),
+            evidence: [kma.id, meteo.id],
+            quotes: [L("내일 경상권해안, 제주도 중심 비, 강풍과 풍랑 유의. (기상청 예보 26년 9월 17일 05시 기준)"), L("해돋이 06:11, 일몰 18:45. Asia/Seoul, GMT 9.")],
+            sources: [kma, meteo]))
+        webbing.showMemos([], as: .evidence)
+        await render(
+            name: "capture-web-answer",
+            size: CGSize(width: QuickCaptureController.width, height: 330),
+            content: QuickCaptureView(model: webbing, onCommit: {}, onCancel: {}),
+            into: directory
+        )
         assistant.reset()
         for extra in [dentist, jisoo, jisoo2].compactMap({ $0 }) { try? await store.delete(extra.id) }
 

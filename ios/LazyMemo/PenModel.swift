@@ -24,7 +24,7 @@ final class PenModel {
             // 글을 다 지우면 끈 칩도 잊는다 — 다음 글의 날짜가 말없이 안 읽히면 안 된다.
             if text.isEmpty { readsDate = true; readsPlace = true; readsEvery = true }
             // 글을 고치면 답은 물러나고 검색으로 돌아간다 (맥의 상자와 같은 규칙, quick-capture-assistant D9).
-            if shown != nil || asked != nil || assistant?.answer != nil || assistant?.proposal != nil || assistant?.phase == .thinking {
+            if shown != nil || asked != nil || assistant?.answer != nil || assistant?.proposal != nil || assistant?.phase == .thinking || assistant?.offersWeb != nil {
                 shown = nil
                 listing = .search
                 asked = nil
@@ -92,7 +92,10 @@ final class PenModel {
         guard let assistant else { return }
         // 답이 왔거나 바꿨으면 「이거」는 할 일을 다했다 — 결과 줄이 그 메모의 이름을 든다.
         if assistant.answer != nil || assistant.receipt != nil { target = nil }
-        if let answer = assistant.answer {
+        if let answer = assistant.answer, answer.isWeb {
+            // 웹의 답 — 근거는 메모가 아니라 링크다. 답 카드가 들고, 목록은 검색으로.
+            shown = nil; listing = .search
+        } else if let answer = assistant.answer {
             showMemos(answer.found ? answer.evidence : assistant.relatedMemos.map(\.memoID), as: answer.found ? .evidence : .related)
         } else if let proposal = assistant.proposal, AssistantIntent.asksWhichMemo(proposal) {
             // 「어느 메모?」— 비서가 후보를 못 찾았으면(「금요일 10시에 다시 알려줘」는 어느 메모의 낱말도 아니다)
@@ -129,12 +132,20 @@ final class PenModel {
 
     /// 비서에게 말을 넘기기 전에 — 펜은 비우고, 지금 목록은 읽는 동안 그대로 세워 둔다.
     /// 글이 비면 목록이 무더기 전부로 튀었다가 답이 오면 근거로 줄어드는데, 그 두 번의 뜀이 답을 기다리는 사람을 흔든다.
-    private func handOff(_ said: String) {
-        let candidates = found ?? []
+    /// 웹에 물을 때는 읽을 메모가 없다 — 목록은 그대로 무더기.
+    private func handOff(_ said: String, web: Bool = false) {
+        let candidates = web ? [] : (found ?? [])
         text = ""
         draft.forget()
         asked = said
         if !candidates.isEmpty { shown = candidates; listing = .reading }
+    }
+
+    /// 메모에서 못 찾은 그 물음을 웹에 — 답 카드의 「웹에서 찾기」. 이때만 질문 낱말이 밖으로 나간다.
+    func searchWeb() {
+        guard let assistant, let question = assistant.offersWeb else { return }
+        asked = question
+        assistant.searchWebForLastQuestion()
     }
 
     /// 답을 기다리던 초안을 놓는다 — ⊗ 를 눌렀을 때 「시각 없이」와 같다 (D12).
@@ -238,6 +249,7 @@ final class PenModel {
         if pending != nil || planner?.isWaiting == true { return String(localized: "답하기") }
         switch saying {
         case .asking: return String(localized: "메모에게 묻기")
+        case .searching: return String(localized: "웹에서 찾기")
         case .telling: return String(localized: "시키기")
         case .writing: break
         }
@@ -248,10 +260,12 @@ final class PenModel {
 
     /// 지금 글이 누구에게 가는가 — 단추의 동사, 칩의 유무, 빈 목록의 한 줄이 이것으로 갈린다.
     /// 「이거」를 들고 있으면 묻는 말이 아닌 것은 전부 그 메모에게 시키는 말이다 — 동사가 없어도 (「금요일 10시」).
-    enum Saying: Equatable { case writing, asking, telling }
+    enum Saying: Equatable { case writing, asking, searching, telling }
     var saying: Saying {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard assistant != nil, !trimmed.isEmpty, pending == nil, planner?.isActive != true else { return .writing }
+        // 「웹에서 …」·「… 검색해줘」는 메모를 거치지 않고 바로 웹 — 「알려줘」가 시키는 동사라도 이것이 먼저.
+        if AssistantIntent.wantsWeb(trimmed) { return .searching }
         if AssistantIntent.isQuestion(trimmed) { return .asking }
         if target != nil || AssistantIntent.hasCommandVerb(trimmed) { return .telling }
         return .writing
@@ -300,6 +314,12 @@ final class PenModel {
         }
 
         if let assistant {
+            // 웹에서 찾기 — 검색은 앱이, 읽기는 모델이. 목록은 그대로다.
+            if AssistantIntent.wantsWeb(trimmed) {
+                handOff(trimmed, web: true)
+                assistant.askWeb(trimmed)
+                return nil
+            }
             // 물음 — 메모가 답한다. 목록은 근거로 줄어든다 (D9). 「이거」가 있으면 그 메모부터 읽는다.
             if AssistantIntent.isQuestion(trimmed) {
                 handOff(trimmed)

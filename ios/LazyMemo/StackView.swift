@@ -333,6 +333,7 @@ struct StackView: View {
         switch pen.saying {
         case .writing: return String(localized: "\(scope)장 중 겹치는 것 없음 · 남기면 새 메모예요")
         case .asking: return String(localized: "\(scope)장 중 겹치는 것 없음 · 물으면 메모를 읽고 답합니다")
+        case .searching: return String(localized: "\(scope)장 중 겹치는 것 없음 · 웹에서 찾아 답합니다")
         case .telling: return String(localized: "\(scope)장 중 겹치는 것 없음 · 시키면 어느 메모인지 묻습니다")
         }
     }
@@ -343,7 +344,14 @@ struct StackView: View {
         case .idle, .thinking:
             EmptyView()
         case .failed(let message):
-            if !assistant.isReady { modelRow(assistant) } else { noticeRow(message, symbol: "exclamationmark.circle") }
+            if assistant.offersWeb != nil {
+                // 메모에 없다 — 웹을 권한다. 누르기 전엔 아무것도 밖으로 나가지 않는다.
+                webOfferRow(assistant)
+            } else if !assistant.isReady, assistant.task != .webAnswer {
+                modelRow(assistant)
+            } else {
+                noticeRow(message, symbol: "exclamationmark.circle")
+            }
         case .done:
             if let answer = assistant.answer { answerRow(answer) }
             if let proposal = assistant.proposal {
@@ -363,16 +371,37 @@ struct StackView: View {
             if let asked = pen.asked {
                 Text(asked).font(.footnote.weight(.medium)).foregroundStyle(.secondary).lineLimit(2)
             }
-            Text(answer.found ? ActionWords.soft(answer.text) : String(localized: "메모에서 찾지 못했습니다"))
+            // 웹의 답에 문장이 없으면(모델 없이 결과만) 머리글 한 줄.
+            Text(answer.found ? (answer.text.isEmpty ? String(localized: "웹에서 찾은 것") : ActionWords.soft(answer.text)) : String(localized: "메모에서 찾지 못했습니다"))
                 .font(.body)
                 .textSelection(.enabled)
-            ForEach(answer.quotes, id: \.self) { line in
-                Text(line)
+            if answer.isWeb {
+                // 출처가 곧 인용 — 제목 · 주소 밑에 발췌. 누르면 브라우저로.
+                ForEach(Array(zip(answer.sources, answer.quotes)), id: \.0.id) { source, quote in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Button { openURL(source.url) } label: {
+                            HStack(spacing: 6) {
+                                Text(source.title).lineLimit(1).foregroundStyle(Theme.accentInk)
+                                Text(source.host).foregroundStyle(.tertiary).lineLimit(1)
+                            }
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        if !quote.isEmpty { Text(quote).foregroundStyle(.secondary).lineLimit(3) }
+                    }
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(3)
                     .padding(.leading, 8)
                     .overlay(alignment: .leading) { Rectangle().frame(width: 2).foregroundStyle(.tertiary) }
+                }
+            } else {
+                ForEach(answer.quotes, id: \.self) { line in
+                    Text(line)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                        .padding(.leading, 8)
+                        .overlay(alignment: .leading) { Rectangle().frame(width: 2).foregroundStyle(.tertiary) }
+                }
             }
         }
         .padding(16)
@@ -438,6 +467,24 @@ struct StackView: View {
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .accessibilityIdentifier("model-row")
+    }
+
+    /// 「메모에서 찾지 못했습니다 · 웹에서 찾기」— 같은 물음을 웹에. 이때만 질문 낱말이 밖으로 나간다.
+    private func webOfferRow(_ assistant: AssistantModel) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            Label(String(localized: "메모에서 찾지 못했습니다"), systemImage: "magnifyingglass")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 8)
+            Button("웹에서 찾기") { pen.searchWeb() }
+                .font(.footnote.weight(.semibold))
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.accentInk)
+                .accessibilityIdentifier("searchWeb")
+        }
+        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     private func noticeRow(_ text: String, symbol: String) -> some View {

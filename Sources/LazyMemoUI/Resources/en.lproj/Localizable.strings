@@ -394,3 +394,10 @@
 "잠실여고후문" = "Jamsil Girls' HS back gate";
 "잠실역.롯데월드" = "Jamsil Stn. Lotte World";
 "잠실새내역2번출구" = "Jamsilsaenae Stn. Exit 2";
+
+/* 웹에서 찾기 — 메모에 없으면 권하고, 「웹에서 …」면 바로 (DuckDuckGo, 키 없음) */
+"웹에서 찾기" = "Search the web";
+"웹에서 찾는 중" = "Searching the web";
+"웹에서 찾은 것" = "Found on the web";
+"%@ — 브라우저에서 엽니다" = "%@ — opens in your browser";
+"웹에서 찾기 — 이 물음을 DuckDuckGo 에 검색합니다" = "Search the web — sends this question to DuckDuckGo";

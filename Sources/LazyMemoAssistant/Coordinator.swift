@@ -16,14 +16,18 @@ public actor AssistantCoordinator {
 
     private let provider: any LocalModelProvider
     private let evidence: any EvidenceSource
+    /// 웹 검색 창구. 없으면(시험·렌더) `webAnswer` 는 「웹에 닿지 못했습니다」다.
+    private let web: (any WebSearcher)?
     private let profile: ModelProfile
     private let limits: Limits
     private var generation = 0
     private var live: [AssistantRequest.ID: Int] = [:]
 
-    public init(provider: any LocalModelProvider, evidence: any EvidenceSource, profile: ModelProfile, limits: Limits = Limits()) {
+    public init(provider: any LocalModelProvider, evidence: any EvidenceSource, web: (any WebSearcher)? = nil,
+                profile: ModelProfile, limits: Limits = Limits()) {
         self.provider = provider
         self.evidence = evidence
+        self.web = web
         self.profile = profile
         self.limits = limits
     }
@@ -57,11 +61,19 @@ public actor AssistantCoordinator {
             guard await emit(.loading) else { return }
             let ready = await provider.availability == .ready
             // 묻기·다듬기·브리핑은 모델이 있어야 한다. 시키기는 아래에서 말만으로 끝날 수 있으니 먼저 해 본다.
-            guard ready || request.task == .command else { _ = await emit(.failed(.modelUnavailable)); return }
+            // 웹은 모델이 없어도 검색 결과 셋을 그대로 보여 줄 수 있다.
+            guard ready || request.task == .command || request.task == .webAnswer else { _ = await emit(.failed(.modelUnavailable)); return }
 
             let (selected, gathered) = try await gather(request)
             guard await emit(.evidence(gathered)) else { return }
             if request.task == .tidy, selected == nil { _ = await emit(.failed(.noEvidence)); return }
+            // 걸리는 메모가 한 장도 없으면 모델을 부를 것도 없다 — 바로 「찾지 못했습니다」, 화면은 웹을 권한다.
+            if request.task == .answer, gathered.isEmpty { _ = await emit(.failed(.noEvidence)); return }
+            if request.task == .webAnswer, !ready {
+                var plain = AssistantResult.answer(OutputValidator.plainWebAnswer(gathered))
+                _ = await finish(&plain, request: request, emit: emit)
+                return
+            }
 
             // 시키기는 사용자의 말만으로 정해지는 일이 많다 — 「금요일 10시에 다시 알려줘」는 파서가 읽고
             // 열린 메모가 대상이다. 그러면 모델을 올리지도 부르지도 않는다(즉시·결정적). 모델은 말이 낯설 때만 —
@@ -133,6 +145,15 @@ public actor AssistantCoordinator {
                 reads += 1
                 found = try await evidence.search(query, limit: limits.candidateLimit)
             }
+        case .webAnswer:
+            // 검색어는 앱이 만든다(「검색해줘」·물음표만 뗀다). 결과는 다섯 줄 — 4096 토큰 안에 넉넉하다.
+            guard let web else { throw AssistantFailure.webUnavailable }
+            let hits: [WebHit]
+            do { hits = try await web.search(WebQuery.make(from: request.userText), limit: limits.maxEvidence - 1) }
+            catch let failure as AssistantFailure { throw failure }
+            catch { throw AssistantFailure.webUnavailable }
+            if hits.isEmpty { throw AssistantFailure.webEmpty }
+            return (nil, hits.map(Evidence.init(hit:)))
         }
         var list = selected.map { [$0] } ?? []
         for memo in found where memo.id != selected?.memoID && list.count < limits.maxEvidence {
@@ -171,6 +192,8 @@ public actor AssistantCoordinator {
         switch request.task {
         case .answer:
             return OutputValidator.answer(text, allowed: evidence, question: request.userText).map(AssistantResult.answer)
+        case .webAnswer:
+            return OutputValidator.answer(text, allowed: evidence, question: WebQuery.make(from: request.userText)).map(AssistantResult.answer)
         case .brief:
             return OutputValidator.brief(text, allowed: evidence, request: request).map(AssistantResult.brief)
         case .command:
@@ -193,7 +216,7 @@ public actor AssistantCoordinator {
             guard await emit(.proposedAction(action)) else { return false }
         }
         if case .answer(let a) = result, !a.found, a.text.isEmpty {
-            return await emit(.failed(.noEvidence))
+            return await emit(.failed(request.task == .webAnswer ? .webEmpty : .noEvidence))
         }
         return await emit(.completed(result))
     }

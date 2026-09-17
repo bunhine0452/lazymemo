@@ -60,6 +60,9 @@ enum OutputValidator {
     /// 하나를 자주 놓친다 — 벤치 2026-09-15). 인용은 질문과 낱말이 하나도 안 겹치면 믿지 않는다(지어낸 근거).
     static func answer(_ text: String, allowed: [Evidence], question: String) -> AssistantAnswer? {
         guard let obj = jsonObject(text) else { return nil }
+        // 근거가 웹이면 낱말만 다르다 — 「검색 결과에서 이 부분을 찾았어요」, 그리고 답 밑에 출처 링크.
+        let web = allowed.contains(where: \.isWeb)
+        let foundHere = web ? "검색 결과에서 이 부분을 찾았어요" : "메모에서 이 부분을 찾았어요"
         let flag = obj["found"] as? Bool ?? true
         var answer = (obj["answer"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if ["found", "true", "false", "answer", ":", "-"].contains(answer.lowercased()) { answer = "" }
@@ -77,13 +80,13 @@ enum OutputValidator {
         // 근거를 맞게 댔으면 그 원문이 답이다.
         if answer.isEmpty, !cited.isEmpty, !(flag == false && denies) {
             let picked = cited.prefix(2).compactMap { id in allowed.first { $0.memoID == id } }
-            return AssistantAnswer(found: true, text: "메모에서 이 부분을 찾았어요", evidence: picked.map(\.memoID), quotes: picked.map(quote))
+            return AssistantAnswer(found: true, text: foundHere, evidence: picked.map(\.memoID), quotes: picked.map(quote), sources: picked.compactMap(source))
         }
         if answer.isEmpty || cited.isEmpty || (!flag && denies) {
             // 모델은 못 찾았다. 질문의 개념을 둘 이상 담은 메모가 있으면 그 원문이 답이다.
             guard best >= 2, let first = top.first else { return AssistantAnswer(found: false, text: "", evidence: []) }
             let picked = Array(top.prefix(2))
-            return AssistantAnswer(found: true, text: "메모에서 이 부분을 찾았어요", evidence: picked.map(\.memoID), quotes: picked.map(quote))
+            return AssistantAnswer(found: true, text: foundHere, evidence: picked.map(\.memoID), quotes: picked.map(quote), sources: picked.compactMap(source))
         }
         // 인용한 메모와 같은 만큼 질문에 맞는 다른 메모가 있으면 함께 보여 준다 — 근거가 갈리면 확정하지 않는다(명세 §4).
         var evidence = Array(cited.prefix(2))
@@ -91,8 +94,20 @@ enum OutputValidator {
            evidence.contains(where: { hits[$0] == best }), evidence.count < 2 {
             evidence.append(rival.memoID)
         }
-        let quotes = evidence.compactMap { id in allowed.first { $0.memoID == id }.map(quote) }
-        return AssistantAnswer(found: true, text: answer, evidence: evidence, quotes: quotes)
+        let picked = evidence.compactMap { id in allowed.first { $0.memoID == id } }
+        return AssistantAnswer(found: true, text: answer, evidence: evidence, quotes: picked.map(quote), sources: picked.compactMap(source))
+    }
+
+    /// 웹 근거의 링크. 메모면 nil.
+    static func source(_ e: Evidence) -> WebSource? {
+        guard let url = e.url else { return nil }
+        return WebSource(id: e.memoID, title: e.title ?? url.host() ?? url.absoluteString, url: url)
+    }
+
+    /// 모델 없이 — 검색 결과 앞의 셋을 그대로 보여 준다. 답 문장은 없고 출처와 발췌만.
+    static func plainWebAnswer(_ hits: [Evidence], limit: Int = 3) -> AssistantAnswer {
+        let picked = Array(hits.prefix(limit))
+        return AssistantAnswer(found: !picked.isEmpty, text: "", evidence: picked.map(\.memoID), quotes: picked.map(quote), sources: picked.compactMap(source))
     }
 
     /// 답의 낱말이 가장 많이 겹치는 근거 메모. 「개인 사실을 단정하는 문장에는 근거가 있어야 한다」(명세 §4).

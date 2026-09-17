@@ -28,6 +28,8 @@ public final class AssistantModel {
     public private(set) var downloadError: String?
 
     public private(set) var phase: Phase = .idle
+    /// 지금 도는(또는 방금 끝난) 일 — 「메모를 읽는 중」과 「웹에서 찾는 중」을 가른다.
+    public private(set) var task: AssistantTask?
     public private(set) var answer: AssistantAnswer?
     public private(set) var evidence: [Evidence] = []
     public private(set) var proposal: ProposedAction?
@@ -49,6 +51,8 @@ public final class AssistantModel {
     private var pendingDraft: FieldPatch?
     /// 방금 적용한 것 — 되돌리기 줄이 무엇을 했는지 말한다.
     public private(set) var applied: ProposedAction?
+    /// 메모에서 못 찾은 물음 — 화면이 「웹에서 찾기」를 권하고, 누르면 같은 말을 웹에 한다. 새 말을 하면 잊는다.
+    public private(set) var offersWeb: String?
     /// 답·제안·적용·실패가 정해질 때마다 부른다 — 빠른 입력 상자가 목록을 근거·후보로 갈아 끼우는 고리.
     public var onSettled: (() -> Void)?
 
@@ -58,7 +62,8 @@ public final class AssistantModel {
         self.profile = profile ?? ModelProfile(profileID: manifest.profileID, contextTokens: manifest.contextTokens)
         store = ModelStore(support: support)
         provider = LiteRTProvider(store: store, manifest: manifest)
-        coordinator = AssistantCoordinator(provider: provider, evidence: MemoServiceEvidenceSource(service: service), profile: self.profile)
+        coordinator = AssistantCoordinator(provider: provider, evidence: MemoServiceEvidenceSource(service: service),
+                                           web: DuckDuckGoSearcher(), profile: self.profile)
         executor = ActionExecutor(service: service)
     }
 
@@ -119,6 +124,7 @@ public final class AssistantModel {
         pendingDraft = nil
         switch AssistantIntent.classify(text) {
         case .command: command(text, selected: selected)
+        case .webAnswer: askWeb(text)
         default: ask(text, selected: selected)
         }
     }
@@ -146,14 +152,25 @@ public final class AssistantModel {
         run(AssistantRequest(task: .command, userText: text, selectedMemoID: selected))
     }
 
+    /// 웹에서 찾는다 — 검색은 앱이 하고 모델은 결과 다섯 줄을 읽는다. 질문 낱말이 밖으로 나가는 유일한 길.
+    public func askWeb(_ text: String) {
+        run(AssistantRequest(task: .webAnswer, userText: text))
+    }
+
+    /// 메모에서 못 찾은 그 물음을 웹에 — 「웹에서 찾기」 단추·빈 상자의 ⌘↵.
+    public func searchWebForLastQuestion() {
+        guard let question = offersWeb else { return }
+        askWeb(question)
+    }
+
     /// 되물음의 후보 하나를 골랐다 — 그 메모를 열린 메모 삼아 같은 말을 다시 한다.
     public func pick(_ candidate: ULID) {
         guard let lastCommand else { return }
         command(lastCommand, selected: candidate)
     }
 
-    /// 답을 못 찾았을 때 대신 보여 줄 관련 메모 — 검색이 찾은 것 중 앞의 셋.
-    public var relatedMemos: [Evidence] { Array(evidence.prefix(3)) }
+    /// 답을 못 찾았을 때 대신 보여 줄 관련 메모 — 검색이 찾은 것 중 앞의 셋. 웹 결과는 메모가 아니다.
+    public var relatedMemos: [Evidence] { Array(evidence.filter { !$0.isWeb }.prefix(3)) }
 
     public func brief(now: Date = Date()) {
         if let cached = BriefCache.load(fingerprint: briefFingerprint(now: now)) {
@@ -182,11 +199,13 @@ public final class AssistantModel {
     }
 
     /// 렌더·시험용 — 모델 없이 화면 상태를 세운다 (`PreviewRenderer`). 제품 코드는 부르지 않는다.
-    public func stageForPreview(answer: AssistantAnswer? = nil, applied: ProposedAction? = nil, proposal: ProposedAction? = nil, failed: String? = nil) {
+    public func stageForPreview(answer: AssistantAnswer? = nil, applied: ProposedAction? = nil, proposal: ProposedAction? = nil,
+                                failed: String? = nil, offersWeb: String? = nil) {
         cancel()
         self.answer = answer
         self.applied = applied
         self.proposal = proposal
+        self.offersWeb = offersWeb
         phase = failed.map { .failed($0) } ?? .done
     }
 
@@ -195,7 +214,7 @@ public final class AssistantModel {
         cancel()
         phase = .idle
         answer = nil; evidence = []; proposal = nil; receipt = nil; applied = nil; applyError = nil; briefItems = nil
-        pendingDraft = nil
+        pendingDraft = nil; offersWeb = nil
     }
 
     public func cancel() {
@@ -215,8 +234,9 @@ public final class AssistantModel {
 
     private func run(_ request: AssistantRequest) {
         cancel()
+        task = request.task
         phase = .thinking
-        answer = nil; evidence = []; proposal = nil; receipt = nil; applyError = nil; applied = nil
+        answer = nil; evidence = []; proposal = nil; receipt = nil; applyError = nil; applied = nil; offersWeb = nil
         if request.task == .brief { briefItems = nil }
         let task = Task { [weak self] in
             guard let self else { return }
@@ -242,6 +262,8 @@ public final class AssistantModel {
                     phase = .done
                 case .failed(let failure):
                     phase = .failed(failure.message)
+                    // 메모에 없다 — 웹을 권한다. 누르기 전엔 아무것도 밖으로 나가지 않는다.
+                    if failure == .noEvidence, request.task == .answer { offersWeb = request.userText }
                 }
             }
             if phase == .thinking { phase = .idle }

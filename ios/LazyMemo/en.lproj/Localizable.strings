@@ -167,3 +167,9 @@
 "가는 길" = "Getting there";
 "약속을 적으면 가는 길 묻기" = "Ask how to get to appointments";
 "「어디서 출발하시나요?」에 답할 때만 지도와 길찾기에 접속합니다. 묻지 않고 나가는 것은 없습니다. 대중교통은 네이버 지도, 택시는 애플 지도의 어림입니다." = "Connects to maps and routing only when you answer “Where are you leaving from?”. Nothing leaves without asking. Transit comes from Naver Map, the taxi is an Apple Maps estimate.";
+
+/* 웹에서 찾기 — 메모에 없으면 권하고, 「웹에서 …」면 바로 (DuckDuckGo, 키 없음) */
+"웹에서 찾기" = "Search the web";
+"웹에서 찾은 것" = "Found on the web";
+"찾는 중" = "Searching";
+"%lld장 중 겹치는 것 없음 · 웹에서 찾아 답합니다" = "No match among %lld notes · it searches the web to answer";

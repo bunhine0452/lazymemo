@@ -338,7 +338,10 @@ struct QuickCaptureView: View {
         case .idle, .thinking:
             EmptyView()
         case .failed(let message):
-            if !assistant.isReady {
+            if assistant.offersWeb != nil {
+                // 메모에 없다 — 웹을 권한다. 누르기(또는 빈 상자의 ⌘↵) 전엔 아무것도 밖으로 나가지 않는다.
+                webOfferLine(assistant)
+            } else if !assistant.isReady, assistant.task != .webAnswer {
                 modelLine(assistant)
             } else {
                 statusLine(message, symbol: "exclamationmark.circle")
@@ -358,20 +361,64 @@ struct QuickCaptureView: View {
 
     private func answerLines(_ answer: AssistantAnswer) -> some View {
         VStack(alignment: .leading, spacing: Theme.tight) {
-            Text(answer.found ? ActionWords.soft(answer.text) : L("메모에서 찾지 못했습니다"))
+            // 웹의 답에 문장이 없으면(모델 없이 결과만) 머리글 한 줄.
+            Text(answer.found ? (answer.text.isEmpty ? L("웹에서 찾은 것") : ActionWords.soft(answer.text)) : L("메모에서 찾지 못했습니다"))
                 .font(Theme.body)
                 .textSelection(.enabled)
-            ForEach(answer.quotes, id: \.self) { line in
-                Text(line)
+            if answer.isWeb {
+                // 출처가 곧 인용 — 제목 · 주소 밑에 발췌. 누르면 브라우저로.
+                ForEach(Array(zip(answer.sources, answer.quotes)), id: \.0.id) { source, quote in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Button { NSWorkspace.shared.open(source.url) } label: {
+                            HStack(spacing: Theme.tight) {
+                                Text(source.title).lineLimit(1).foregroundStyle(Theme.accentInk)
+                                Text(source.host).foregroundStyle(.tertiary).lineLimit(1)
+                            }
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .spoken(L("\(source.title) — 브라우저에서 엽니다"))
+                        if !quote.isEmpty { Text(quote).foregroundStyle(.secondary).lineLimit(2) }
+                    }
                     .font(Theme.micro)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
                     .padding(.leading, Theme.snug)
                     .overlay(alignment: .leading) { Rectangle().frame(width: 2).foregroundStyle(.tertiary) }
+                }
+            } else {
+                ForEach(answer.quotes, id: \.self) { line in
+                    Text(line)
+                        .font(Theme.micro)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .padding(.leading, Theme.snug)
+                        .overlay(alignment: .leading) { Rectangle().frame(width: 2).foregroundStyle(.tertiary) }
+                }
             }
         }
         .padding(.horizontal, Theme.loose)
         .padding(.vertical, Theme.snug)
+        .transition(.opacity)
+    }
+
+    /// 「메모에서 찾지 못했습니다 · 웹에서 찾기 ⌘↵」— 같은 물음을 웹에. 이때만 질문 낱말이 밖으로 나간다.
+    private func webOfferLine(_ assistant: AssistantModel) -> some View {
+        HStack(spacing: Theme.tight) {
+            Label(L("메모에서 찾지 못했습니다"), systemImage: "magnifyingglass").lineLimit(2)
+            Spacer(minLength: Theme.snug)
+            Button { assistant.searchWebForLastQuestion() } label: {
+                Text(L("웹에서 찾기"))
+                    .foregroundStyle(Theme.accentInk)
+                    .padding(.horizontal, Theme.tight)
+                    .frame(minHeight: Theme.touchRow)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .spoken(L("웹에서 찾기 — 이 물음을 DuckDuckGo 에 검색합니다"))
+        }
+        .font(Theme.micro)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, Theme.loose)
+        .padding(.vertical, Theme.tight)
         .transition(.opacity)
     }
 
@@ -740,7 +787,10 @@ struct QuickCaptureView: View {
             Spacer(minLength: 0)
             if model.assistant?.phase == .thinking {
                 // 읽는 동안 라벨은 없다 — 누를 것이 없다 (설계 E-1).
-                HStack(spacing: 8) { ProgressView().controlSize(.small); Text(L("메모를 읽는 중")).font(.system(size: 11)) }
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text(model.assistant?.task == .webAnswer ? L("웹에서 찾는 중") : L("메모를 읽는 중")).font(.system(size: 11))
+                }
             } else if let commandLabel {
                 Button(action: onCommit) {
                     HStack(spacing: 12) {
@@ -785,6 +835,7 @@ struct QuickCaptureView: View {
         case .pick(let title): return L("「\(Self.clip(title))」에게")
         case .command: return L("시키기")
         case .ask: return L("메모에게 묻기")
+        case .web: return L("웹에서 찾기")
         case .answer: return L("답하기")
         case .memo: return L("메모 남기기")
         case .calendar: return L("달력에 남기기")

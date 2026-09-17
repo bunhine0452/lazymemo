@@ -70,4 +70,27 @@ struct RealModelTests {
         #expect(deltas <= 3)
         await provider.unload()
     }
+
+    @Test("웹에서 찾기 — DuckDuckGo 실접속 + 실모델", .enabled(if: ProcessInfo.processInfo.environment["LAZYMEMO_LIVE_WEB"] == "1"))
+    func webAnswer() async throws {
+        let (store, root) = try makeStore(); defer { try? FileManager.default.removeItem(at: root) }
+        let provider = LiteRTProvider(store: store, manifest: .gemma4E2B)
+        let coordinator = AssistantCoordinator(provider: provider, evidence: MemorySource(memos: []),
+                                               web: DuckDuckGoSearcher(locale: Locale(identifier: "ko_KR")), profile: ModelProfile(profileID: "test"))
+        let start = Date()
+        var events: [AssistantEvent] = []
+        for await e in await coordinator.run(AssistantRequest(task: .webAnswer, userText: "웹에서 대한민국 수도 인구 검색해줘")) { events.append(e) }
+        print("웹 답변까지 \(String(format: "%.2f", Date().timeIntervalSince(start)))s: \(events.last.map { "\($0)" } ?? "-")")
+        switch events.last {
+        case .completed(.answer(let answer)):
+            #expect(answer.isWeb)
+            #expect(!answer.text.isEmpty)
+            #expect(answer.sources.count == answer.evidence.count)
+        case .failed(.webEmpty), .failed(.webUnavailable):
+            break
+        default:
+            Issue.record("\(events)")
+        }
+        await provider.unload()
+    }
 }

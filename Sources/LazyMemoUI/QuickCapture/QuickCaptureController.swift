@@ -623,6 +623,10 @@ final class QuickCaptureController {
             model.query = ""
             model.assistant?.ask(text)
 
+        case .searchWeb(let text):
+            model.query = ""
+            model.assistant?.askWeb(text)
+
         case .command(let text, let target):
             model.query = ""
             model.assistant?.command(text, selected: target)
