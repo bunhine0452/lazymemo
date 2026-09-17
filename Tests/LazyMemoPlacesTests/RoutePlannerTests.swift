@@ -64,6 +64,14 @@ struct RoutePlannerTests {
         return planner
     }
 
+    /// 가짜 서비스가 무엇을 물었는지.
+    private final class Located: @unchecked Sendable {
+        private let lock = NSLock()
+        private var stored: [String] = []
+        var texts: [String] { lock.withLock { stored } }
+        func record(_ text: String) { lock.withLock { stored.append(text) } }
+    }
+
     /// 비동기 일이 자리를 잡을 때까지 — 최대 2초.
     private func settle(_ planner: RoutePlanner, until condition: @escaping () -> Bool) async {
         for _ in 0..<200 where !condition() { try? await Task.sleep(for: .milliseconds(10)) }
@@ -107,6 +115,72 @@ struct RoutePlannerTests {
         #expect(planner.notice == "가는 길을 적었어요 — 버스 21분, \(RouteNote.clock(route.depart)) 출발 · 환승 1회 (버스 → 버스) · 출발 10분 전에 알려요")
         // 알림의 둘째 줄이 출발과 첫 탈것을 말한다.
         #expect(Recall.departureLine(saved) == "\(RouteNote.clock(route.depart)) 출발 — 잠실여고후문에서 3314 버스 · 21분")
+    }
+
+    /// 2026-09-17 사용자의 폰 화면: 지도 핀과 길 요약에 「[map.naver.com/2040338336](https://…)」가 자리 이름으로 찍혔다.
+    /// 맥에서 붙여 넣은 네이버 주소는 좌표(`lat`·`lng`)만 있고 이름이 없어 파일에 `geo:` 만 적히고, 그러면
+    /// 링크를 풀지 않고 메모 제목을 자리 이름으로 삼았다.
+    @Test("좌표만 적힌 지도 링크 — 링크를 풀어 이름을 얻고, 그 이름이 자리 칸과 길 요약에 선다")
+    func coordinateOnlyLinkGetsItsName() async throws {
+        let (store, paths) = try makeStore()
+        defer { cleanUp(paths) }
+        let link = "https://map.naver.com/p/entry/place/2040338336?lng=127.1025624&lat=37.5125701&placePath=%2Fhome"
+        let body = "[map.naver.com/2040338336](\(link)) 점심"
+        let note = NoteReader.read(body, now: now)
+        #expect(note.place == nil)
+        #expect(note.geo != nil)
+        let memo = try await store.create(body: body, at: appointment, place: nil, geo: note.geo)
+        #expect(memo.title == "map.naver.com/2040338336 점심")
+
+        let located = Located()
+        let planner = RoutePlanner(store: store, settings: { Settings() }, services: RoutePlanner.Services(
+            locate: { [seoul, sokchon] text, _ in
+                located.record(text)
+                if text.hasPrefix("https://map.naver.com/") { return LocatedPlace(name: "삼전동쌍용하이츠빌라", geo: seoul) }
+                return LocatedPlace(name: text, geo: sokchon)
+            },
+            find: { [routes = routes(arrive: appointment)] _, _, _ in routes }
+        ))
+        planner.now = { [now] in now }
+        var written: (Memo, TransitRoute)?
+        planner.onWritten = { written = ($0, $1) }
+
+        #expect(planner.begin(memo))
+        await settle(planner) { store.memo(memo.id)?.place != nil }
+        #expect(located.texts.first == link)
+        #expect(store.memo(memo.id)?.place == "삼전동쌍용하이츠빌라")
+        #expect(planner.summary?.contains("삼전동쌍용하이츠빌라") == true)
+
+        #expect(planner.reply("삼전동 66-4"))
+        await settle(planner) { planner.step == .choosing }
+        #expect(planner.reply("버스"))
+        await settle(planner) { written != nil }
+        let (saved, _) = try #require(written)
+        #expect(saved.place == "삼전동쌍용하이츠빌라")
+        #expect(RouteNote.read(saved.body, day: appointment)?.destination == "투파인드피터 잠실점")
+    }
+
+    @Test("링크를 못 풀면 제목에서 링크를 뺀 말로 길을 적되, 자리 칸에는 적지 않는다 — 짐작한 이름은 이름이 아니다")
+    func unresolvedLinkNeverWritesAGuessedPlace() async throws {
+        let (store, paths) = try makeStore()
+        defer { cleanUp(paths) }
+        let link = "https://map.naver.com/p/entry/place/2040338336?lng=127.1025624&lat=37.5125701"
+        let memo = try await store.create(body: "[map.naver.com/2040338336](\(link)) 점심", at: appointment, geo: seoul)
+        let found = await RoutePlanner.resolveDestination(memo, services: RoutePlanner.Services(
+            locate: { [sokchon] text, _ in text.hasPrefix("https://") ? nil : LocatedPlace(name: text, geo: sokchon) },
+            find: { _, _, _ in [] }
+        ))
+        #expect(found?.name == "점심")
+        #expect(found?.geo == seoul)
+        #expect(RoutePlanner.isGuessed(try #require(found), for: memo))
+
+        // 파일에 이름이 있으면 그것이 답이고 링크는 풀지 않는다.
+        let named = try await store.create(body: "\(link) 점심", at: appointment, place: "삼전동쌍용하이츠빌라", geo: seoul)
+        let kept = await RoutePlanner.resolveDestination(named, services: RoutePlanner.Services(
+            locate: { _, _ in Issue.record("파일에 다 있는데 접속했다"); return nil }, find: { _, _, _ in [] }
+        ))
+        #expect(kept == LocatedPlace(name: "삼전동쌍용하이츠빌라", geo: seoul))
+        #expect(!RoutePlanner.isGuessed(try #require(kept), for: named))
     }
 
     @Test("지하철만으로는 못 가면 갈아타는 길을 내밀고 환승을 말한다")

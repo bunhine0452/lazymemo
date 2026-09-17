@@ -6,6 +6,16 @@ import LazyMemoCore
 /// 진짜 접속 — `LAZYMEMO_LIVE_ROUTES=1` 일 때만 돈다. 평소 `swift test` 는 건너뛴다.
 @Suite("가는 길 — 실제 접속", .enabled(if: ProcessInfo.processInfo.environment["LAZYMEMO_LIVE_ROUTES"] == "1"))
 struct LiveRouteTests {
+    /// 2026-09-17 사용자가 맥의 네이버 지도에서 주소를 복사해 붙인 것 — 좌표는 링크에 있고 이름은 장소 페이지에 있다.
+    @Test("네이버 긴 링크(좌표만) → 장소 페이지의 이름")
+    func naverLongLinkWithoutName() async throws {
+        let link = "https://map.naver.com/p/entry/place/2040338336?lng=127.1025624&lat=37.5125701&placePath=%2Fhome&entry=plt&searchType=place&c=15.00,0,0,0,dh"
+        let found = try #require(await PlaceLocator.locate(link))
+        #expect(!found.name.contains(","), "좌표 숫자가 이름이 되면 안 된다: \(found.name)")
+        #expect(found.name == "마루가메 우동 잠실롯데월드몰")
+        #expect(abs(found.geo.latitude - 37.5125701) < 0.01)
+    }
+
     @Test("네이버 짧은 링크 → 이름과 좌표")
     func naverShortLink() async throws {
         let found = try #require(await PlaceLocator.locate("https://naver.me/GFB1MHiW"))

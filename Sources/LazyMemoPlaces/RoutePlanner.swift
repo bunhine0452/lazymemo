@@ -133,9 +133,13 @@ public final class RoutePlanner {
         let services = self.services
         destination = Task { [weak self, store] in
             let found = await Self.resolveDestination(memo, services: services)
-            // 좌표를 알게 됐으면 파일에 적어 둔다 — 자리 카드가 서고, 다음엔 묻지 않는다.
-            if let found, memo.geo == nil {
-                _ = try? await store.update(memo.id, place: memo.place == nil ? .some(found.name) : nil, geo: .some(found.geo))
+            // 좌표나 이름을 알게 됐으면 파일에 적어 둔다 — 자리 카드가 서고, 다음엔 묻지 않는다. 짐작한 이름은 빼고.
+            if let found, memo.geo == nil || (memo.place == nil && !Self.isGuessed(found, for: memo)) {
+                _ = try? await store.update(
+                    memo.id,
+                    place: memo.place == nil && !Self.isGuessed(found, for: memo) ? .some(found.name) : nil,
+                    geo: memo.geo == nil ? .some(found.geo) : nil
+                )
             }
             // 한 줄 요약에 자리 이름을 — 같은 일 안에서 바로 (따로 띄우면 시험이 먼저 읽는다, CI 2026-09-16).
             if let found, let self, self.memoID == memo.id { self.summary = Self.describe(memo, destination: found.name) }
@@ -303,7 +307,7 @@ public final class RoutePlanner {
             do {
                 let written = try await store.update(
                     memo.id, body: body, surface: surface,
-                    place: memo.place == nil ? place.map { .some($0.name) } : nil,
+                    place: memo.place == nil ? place.flatMap { Self.isGuessed($0, for: memo) ? nil : .some($0.name) } : nil,
                     geo: memo.geo == nil ? place.map { .some($0.geo) } : nil
                 )
                 // 적는 동안 물러났어도(상자를 닫았어도) 적힌 것은 적힌 것이다 — 한 줄은 남긴다.
@@ -410,13 +414,31 @@ public final class RoutePlanner {
         text.count > 24 ? String(text.prefix(24)) + "…" : text
     }
 
+    /// 약속의 자리. 파일에 이름과 좌표가 다 있으면 그대로, 아니면 지도 링크를 푼다 — 좌표만 적힌 링크라도
+    /// 이름은 그 너머의 장소 페이지에 있다(`PlaceLocator`). 2026-09-17 까지는 좌표가 있으면 링크를 안 풀고
+    /// 메모 제목을 이름으로 삼아, 맥에서 붙인 네이버 주소(`[map.naver.com/…](https://…)`)가 그대로 자리
+    /// 이름이 되어 지도 핀과 길 요약에 찍혔다.
     static func resolveDestination(_ memo: Memo, services: Services) async -> LocatedPlace? {
-        if let geo = memo.geo { return LocatedPlace(name: memo.place ?? memo.title, geo: geo) }
+        if let geo = memo.geo, let place = memo.place, !place.isEmpty { return LocatedPlace(name: place, geo: geo) }
         if let link = MarkdownScanner.linkDestinations(in: memo.body).first(where: MapLink.isMap),
            let found = await services.locate(link, nil) {
             return found
         }
+        if let geo = memo.geo { return LocatedPlace(name: guessedName(memo), geo: geo) }
         if let place = memo.place, !place.isEmpty { return await services.locate(place, nil) }
         return nil
+    }
+
+    /// 좌표는 아는데 이름을 못 얻었을 때 길 요약에 쓸 말 — 제목에서 링크를 뺀 나머지, 그것도 없으면 좌표.
+    /// **파일의 `place:` 에는 적지 않는다** (`isGuessed`) — 틀린 자리 이름은 없는 것보다 나쁘다.
+    static func guessedName(_ memo: Memo) -> String {
+        let bare = memo.titleWithoutLinks
+        if !bare.isEmpty { return bare }
+        return memo.geo?.description ?? memo.title
+    }
+
+    /// 이 이름이 제목에서 짐작한 것인가 — 그러면 자리 칸에 적지 않는다.
+    static func isGuessed(_ found: LocatedPlace, for memo: Memo) -> Bool {
+        memo.place == nil && found.name == guessedName(memo)
     }
 }

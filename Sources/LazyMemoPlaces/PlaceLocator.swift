@@ -30,14 +30,16 @@ public enum PlaceLocator {
         guard !trimmed.isEmpty else { return nil }
 
         if let link = firstLink(in: trimmed) {
-            if let spot = MapLink.read(link), let geo = spot.geo {
-                return LocatedPlace(name: spot.place ?? geo.description, geo: geo)
-            }
+            let spot = MapLink.read(link)
+            if let spot, let geo = spot.geo, let name = spot.place { return LocatedPlace(name: name, geo: geo) }
+            // 좌표만 적힌 링크도 풀어 본다 — 맥에서 복사한 네이버 주소(`/p/entry/place/<번호>?lat=…&lng=…`)는 핀은
+            // 있고 이름이 없다. 이름 없이 좌표만 들고 가면 그 자리는 메모 제목이나 좌표 숫자로 불리게 된다 (2026-09-17).
             if let found = await ShortMapLink.resolve(link) {
-                if let geo = found.geo { return LocatedPlace(name: found.name, geo: geo) }
+                if let geo = found.geo ?? spot?.geo { return LocatedPlace(name: found.name, geo: geo) }
                 return await search(found.name, near: near)
             }
-            if let spot = MapLink.read(link), let name = spot.place { return await search(name, near: near) }
+            if let spot, let geo = spot.geo { return LocatedPlace(name: geo.description, geo: geo) }
+            if let spot, let name = spot.place { return await search(name, near: near) }
             return nil
         }
         // 사람이 친 이름은 그대로 둔다 — 지도는 「Seokchon Gobun Station」이라 부르기도 하지만
@@ -164,20 +166,31 @@ enum ShortMapLink {
 
     static func resolve(_ raw: String) async -> Found? {
         guard let url = URL(string: raw), MapLink.isMap(raw) else { return nil }
-        guard let final = await finalURL(of: url) else { return nil }
+        // 긴 주소에 장소 번호가 이미 있으면 따라갈 리다이렉트가 없다.
+        let final: URL
+        if naverPlaceID(in: url) != nil {
+            final = url
+        } else {
+            guard let followed = await finalURL(of: url) else { return nil }
+            final = followed
+        }
         let text = final.absoluteString
 
-        if let spot = MapLink.read(text), spot.geo != nil || spot.place != nil {
-            if let geo = spot.geo { return Found(name: spot.place ?? geo.description, geo: geo) }
-        }
+        let spot = MapLink.read(text)
+        if let geo = spot?.geo, let name = spot?.place { return Found(name: name, geo: geo) }
+        // 이름은 장소 페이지에 있다. 링크에 좌표가 있어도 이름이 없으면 한 번 더 간다 — 좌표 숫자는 이름이 아니다.
         if let id = naverPlaceID(in: final) {
-            return await naverPlace(id: id)
+            if var found = await naverPlace(id: id) {
+                found.geo = found.geo ?? spot?.geo
+                return found
+            }
         }
+        if let geo = spot?.geo { return Found(name: geo.description, geo: geo) }
         if let host = final.host()?.lowercased(), host.hasSuffix("map.kakao.com") || host == "place.map.kakao.com",
            let title = await pageTitle(of: final) {
             return Found(name: title, geo: nil)
         }
-        if let spot = MapLink.read(text), let name = spot.place { return Found(name: name, geo: nil) }
+        if let name = spot?.place { return Found(name: name, geo: nil) }
         return nil
     }
 

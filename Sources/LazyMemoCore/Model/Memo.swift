@@ -155,12 +155,21 @@ public struct Memo: Sendable, Equatable, Identifiable {
     /// 목록·창 제목에 쓸 한 줄. 본문에서 **글이 있는** 첫 줄의 마크다운 장식을 걷어낸다.
     ///
     /// 사진 참조(`![](attachments/…)`)는 글이 아니다 — 사진만 붙인 메모의 제목이
-    /// 파일 경로여서는 안 된다. 그런 메모는 「사진 1장」이다.
+    /// 파일 경로여서는 안 된다. 그런 메모는 「사진 1장」이다. 링크는 이름만 남는다
+    /// (`[이름](주소)` → 이름) — 맥에서 붙여 넣은 긴 지도 주소가 제목을 통째로
+    /// 차지하던 것 (2026-09-17).
     public var title: String {
         let first = Self.textLines(of: body).first
         if let first { return first }
         let photos = photoCount
         return photos > 0 ? L("사진 \(photos)장") : L("빈 메모")
+    }
+
+    /// 제목에서 링크까지 뺀 것 — 「https://naver.me/… 밥약속」이면 「밥약속」. 링크뿐이면 빈 문자열.
+    /// 자리 이름을 짐작해야 할 때 쓴다 (`RoutePlanner`) — 주소는 자리 이름이 아니다.
+    public var titleWithoutLinks: String {
+        guard let first = Self.textLines(of: body, keepingLinks: false).first else { return "" }
+        return first
     }
 
     /// 목록의 둘째 줄 — 제목 다음에 오는 글. 사진 참조는 건너뛴다.
@@ -171,11 +180,14 @@ public struct Memo: Sendable, Equatable, Identifiable {
     /// 본문이 물고 있는 사진 수.
     public var photoCount: Int { MarkdownScanner.imagePaths(in: body).count }
 
-    /// 글이 있는 줄만, 사진 참조와 줄머리 장식을 걷어낸 채로.
-    static func textLines(of body: String) -> [String] {
-        body.split(separator: "\n", omittingEmptySubsequences: false).compactMap { line in
+    /// 글이 있는 줄만, 사진 참조와 줄머리 장식을 걷어낸 채로. 링크는 이름만 남기거나(`keepingLinks`) 통째로 뺀다.
+    /// 「## 가는 길」 절도 글이 아니다 — 비서가 적은 것이고 카드가 읽는다 (`RouteNote`).
+    static func textLines(of body: String, keepingLinks: Bool = true) -> [String] {
+        RouteNote.remove(from: body).split(separator: "\n", omittingEmptySubsequences: false).compactMap { line in
             let stripped = String(line)
                 .replacing(/!\[[^\]]*\]\([^)]*\)/, with: "")
+                .replacing(/\[([^\]]*)\]\([^)]*\)/, with: { keepingLinks ? String($0.1) : "" })
+                .replacing(/https?:\/\/\S+/, with: { keepingLinks ? String($0.0) : "" })
                 .trimmingCharacters(in: CharacterSet(charactersIn: "# \t-*>"))
             return stripped.isEmpty ? nil : stripped
         }
