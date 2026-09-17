@@ -37,6 +37,7 @@
 "고정됨" = "Pinned";
 "지난달" = "Previous month";
 "다음달" = "Next month";
+"%@, 일정 %lld" = "%1$@, %2$lld planned";
 "오늘" = "Today";
 "적기…" = "Write…";
 "적기" = "Write";

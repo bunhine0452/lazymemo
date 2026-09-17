@@ -21,6 +21,16 @@ import SwiftUI
 /// 보고** 판이 그리로 미끄러진다 — 손짓이든 단추든 한 길이라 한 물건으로 보인다.
 /// 움직임을 줄인 사람에게는 옆으로 밀지 않고 바꿔 끼운다 (HIG Accessibility —
 /// "Replacing transitions in x-, y-, and z-axes with fades").
+///
+/// ## 손가락마다 다시 그리지 않는다
+///
+/// 손가락이 움직이는 매 프레임 이 뷰의 `body` 가 다시 돈다 (`@GestureState`). 그때
+/// 세 판 126칸을 매번 다시 만들면 — 옆 달 산수 둘, 칸마다 소리 이름표의 날짜 서식 —
+/// 한 프레임 예산(120Hz 에서 8ms)을 서식만으로 먹어 **살짝 걸리는 느낌**이 났다.
+/// 그래서 판은 `Equatable` 인 자식(`MonthStrip`·`MonthPanel`)이고, 프레임마다 바뀌는
+/// 것은 그 바깥의 `offset` 뿐이다 — 달·점·고른 날이 그대로면 SwiftUI 가 판의 `body`
+/// 를 건너뛴다. 소리 이름표도 문자열이 아니라 `Text(date, format:)` 로 두어
+/// 읽힐 때 서식한다.
 struct MonthGridView: View {
     let grid: MonthGrid
     let selected: CalendarDate?
@@ -106,50 +116,19 @@ struct MonthGridView: View {
     private var pages: some View {
         GeometryReader { proxy in
             let width = proxy.size.width
-            HStack(spacing: 0) {
-                wing(neighbor(-1), width: width)
-                ZStack {
-                    panel(current)
-                        .id(Self.ordinal(current))
-                        .transition(.opacity)
-                }
-                .frame(width: width)
-                wing(neighbor(1), width: width)
-            }
+            MonthStrip(
+                current: current, destination: grid, incoming: incoming,
+                selected: selected, marks: marks, today: today, width: width,
+                onPick: onPick, onDrop: onDrop
+            )
+            .equatable()
+            // 프레임마다 바뀌는 것은 이것뿐이다 — 판은 위에서 같다고 보면 다시 그리지 않는다.
             .offset(x: -width + touch.offset + drag)
         }
         .frame(height: Self.gridHeight)
         .clipped()
         // 판 하나의 폭은 이 자리의 폭이다 — 세 판을 이은 줄의 폭(셋 곱)이 아니라.
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
-    }
-
-    /// 옆 판. 들어오는 달이 정해져 있으면 그것이 — 「오늘」로 멀리 갈 때 그 사이 달을
-    /// 다 지나지 않고 목적지가 바로 옆에서 들어온다.
-    private func neighbor(_ side: Int) -> MonthGrid {
-        incoming == side ? grid : current.advanced(by: side)
-    }
-
-    /// 옆 판 — 눈에만 있다. 보조 기술과 UI 시험에는 없어야 한다: 화면 밖의 「15일」이 목록에
-    /// 서면 VoiceOver 가 거기로 가고, 시험은 그것을 먼저 집어 누르지 못한다 (`accessibilityHidden`
-    /// 만으로는 칸들이 남았다 — 묶어서 지운다).
-    private func wing(_ month: MonthGrid, width: CGFloat) -> some View {
-        panel(month)
-            .frame(width: width)
-            .accessibilityElement(children: .ignore)
-            .accessibilityHidden(true)
-    }
-
-    private func panel(_ month: MonthGrid) -> some View {
-        VStack(spacing: 4) {
-            ForEach(Array(month.weeks.enumerated()), id: \.offset) { _, week in
-                HStack(spacing: 0) {
-                    ForEach(week) { day in cell(day) }
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .padding(.horizontal, 12)
     }
 
     // MARK: 손짓
@@ -257,7 +236,111 @@ struct MonthGridView: View {
         .accessibilityElement(children: .contain)
     }
 
-    // MARK: 칸
+    private func weekdayInk(_ index: Int) -> Color {
+        switch index {
+        case 0: Theme.sundayInk
+        case 6: Theme.saturdayInk
+        default: .secondary
+        }
+    }
+}
+
+// MARK: - 세 판
+
+/// 앞·이번·다음 세 판 — 손가락이 미는 동안 **같다고 보이면 다시 그리지 않는** 단위.
+///
+/// 옆 판의 달은 여기서 셈한다(`neighbor`) — 부모가 프레임마다 셈하면 달 산수 둘이
+/// 매 프레임 든다. 들어오는 달이 정해져 있으면 그것이 옆에 선다 — 「오늘」로 멀리 갈
+/// 때 그 사이 달을 다 지나지 않고 목적지가 바로 옆에서 들어온다.
+private struct MonthStrip: View, Equatable {
+    let current: MonthGrid
+    /// 정본 — 미끄러지는 중이면 목적지.
+    let destination: MonthGrid
+    let incoming: Int?
+    let selected: CalendarDate?
+    let marks: [CalendarDate: Int]
+    let today: CalendarDate
+    let width: CGFloat
+    let onPick: (CalendarDate) -> Void
+    let onDrop: ((CalendarDate, [String]) -> Bool)?
+
+    /// 닫힘(함수)은 견줄 수 없다 — 부르는 쪽이 매번 새로 만들지만 하는 일은 같다. 값만 견준다.
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.current == rhs.current && lhs.destination == rhs.destination && lhs.incoming == rhs.incoming
+            && lhs.selected == rhs.selected && lhs.marks == rhs.marks && lhs.today == rhs.today
+            && lhs.width == rhs.width && (lhs.onDrop == nil) == (rhs.onDrop == nil)
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            wing(neighbor(-1))
+            ZStack {
+                panel(current)
+                    .id(current.year * 12 + current.month)
+                    .transition(.opacity)
+            }
+            .frame(width: width)
+            wing(neighbor(1))
+        }
+    }
+
+    private func neighbor(_ side: Int) -> MonthGrid {
+        incoming == side ? destination : current.advanced(by: side)
+    }
+
+    /// 옆 판 — 눈에만 있다. 보조 기술과 UI 시험에는 없어야 한다: 화면 밖의 「15일」이 목록에
+    /// 서면 VoiceOver 가 거기로 가고, 시험은 그것을 먼저 집어 누르지 못한다 (`accessibilityHidden`
+    /// 만으로는 칸들이 남았다 — 묶어서 지운다).
+    private func wing(_ month: MonthGrid) -> some View {
+        panel(month)
+            .frame(width: width)
+            .accessibilityElement(children: .ignore)
+            .accessibilityHidden(true)
+    }
+
+    private func panel(_ month: MonthGrid) -> some View {
+        MonthPanel(month: month, selected: selected, marks: marks, today: today, onPick: onPick, onDrop: onDrop)
+            .equatable()
+    }
+}
+
+// MARK: - 한 판
+
+/// 한 달의 칸들. 달·고른 날·점·오늘이 그대로면 다시 만들지 않는다.
+private struct MonthPanel: View, Equatable {
+    let month: MonthGrid
+    let selected: CalendarDate?
+    let marks: [CalendarDate: Int]
+    let today: CalendarDate
+    let onPick: (CalendarDate) -> Void
+    let onDrop: ((CalendarDate, [String]) -> Bool)?
+
+    private static let cell: CGFloat = 44
+    /// 소리 이름표의 서식 — 「14일 월요일」 · 「14 Monday」 (`DateWords.dayWeekday` 와 같은 말).
+    private static let spokenStyle = Date.FormatStyle(locale: Words.locale, calendar: .current, timeZone: .current)
+        .day().weekday(.wide)
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.month == rhs.month && lhs.selected == rhs.selected && lhs.marks == rhs.marks
+            && lhs.today == rhs.today && (lhs.onDrop == nil) == (rhs.onDrop == nil)
+    }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            ForEach(Array(month.weeks.enumerated()), id: \.offset) { _, week in
+                HStack(spacing: 0) {
+                    ForEach(week) { day in cell(day) }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.horizontal, 12)
+    }
+
+    private func spoken(_ day: CalendarDate) -> Text {
+        guard let date = day.startOfDay() else { return Text(verbatim: day.description) }
+        return Text(date, format: Self.spokenStyle)
+    }
 
     @ViewBuilder
     private func cell(_ day: MonthGrid.Day) -> some View {
@@ -296,18 +379,9 @@ struct MonthGridView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(count > 0
-            ? String(localized: "\(DateWords.dayWeekday(day.date)), 일정 \(count)")
-            : DateWords.dayWeekday(day.date))
+        // 이름표는 읽힐 때 서식한다 — 126칸의 날짜를 판을 만들 때마다 문자열로 만들면
+        // 그것만으로 한 프레임이 넘친다. `Text(date, format:)` 는 값과 서식만 들고 있다.
+        .accessibilityLabel(count > 0 ? Text("\(spoken(day.date)), 일정 \(count)") : spoken(day.date))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
-
-    private func weekdayInk(_ index: Int) -> Color {
-        switch index {
-        case 0: Theme.sundayInk
-        case 6: Theme.saturdayInk
-        default: .secondary
-        }
-    }
-
 }
