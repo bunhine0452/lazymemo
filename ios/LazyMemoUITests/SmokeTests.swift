@@ -384,6 +384,72 @@ final class SmokeTests: XCTestCase {
         try text.write(to: notes.appending(path: id + ".md"), atomically: true, encoding: .utf8)
     }
 
+    // MARK: 기계가 적은 줄 — 사진 참조와 가는 길 절은 글 칸에서 안 보이고, 커서는 그 안에 못 들어간다
+
+    /// 2026-09-17 사용자의 화면: 카드 아래에 `## 가는 길 …` 과 `![](attachments/…)` 가 날것으로 보였다.
+    /// 글자는 파일에 그대로 있어야 하고(카드가 그것을 읽는다), 글 끝을 눌러 이어 적으면 절 **앞**에 적혀야 한다.
+    func testMachineLinesAreHiddenAndTypingLandsBeforeTheRoute() throws {
+        try seed()
+        try seedPhoto()
+        let notes = root.appending(path: "vault/notes/2026/09", directoryHint: .isDirectory)
+        let id = Self.ulid(day: 14, tail: "C1")
+        let lunch = Calendar.current.date(bySettingHour: 13, minute: 56, second: 0, of: Calendar.current.startOfDay(for: Date()))!
+        let at = lunch.formatted(Date.ISO8601FormatStyle(timeZone: .current))
+        let route = "## 가는 길\n삼전동 66-4 → 마루가메 우동 잠실롯데월드몰 · 22분 · 13:34 출발 · 13:56 도착 · 1,500원\n- 걷기 3분\n- 버스 3315 (지선) 삼전동쌍용하이츠빌라 → 잠실역1번.11번출구 · 12분 · 7정류장\n- 걷기 6분"
+        // 첫 줄은 맥에서 붙인 지도 주소 그대로 — 폰에서는 「map.naver.com/2040338336 점심 약속」으로 보여야 한다.
+        let body = "[map.naver.com/2040338336](https://map.naver.com/p/entry/place/2040338336?lng=127.1025624&lat=37.5125701&placePath=%2Fhome) 점심 약속\n![](attachments/01K4ZR0000000000000000B1.png)\n\n" + route
+        let file = notes.appending(path: id + ".md")
+        try ("---\nid: \(id)\ncreated: 2026-09-14T12:30:00+09:00\nupdated: 2026-09-14T12:30:00+09:00\nat: \(at)\ntags: []\ncolor: yellow\npinned: false\n---\n" + body + "\n")
+            .write(to: file, atomically: true, encoding: .utf8)
+
+        let app = launch()
+        let target = row(in: app, startingWith: "map.naver.com/2040338336 점심 약속")
+        XCTAssertTrue(target.waitForExistence(timeout: 10), "줄의 제목은 링크 이름만 — 주소가 보이면 안 된다")
+        target.tap()
+
+        let paper = app.textViews["paper"]
+        XCTAssertTrue(paper.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["route-card"].waitForExistence(timeout: 5), "길 카드가 서야 한다")
+        XCTAssertTrue(app.descendants(matching: .any)["photo"].firstMatch.waitForExistence(timeout: 10), "사진 카드가 서야 한다")
+        try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/lazymemo-machine-lines.png"))
+
+        // 글 아래 빈 자리를 누르면 커서는 글 끝 = 절 안이다 — 절 앞으로 나와야 한다.
+        paper.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7)).tap()
+        paper.typeText("덧붙임")
+        try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/lazymemo-machine-lines-typing.png"))
+        app.buttons["done-editing"].tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        let saved = try String(contentsOf: file, encoding: .utf8)
+        XCTAssertTrue(saved.contains("![](attachments/01K4ZR0000000000000000B1.png)\n덧붙임\n## 가는 길\n삼전동 66-4 →"),
+                      "친 글자는 절 앞에, 참조와 절은 그대로여야 한다: \(saved)")
+        XCTAssertTrue(saved.hasSuffix("- 걷기 6분\n"), "절의 끝이 그대로여야 한다: \(saved)")
+    }
+
+    /// 참조가 감춰졌으니 사진을 떼는 길은 카드뿐이다 — 길게 누르면 「사진 떼기」.
+    func testRemovingAPhotoFromItsCard() throws {
+        try seed()
+        try seedPhoto()
+        let app = launch()
+        let target = row(in: app, startingWith: "명함 사진")
+        XCTAssertTrue(target.waitForExistence(timeout: 10))
+        target.tap()
+
+        let photo = app.descendants(matching: .any)["photo"].firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 10))
+        photo.press(forDuration: 1.2)
+        let remove = app.buttons["사진 떼기"]
+        XCTAssertTrue(remove.waitForExistence(timeout: 3), "길게 누르면 「사진 떼기」가 있어야 한다")
+        remove.tap()
+        XCTAssertTrue(photo.waitForNonExistence(timeout: 5), "뗀 사진은 카드에서 사라진다")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        let file = root.appending(path: "vault/notes/2026/09/\(Self.ulid(day: 14, tail: "B1")).md")
+        let saved = try String(contentsOf: file, encoding: .utf8)
+        XCTAssertFalse(saved.contains("attachments/"), "참조가 빠져야 한다: \(saved)")
+        XCTAssertTrue(saved.hasSuffix("---\n명함 사진\n"), "글은 그대로: \(saved)")
+    }
+
     // MARK: 알림 설정 — More 메뉴에서 닿고, 켜기 전에 잠금 화면 표시를 읽는다
 
     func testRemindersSheetOpensFromMore() throws {

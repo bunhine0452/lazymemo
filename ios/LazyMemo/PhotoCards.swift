@@ -94,6 +94,8 @@ struct PhotoCardsView: View {
     let loader: PhotoLoader
     /// 종이 위에서 사진이 차지할 수 있는 최대 높이.
     var maxHeight: CGFloat = 180
+    /// 「사진 떼기」— 본문의 참조를 지운다. 글 칸이 참조를 감추므로(`MachineLines`) 떼는 길은 카드뿐이다.
+    var remove: ((AttachedPhoto) -> Void)?
 
     @State private var opened: AttachedPhoto?
     @State private var page: String?
@@ -153,12 +155,23 @@ struct PhotoCardsView: View {
             .accessibilityLabel(String(localized: "사진 \(photo.name)"))
             .accessibilityHint("펼쳐 봅니다")
             .accessibilityIdentifier("photo")
+            .contextMenu { removeItem(photo) }
         case .downloading:
             placeholder(String(localized: "iCloud 에서 내려받는 중"), systemImage: "icloud.and.arrow.down", spinning: true)
                 .accessibilityIdentifier("photo-downloading")
+                .contextMenu { removeItem(photo) }
         case .missing:
             placeholder(String(localized: "아직 없는 사진 — 다른 기기가 올리면 보여요"), systemImage: "photo.badge.exclamationmark")
                 .accessibilityIdentifier("photo-missing")
+                .contextMenu { removeItem(photo) }
+        }
+    }
+
+    /// 길게 누르면 — 사진은 카드가 곧 그 사진이니 떼는 것도 여기서. 파일은 남고(휴지통의 규칙과 같다) 참조만 빠진다.
+    @ViewBuilder
+    private func removeItem(_ photo: AttachedPhoto) -> some View {
+        if let remove {
+            Button(role: .destructive) { remove(photo) } label: { Label("사진 떼기", systemImage: "photo.badge.minus") }
         }
     }
 

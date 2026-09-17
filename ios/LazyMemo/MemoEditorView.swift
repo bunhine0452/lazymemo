@@ -71,7 +71,7 @@ struct MemoEditorView: View {
                     // 가는 길도 머리에 — 지도 아래, 글 위. 맥과 같은 카드다 (`RouteCard`).
                     if let route { routeCard(route) }
                     // 사진도 머리에 앉는다 — 폰의 종이는 화면 전체가 글 칸이라 아래가 없다.
-                    if !imagePaths.isEmpty { PhotoCardsView(loader: photos) }
+                    if !imagePaths.isEmpty { PhotoCardsView(loader: photos, remove: { removePhoto($0.path) }) }
                 }
             }
         }
@@ -191,6 +191,18 @@ struct MemoEditorView: View {
                let url = RouteLinks.kakaoApp(route, destination: geo) { app.open(url); return }
         }
         if let url = RouteLinks.kakaoWeb(route) { app.open(url) }
+    }
+
+    /// 사진 한 장을 뗀다 — 본문의 참조를 지운다. 글 칸은 참조를 감추므로(`PaperTextView`) 손으로 지울 길이 없다.
+    private func removePhoto(_ path: String) {
+        flush()
+        let body = MachineLines.removingPhoto(path, from: text)
+        guard body != text else { return }
+        Task {
+            guard let updated = try? await store.update(id, body: body) else { return }
+            text = updated.body
+            lastSaved = updated.body
+        }
     }
 
     /// 절을 떼고, 그 길의 출발 알림이었던 다시 보기도 함께.
