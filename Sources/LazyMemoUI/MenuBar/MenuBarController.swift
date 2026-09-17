@@ -53,6 +53,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     /// 단축키 등록에 실패했는지 — 다른 앱이 같은 조합을 선점한 경우다.
     private var hotkeyAvailable = false
+    /// 클립보드 즉시 메모의 조합과 그 등록 여부. 빠른 입력처럼 설정에서 바꿀 수 있다 (2026-09-17).
+    private var pasteHotkey: Hotkey = .paste
+    private var pasteHotkeyAvailable = false
 
     init(
         paths: AppPaths,
@@ -148,7 +151,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         hotkeyAvailable = hotkey.register(id: 1, storedHotkey()) { [weak self] in
             self?.capture.toggle()
         }
-        hotkey.register(id: 2, .paste) { [weak self] in
+        pasteHotkey = storedPasteHotkey()
+        pasteHotkeyAvailable = hotkey.register(id: Self.pasteHotkeyID, pasteHotkey) { [weak self] in
             Task { await self?.clipboardCapture.capture() }
         }
         hotkey.register(id: 3, .here) { [weak self] in
@@ -156,11 +160,20 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
     }
 
+    private static let pasteHotkeyID: UInt32 = 2
+
     /// 설정에 남은 조합. 없으면 기본값.
     private func storedHotkey() -> Hotkey {
         let saved = settings.current
         guard let keyCode = saved.hotkeyKeyCode, let modifiers = saved.hotkeyModifiers
         else { return .standard }
+        return Hotkey(keyCode: keyCode, modifiers: modifiers)
+    }
+
+    private func storedPasteHotkey() -> Hotkey {
+        let saved = settings.current
+        guard let keyCode = saved.pasteHotkeyKeyCode, let modifiers = saved.pasteHotkeyModifiers
+        else { return .paste }
         return Hotkey(keyCode: keyCode, modifiers: modifiers)
     }
 
@@ -302,6 +315,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         if !hotkeyAvailable {
             menu.addItem(disabled(L("⚠︎ \(hotkey.current.displayName) 을 다른 앱이 쓰고 있습니다")))
         }
+        if !pasteHotkeyAvailable {
+            menu.addItem(disabled(L("⚠︎ \(pasteHotkey.displayName) 을 다른 앱이 쓰고 있습니다")))
+        }
         addMissingVaultLine(to: menu)
         addTroubleLine(to: menu)
         menu.addItem(item(title: L("빈 종이 꺼내기"), action: #selector(newMemo), key: ""))
@@ -380,10 +396,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         return entry
     }
 
-    /// 클립보드 원키 즉시 캡처 (⌥⌘V).
+    /// 클립보드 원키 즉시 캡처 (기본 ⌥⌘V). 조합은 설정에서 바꿀 수 있으니 여기서도 지금 것을 적는다.
     private func clipboardCaptureItem() -> NSMenuItem {
-        let entry = item(title: L("클립보드 즉시 메모"), action: #selector(captureClipboard), key: "v")
-        entry.keyEquivalentModifierMask = [.option, .command]
+        let entry = item(title: L("클립보드 즉시 메모"), action: #selector(captureClipboard), key: "")
+        if let (key, modifiers) = pasteHotkey.menuKeyEquivalent {
+            entry.keyEquivalent = key
+            entry.keyEquivalentModifierMask = modifiers
+        }
         entry.toolTip = L("복사한 글이나 사진을 창 없이 즉시 메모로 저장합니다")
         return entry
     }
@@ -603,8 +622,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         submenu.addItem(.separator())
 
         let shortcut = item(title: L("단축키 바꾸기…"), action: #selector(changeHotkey), key: "")
-        shortcut.subtitle = L("지금은 \(hotkey.current.displayName)")
+        shortcut.subtitle = L("빠른 입력 — 지금은 \(hotkey.current.displayName)")
         submenu.addItem(shortcut)
+
+        let pasteShortcut = item(title: L("클립보드 즉시 메모 단축키 바꾸기…"), action: #selector(changePasteHotkey), key: "")
+        pasteShortcut.subtitle = L("지금은 \(pasteHotkey.displayName)")
+        submenu.addItem(pasteShortcut)
 
         submenu.addItem(loginItem())
 
@@ -788,8 +811,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func changeHotkey() {
-        recorder.begin(current: hotkey.current) { [weak self] candidate in
-            guard let self else { return false }
+        recorder.begin(current: hotkey.current, title: L("빠른 입력")) { [weak self] candidate in
+            guard let self else { return "" }
+            // 두 단축키가 같은 조합이면 한쪽이 조용히 죽는다 — 여기서 막는다.
+            guard candidate != self.pasteHotkey else { return L("\(candidate.displayName) 은 클립보드 즉시 메모가 쓰고 있습니다") }
             let registered = self.hotkey.register(id: 1, candidate) { [weak self] in
                 self?.capture.toggle()
             }
@@ -799,7 +824,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
                 self.hotkeyAvailable = self.hotkey.register(id: 1, self.storedHotkey()) { [weak self] in
                     self?.capture.toggle()
                 }
-                return false
+                return L("\(candidate.displayName) 은 다른 앱이 쓰고 있습니다")
             }
             self.hotkeyAvailable = true
             self.settings.update {
@@ -807,7 +832,31 @@ final class MenuBarController: NSObject, NSMenuDelegate {
                 $0.hotkeyModifiers = candidate.modifiers
             }
             self.configureButton()
-            return true
+            return nil
+        }
+    }
+
+    /// 클립보드 즉시 메모의 조합 — 빠른 입력과 같은 길, 같은 되돌림.
+    @objc private func changePasteHotkey() {
+        recorder.begin(current: pasteHotkey, title: L("클립보드 즉시 메모")) { [weak self] candidate in
+            guard let self else { return "" }
+            guard candidate != self.hotkey.current else { return L("\(candidate.displayName) 은 빠른 입력이 쓰고 있습니다") }
+            let registered = self.hotkey.register(id: Self.pasteHotkeyID, candidate) { [weak self] in
+                Task { await self?.clipboardCapture.capture() }
+            }
+            guard registered else {
+                self.pasteHotkeyAvailable = self.hotkey.register(id: Self.pasteHotkeyID, self.storedPasteHotkey()) { [weak self] in
+                    Task { await self?.clipboardCapture.capture() }
+                }
+                return L("\(candidate.displayName) 은 다른 앱이 쓰고 있습니다")
+            }
+            self.pasteHotkey = candidate
+            self.pasteHotkeyAvailable = true
+            self.settings.update {
+                $0.pasteHotkeyKeyCode = candidate.keyCode
+                $0.pasteHotkeyModifiers = candidate.modifiers
+            }
+            return nil
         }
     }
 

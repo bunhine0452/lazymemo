@@ -187,6 +187,10 @@
 "업데이트 확인" = "Check for Updates";
 "%@ — 최신입니다" = "%@ — up to date";
 "지금은 %@" = "Currently %@";
+"빠른 입력 — 지금은 %@" = "Quick Capture — currently %@";
+"클립보드 즉시 메모 단축키 바꾸기…" = "Change Paste-as-Note Shortcut…";
+"%@ 은 클립보드 즉시 메모가 쓰고 있습니다" = "%@ is already used by Paste as New Note";
+"%@ 은 빠른 입력이 쓰고 있습니다" = "%@ is already used by Quick Capture";
 "설정" = "Settings";
 "단축키 바꾸기…" = "Change Shortcut…";
 "종이에서 Claude 부르기" = "Call Claude from a Note";
