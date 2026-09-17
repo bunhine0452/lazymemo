@@ -156,13 +156,17 @@ public struct RecallEditor: View {
                     Label(L("일정은 \(Self.when(at))"), systemImage: "calendar")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
-                DatePicker(L("다시 볼 시각"), selection: $date, in: Date()..., displayedComponents: [.date, .hourAndMinute])
-                    .accessibilityIdentifier("recall-date")
+                // 칩은 **누르는 순간 저장하고 닫힌다.** 피커를 바꾸고 단추를 또 누르게 하던 것을 2026-09-17 에
+                // 고쳤다 — 폰의 날짜 시트는 칩을 누르면 바로 적용되는데 이 시트만 두 번이었다. 배너의 단추
+                // (`ReminderAction`)와 같은 값(`Snooze`)이라 어디서 누르든 같은 시각이 된다.
                 HStack {
-                    Button(L("한 시간 뒤")) { date = Date().addingTimeInterval(3600) }
-                    Button(L("내일 아침 9시")) { date = Self.tomorrowMorning() }
+                    Button(L("한 시간 뒤")) { snooze(.hourLater) }
+                    Button(L("내일 아침 9시")) { snooze(.tomorrowMorning) }
                 }
                 .buttonStyle(.bordered)
+                .disabled(saving)
+                DatePicker(L("다시 볼 시각"), selection: $date, in: Date()..., displayedComponents: [.date, .hourAndMinute])
+                    .accessibilityIdentifier("recall-date")
                 Button(L("이때 다시 보기")) { save(date) }
                     .buttonStyle(.borderedProminent)
                     .disabled(saving || date <= Date())
@@ -197,9 +201,10 @@ public struct RecallEditor: View {
         date.formatted(date: .abbreviated, time: .shortened)
     }
 
-    static func tomorrowMorning(now: Date = Date(), calendar: Calendar = .current) -> Date {
-        let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now
-        return calendar.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrow) ?? tomorrow
+    /// 칩 하나 — 그 단추의 시각으로 바로 저장한다. `nil` 은 해제라 여기로 흘리지 않는다.
+    private func snooze(_ action: ReminderAction) {
+        guard let value = Snooze.date(for: action) else { return }
+        save(value)
     }
 
     private func save(_ value: Date?) {

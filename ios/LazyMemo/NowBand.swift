@@ -20,6 +20,8 @@ struct NowBand: View {
     let now: Date
     let open: (Memo) -> Void
     let putDown: (Recall.Card) -> Void
+    /// 「하루 미루기」 — 일정이 있는 카드만. 달력 탭의 밀기와 같은 낱말·같은 방향 (2026-09-17 편의성 감사 §2.1).
+    let postpone: (Memo) -> Void
     let pin: (Memo) -> Void
     let delete: (Memo) -> Void
 
@@ -43,6 +45,7 @@ struct NowBand: View {
                 .accessibilityIdentifier("now-card")
                 .accessibilityActions {
                     Button("봤어요") { putDown(card) }
+                    if card.memo.isScheduled { Button("하루 미루기") { postpone(card.memo) } }
                     Button(card.memo.pinned ? String(localized: "고정 해제") : String(localized: "고정")) { pin(card.memo) }
                     Button("지우기") { delete(card.memo) }
                 }
@@ -53,13 +56,21 @@ struct NowBand: View {
                     Button(role: .destructive) { delete(card.memo) } label: { Label("지우기", systemImage: "trash") }
                 }
                 .swipeActions(edge: .leading) {
+                    // 일정이 있으면 미루기가 앞이다 — 끝까지 밀면 그것 (달력 탭과 같다).
+                    if card.memo.isScheduled {
+                        Button { postpone(card.memo) } label: { Label("미루기", systemImage: "arrow.right") }
+                            .tint(Theme.accent)
+                    }
                     Button { pin(card.memo) } label: {
                         Label(card.memo.pinned ? String(localized: "고정 해제") : String(localized: "고정"), systemImage: card.memo.pinned ? "pin.slash" : "pin")
                     }
-                    .tint(Theme.accent)
+                    .tint(card.memo.isScheduled ? Theme.highlightInk : Theme.accent)
                 }
                 .contextMenu {
                     Button { putDown(card) } label: { Label("봤어요", systemImage: "checkmark") }
+                    if card.memo.isScheduled {
+                        Button { postpone(card.memo) } label: { Label("하루 미루기", systemImage: "arrow.right") }
+                    }
                     Button { pin(card.memo) } label: {
                         Label(card.memo.pinned ? String(localized: "고정 해제") : String(localized: "고정"), systemImage: card.memo.pinned ? "pin.slash" : "pin")
                     }

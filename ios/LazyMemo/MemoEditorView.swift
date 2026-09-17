@@ -180,17 +180,9 @@ struct MemoEditorView: View {
         .padding(.top, 12)
     }
 
-    /// 깔린 지도 앱으로 — 네이버 → 카카오 → 웹의 카카오맵. 애플 지도는 한국의 대중교통을 모른다.
+    /// 깔린 지도 앱으로 (`MapApp.openRoute`) — 배너의 「지도 열기」와 같은 길.
     private func openRoute(_ route: TransitRoute) {
-        let app = UIApplication.shared
-        let appName = Bundle.main.bundleIdentifier ?? "lazymemo"
-        if let geo = memo?.geo {
-            if let probe = URL(string: "nmap://open"), app.canOpenURL(probe),
-               let url = RouteLinks.naverApp(route, destination: geo, appName: appName) { app.open(url); return }
-            if let probe = URL(string: "kakaomap://open"), app.canOpenURL(probe),
-               let url = RouteLinks.kakaoApp(route, destination: geo) { app.open(url); return }
-        }
-        if let url = RouteLinks.kakaoWeb(route) { app.open(url) }
+        MapApp.openRoute(route, destination: memo?.geo)
     }
 
     /// 사진 한 장을 뗀다 — 본문의 참조를 지운다. 글 칸은 참조를 감추므로(`PaperTextView`) 손으로 지울 길이 없다.

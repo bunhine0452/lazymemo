@@ -89,6 +89,40 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(row(in: app, startingWith: "집 — 전구 갈기").waitForExistence(timeout: 5), "되돌린 줄이 안 돌아왔다")
     }
 
+    // MARK: 미루기 — 일정이 있는 줄은 메모 탭에서도 오른쪽으로 밀면 하루 미뤄진다 (달력 탭과 같은 손짓)
+
+    func testPostponeFromTheListMovesTheDate() throws {
+        try seed()
+        // 씨앗의 「치과」는 오늘 것이라 「지금」 띠에 오른다 — 목록의 줄로 밀려면 내일 15시의 약속을 하나 더 심는다.
+        let calendar = Calendar.current
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date()))!
+        let at = calendar.date(bySettingHour: 15, minute: 0, second: 0, of: tomorrow)!
+        let id = Self.ulid(day: 15, tail: "AG")
+        let seedText = "---\nid: \(id)\ncreated: 2026-09-15T10:00:00+09:00\nupdated: 2026-09-15T10:00:00+09:00\nat: \(at.formatted(Date.ISO8601FormatStyle(timeZone: .current)))\ntags: []\ncolor: blue\npinned: false\n---\n안과 예약\n"
+        let file = root.appending(path: "vault/notes/2026/09/\(id).md")
+        try seedText.write(to: file, atomically: true, encoding: .utf8)
+        let app = launch()
+        let target = scrolledRow(in: app, startingWith: "안과 예약")
+        XCTAssertTrue(target.exists)
+
+        target.swipeRight()
+        let postpone = app.buttons["미루기"]
+        XCTAssertTrue(postpone.waitForExistence(timeout: 3), "일정이 있는 줄을 오른쪽으로 밀면 「미루기」가 있어야 한다")
+        postpone.tap()
+
+        // 내일 15시는 모레 15시로 — 시각은 그대로 (`Schedule.postponed`).
+        let day = calendar.date(byAdding: .day, value: 1, to: tomorrow)!
+            .formatted(Date.ISO8601FormatStyle(timeZone: .current).year().month().day())
+        let deadline = Date().addingTimeInterval(5)
+        var text = ""
+        repeat {
+            text = (try? String(contentsOf: file, encoding: .utf8)) ?? ""
+            if text.contains("at: \(day)T15:00") { break }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        } while Date() < deadline
+        XCTAssertTrue(text.contains("at: \(day)T15:00"), "하루 미룬 시각이 파일에 적혀야 한다: \(text)")
+    }
+
     // MARK: 편집 — 저장 버튼 없이 파일이 바뀐다
 
     func testEditingWritesTheFile() throws {
@@ -187,9 +221,10 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(calendarTab.waitForExistence(timeout: 3) && calendarTab.isHittable, "키보드가 내려가야 탭바가 닿는다")
         calendarTab.tap()
 
-        // 15일 칸을 누르면 그 날의 둘이 선다.
-        let cell = app.buttons.matching(NSPredicate(format: "label BEGINSWITH '15일'")).firstMatch
-        XCTAssertTrue(cell.waitForExistence(timeout: 5), "15일 칸이 없다")
+        // 오늘 칸을 누르면 그 날의 둘이 선다 (씨앗의 일정은 오늘 기준).
+        let day = Calendar.current.component(.day, from: Date())
+        let cell = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "\(day)일")).firstMatch
+        XCTAssertTrue(cell.waitForExistence(timeout: 5), "\(day)일 칸이 없다")
         cell.tap()
         XCTAssertTrue(app.staticTexts["치과 예약 — 강남역 3번 출구"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["회의 자료 보내기"].exists)
@@ -606,15 +641,25 @@ final class SmokeTests: XCTestCase {
         return target
     }
 
-    /// 맥 형식 그대로의 파일 몇 장 — 2026-09 기준.
+    /// 맥 형식 그대로의 파일 몇 장 — id·created 는 2026-09 에 박혀 있고, **일정은 오늘 기준**이다.
+    ///
+    /// 처음엔 일정도 9월 14·15일에 박혀 있었다 — 이틀 뒤 `Tidy`(지난 일정은 다음 날이 끝나면 물러난다)가
+    /// 셋을 목록에서 걷어 가서 「나머지 5장」이 「2장」이 됐다. 씨앗은 시험을 쓴 날의 모습(어제 지난 것 하나,
+    /// 오늘 것 둘)을 **날마다 다시 만든다.**
     private func seed() throws {
         let notes = root.appending(path: "vault/notes/2026/09", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: notes, withIntermediateDirectories: true)
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+        let dentist = calendar.date(bySettingHour: 15, minute: 0, second: 0, of: today)!
+        let dayOnly = Date.ISO8601FormatStyle(timeZone: .current).year().month().day()
+        let clock = Date.ISO8601FormatStyle(timeZone: .current)
         // id 의 시각과 폴더(2026/09)가 맞아야 한다 — 앱은 id 의 시각으로 자리를 정한다.
         let memos: [(String, String, String, String, Bool, String?)] = [
-            (Self.ulid(day: 10, tail: "AA"), "장보기\n우유, 계란, 두부", "due: 2026-09-14\n", "yellow", false, nil),
-            (Self.ulid(day: 11, tail: "AB"), "치과 예약 — 강남역 3번 출구", "at: 2026-09-15T15:00:00+09:00\nplace: 강남역\n", "blue", false, nil),
-            (Self.ulid(day: 12, tail: "AC"), "회의 자료 보내기", "due: 2026-09-15\n", "green", false, "일"),
+            (Self.ulid(day: 10, tail: "AA"), "장보기\n우유, 계란, 두부", "due: \(yesterday.formatted(dayOnly))\n", "yellow", false, nil),
+            (Self.ulid(day: 11, tail: "AB"), "치과 예약 — 강남역 3번 출구", "at: \(dentist.formatted(clock))\nplace: 강남역\n", "blue", false, nil),
+            (Self.ulid(day: 12, tail: "AC"), "회의 자료 보내기", "due: \(today.formatted(dayOnly))\n", "green", false, "일"),
             (Self.ulid(day: 13, tail: "AD"), "읽을 것: 설계 문서", "", "gray", true, "읽을 것"),
             (Self.ulid(day: 14, tail: "AE"), "집 — 전구 갈기", "", "pink", false, "집"),
             (Self.ulid(day: 9, tail: "AF"), "동선 — 먼저 보고 @홍대입구 로 이동", "place: 강남역\n", "purple", false, nil),

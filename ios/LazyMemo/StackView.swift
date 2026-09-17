@@ -69,7 +69,7 @@ struct StackView: View {
                 if let assistant, pen.pendingQuestion == nil { assistantBlock(assistant) }
 
                 if !nowCards.isEmpty {
-                    NowBand(cards: nowCards, now: clock, open: open, putDown: putDown, pin: pin, delete: delete)
+                    NowBand(cards: nowCards, now: clock, open: open, putDown: putDown, postpone: postpone, pin: pin, delete: delete)
                 }
 
                 // 조용히 지나가면 안 되는 실패 — 저장이 안 되고 있으면 여기 선다.
@@ -139,14 +139,23 @@ struct StackView: View {
                         Button(role: .destructive) { delete(memo) } label: { Label("지우기", systemImage: "trash") }
                     }
                     .swipeActions(edge: .leading) {
+                        // 일정이 있으면 미루기가 앞이다 — 같은 메모가 달력 탭에서는 밀기 한 번인데 여기서는
+                        // 편집 → 달력 → 시트였다 (2026-09-17 편의성 감사 §2.1). 낱말도 방향도 달력 탭과 같다.
+                        if memo.isScheduled {
+                            Button { postpone(memo) } label: { Label("미루기", systemImage: "arrow.right") }
+                                .tint(Theme.accent)
+                        }
                         Button { pin(memo) } label: {
                             Label(memo.pinned ? String(localized: "고정 해제") : String(localized: "고정"), systemImage: memo.pinned ? "pin.slash" : "pin")
                         }
-                        .tint(Theme.accent)
+                        .tint(memo.isScheduled ? Theme.highlightInk : Theme.accent)
                     }
                     .contextMenu {
                         Button { pin(memo) } label: {
                             Label(memo.pinned ? String(localized: "고정 해제") : String(localized: "고정"), systemImage: memo.pinned ? "pin.slash" : "pin")
+                        }
+                        if memo.isScheduled {
+                            Button { postpone(memo) } label: { Label("하루 미루기", systemImage: "arrow.right") }
                         }
                         if !folders.names.isEmpty || memo.folder != nil {
                             Menu {
@@ -162,6 +171,7 @@ struct StackView: View {
                     }
                     .accessibilityActions {
                         Button(memo.pinned ? String(localized: "고정 해제") : String(localized: "고정")) { pin(memo) }
+                        if memo.isScheduled { Button("하루 미루기") { postpone(memo) } }
                         Button("달력에 놓기") { dating = memo.id }
                         Button("지우기") { delete(memo) }
                     }
@@ -251,7 +261,13 @@ struct StackView: View {
                 clock = Date()
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in clock = Date() }
+        // 앞으로 올 때 「봤어요」의 기억도 다시 읽는다 — 배너의 단추가 배경에서 적었을 수 있다 (`ReminderCenter`).
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            clock = Date()
+            seen = NowSeen.load()
+        }
+        // 앞에 있는 동안 배너에서 눌렀을 때는 앞으로 오는 순간이 없다 — 센터가 오른 수를 보고 읽는다.
+        .onChange(of: reminders.seenVersion) { _, _ in withAnimation(.snappy) { seen = NowSeen.load() } }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in clock = Date() }
         // 폴더를 지우는 것은 되돌릴 수 없다 (이름표가 떨어진다) — 한 번 묻는다.
         .confirmationDialog(
@@ -632,6 +648,20 @@ struct StackView: View {
 
     private func pin(_ memo: Memo) {
         Task { _ = try? await store.update(memo.id, pinned: !memo.pinned) }
+    }
+
+    /// 하루 미루기 — 달력 탭의 것과 같은 규칙 (`Schedule.postponed`): 지난 것도 내일보다 이르게 떨어지지 않는다.
+    /// 되돌리기는 시스템이 한다 — 달력 탭과 같은 이름 「9월 18일로 옮기기」.
+    private func postpone(_ memo: Memo) {
+        let before = Schedule(memo)
+        let after = before.postponed(notBefore: CalendarDate(clock))
+        guard after != before, let day = after.day() else { return }
+        Task {
+            _ = try? await store.update(memo.id, due: .some(after.due), at: .some(after.at))
+            Undo.register(String(localized: "\(DateWords.monthDay(day))로 옮기기"), on: undoManager, reveal: reveal, id: memo.id) {
+                _ = try? await store.update(memo.id, due: .some(before.due), at: .some(before.at))
+            }
+        }
     }
 
     /// 「봤어요」 — 이 등장의 이름표를 적어 둔다. 시각을 미루거나 날이 바뀌면 다시 오른다.

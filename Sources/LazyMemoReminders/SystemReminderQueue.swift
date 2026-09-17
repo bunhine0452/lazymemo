@@ -18,6 +18,7 @@ import UserNotifications
 
     var onTap: ((String) -> Void)?
     var onAskRoute: ((String) -> Void)?
+    var onAction: ((ReminderAction, String, Date) -> Void)?
     private let center = UNUserNotificationCenter.current()
     private nonisolated static let memoKey = "memo"
     private nonisolated static let dateKey = "date"
@@ -25,6 +26,23 @@ import UserNotifications
     override init() {
         super.init()
         center.delegate = self
+        // 배너의 단추. 앱이 뜰 때마다 같은 것을 다시 등록해도 된다 — 표가 곧 진실이다.
+        center.setNotificationCategories(Set(ReminderCategory.allCases.map(Self.category)))
+    }
+
+    /// 종류 하나의 단추 묶음. 앱을 열어야 하는 것(지도)만 앞으로 데려온다 — 나머지는 배너에서 끝난다.
+    private static func category(_ category: ReminderCategory) -> UNNotificationCategory {
+        UNNotificationCategory(
+            identifier: category.rawValue,
+            actions: category.actions.map { action in
+                UNNotificationAction(
+                    identifier: action.rawValue, title: action.title,
+                    options: action.opensApp ? [.foreground] : [],
+                    icon: UNNotificationActionIcon(systemImageName: action.symbol)
+                )
+            },
+            intentIdentifiers: []
+        )
     }
 
     func authorization() async -> ReminderAuthorization {
@@ -45,7 +63,8 @@ import UserNotifications
             guard let seconds = request.content.userInfo[Self.dateKey] as? Double else { return nil }
             return ReminderRequest(
                 id: request.identifier, title: request.content.title, body: request.content.body,
-                date: Date(timeIntervalSince1970: seconds)
+                date: Date(timeIntervalSince1970: seconds),
+                category: ReminderCategory(rawValue: request.content.categoryIdentifier) ?? .recall
             )
         }
     }
@@ -55,6 +74,7 @@ import UserNotifications
         content.title = request.title
         content.body = request.body
         content.sound = .default
+        content.categoryIdentifier = request.category.rawValue
         content.userInfo = [
             Self.memoKey: String(request.id.dropFirst(ReminderCenter.prefix.count)),
             Self.dateKey: request.date.timeIntervalSince1970,
@@ -97,9 +117,14 @@ import UserNotifications
         let info = response.notification.request.content.userInfo
         let raw = info[Self.memoKey] as? String
         let asksRoute = info[RouteAsk.askKey] as? String == RouteAsk.askValue
-        if let raw {
+        // 걸려 있던 시각 — 「봤어요」의 이름표. 없으면 온 시각.
+        let fired = (info[Self.dateKey] as? Double).map { Date(timeIntervalSince1970: $0) } ?? response.notification.date
+        let action = ReminderAction(rawValue: response.actionIdentifier)
+        // 쓸어서 지운 것은 아무 뜻도 아니다.
+        let dismissed = response.actionIdentifier == UNNotificationDismissActionIdentifier
+        if let raw, !dismissed {
             Task { @MainActor [weak self] in
-                if asksRoute { self?.onAskRoute?(raw) } else { self?.onTap?(raw) }
+                if let action { self?.onAction?(action, raw, fired) } else if asksRoute { self?.onAskRoute?(raw) } else { self?.onTap?(raw) }
             }
         }
         completionHandler()

@@ -83,15 +83,14 @@ final class DemoTests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         pause(1.0)
 
-        // 5. 치과 메모를 열어 다시 볼 시각을 정한다 — 종 → 한 시간 뒤 → 이때 다시 보기.
+        // 5. 치과 메모를 열어 다시 볼 시각을 정한다 — 종 → 한 시간 뒤. 칩 하나로 저장되고 닫힌다.
         row(in: app, startingWith: "치과 예약").tap()
         pause(1.0)
         app.buttons["recall-button"].tap()
         XCTAssertTrue(app.buttons["recall-save"].waitForExistence(timeout: 5))
         pause(1.1)
         app.buttons["한 시간 뒤"].tap()
-        pause(0.8)
-        app.buttons["recall-save"].tap()
+        XCTAssertTrue(app.buttons["recall-save"].waitForNonExistence(timeout: 5), "칩을 누르면 저장되고 시트가 닫혀야 한다")
         pause(0.7)
         app.navigationBars.buttons.element(boundBy: 0).tap()
 

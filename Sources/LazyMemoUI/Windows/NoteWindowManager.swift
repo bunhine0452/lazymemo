@@ -337,6 +337,16 @@ final class NoteWindowManager {
         }
     }
 
+    /// 꺼내 놓았던 종이 **한 장**을 내린다 — 배너의 「봤어요」(`ReminderCenter.onSeen`).
+    ///
+    /// 하루의 끝을 기다리지 않고 본 사람이 내린다. 규칙만으로도 바탕화면에 있을 종이(날짜 없는 것)는
+    /// 그대로 둔다 — 그것은 나온 것이 아니라 원래 거기 있던 것이다.
+    func lower(_ id: ULID) {
+        guard surfaced.remove(id) != nil, !isVisibleByRule(id) else { return }
+        guard let controller = controllers.removeValue(forKey: id) else { return }
+        Task { await controller.teardown() }
+    }
+
     /// 꺼내 준 것과 상관없이, 규칙만으로도 이 종이가 바탕화면에 있는가.
     private func isVisibleByRule(_ id: ULID) -> Bool {
         guard let memo = store.memo(id) else { return false }

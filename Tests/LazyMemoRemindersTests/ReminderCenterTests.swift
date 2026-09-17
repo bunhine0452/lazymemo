@@ -1,5 +1,6 @@
 import Foundation
 import LazyMemoCore
+import LazyMemoWidgetsCore
 import Testing
 @testable import LazyMemoReminders
 
@@ -8,6 +9,7 @@ import Testing
 final class FakeQueue: ReminderQueue {
     var onTap: ((String) -> Void)?
     var onAskRoute: ((String) -> Void)?
+    var onAction: ((ReminderAction, String, Date) -> Void)?
     var status: ReminderAuthorization = .undecided
     var answer = true
     var requests: [ReminderRequest] = []
@@ -337,5 +339,120 @@ struct ReminderCenterTests {
 
         queue.onTap?("not-a-ulid")
         #expect(opened == memo.id)
+    }
+
+    // MARK: 배너의 단추
+
+    @Test("가는 길이 적힌 약속은 출발 알림이고, 나머지는 다시 보기 알림이다 — 단추가 다르다")
+    func categoryFollowsDepartureLine() async throws {
+        let (center, queue, store, paths) = try make()
+        defer { cleanUp(paths) }
+        let at = soon(90)
+        let plain = try await store.create(body: "회의", at: at)
+        let hour = Calendar.current.component(.hour, from: at), minute = Calendar.current.component(.minute, from: at)
+        let clock = String(format: "%02d:%02d", hour, minute)
+        let routed = try await store.create(
+            body: "밥약속\n\n## 가는 길\n강남역 → 잠실 · 14분 · \(clock) 출발 · \(clock) 도착 · 1,550원\n- 지하철 2호선 강남역 → 잠실새내역 · 9분 · 5정거장 · 외선순환 방면 · \(clock) 승차\n",
+            at: at
+        )
+        #expect(Recall.departureLine(routed) != nil)
+        center.start(store: store)
+        await center.settle()
+
+        let byID = Dictionary(uniqueKeysWithValues: queue.requests.map { ($0.id, $0) })
+        #expect(byID["recall." + plain.id.stringValue]?.category == .recall)
+        #expect(byID["recall." + routed.id.stringValue]?.category == .departure)
+        #expect(ReminderCategory.recall.actions == [.hourLater, .tomorrowMorning, .seen])
+        #expect(ReminderCategory.departure.actions == [.tenMinutesLater, .openMap])
+    }
+
+    @Test("「한 시간 뒤」는 다시 볼 시각을 파일에 적고 예약을 그 시각으로 옮긴다")
+    func snoozeMovesSurface() async throws {
+        let (center, queue, store, paths) = try make()
+        defer { cleanUp(paths) }
+        let memo = try await store.create(body: "회의", at: soon(30))
+        center.start(store: store)
+        await center.settle()
+
+        let pressed = Date()
+        queue.onAction?(.hourLater, memo.id.stringValue, soon(30))
+        await center.settle()
+        // `apply` 의 Task 가 저장소를 고친 뒤 refresh 를 부른다 — 그것까지 기다린다.
+        for _ in 0..<50 where store.memo(memo.id)?.surface == nil { await Task.yield() }
+        await center.settle()
+
+        let surface = try #require(store.memo(memo.id)?.surface)
+        #expect(abs(surface.timeIntervalSince(pressed.addingTimeInterval(3600))) < 5)
+        let request = try #require(queue.requests.first { $0.id == "recall." + memo.id.stringValue })
+        #expect(abs(request.date.timeIntervalSince(surface)) < 1)
+    }
+
+    @Test("저장소가 붙기 전에 누른 「내일 아침」은 누른 시각 기준으로 담아 두었다가 붙는 순간 적용한다")
+    func snoozeBeforeStoreIsKeptWithItsTime() async throws {
+        let (center, queue, store, paths) = try make()
+        defer { cleanUp(paths) }
+        let memo = try await store.create(body: "회의", at: soon(30))
+
+        queue.onAction?(.tomorrowMorning, memo.id.stringValue, soon(30))
+        #expect(store.memo(memo.id)?.surface == nil)
+        let expected = Snooze.tomorrowMorning()
+
+        center.start(store: store)
+        for _ in 0..<50 where store.memo(memo.id)?.surface == nil { await Task.yield() }
+        await center.settle()
+        #expect(store.memo(memo.id)?.surface == expected)
+    }
+
+    @Test("「봤어요」는 이 기기의 기억에 그 등장의 이름표를 적고 화면의 손을 부른다")
+    func seenMarksNowSeen() async throws {
+        let (center, queue, store, paths) = try make()
+        defer { cleanUp(paths) }
+        let memo = try await store.create(body: "회의", at: soon(30))
+        // 배너가 들고 있는 시각은 걸 때의 `surfacesAt` 그대로다 (`SystemReminderQueue` 의 userInfo).
+        let fired = try #require(memo.surfacesAt)
+        var lowered: ULID?
+        center.onSeen = { lowered = $0 }
+        defer { NowSeen.save([:]) }
+
+        queue.onAction?(.seen, memo.id.stringValue, fired)
+
+        #expect(lowered == memo.id)
+        let stamp = try #require(NowSeen.load()[memo.id])
+        #expect(abs(stamp.timeIntervalSince(fired)) < 1)
+        // 띠가 그 카드를 내려놓는 값과 같다 — 시각이 있는 카드의 이름표는 그 시각이다.
+        let cards = Recall.nowCards(store.memos, now: Date(), seen: NowSeen.load())
+        #expect(!cards.contains { $0.id == memo.id })
+    }
+
+    @Test("「지도 열기」는 화면의 손이 설 때까지 기다린다")
+    func openMapWaitsForScreen() async throws {
+        let (center, queue, store, paths) = try make()
+        defer { cleanUp(paths) }
+        let memo = try await store.create(body: "밥약속", at: soon(30))
+
+        queue.onAction?(.openMap, memo.id.stringValue, soon(30))
+        var opened: ULID?
+        center.onOpenMap = { opened = $0 }
+        #expect(opened == memo.id)
+
+        // 손이 서 있으면 바로.
+        opened = nil
+        queue.onAction?(.openMap, memo.id.stringValue, soon(30))
+        #expect(opened == memo.id)
+    }
+
+    @Test("미루기의 시각 — 배너와 창이 같은 값을 쓴다")
+    func snoozePresets() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        #expect(Snooze.date(for: .hourLater, now: now) == now.addingTimeInterval(3600))
+        #expect(Snooze.date(for: .tenMinutesLater, now: now) == now.addingTimeInterval(600))
+        let morning = try? #require(Snooze.date(for: .tomorrowMorning, now: now))
+        if let morning {
+            let parts = Calendar.current.dateComponents([.hour, .minute], from: morning)
+            #expect(parts.hour == 9 && parts.minute == 0)
+            #expect(morning > now && morning.timeIntervalSince(now) <= 33 * 3600)
+        }
+        #expect(Snooze.date(for: .seen, now: now) == nil)
+        #expect(Snooze.date(for: .openMap, now: now) == nil)
     }
 }

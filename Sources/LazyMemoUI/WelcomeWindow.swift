@@ -43,6 +43,8 @@ struct WelcomeView: View {
     @State private var saved = false
     @State private var scheduled = L("내일 오후 3시 치과")
     @State private var tucked = false
+    /// 「로그인할 때 시작」 — 화면은 실제 상태를 말한다 (`LoginItem`). 켜는 것은 사람이다.
+    @State private var startsAtLogin = LoginItem.isEnabled
 
     init(shortcut: String = "⌥⌘N", onCapture: @escaping () -> Void = {},
          onCalendar: @escaping () -> Void = {}, onDrawer: @escaping () -> Void = {},
@@ -161,6 +163,25 @@ struct WelcomeView: View {
                 Label(L("오른쪽 클릭 → 달력 · 서랍 · 설정"), systemImage: "menubar.arrow.up.rectangle")
                 Label(L("\(shortcut) → 어디서든 한 줄 적기"), systemImage: "keyboard")
                 Divider()
+                // 이 앱은 켜져 있지 않으면 아무것도 아니다 — 그 스위치를 설정 메뉴 아홉째 줄에만 두면
+                // 게으른 사람은 영영 못 만난다. 첫 실행이 한 번 내민다 (2026-09-17 편의성 감사 §2.3).
+                // HIG Menu bar extras: "To ensure discoverability… consider giving people the option… during setup."
+                // 권한을 묻지 않는 스위치(`SMAppService`)라 「첫 실행에 아무것도 묻지 않는다」와 부딪히지 않는다.
+                if LoginItem.isAvailable {
+                    Toggle(isOn: $startsAtLogin) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(L("로그인할 때 시작"))
+                            Text(L("껐다 켜도 종이가 그대로 떠 있어요. 언제든 설정에서 바꿀 수 있어요."))
+                                .font(.system(size: 11)).foregroundStyle(.secondary)
+                        }
+                    }
+                    .toggleStyle(.checkbox)
+                    .onChange(of: startsAtLogin) { _, on in
+                        // 실패하면 체크가 도로 풀린다 — 화면이 실제 상태를 말한다.
+                        if !LoginItem.set(on) { startsAtLogin = LoginItem.isEnabled }
+                    }
+                    .accessibilityIdentifier("welcome-login-item")
+                }
                 Text(L("메모는 내 Mac에 저장돼요. 가입 없이 바로 시작하세요.")).foregroundStyle(.secondary)
             }
             if step < 3 {

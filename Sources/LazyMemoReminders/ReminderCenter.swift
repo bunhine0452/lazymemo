@@ -1,5 +1,6 @@
 import Foundation
 import LazyMemoCore
+import LazyMemoWidgetsCore
 import Observation
 
 /// 이 기기의 알림 — 켜고 끄는 것도, 걸어 둔 예약도 **이 기기의 것**이다.
@@ -22,6 +23,19 @@ import Observation
 /// OS 큐를 읽는 것은 `await` 다. 그 사이 저장소가 바뀌면 방금 센 집합은 이미
 /// 낡은 것이라, 큐에 손대기 전에 버리고 처음부터 다시 센다 (`dirty`). 대조는
 /// 한 번에 하나만 돌고, 도는 동안 들어온 변경은 다음 회차가 맡는다.
+///
+/// ## 배너에서 끝난다
+///
+/// 배너가 울린 순간이 곧 「지금 볼까, 나중에 볼까」를 정하는 순간인데, 할 수 있는 것이
+/// 열기뿐이면 미루는 데 다섯 번의 손이 든다 — 열고, 우클릭하고, 창을 띄우고, 칩을 누르고,
+/// 저장한다 (2026-09-17 편의성 감사 §2.1). 그래서 배너에 단추를 단다 (`ReminderAction`):
+/// 「한 시간 뒤」「내일 아침 9시」「봤어요」, 출발 알림에는 「10분 뒤」「지도 열기」.
+/// 미루기는 `surface` 를 고치는 것이라 파일에 적히고 다른 기기도 같은 것을 본다.
+///
+/// 앱이 꺼진 채 단추를 눌렀을 수 있다 — 폰은 배경에서 잠깐 깨우고 저장소는 열리지 않는다.
+/// 그래서 저장소가 필요한 것은 **정해진 시각째로** 적어 두었다가(`pendingActions`, defaults)
+/// 저장소가 붙을 때 그대로 적용한다. 「한 시간 뒤」는 누른 순간의 한 시간 뒤이지 앱을 다시
+/// 연 시각의 한 시간 뒤가 아니다.
 @MainActor @Observable
 public final class ReminderCenter {
     public static let shared = ReminderCenter(queue: SystemReminderQueue.ifBundled(), defaults: .standard)
@@ -44,6 +58,15 @@ public final class ReminderCenter {
     public var onOpen: ((ULID) -> Void)?
     /// 「어디서 출발하시나요?」 알림을 눌렀다 — 편집 화면이 아니라 펜의 질문이 설 메모 (`RouteAsk`). 화면이 읽고 `nil` 로.
     public var askedRoute: ULID?
+    /// 배너의 「봤어요」 — 이 기기의 기억(`NowSeen`)에는 여기서 적고, 화면이 할 일이 더 있으면 부른다:
+    /// 맥은 나온 종이를 내리고, 폰은 띠의 기억을 다시 읽는다.
+    public var onSeen: ((ULID) -> Void)?
+    /// 「봤어요」가 한 번 적힐 때마다 오른다 — 폰의 띠가 이것을 보고 `NowSeen` 을 다시 읽는다
+    /// (앱이 앞에 있는 동안 배너에서 눌렀을 때는 앞으로 오는 순간이 없다).
+    public private(set) var seenVersion = 0
+    /// 배너의 「지도 열기」 — 어느 지도를 어떻게 열지는 화면이 정한다 (맥은 웹, 폰은 깔린 앱).
+    /// 화면이 아직 없으면 담아 두었다가 이 손이 서는 순간 연다.
+    public var onOpenMap: ((ULID) -> Void)? { didSet { drainPending() } }
     /// 이 실행 파일이 알림을 걸 수 있나. 앱 번들 밖(bare `swift run`·`swift test`)에서는 못 건다.
     public var available: Bool { queue != nil }
 
@@ -53,7 +76,10 @@ public final class ReminderCenter {
     private var running = false
     private var dirty = false
     private var waiting: [CheckedContinuation<Void, Never>] = []
+    /// 저장소나 화면이 없어서 아직 못 한 단추 — defaults 에도 적어 둔다 (배경에서 깬 폰은 곧 잠든다).
+    private var pendingActions: [PendingAction] = [] { didSet { persistPending() } }
     private static let key = "recall.notifications.enabled"
+    private static let pendingKey = "recall.pending-actions"
     nonisolated static let prefix = "recall."
 
     public init(queue: ReminderQueue?, defaults: UserDefaults) {
@@ -68,6 +94,11 @@ public final class ReminderCenter {
             guard let self, let id = ULID(raw) else { return }
             askedRoute = id
         }
+        queue?.onAction = { [weak self] action, raw, fired in
+            guard let self, let id = ULID(raw) else { return }
+            handle(action, for: id, fired: fired)
+        }
+        pendingActions = Self.loadPending(from: defaults)
     }
 
     /// 저장소를 붙이고 첫 대조를 돈다. 두 번 불러도 붙인 저장소는 그대로다.
@@ -75,7 +106,86 @@ public final class ReminderCenter {
         guard self.store == nil else { refresh(); return }
         self.store = store
         observe()
+        drainPending()
         refresh()
+    }
+
+    // MARK: 배너의 단추
+
+    /// 단추 하나를 받는다. 지금 할 수 있으면 하고, 아니면 담아 둔다.
+    ///
+    /// `fired` 는 그 알림이 걸려 있던 시각 — 「봤어요」의 이름표다 (`Recall.Card.stamp` 와 같은 값이라
+    /// 폰의 「지금」 띠와 위젯이 그 카드를 내려놓는다). 저장소 없이도 적을 수 있어 배경에서 깬 폰도 된다.
+    public func handle(_ action: ReminderAction, for id: ULID, fired: Date, now: Date = Date()) {
+        switch action {
+        case .seen:
+            var seen = NowSeen.load()
+            seen[id] = fired
+            NowSeen.save(seen, now: now)
+            seenVersion += 1
+            onSeen?(id)
+        case .openMap:
+            if let onOpenMap { onOpenMap(id) } else { pendingActions.append(.init(action: action, memo: id, until: nil)) }
+        case .hourLater, .tenMinutesLater, .tomorrowMorning:
+            guard let until = Snooze.date(for: action, now: now) else { return }
+            apply(.init(action: action, memo: id, until: until))
+        }
+    }
+
+    /// 담아 둔 것 중 지금 할 수 있는 것을 한다 — 저장소가 붙거나 화면의 손이 설 때.
+    private func drainPending() {
+        guard !pendingActions.isEmpty else { return }
+        let waiting = pendingActions
+        pendingActions.removeAll()
+        for item in waiting { apply(item) }
+    }
+
+    private func apply(_ item: PendingAction) {
+        guard let id = item.memo else { return }
+        switch item.action {
+        case .openMap:
+            if let onOpenMap { onOpenMap(id) } else { pendingActions.append(item) }
+        case .hourLater, .tenMinutesLater, .tomorrowMorning:
+            guard let until = item.until else { return }
+            guard let store else { pendingActions.append(item); return }
+            // 지운 메모의 단추는 늦게 온 것일 수 있다 — 조용히 버린다.
+            guard store.memo(id) != nil else { return }
+            Task {
+                _ = try? await store.update(id, surface: .some(until))
+                refresh()
+            }
+        case .seen:
+            break
+        }
+    }
+
+    private struct PendingAction: Codable, Equatable {
+        let action: ReminderAction
+        /// 메모 id 문자열 — `ULID` 는 Codable 이 아니라 글자로 둔다.
+        let memoID: String
+        /// 미룰 시각 — 누른 순간에 정한 것. 지도는 없다.
+        let until: Date?
+
+        init(action: ReminderAction, memo: ULID, until: Date?) {
+            self.action = action
+            self.memoID = memo.stringValue
+            self.until = until
+        }
+
+        var memo: ULID? { ULID(memoID) }
+    }
+
+    private func persistPending() {
+        if pendingActions.isEmpty {
+            defaults.removeObject(forKey: Self.pendingKey)
+        } else if let data = try? JSONEncoder().encode(pendingActions) {
+            defaults.set(data, forKey: Self.pendingKey)
+        }
+    }
+
+    private static func loadPending(from defaults: UserDefaults) -> [PendingAction] {
+        guard let data = defaults.data(forKey: pendingKey) else { return [] }
+        return (try? JSONDecoder().decode([PendingAction].self, from: data)) ?? []
     }
 
     private func observe() {
@@ -178,7 +288,9 @@ public final class ReminderCenter {
                 id: Self.prefix + item.id.stringValue,
                 title: item.title,
                 body: item.body ?? L("다시 볼 시간이에요. 눌러서 메모를 펼치세요."),
-                date: item.date
+                date: item.date,
+                // 가는 길이 적힌 약속의 알림은 출발 알림이다 — 단추가 다르다.
+                category: item.body == nil ? .recall : .departure
             )
             if pending.contains(request) { count += 1; continue }
             do {
@@ -204,12 +316,91 @@ public struct ReminderRequest: Sendable, Equatable {
     public let title: String
     public let body: String
     public let date: Date
+    /// 어떤 단추를 다는가.
+    public let category: ReminderCategory
 
-    public init(id: String, title: String, body: String, date: Date) {
+    public init(id: String, title: String, body: String, date: Date, category: ReminderCategory = .recall) {
         self.id = id
         self.title = title
         self.body = body
         self.date = date
+        self.category = category
+    }
+}
+
+/// 배너의 단추 — 앱을 열지 않고 그 자리에서 끝나는 것.
+///
+/// HIG Notifications: "Prefer actions that let people perform common, time-saving tasks that eliminate
+/// the need to open your app." / "Avoid providing an action that merely opens your app." 그래서 「열기」
+/// 단추는 없다 — 배너를 누르는 것이 열기다.
+public enum ReminderAction: String, CaseIterable, Sendable, Codable {
+    /// 한 시간 뒤에 다시.
+    case hourLater = "hour-later"
+    /// 10분 뒤에 다시 — 출발 알림의 「조금만 더」.
+    case tenMinutesLater = "ten-minutes-later"
+    /// 내일 아침 9시에 다시.
+    case tomorrowMorning = "tomorrow-morning"
+    /// 봤어요 — 폰의 「지금」 띠와 위젯에서 내려가고, 맥은 나온 종이가 내려간다.
+    case seen
+    /// 지도 열기 — 출발 알림에서 길을 지도 앱으로. 폰은 앱이 앞으로 와야 다른 앱을 열 수 있다.
+    case openMap = "open-map"
+
+    /// 단추에 적히는 말. 짧게 — 길면 잘린다.
+    public var title: String {
+        switch self {
+        case .hourLater: L("한 시간 뒤")
+        case .tenMinutesLater: L("10분 뒤")
+        case .tomorrowMorning: L("내일 아침 9시")
+        case .seen: L("봤어요")
+        case .openMap: L("지도 열기")
+        }
+    }
+
+    /// 단추의 그림 — "An interface icon reinforces an action's meaning" (HIG Notifications).
+    public var symbol: String {
+        switch self {
+        case .hourLater: "clock.arrow.circlepath"
+        case .tenMinutesLater: "clock"
+        case .tomorrowMorning: "sunrise"
+        case .seen: "checkmark"
+        case .openMap: "map"
+        }
+    }
+
+    /// 앱을 앞으로 데려와야 하는가. 지도는 다른 앱을 여는 일이라 폰에서는 앞에 있어야 한다.
+    public var opensApp: Bool { self == .openMap }
+}
+
+/// 알림의 종류 — 단추 묶음이 다르다.
+public enum ReminderCategory: String, CaseIterable, Sendable {
+    /// 다시 볼 시각.
+    case recall
+    /// 출발 시각 — 가는 길이 적힌 약속 (`Recall.departureLine`).
+    case departure
+
+    public var actions: [ReminderAction] {
+        switch self {
+        case .recall: [.hourLater, .tomorrowMorning, .seen]
+        case .departure: [.tenMinutesLater, .openMap]
+        }
+    }
+}
+
+/// 미루기의 시각 — 배너의 단추와 「다시 보기」 창의 칩이 같은 값을 쓴다.
+public enum Snooze {
+    public static func tomorrowMorning(now: Date = Date(), calendar: Calendar = .current) -> Date {
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now
+        return calendar.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrow) ?? tomorrow
+    }
+
+    /// 이 단추가 정하는 시각. 미루는 단추가 아니면 nil.
+    public static func date(for action: ReminderAction, now: Date = Date(), calendar: Calendar = .current) -> Date? {
+        switch action {
+        case .hourLater: now.addingTimeInterval(3600)
+        case .tenMinutesLater: now.addingTimeInterval(600)
+        case .tomorrowMorning: tomorrowMorning(now: now, calendar: calendar)
+        case .seen, .openMap: nil
+        }
     }
 }
 
@@ -219,6 +410,8 @@ public struct ReminderRequest: Sendable, Equatable {
     var onTap: ((String) -> Void)? { get set }
     /// 「어디서 출발하시나요?」 알림을 눌렀다 — 메모 id 문자열 (`RouteAsk`).
     var onAskRoute: ((String) -> Void)? { get set }
+    /// 배너의 단추를 눌렀다 — 단추, 메모 id 문자열, 그 알림이 걸려 있던 시각.
+    var onAction: ((ReminderAction, String, Date) -> Void)? { get set }
     func authorization() async -> ReminderAuthorization
     /// 시스템 창을 띄운다. 이미 답했으면 그 답을 그대로 돌려준다.
     func requestAuthorization() async throws -> Bool

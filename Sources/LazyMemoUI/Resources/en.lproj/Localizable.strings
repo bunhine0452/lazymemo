@@ -424,3 +424,4 @@
 "정리해서 남기기" = "Tidy and keep";
 "기존 메모에 붙이기" = "Add to a memo";
 "「%@」에 붙이기" = "Add to “%@”";
+"껐다 켜도 종이가 그대로 떠 있어요. 언제든 설정에서 바꿀 수 있어요." = "Your notes are still up after a restart. You can change this in Settings anytime.";

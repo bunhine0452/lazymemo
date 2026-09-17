@@ -13,6 +13,26 @@ enum MapApp: String, CaseIterable, Identifiable {
     case kakao, naver, apple
     var id: String { rawValue }
 
+    /// 적힌 길을 깔린 지도 앱으로 — 네이버 → 카카오 → 웹의 카카오맵. 애플 지도는 한국의 대중교통을 모른다.
+    /// 종이의 카드(`MemoEditorView`)와 배너의 「지도 열기」(`ReminderCenter.onOpenMap`)가 같은 길을 쓴다.
+    static func openRoute(_ route: TransitRoute, destination geo: Coordinate?) {
+        let app = UIApplication.shared
+        let appName = Bundle.main.bundleIdentifier ?? "lazymemo"
+        if let geo {
+            if let probe = URL(string: "nmap://open"), app.canOpenURL(probe),
+               let url = RouteLinks.naverApp(route, destination: geo, appName: appName) { app.open(url); return }
+            if let probe = URL(string: "kakaomap://open"), app.canOpenURL(probe),
+               let url = RouteLinks.kakaoApp(route, destination: geo) { app.open(url); return }
+        }
+        if let url = RouteLinks.kakaoWeb(route) { app.open(url) }
+    }
+
+    /// 메모에 적힌 길을 연다. 길이 없으면 아무 일도 없다.
+    static func openRoute(in memo: Memo) {
+        guard let at = memo.at, let route = RouteNote.read(memo.body, day: at) else { return }
+        openRoute(route, destination: memo.geo)
+    }
+
     var label: String {
         switch self {
         case .kakao: String(localized: "카카오맵")

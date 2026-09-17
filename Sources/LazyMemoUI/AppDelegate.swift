@@ -2,6 +2,7 @@ import AppKit
 import LazyMemoAssistant
 import LazyMemoAssistantUI
 import LazyMemoCore
+import LazyMemoPlaces
 import LazyMemoReminders
 import LazyMemoSpotlight
 import LazyMemoWidgetsCore
@@ -168,6 +169,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             dueClock.start()
             // 알림을 누르면 그 종이를 앞으로 — 보는 일이지 자리를 옮기는 일이 아니다 (keepingPlace).
             ReminderCenter.shared.onOpen = { [weak windows] id in windows?.reveal(id, keepingPlace: true) }
+            // 배너의 단추 — 「봤어요」는 나온 종이를 내리고, 「지도 열기」는 웹의 카카오맵으로 (종이의 카드와 같은 길).
+            ReminderCenter.shared.onSeen = { [weak windows] id in windows?.lower(id) }
+            ReminderCenter.shared.onOpenMap = { [weak store] id in
+                guard let memo = store?.memo(id), let at = memo.at,
+                      let route = RouteNote.read(memo.body, day: at), let url = RouteLinks.kakaoWeb(route)
+                else { return }
+                NSWorkspace.shared.open(url)
+            }
             ReminderCenter.shared.start(store: store)
             if let id = ReminderCenter.shared.opened {
                 ReminderCenter.shared.opened = nil

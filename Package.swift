@@ -50,7 +50,8 @@ let package = Package(
         // 두지 않는 이유는 MCP 서버·테스트까지 UserNotifications 를 들지 않게 하려는 것.
         .target(
             name: "LazyMemoReminders",
-            dependencies: ["LazyMemoCore"],
+            // WidgetsCore 는 「봤어요」의 기억(`NowSeen`) 때문 — 배너의 단추가 띠·위젯과 같은 것을 내려놓는다.
+            dependencies: ["LazyMemoCore", "LazyMemoWidgetsCore"],
             path: "Sources/LazyMemoReminders",
             resources: [.process("Resources")]
         ),

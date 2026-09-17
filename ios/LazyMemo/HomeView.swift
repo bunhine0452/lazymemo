@@ -45,6 +45,12 @@ struct HomeView: View {
     /// 비서의 「끝났다」 신호가 버려진 펜으로 가서 답이 목록에 서지 않았다 (2026-09-16 시뮬레이터에서 봤다).
     private func attachAssistant() {
         pen.assistant = session.assistant
+        // 배너의 「지도 열기」 — 앱이 앞으로 온 뒤 종이의 카드와 같은 길로 지도 앱을 연다.
+        // 화면이 서기 전에 눌렀으면 센터가 담아 두었다가 이 손이 서는 순간 연다.
+        reminders.onOpenMap = { [store = session.store] id in
+            guard let memo = store.memo(id) else { return }
+            MapApp.openRoute(in: memo)
+        }
         // 약속을 남기면 가는 길을 묻는다 — 「지금 여기」는 펜의 위치 단추와 같은 길로 잰다.
         guard pen.planner == nil else { return }
         let planner = RoutePlanner(store: session.store, settings: { [settings = session.settings] in settings.current })
