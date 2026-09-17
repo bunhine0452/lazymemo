@@ -24,7 +24,9 @@ final class PenModel {
             // 글을 다 지우면 끈 칩도 잊는다 — 다음 글의 날짜가 말없이 안 읽히면 안 된다.
             if text.isEmpty { readsDate = true; readsPlace = true; readsEvery = true }
             // 글을 고치면 답은 물러나고 검색으로 돌아간다 (맥의 상자와 같은 규칙, quick-capture-assistant D9).
-            if shown != nil || asked != nil || assistant?.answer != nil || assistant?.proposal != nil || assistant?.phase == .thinking || assistant?.offersWeb != nil {
+            // **웹의 답은 남는다** — 다음 말이 「메모해」「치과 메모에 추가해줘」처럼 그 답에 대한 것일 수 있다 (`WebFollowUp`).
+            let keepsWeb = assistant?.answer?.isWeb == true && assistant?.phase == .done
+            if !keepsWeb, shown != nil || asked != nil || assistant?.answer != nil || assistant?.proposal != nil || assistant?.phase == .thinking || assistant?.offersWeb != nil {
                 shown = nil
                 listing = .search
                 asked = nil
@@ -95,6 +97,8 @@ final class PenModel {
         if let answer = assistant.answer, answer.isWeb {
             // 웹의 답 — 근거는 메모가 아니라 링크다. 답 카드가 들고, 목록은 검색으로.
             shown = nil; listing = .search
+            // 답을 남기거나 붙였으면 목록에 그 메모가 있어야 한다.
+            if assistant.receipt != nil { Task { await refresh() } }
         } else if let answer = assistant.answer {
             showMemos(answer.found ? answer.evidence : assistant.relatedMemos.map(\.memoID), as: answer.found ? .evidence : .related)
         } else if let proposal = assistant.proposal, AssistantIntent.asksWhichMemo(proposal) {
@@ -139,6 +143,21 @@ final class PenModel {
         draft.forget()
         asked = said
         if !candidates.isEmpty { shown = candidates; listing = .reading }
+    }
+
+    /// 웹의 답이 서 있을 때만 — 답이 없으면 「메모해」는 평소의 말이다.
+    private func webFollowUp(_ text: String) -> WebFollowUp? {
+        guard assistant?.answer?.isWeb == true, assistant?.phase == .done else { return nil }
+        return WebFollowUp.read(text)
+    }
+
+    /// 칩과 단추의 낱말 — 남기기 · 정리해서 남기기 · 붙이기.
+    static func followUpLabel(_ choice: WebFollowUp) -> String {
+        switch choice {
+        case .keep: return String(localized: "메모로 남기기")
+        case .tidy: return String(localized: "정리해서 남기기")
+        case .append(let hint): return hint.map { String(localized: "「\($0)」에 붙이기") } ?? String(localized: "기존 메모에 붙이기")
+        }
     }
 
     /// 메모에서 못 찾은 그 물음을 웹에 — 답 카드의 「웹에서 찾기」. 이때만 질문 낱말이 밖으로 나간다.
@@ -251,6 +270,7 @@ final class PenModel {
         case .asking: return String(localized: "메모에게 묻기")
         case .searching: return String(localized: "웹에서 찾기")
         case .telling: return String(localized: "시키기")
+        case .following(let follow): return Self.followUpLabel(follow)
         case .writing: break
         }
         let note = reading
@@ -260,10 +280,16 @@ final class PenModel {
 
     /// 지금 글이 누구에게 가는가 — 단추의 동사, 칩의 유무, 빈 목록의 한 줄이 이것으로 갈린다.
     /// 「이거」를 들고 있으면 묻는 말이 아닌 것은 전부 그 메모에게 시키는 말이다 — 동사가 없어도 (「금요일 10시」).
-    enum Saying: Equatable { case writing, asking, searching, telling }
+    enum Saying: Equatable {
+        case writing, asking, searching, telling
+        /// 웹의 답에 대한 다음 손짓 — 「메모해」「정리해줘」「치과 메모에 추가해줘」 (`WebFollowUp`).
+        case following(WebFollowUp)
+    }
     var saying: Saying {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard assistant != nil, !trimmed.isEmpty, pending == nil, planner?.isActive != true else { return .writing }
+        // 웹의 답이 서 있을 때의 「메모해」는 그 답을 어떻게 할지 말한 것이다.
+        if let follow = webFollowUp(trimmed) { return .following(follow) }
         // 「웹에서 …」·「… 검색해줘」는 메모를 거치지 않고 바로 웹 — 「알려줘」가 시키는 동사라도 이것이 먼저.
         if AssistantIntent.wantsWeb(trimmed) { return .searching }
         if AssistantIntent.isQuestion(trimmed) { return .asking }
@@ -314,6 +340,12 @@ final class PenModel {
         }
 
         if let assistant {
+            // 웹의 답 뒤의 「메모해」「정리해줘」「치과 메모에 추가해줘」— 그 답을 남기거나 붙인다 (`WebFollowUp`).
+            if let follow = webFollowUp(trimmed) {
+                text = ""; draft.forget()
+                assistant.followUp(follow)
+                return nil
+            }
             // 웹에서 찾기 — 검색은 앱이, 읽기는 모델이. 목록은 그대로다.
             if AssistantIntent.wantsWeb(trimmed) {
                 handOff(trimmed, web: true)

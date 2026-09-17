@@ -53,6 +53,10 @@ public final class AssistantModel {
     public private(set) var applied: ProposedAction?
     /// 메모에서 못 찾은 물음 — 화면이 「웹에서 찾기」를 권하고, 누르면 같은 말을 웹에 한다. 새 말을 하면 잊는다.
     public private(set) var offersWeb: String?
+    /// 웹의 답이 답한 물음 — 답 카드의 머리글과, 남길 메모의 제목·꼬리가 이것을 든다.
+    public private(set) var webQuestion: String?
+    /// 붙일 메모를 고르는 중인 글 — 「어느 메모에 붙일까요?」의 답(`pick`)이 이것을 그 메모 끝에 단다.
+    private var pendingAppend: String?
     /// 답·제안·적용·실패가 정해질 때마다 부른다 — 빠른 입력 상자가 목록을 근거·후보로 갈아 끼우는 고리.
     public var onSettled: (() -> Void)?
 
@@ -122,11 +126,138 @@ public final class AssistantModel {
             return
         }
         pendingDraft = nil
+        // 웹의 답이 서 있으면 「메모해」「정리해줘」「치과 메모에 추가해줘」는 그 답에 대한 말이다 (`WebFollowUp`).
+        if answer?.isWeb == true, let follow = WebFollowUp.read(text) {
+            followUp(follow)
+            return
+        }
         switch AssistantIntent.classify(text) {
         case .command: command(text, selected: selected)
         case .webAnswer: askWeb(text)
         default: ask(text, selected: selected)
         }
+    }
+
+    // MARK: 웹의 답 뒤 — 남기기·정리해서 남기기·붙이기 (`WebFollowUp`)
+
+    /// 웹 검색 결과 한 줄 — 화면이 목록으로 그린다. 답이 인용한 것이 앞이고 `cited` 로 표가 난다.
+    public struct WebResult: Identifiable, Equatable, Sendable {
+        public let id: ULID
+        public let title: String
+        public let url: URL
+        public let snippet: String
+        public let cited: Bool
+        /// 「weather.go.kr」— 제목 옆에 서는 출처.
+        public var host: String { (url.host() ?? url.absoluteString).replacingOccurrences(of: "www.", with: "") }
+    }
+
+    /// 웹 검색이 가져온 결과 전부 — 답이 인용한 것이 앞, 나머지가 뒤. 답이 웹의 것이 아니면 빈 배열.
+    ///
+    /// 앞선 판은 인용한 한두 줄만 그렸다. 모델이 다섯 줄 중 하나를 골라 주면 나머지 넷은 있었는지도
+    /// 몰랐다 — 「검색 결과가 제대로 안 보인다」(2026-09-17, 사용자). 검색한 사람은 결과를 봐야 한다.
+    public var webResults: [WebResult] {
+        guard let answer, answer.isWeb else { return [] }
+        let cited = answer.evidence
+        let hits = evidence.filter(\.isWeb)
+        guard !hits.isEmpty else {
+            // 근거 목록이 없는 자리(렌더·시험)는 답이 든 출처로 — 전부 인용한 것이다.
+            return zip(answer.sources, answer.quotes).map { WebResult(id: $0.id, title: $0.title, url: $0.url, snippet: $1, cited: true) }
+        }
+        let first = hits.filter { cited.contains($0.memoID) }
+            .sorted { (cited.firstIndex(of: $0.memoID) ?? 0) < (cited.firstIndex(of: $1.memoID) ?? 0) }
+        let rest = hits.filter { !cited.contains($0.memoID) }
+        return (first + rest).compactMap { e in
+            guard let url = e.url else { return nil }
+            return WebResult(id: e.memoID, title: e.title ?? url.host() ?? url.absoluteString, url: url, snippet: e.excerpt, cited: cited.contains(e.memoID))
+        }
+    }
+
+    /// 답 밑에 되물을 다음 손짓 — 웹의 답이 서 있고 아직 아무것도 안 했을 때만. 정리는 모델이 있어야 한다.
+    public var followUps: [WebFollowUp] {
+        guard let answer, answer.isWeb, phase == .done, applied == nil, proposal == nil, pendingAppend == nil else { return [] }
+        return [.keep] + (isReady ? [.tidy] : []) + [.append(hint: nil)]
+    }
+
+    /// 붙일 메모를 고르는 중인가 — 「어느 메모?」의 줄을 누르면 시키는 말 대신 답을 붙인다.
+    public var isChoosingWhereToAppend: Bool { pendingAppend != nil }
+
+    /// 웹의 답을 어떻게 할지 — 칩을 누르거나 말로 하거나 같은 곳.
+    public func followUp(_ choice: WebFollowUp) {
+        guard let answer, answer.isWeb else { return }
+        let question = webQuestion ?? ""
+        let results = evidence.filter(\.isWeb)
+        let footer = L("「\(WebQuery.make(from: question))」 웹에서 찾음 · \(Date().formatted(.dateTime.month().day()))")
+        switch choice {
+        case .keep:
+            let body = WebFollowUp.body(question: question, answer: answer, results: results, footer: footer)
+            settle(ProposedAction(requestID: UUID(), kind: .createMemo, patch: FieldPatch(body: body)))
+        case .tidy:
+            guard isReady else { followUp(.keep); return }
+            tidyAndKeep(question: question, answer: answer, results: results, footer: footer)
+        case .append(let hint):
+            let block = WebFollowUp.body(question: question, answer: answer, results: results, footer: footer)
+            pendingAppend = block
+            Task { await chooseWhereToAppend(hint: hint) }
+        }
+    }
+
+    /// 「어느 메모에 붙일까요?」의 답 — 그 메모 끝에 단다. 되돌리기는 다른 변경과 같다.
+    public func appendWebAnswer(to id: ULID) {
+        guard let block = pendingAppend else { return }
+        pendingAppend = nil
+        Task {
+            let memo = try? await service.get(id)
+            settle(ProposedAction(requestID: UUID(), kind: .appendToMemo, memoID: id, expectedContentHash: memo?.contentHash,
+                                  patch: FieldPatch(body: block)))
+        }
+    }
+
+    /// 이름을 말했으면 그 메모를 찾는다 — 하나면 바로, 여럿이면 고르게, 없으면 요즘 메모 중에서.
+    private func chooseWhereToAppend(hint: String?) async {
+        let source = MemoServiceEvidenceSource(service: service)
+        var found: [Memo] = []
+        if let hint, !hint.isEmpty { found = (try? await source.search(hint, limit: 8)) ?? [] }
+        guard pendingAppend != nil else { return }
+        if found.count == 1, let only = found.first {
+            appendWebAnswer(to: only.id)
+            return
+        }
+        if found.isEmpty {
+            let all = (try? await service.all()) ?? []
+            found = Array(all.filter(Recall.eligible).sorted { $0.updated > $1.updated }.prefix(20))
+        }
+        cancel()
+        answer = nil; evidence = []; receipt = nil; applyError = nil; applied = nil
+        proposal = ProposedAction(requestID: UUID(), kind: .ask, question: WebFollowUp.whichMemo, candidates: found.map(\.id))
+        phase = .done
+        onSettled?()
+    }
+
+    /// 모델이 답과 발췌를 다듬고, 앱이 출처와 꼬리를 도로 단다. 다듬는 동안은 「읽는 중」이다.
+    private func tidyAndKeep(question: String, answer: AssistantAnswer, results: [Evidence], footer: String) {
+        cancel()
+        let request = AssistantRequest(task: .tidy, userText: WebFollowUp.draftForTidy(question: question, answer: answer, results: results))
+        task = .tidy
+        phase = .thinking
+        proposal = nil; receipt = nil; applyError = nil; applied = nil
+        let job = Task { [weak self] in
+            guard let self else { return }
+            let tidied = try? await runTidy(request)
+            guard !Task.isCancelled else { return }
+            current = nil
+            let body = tidied.map { WebFollowUp.attachSources(to: $0, answer: answer, results: results, footer: footer) }
+                ?? WebFollowUp.body(question: question, answer: answer, results: results, footer: footer)
+            settle(ProposedAction(requestID: UUID(), kind: .createMemo, patch: FieldPatch(body: body)))
+        }
+        current = (request.id, job)
+    }
+
+    /// 정해진 것을 바로 적용한다 — 답은 그대로 두고 밑에 결과 줄이 선다.
+    private func settle(_ action: ProposedAction) {
+        proposal = action
+        receipt = nil; applyError = nil; applied = nil
+        phase = .done
+        Task { await apply() }
     }
 
     /// 모델·검색 없이 정해진 것을 바로 적용한다.
@@ -165,6 +296,10 @@ public final class AssistantModel {
 
     /// 되물음의 후보 하나를 골랐다 — 그 메모를 열린 메모 삼아 같은 말을 다시 한다.
     public func pick(_ candidate: ULID) {
+        if pendingAppend != nil {
+            appendWebAnswer(to: candidate)
+            return
+        }
         guard let lastCommand else { return }
         command(lastCommand, selected: candidate)
     }
@@ -183,7 +318,10 @@ public final class AssistantModel {
 
     /// 다듬기 — 화면 상태를 건드리지 않고 답만 돌려준다. 종이의 다듬기 조작이 부른다.
     public func tidy(_ memoID: ULID) async throws -> String {
-        let request = AssistantRequest(task: .tidy, userText: "", selectedMemoID: memoID)
+        try await runTidy(AssistantRequest(task: .tidy, userText: "", selectedMemoID: memoID))
+    }
+
+    private func runTidy(_ request: AssistantRequest) async throws -> String {
         var result: String?
         var failure: AssistantFailure?
         for await event in await coordinator.run(request) {
@@ -200,12 +338,15 @@ public final class AssistantModel {
 
     /// 렌더·시험용 — 모델 없이 화면 상태를 세운다 (`PreviewRenderer`). 제품 코드는 부르지 않는다.
     public func stageForPreview(answer: AssistantAnswer? = nil, applied: ProposedAction? = nil, proposal: ProposedAction? = nil,
-                                failed: String? = nil, offersWeb: String? = nil) {
+                                failed: String? = nil, offersWeb: String? = nil, results: [Evidence] = [], question: String? = nil) {
         cancel()
         self.answer = answer
         self.applied = applied
         self.proposal = proposal
         self.offersWeb = offersWeb
+        evidence = results
+        webQuestion = question
+        pendingAppend = nil
         phase = failed.map { .failed($0) } ?? .done
     }
 
@@ -214,7 +355,7 @@ public final class AssistantModel {
         cancel()
         phase = .idle
         answer = nil; evidence = []; proposal = nil; receipt = nil; applied = nil; applyError = nil; briefItems = nil
-        pendingDraft = nil; offersWeb = nil
+        pendingDraft = nil; offersWeb = nil; webQuestion = nil; pendingAppend = nil
     }
 
     public func cancel() {
@@ -237,6 +378,8 @@ public final class AssistantModel {
         task = request.task
         phase = .thinking
         answer = nil; evidence = []; proposal = nil; receipt = nil; applyError = nil; applied = nil; offersWeb = nil
+        webQuestion = request.task == .webAnswer ? request.userText : nil
+        pendingAppend = nil
         if request.task == .brief { briefItems = nil }
         let task = Task { [weak self] in
             guard let self else { return }

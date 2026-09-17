@@ -252,6 +252,8 @@ enum CommandResolver {
         guard let intended else { return ask(unsupportedQuestion(raw)) }
         switch intended {
         case .none: return ProposedAction(requestID: request.id, kind: .none)
+        // 덧붙이기는 말로 시키는 일이 아니다 — 웹의 답이 서 있을 때 앱이 만든다 (`WebFollowUp`).
+        case .appendToMemo: return ask(questions.unsupported)
         case .ask: return ask(modelQuestion(raw) ?? questions.unsupported, candidates: selected == nil ? candidates : [])
         case .createMemo:
             // 빠른 입력·공유와 같은 한 규칙(`NoteReader`)으로 읽는다 — 날짜·시각·@장소·지도 링크의 자리와 좌표.

@@ -312,18 +312,18 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(calendarItem)
 
         // 「서랍」은 **펼친 채 앞으로 부른다** (`DrawerWindowController.summon`).
-        // 바탕화면에서 아예 치우는 것은 ⌥ 를 누른 채 — 상주 여부는 자주 바꾸는
-        // 일이 아니라 한 겹 아래가 맞다 (WWDC17 802 Progressive Disclosure).
+        // 바탕화면에서 치우는 것은 그 아래 한 줄 — ⌥ 뒤에 숨겨 두었더니 「서랍」이
+        // 상주 스위치이던 앞선 판의 손버릇으로 「서랍이 사라지지 않는다」가 됐다
+        // (2026-09-17, 사용자). 되돌리는 길은 보여야 한다 (HIG Undo).
         let drawerItem = item(title: L("서랍"), action: #selector(summonDrawer), key: "")
         drawerItem.state = drawer.isVisible ? .on : .off
-        drawerItem.toolTip = L("밀어 둔 종이가 모이는 자리 — 펼쳐서 앞으로 부릅니다. ⌥ 를 누르면 바탕화면에서 치웁니다")
+        drawerItem.toolTip = L("밀어 둔 종이가 모이는 자리 — 펼쳐서 앞으로 부릅니다")
         menu.addItem(drawerItem)
         let drawerToggle = item(
             title: drawer.isVisible ? L("서랍 치우기 — 바탕화면에서") : L("서랍 내놓기 — 바탕화면에"),
             action: #selector(toggleDrawer), key: ""
         )
-        drawerToggle.keyEquivalentModifierMask = .option
-        drawerToggle.isAlternate = true
+        drawerToggle.indentationLevel = 1
         menu.addItem(drawerToggle)
         menu.addItem(.separator())
 

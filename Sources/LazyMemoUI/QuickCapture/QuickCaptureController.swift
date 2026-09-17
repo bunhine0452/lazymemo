@@ -584,6 +584,7 @@ final class QuickCaptureController {
             // 적고 하던 일로 돌아간다. 메모 창은 바탕화면 높이에 있어서
             // 여기서 활성화하면 **보이지 않는 창으로 키보드가 넘어가고**
             // 이어서 친 글자가 사라진다.
+            model.assistant?.reset()   // 남아 있던 웹의 답은 여기서 물러난다 — 새 메모로 끝났다.
             model.clear()
             close()
             Task {
@@ -598,6 +599,7 @@ final class QuickCaptureController {
             // 앞으로 올 약속에 자리가 있으면 상자는 열린 채 「어디서 출발하시나요?」를 세운다 (`RoutePlanner`).
             let asksRoute = model.planner != nil
                 && RoutePlanner.applies(body: patch.body ?? "", at: patch.at.value, place: patch.place, geo: patch.geo)
+            model.assistant?.reset()
             model.clear()
             if !asksRoute { close() }
             Task {
@@ -634,8 +636,13 @@ final class QuickCaptureController {
         case .pick(let id):
             model.assistant?.pick(id)
 
+        case .followUp(let follow):
+            model.query = ""
+            model.assistant?.followUp(follow)
+
         case .open(let id):
             // 여기서는 사용자가 "그 메모를 보자" 고 한 것이다. 앞으로 데려온다.
+            model.assistant?.reset()
             model.clear()
             close(returningFocus: false)
             windows.reveal(id)

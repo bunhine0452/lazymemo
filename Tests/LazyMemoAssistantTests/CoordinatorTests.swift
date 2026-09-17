@@ -204,4 +204,14 @@ struct CoordinatorTests {
         #expect(out.contains { if case .textDelta = $0 { return true } else { return false } })
         #expect(out.last == .completed(.tidied("- 치과 예약")))
     }
+
+    @Test("메모가 아닌 글도 다듬는다 — 웹의 답을 「정리해서 남기기」. 글도 메모도 없으면 근거 없음")
+    func tidiesLooseText() async {
+        let provider = MockProvider(["- 내일 비\n- 강풍 유의"])
+        let out = await events(provider, AssistantRequest(task: .tidy, userText: "내일 서울은 비\n- 강풍과 풍랑 유의"), memos: [])
+        #expect(out.last == .completed(.tidied("- 내일 비\n- 강풍 유의")))
+        #expect(provider.prompts.first?.user == "내일 서울은 비\n- 강풍과 풍랑 유의")
+        let empty = await events(MockProvider([]), AssistantRequest(task: .tidy, userText: "  "), memos: [])
+        #expect(empty.last == .failed(.noEvidence))
+    }
 }

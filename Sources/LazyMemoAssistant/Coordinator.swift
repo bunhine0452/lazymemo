@@ -66,7 +66,10 @@ public actor AssistantCoordinator {
 
             let (selected, gathered) = try await gather(request)
             guard await emit(.evidence(gathered)) else { return }
-            if request.task == .tidy, selected == nil { _ = await emit(.failed(.noEvidence)); return }
+            // 다듬기는 열린 메모가 있거나, 글을 직접 들고 왔거나 — 웹의 답을 「정리해서 남기기」는 아직 메모가 아닌 글을 다듬는다.
+            if request.task == .tidy, selected == nil, request.userText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                _ = await emit(.failed(.noEvidence)); return
+            }
             // 걸리는 메모가 한 장도 없으면 모델을 부를 것도 없다 — 바로 「찾지 못했습니다」, 화면은 웹을 권한다.
             if request.task == .answer, gathered.isEmpty { _ = await emit(.failed(.noEvidence)); return }
             if request.task == .webAnswer, !ready {

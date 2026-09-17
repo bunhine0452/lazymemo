@@ -140,13 +140,16 @@ public struct FieldPatch: Sendable, Equatable {
 /// 명세 §5 allowlist. 여기 없는 동작은 제안조차 만들지 않는다.
 public enum ActionKind: String, Sendable, Codable, CaseIterable {
     case setRecall, reschedule, moveToFolder, createMemo, trash
+    /// 있는 메모 끝에 글을 덧붙인다 — 웹의 답을 「치과 메모에 추가해줘」(`WebFollowUp`). **앱만 만든다** —
+    /// 모델의 명령 스키마에는 없다(`AssistantPrompts.jsonSchema`): 모델이 남의 메모에 글을 얹는 길은 두지 않는다.
+    case appendToMemo
     /// 정보가 하나 부족하다 — 한 가지만 묻는다.
     case ask
     case none
 
     public var writes: Bool {
         switch self {
-        case .setRecall, .reschedule, .moveToFolder, .createMemo, .trash: return true
+        case .setRecall, .reschedule, .moveToFolder, .createMemo, .trash, .appendToMemo: return true
         case .ask, .none: return false
         }
     }

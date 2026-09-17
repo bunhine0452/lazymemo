@@ -155,7 +155,9 @@
 "⚠︎ %@ 을 다른 앱이 쓰고 있습니다" = "⚠︎ %@ is used by another app";
 "빈 종이 꺼내기" = "New blank note";
 "달력" = "Calendar";
-"밀어 둔 종이가 모이는 자리 — 펼쳐서 앞으로 부릅니다. ⌥ 를 누르면 바탕화면에서 치웁니다" = "Where notes you've put away gather — opens it in front. Hold ⌥ to remove it from the desktop";
+"밀어 둔 종이가 모이는 자리 — 펼쳐서 앞으로 부릅니다" = "Where notes you've put away gather — opens it in front";
+"펼치기" = "Open";
+"바탕화면에서 치우기" = "Remove from Desktop";
 "서랍 치우기 — 바탕화면에서" = "Remove Drawer — from the desktop";
 "서랍 내놓기 — 바탕화면에" = "Show Drawer — on the desktop";
 "시작하기 및 사용 안내…" = "Getting Started…";
@@ -410,3 +412,11 @@
 "웹에서 찾은 것" = "Found on the web";
 "%@ — 브라우저에서 엽니다" = "%@ — opens in your browser";
 "웹에서 찾기 — 이 물음을 DuckDuckGo 에 검색합니다" = "Search the web — sends this question to DuckDuckGo";
+/* 웹의 답 뒤 — 물음 한 줄, 결과 전부, 「이걸 어떻게 할까요?」 (WebFollowUp) */
+"웹에서 찾음" = "Found on the web";
+"정리하는 중" = "Tidying";
+"이걸 어떻게 할까요?" = "What should I do with this?";
+"메모로 남기기" = "Keep as a memo";
+"정리해서 남기기" = "Tidy and keep";
+"기존 메모에 붙이기" = "Add to a memo";
+"「%@」에 붙이기" = "Add to “%@”";

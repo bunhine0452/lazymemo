@@ -209,6 +209,16 @@ struct DrawerGeometryTests {
         #expect(spot.midX == open.midX)
         #expect(spot.midY == open.midY)
     }
+
+    /// 탭은 단추이자 손잡이다 — 잡아서 끌면 옮기고, 안 끌고 놓으면 누른 것이다 (`WindowDragSurface`).
+    /// 손이 떨린 몇 픽셀은 누르기다. 어디까지가 떨림인지는 화면에 안 보인다 (§14.9).
+    @Test("탭을 잡고 3pt 안에서 놓으면 누른 것이고, 그 밖은 끈 것이다")
+    func tabClickVersusDrag() {
+        #expect(WindowDragSurface.isClick(moved: 0))
+        #expect(WindowDragSurface.isClick(moved: 2.9))
+        #expect(!WindowDragSurface.isClick(moved: 3))
+        #expect(!WindowDragSurface.isClick(moved: 40))
+    }
 }
 
 /// 읽기만 하는 자리에서는 **체크상자가 글자로 보이면 안 된다** — 편집기는

@@ -359,32 +359,15 @@ struct QuickCaptureView: View {
         }
     }
 
+    @ViewBuilder
     private func answerLines(_ answer: AssistantAnswer) -> some View {
-        VStack(alignment: .leading, spacing: Theme.tight) {
-            // 웹의 답에 문장이 없으면(모델 없이 결과만) 머리글 한 줄.
-            Text(answer.found ? (answer.text.isEmpty ? L("웹에서 찾은 것") : ActionWords.soft(answer.text)) : L("메모에서 찾지 못했습니다"))
-                .font(Theme.body)
-                .textSelection(.enabled)
-            if answer.isWeb {
-                // 출처가 곧 인용 — 제목 · 주소 밑에 발췌. 누르면 브라우저로.
-                ForEach(Array(zip(answer.sources, answer.quotes)), id: \.0.id) { source, quote in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Button { NSWorkspace.shared.open(source.url) } label: {
-                            HStack(spacing: Theme.tight) {
-                                Text(source.title).lineLimit(1).foregroundStyle(Theme.accentInk)
-                                Text(source.host).foregroundStyle(.tertiary).lineLimit(1)
-                            }
-                            .contentShape(.rect)
-                        }
-                        .buttonStyle(.plain)
-                        .spoken(L("\(source.title) — 브라우저에서 엽니다"))
-                        if !quote.isEmpty { Text(quote).foregroundStyle(.secondary).lineLimit(2) }
-                    }
-                    .font(Theme.micro)
-                    .padding(.leading, Theme.snug)
-                    .overlay(alignment: .leading) { Rectangle().frame(width: 2).foregroundStyle(.tertiary) }
-                }
-            } else {
+        if answer.isWeb, let assistant = model.assistant {
+            webAnswer(answer, assistant)
+        } else {
+            VStack(alignment: .leading, spacing: Theme.tight) {
+                Text(answer.found ? ActionWords.soft(answer.text) : L("메모에서 찾지 못했습니다"))
+                    .font(Theme.body)
+                    .textSelection(.enabled)
                 ForEach(answer.quotes, id: \.self) { line in
                     Text(line)
                         .font(Theme.micro)
@@ -394,10 +377,149 @@ struct QuickCaptureView: View {
                         .overlay(alignment: .leading) { Rectangle().frame(width: 2).foregroundStyle(.tertiary) }
                 }
             }
+            .padding(.horizontal, Theme.loose)
+            .padding(.vertical, Theme.snug)
+            .transition(.opacity)
+        }
+    }
+
+    // MARK: 웹의 답 — 물음 · 답 · 결과 전부 · 다음 손짓
+
+    /// 웹의 답은 카드다 — 무엇을 찾았는지 한 줄, 답 한 문장, 그 밑에 **결과 전부**가 한 칸씩.
+    ///
+    /// 앞선 판은 인용한 한두 줄을 작은 글자로 세웠다. 다섯 결과 중 모델이 하나를 골라 주면 나머지는
+    /// 있었는지도 몰랐고, 발췌는 두 줄에서 잘렸다 — 「검색 결과가 제대로 안 보인다」(2026-09-17).
+    /// 답이 인용한 것이 앞에 서고 표가 난다(`cited`). 끝에 **이걸 어떻게 할까요?** — 검색한 사람의
+    /// 다음 손은 대개 남기기·정리·붙이기다 (`WebFollowUp`).
+    private func webAnswer(_ answer: AssistantAnswer, _ assistant: AssistantModel) -> some View {
+        VStack(alignment: .leading, spacing: Theme.snug) {
+            HStack(spacing: Theme.tight) {
+                Image(systemName: "globe").font(.system(size: 10, weight: .semibold))
+                Text(L("웹에서 찾음"))
+                if let question = assistant.webQuestion {
+                    Text("·")
+                    Text(WebQuery.make(from: question)).lineLimit(1)
+                }
+            }
+            .font(Theme.micro)
+            .foregroundStyle(.tertiary)
+
+            // 답 문장. 모델 없이 결과만 왔거나 앱이 대신 세운 머리글이면 작게.
+            let headline = answer.text.isEmpty ? L("웹에서 찾은 것") : ActionWords.soft(answer.text)
+            Text(headline)
+                .font(answer.text.isEmpty || answer.text.hasPrefix("검색 결과에서") ? Theme.title : Theme.body)
+                .foregroundStyle(answer.text.isEmpty ? .secondary : .primary)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+
+            let results = assistant.webResults
+            VStack(spacing: 0) {
+                ForEach(Array(results.enumerated()), id: \.element.id) { index, result in
+                    webResultRow(result)
+                    if index < results.count - 1 { Divider().opacity(0.35).padding(.horizontal, Theme.snug) }
+                }
+            }
+            .background(Paper.ink.opacity(0.035), in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous).strokeBorder(Paper.ink.opacity(0.08)))
+            .accessibilityIdentifier("web-results")
+
+            if !assistant.followUps.isEmpty { followUpRow(assistant) }
         }
         .padding(.horizontal, Theme.loose)
         .padding(.vertical, Theme.snug)
         .transition(.opacity)
+    }
+
+    /// 결과 한 칸 — 제목 · 출처, 발췌 세 줄. 칸 전체가 단추이고 누르면 브라우저로.
+    private func webResultRow(_ result: AssistantModel.WebResult) -> some View {
+        Button { NSWorkspace.shared.open(result.url) } label: {
+            HStack(alignment: .top, spacing: Theme.snug) {
+                // 인용한 결과는 점이 찍힌다 — 답이 어디서 왔는지.
+                Circle()
+                    .fill(result.cited ? Theme.accentInk : Paper.ink.opacity(0.18))
+                    .frame(width: 6, height: 6)
+                    .padding(.top, 5)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(alignment: .firstTextBaseline, spacing: Theme.tight) {
+                        Text(result.title)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Theme.accentInk)
+                            .lineLimit(1)
+                        Text(result.host)
+                            .font(Theme.micro)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                            .layoutPriority(1)
+                    }
+                    if !result.snippet.isEmpty {
+                        Text(result.snippet)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, 3)
+            }
+            .padding(.horizontal, Theme.snug)
+            .padding(.vertical, Theme.tight + 2)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .spoken(L("\(result.title) — 브라우저에서 엽니다"))
+    }
+
+    /// 「이걸 어떻게 할까요?」— 남기기 · 정리해서 남기기 · 붙이기. 글자로 해도 같다 (「메모해」「치과 메모에 추가해줘」).
+    private func followUpRow(_ assistant: AssistantModel) -> some View {
+        VStack(alignment: .leading, spacing: Theme.tight) {
+            Text(L(String.LocalizationValue(WebFollowUp.question)))
+                .font(Theme.micro)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                ForEach(assistant.followUps, id: \.self) { choice in
+                    Button { assistant.followUp(choice) } label: {
+                        Label(Self.followUpLabel(choice), systemImage: Self.followUpSymbol(choice))
+                            .font(.system(size: 11, weight: .medium))
+                            .padding(.horizontal, 10)
+                            .frame(height: 26)
+                            .background(Theme.softAccent, in: Capsule())
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.accentInk)
+                    .accessibilityIdentifier("follow-up-\(Self.followUpID(choice))")
+                }
+            }
+        }
+        .padding(.top, 2)
+    }
+
+    static func followUpLabel(_ choice: WebFollowUp) -> String {
+        switch choice {
+        case .keep: return L("메모로 남기기")
+        case .tidy: return L("정리해서 남기기")
+        case .append(let hint): return hint.map { L("「\($0)」에 붙이기") } ?? L("기존 메모에 붙이기")
+        }
+    }
+
+    private static func followUpSymbol(_ choice: WebFollowUp) -> String {
+        switch choice {
+        case .keep: return "square.and.pencil"
+        case .tidy: return "wand.and.stars"
+        case .append: return "text.append"
+        }
+    }
+
+    private static func followUpID(_ choice: WebFollowUp) -> String {
+        switch choice {
+        case .keep: return "keep"
+        case .tidy: return "tidy"
+        case .append: return "append"
+        }
     }
 
     /// 「메모에서 찾지 못했습니다 · 웹에서 찾기 ⌘↵」— 같은 물음을 웹에. 이때만 질문 낱말이 밖으로 나간다.
@@ -789,7 +911,7 @@ struct QuickCaptureView: View {
                 // 읽는 동안 라벨은 없다 — 누를 것이 없다 (설계 E-1).
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text(model.assistant?.task == .webAnswer ? L("웹에서 찾는 중") : L("메모를 읽는 중")).font(.system(size: 11))
+                    Text(thinkingLabel).font(.system(size: 11))
                 }
             } else if let commandLabel {
                 Button(action: onCommit) {
@@ -815,6 +937,15 @@ struct QuickCaptureView: View {
         .padding(.vertical, Theme.normal)
     }
 
+    /// 「웹에서 찾는 중」「정리하는 중」「메모를 읽는 중」— 무엇을 기다리는지.
+    private var thinkingLabel: String {
+        switch model.assistant?.task {
+        case .webAnswer: return L("웹에서 찾는 중")
+        case .tidy: return L("정리하는 중")
+        default: return L("메모를 읽는 중")
+        }
+    }
+
     private var hintText: String {
         if model.assistant?.phase == .thinking { return L("esc 그만") }
         if model.planner?.isActive == true { return L("↵ 답하기 · esc 길은 그만") }
@@ -832,7 +963,9 @@ struct QuickCaptureView: View {
         case .nothing: return nil
         case .open: return L("메모 열기")
         case .applyTo(let title): return L("「\(Self.clip(title))」에 적용")
-        case .pick(let title): return L("「\(Self.clip(title))」에게")
+        case .pick(let title):
+            return model.assistant?.isChoosingWhereToAppend == true ? L("「\(Self.clip(title))」에 붙이기") : L("「\(Self.clip(title))」에게")
+        case .followUp(let follow): return Self.followUpLabel(follow)
         case .command: return L("시키기")
         case .ask: return L("메모에게 묻기")
         case .web: return L("웹에서 찾기")

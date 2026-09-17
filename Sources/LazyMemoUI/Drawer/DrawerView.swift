@@ -1,3 +1,4 @@
+import AppKit
 import LazyMemoCore
 import SwiftUI
 
@@ -158,9 +159,34 @@ struct DrawerView: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        // **탭은 잡으면 끌린다.** 단추가 판 전체를 덮으면 창을 옮길 데가 한 군데도 없다 —
+        // 잡아서 끌면 옮기고, 안 끌고 놓으면 누른 것이다 (`WindowDragSurface`). 화면 밖
+        // 렌더는 NSView 를 그리지 못하므로 뺀다 (§14.9).
+        .overlay {
+            if !rendersStatically {
+                WindowDragSurface(onClick: { model.toggle() }, menu: { tabMenu })
+            }
+        }
         .scaleEffect(landing != nil ? 1.04 : (isHovering ? 1.02 : 1))
         .animation(quick, value: isHovering)
         .spoken(L("서랍 — \(model.title). 눌러서 펼칩니다"))
+    }
+
+    /// 탭의 오른쪽 클릭 — 펼치기, 그리고 **바탕화면에서 치우기.**
+    ///
+    /// 치우는 길이 메뉴바의 ⌥ 항목뿐이었더니 「서랍이 사라지지 않는다」가 됐다
+    /// (2026-09-17, 사용자). 물건 위에서 그 물건을 치우는 길이 하나는 있어야 한다.
+    private var tabMenu: NSMenu {
+        let menu = NSMenu()
+        let open = NSMenuItem(title: L("펼치기"), action: #selector(DrawerMenuTarget.open), keyEquivalent: "")
+        let dismiss = NSMenuItem(title: L("바탕화면에서 치우기"), action: #selector(DrawerMenuTarget.dismiss), keyEquivalent: "")
+        let target = DrawerMenuTarget(model: model)
+        for item in [open, dismiss] {
+            item.target = target
+            item.representedObject = target   // 메뉴가 사는 동안 표적도 산다.
+            menu.addItem(item)
+        }
+        return menu
     }
 
     /// 닫힌 탭의 둘째 줄.
@@ -224,11 +250,16 @@ struct DrawerView: View {
 
     private var heading: some View {
         HStack(spacing: Theme.tight + 2) {
-            Image(systemName: "tray.full.fill")
-                .foregroundStyle(Theme.accentInk)
-            Text(L("서랍")).font(.system(size: 17, weight: .bold))
-            countPill(model.total)
-            Spacer()
+            // 머리 줄이 펼친 판의 손잡이다 — 종이의 색띠와 같은 자리, 같은 길 (`PaperGrip`).
+            HStack(spacing: Theme.tight + 2) {
+                Image(systemName: "tray.full.fill")
+                    .foregroundStyle(Theme.accentInk)
+                Text(L("서랍")).font(.system(size: 17, weight: .bold))
+                countPill(model.total)
+                Spacer()
+            }
+            .contentShape(.rect)
+            .background { if !rendersStatically { WindowDragSurface() } }
             QuietButton(symbol: "xmark", help: L("접기 — 서랍을 닫습니다")) {
                 model.setOpen(false)
             }
@@ -663,4 +694,13 @@ struct DrawerView: View {
     private func short(_ title: String) -> String {
         title.count > 14 ? String(title.prefix(14)) + "…" : title
     }
+}
+
+/// 탭의 오른쪽 클릭 메뉴가 부르는 곳. `NSMenuItem` 은 셀렉터를 원해서 한 겹 둔다.
+@MainActor
+private final class DrawerMenuTarget: NSObject {
+    private let model: DrawerModel
+    init(model: DrawerModel) { self.model = model }
+    @objc func open() { model.setOpen(true) }
+    @objc func dismiss() { model.onDismiss() }
 }

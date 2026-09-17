@@ -174,3 +174,13 @@
 "웹에서 찾은 것" = "Found on the web";
 "찾는 중" = "Searching";
 "%lld장 중 겹치는 것 없음 · 웹에서 찾아 답합니다" = "No match among %lld notes · it searches the web to answer";
+/* 웹의 답 뒤 — 물음 한 줄, 결과 전부, 「이걸 어떻게 할까요?」 (WebFollowUp) */
+"웹에서 찾음" = "Found on the web";
+"정리하는 중" = "Tidying";
+"이걸 어떻게 할까요?" = "What should I do with this?";
+"메모로 남기기" = "Keep as a memo";
+"정리해서 남기기" = "Tidy and keep";
+"기존 메모에 붙이기" = "Add to a memo";
+"「%@」에 붙이기" = "Add to “%@”";
+"%@ — 브라우저에서 엽니다" = "%@ — opens in your browser";
+"%lld장 중 겹치는 것 없음 · 위의 답을 남깁니다" = "No match among %lld notes · keeps the answer above";

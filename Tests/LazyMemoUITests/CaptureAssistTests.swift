@@ -55,6 +55,36 @@ struct CaptureAssistTests {
         #expect(model.intent == .memo)
     }
 
+    @Test("웹의 답이 서 있으면 「메모해」「정리해줘」「치과 메모에 추가해줘」는 그 답에 대한 말이고, 치는 동안 답이 남는다")
+    func webFollowUpRouting() throws {
+        let store = try makeStore()
+        let model = QuickCaptureModel(store: store)
+        let assistant = AssistantModel(service: store.service, support: FileManager.default.temporaryDirectory
+            .appending(path: "lazymemo-assist-follow-\(UUID().uuidString)", directoryHint: .isDirectory))
+        model.assistant = assistant
+        // 답이 없을 때의 「메모해」는 평소의 시키는 말이다.
+        model.query = "메모해"
+        #expect(model.intent == .command)
+
+        let hit = Evidence(hit: WebHit(title: "기상청", url: URL(string: "https://www.weather.go.kr/")!, snippet: "내일 비"))
+        assistant.stageForPreview(answer: AssistantAnswer(found: true, text: "내일 서울은 비", evidence: [hit.memoID], quotes: ["내일 비"],
+                                                          sources: [WebSource(id: hit.memoID, title: "기상청", url: hit.url!)]),
+                                  results: [hit], question: "웹에서 서울 내일 날씨")
+        #expect(assistant.followUps == [.keep, .append(hint: nil)])   // 모델이 없으니 정리는 빠진다.
+        #expect(assistant.webResults.map(\.cited) == [true])
+        model.query = "메모해"
+        #expect(assistant.answer != nil)   // 글을 쳐도 웹의 답은 남는다 — 이 말이 그 답에 대한 것이다.
+        #expect(model.intent == .followUp(.keep))
+        #expect(model.commit() == .followUp(.keep))
+        model.query = "치과 메모에 추가해줘"
+        #expect(model.intent == .followUp(.append(hint: "치과")))
+        model.query = "정리해줘"
+        #expect(model.commit() == .followUp(.tidy))
+        // 답에 대한 말이 아니면 평소대로 — 우산은 새 메모다.
+        model.query = "우산 챙기기"
+        #expect(model.intent == .memo)
+    }
+
     @Test("「이 메모에게」로 열렸으면 그 메모가 대상이고, 물음도 그 메모에게 시키는 말로 본다")
     func targetFromOpener() throws {
         let model = QuickCaptureModel(store: try makeStore())

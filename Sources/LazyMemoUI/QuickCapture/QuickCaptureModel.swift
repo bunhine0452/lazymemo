@@ -28,7 +28,10 @@ final class QuickCaptureModel {
             filter = MemoFilter.read(query)
             reloadImages()
             // 글을 고치면 답은 물러나고 검색으로 돌아간다 (설계 D9). 되돌리기 줄은 남는다.
-            if assistant?.answer != nil || assistant?.proposal != nil || assistant?.phase == .thinking || assistant?.offersWeb != nil { assistant?.reset() }
+            // **웹의 답은 남는다** — 다음 말이 「메모해」「치과 메모에 추가해줘」처럼 그 답에 대한 것일 수 있다 (`WebFollowUp`).
+            // 새 물음·새 메모로 끝나면 그때 물러난다 (`QuickCaptureController.commit`).
+            let keepsWeb = assistant?.answer?.isWeb == true && assistant?.phase == .done
+            if !keepsWeb, assistant?.answer != nil || assistant?.proposal != nil || assistant?.phase == .thinking || assistant?.offersWeb != nil { assistant?.reset() }
             // 낱말이 바뀌면 목록은 다른 물건이다. 넓혀 둔 것은 그때 것이라
             // 도로 접는다 — 지운 뒤의 다시 짓기(`refreshListing`)는 같은
             // 목록이므로 접지 않는다.
@@ -220,6 +223,8 @@ final class QuickCaptureModel {
     /// 지금 ⌘⏎ 가 할 일 — 라벨이 곧 동사다 (설계 D5). `commit()` 과 같은 갈래, 다만 아무것도 바꾸지 않는다.
     enum Intent: Equatable {
         case nothing, open(String), applyTo(String), pick(String), command, ask, web, answer, memo, calendar
+        /// 웹의 답에 대한 다음 손짓 — 「메모해」「정리해줘」「치과 메모에 추가해줘」.
+        case followUp(WebFollowUp)
     }
 
     var intent: Intent {
@@ -236,10 +241,17 @@ final class QuickCaptureModel {
         // 메모에서 못 찾은 뒤의 빈 상자 — ⌘↵ 한 번이 그 물음을 웹에 한다.
         if text.isEmpty, assistant?.offersWeb != nil { return .web }
         guard !text.isEmpty else { return .nothing }
+        if let follow = webFollowUp(text) { return .followUp(follow) }
         if AssistantIntent.wantsWeb(text) { return .web }
         if AssistantIntent.hasCommandVerb(text) { return .command }
         if target == nil, AssistantIntent.isQuestion(text) { return .ask }
         return schedule == nil ? .memo : .calendar
+    }
+
+    /// 웹의 답이 서 있을 때의 「메모해」— 그 답을 어떻게 할지 말한 것이다. 답이 없으면 평소의 말이다.
+    private func webFollowUp(_ text: String) -> WebFollowUp? {
+        guard assistant?.answer?.isWeb == true, assistant?.phase == .done else { return nil }
+        return WebFollowUp.read(text)
     }
 
     /// 말풍선 꼬리가 가리킬 자리 (상자 왼쪽 끝에서의 거리).
@@ -587,8 +599,10 @@ final class QuickCaptureModel {
         case searchWeb(String)
         /// 시키는 말 — 대상은 고른 줄이거나 「이 메모에게」로 연 메모, 없으면 비서가 되묻는다.
         case command(String, target: ULID?)
-        /// 「어느 메모?」의 후보 하나를 골랐다 — 같은 말을 그 메모에게.
+        /// 「어느 메모?」의 후보 하나를 골랐다 — 같은 말을 그 메모에게. 붙일 메모를 고르는 중이면 웹의 답을 그 끝에.
         case pick(ULID)
+        /// 웹의 답에 대한 다음 손짓 — 남기기·정리해서 남기기·붙이기 (`WebFollowUp`).
+        case followUp(WebFollowUp)
         /// 가는 길의 되물음(출발지·탈것)에 온 답.
         case routeReply(String)
         case nothing
@@ -624,6 +638,7 @@ final class QuickCaptureModel {
 
         if text.isEmpty, let question = assistant?.offersWeb { return .searchWeb(question) }
         guard !text.isEmpty else { return .nothing }
+        if let follow = webFollowUp(text) { return .followUp(follow) }
         if AssistantIntent.wantsWeb(text) { return .searchWeb(text) }
         if AssistantIntent.hasCommandVerb(text) { return .command(text, target: target) }
         if target == nil, AssistantIntent.isQuestion(text) { return .ask(text) }

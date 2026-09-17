@@ -60,3 +60,8 @@
 "자리 %@" = "at %@";
 "약속 시간이 언제인가요?" = "What time is it at?";
 "답을 적어 주세요 — 「12시야」" = "Answer here — “12 o’clock”";
+/* 웹의 답 뒤 — 남기기·붙이기 (WebFollowUp) */
+"「%@」 웹에서 찾음 · %@" = "“%@” found on the web · %@";
+"%@ 끝에 덧붙입니다" = "Adds to the end of %@";
+"어느 메모에 붙일까요?" = "Which memo should this go into?";
+"이걸 어떻게 할까요?" = "What should I do with this?";

@@ -48,7 +48,7 @@ public enum AssistantIntent {
 
     /// 「어느 메모를 말하는지 골라 주세요」인가 — 대상이 빈 시키기. 화면은 이때 목록을 후보로 바꾼다 (D10 「목록이 곧 후보」).
     public static func asksWhichMemo(_ action: ProposedAction) -> Bool {
-        action.kind == .ask && action.question == CommandResolver.questions.noTarget
+        action.kind == .ask && (action.question == CommandResolver.questions.noTarget || action.question == WebFollowUp.whichMemo)
     }
 
     /// 되물음(「약속 시간이 언제인가요?」)에 온 답을 초안에 잇는다. 답이 아니면 nil.

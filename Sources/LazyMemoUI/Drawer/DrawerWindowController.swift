@@ -74,6 +74,7 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
         super.init()
 
         model.onToggle = { [weak self] open in self?.animate(open: open) }
+        model.onDismiss = { [weak self] in self?.close() }
         model.onTakeOut = { [weak self] id in self?.takeOut(id) }
         model.onPutBack = { [weak self] id in self?.file(id) }
         model.onDelete = { [weak self] id in self?.delete(id) }
@@ -90,6 +91,30 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
         // 파일은 관찰되지 않는다 — 창 관리자가 바뀔 때마다 알려 준다.
         windows.onDeskChanged = { [weak self] in self?.model.refresh() }
         windows.onNoteDragged = { [weak self] id, frame in self?.noteMoved(id, frame: frame) }
+        // 다른 앱으로 가면 접는다 (`appDidResignActive`).
+        deactivation = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.appDidResignActive() }
+        }
+    }
+
+    private var deactivation: (any NSObjectProtocol)?
+
+    /// 사람이 다른 앱으로 갔다 — **펼친 서랍은 접힌다.**
+    ///
+    /// 펼친 판은 앞으로 불려 나온 물건이다(`summon`·`rise`). 그 채로 브라우저를
+    /// 누르면 판은 바탕화면 레벨로 내려앉되 **펼쳐진 채** 남았고, 다음에 바탕화면을
+    /// 본 사람에게는 440×344 짜리 판이 눕혀져 있었다 — 「서랍이 사라지지 않는다」
+    /// (2026-09-17, 사용자). 볼일이 끝나 떠난 사람에게는 탭으로 돌아가 있는 것이
+    /// 맞다 (HIG Windows: 임시로 앞에 선 것은 손을 떼면 물러난다).
+    ///
+    /// 같은 앱 안에서 종이를 누르는 것은 떠난 것이 아니다 — 앱은 그대로 활성이라
+    /// 이 알림이 오지 않고, 그래서 열린 판에 종이를 끌어다 넣는 길은 그대로다.
+    /// 무대(소개 영상) 위에서는 건드리지 않는다.
+    func appDidResignActive() {
+        guard model.isOpen, model.landing == nil, DesktopLevelWindow.stageLevel == nil else { return }
+        model.setOpen(false)
     }
 
     private func observeStore() {

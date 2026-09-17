@@ -189,6 +189,15 @@ struct PenBar: View {
         .accessibilityIdentifier("pending-question")
     }
 
+    /// 「찾는 중」「정리하는 중」「읽는 중」— 무엇을 기다리는지.
+    private var thinkingLabel: String {
+        switch pen.assistant?.task {
+        case .webAnswer: return String(localized: "찾는 중")
+        case .tidy: return String(localized: "정리하는 중")
+        default: return String(localized: "읽는 중")
+        }
+    }
+
     // MARK: 칩 — 읽은 것을 누르기 전에 보인다
 
     @ViewBuilder
@@ -336,7 +345,7 @@ struct PenBar: View {
             if pen.assistant?.phase == .thinking {
                 // 읽는 동안 — 누르면 그만둔다 (맥의 「esc 그만」).
                 Button { pen.cancelReading() } label: {
-                    HStack(spacing: 6) { ProgressView().controlSize(.small); Text(pen.assistant?.task == .webAnswer ? "찾는 중" : "읽는 중") }
+                    HStack(spacing: 6) { ProgressView().controlSize(.small); Text(thinkingLabel) }
                         .font(.subheadline.weight(.semibold))
                         .padding(.horizontal, 4)
                         .frame(minHeight: 36)

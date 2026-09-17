@@ -155,6 +155,8 @@ final class DrawerModel {
     var onDelete: (ULID) -> Void = { _ in }
     /// 펼치고 접는 일은 창의 크기를 바꾸는 일이라 창이 맡는다.
     var onToggle: (Bool) -> Void = { _ in }
+    /// 바탕화면에서 치운다 — 탭의 오른쪽 클릭 메뉴. 창을 걷는 일이라 창이 맡는다.
+    var onDismiss: () -> Void = {}
     /// 폴더의 차례가 바뀌었다 — 설정에 적을 것 (`Settings.folders`).
     var onFoldersChanged: ([String]) -> Void = { _ in }
 

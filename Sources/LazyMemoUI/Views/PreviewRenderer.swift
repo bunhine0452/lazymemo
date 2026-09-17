@@ -264,21 +264,22 @@ enum PreviewRenderer {
             into: directory
         )
 
-        // 웹의 답 — 문장 밑에 출처 링크와 발췌. 근거는 메모가 아니라 목록이 비어 있다.
+        // 웹의 답 — 물음·답 문장, 그 밑에 결과 전부(인용한 둘이 앞), 끝에 「이걸 어떻게 할까요?」.
         let webbing = QuickCaptureModel(store: store)
         webbing.arrowOffset = QuickCaptureController.width - 70
         webbing.assistant = assistant
-        let kma = WebSource(id: ULID(), title: L("홈 - 기상청 날씨누리"), url: URL(string: "https://www.weather.go.kr/")!)
-        let meteo = WebSource(id: ULID(), title: L("서울 내일 날씨 - Meteocast"), url: URL(string: "https://ko.meteocast.net/tomorrow-forecast/kr/seoul/")!)
+        let hits = Self.sampleWebHits.map(Evidence.init(hit:))
+        let kma = WebSource(id: hits[0].memoID, title: hits[0].title ?? "", url: hits[0].url!)
+        let meteo = WebSource(id: hits[1].memoID, title: hits[1].title ?? "", url: hits[1].url!)
         assistant.stageForPreview(answer: AssistantAnswer(
             found: true, text: L("내일 서울은 경상권 해안과 제주도 중심으로 비, 강풍과 풍랑에 유의하래요."),
             evidence: [kma.id, meteo.id],
-            quotes: [L("내일 경상권해안, 제주도 중심 비, 강풍과 풍랑 유의. (기상청 예보 26년 9월 17일 05시 기준)"), L("해돋이 06:11, 일몰 18:45. Asia/Seoul, GMT 9.")],
-            sources: [kma, meteo]))
+            quotes: [hits[0].excerpt, hits[1].excerpt],
+            sources: [kma, meteo]), results: hits, question: L("웹에서 서울 내일 날씨"))
         webbing.showMemos([], as: .evidence)
         await render(
             name: "capture-web-answer",
-            size: CGSize(width: QuickCaptureController.width, height: 330),
+            size: CGSize(width: QuickCaptureController.width, height: 560),
             content: QuickCaptureView(model: webbing, onCommit: {}, onCancel: {}),
             into: directory
         )
@@ -949,4 +950,21 @@ enum PreviewRenderer {
                NSColor(calibratedRed: 0.10, green: 0.10, blue: 0.15, alpha: 1))
         NSGradient(starting: colors.0, ending: colors.1)?.draw(in: rect, angle: -90)
     }
+}
+
+
+extension PreviewRenderer {
+    /// 웹의 답 장면에 쓰는 결과 다섯 — 2026-09-17 「서울 내일 날씨」 실물을 본떴다.
+    static let sampleWebHits: [WebHit] = [
+        WebHit(title: L("홈 - 기상청 날씨누리"), url: URL(string: "https://www.weather.go.kr/")!,
+               snippet: L("내일 경상권해안, 제주도 중심 비, 강풍과 풍랑 유의. (기상청 예보 26년 9월 17일 05시 기준)")),
+        WebHit(title: L("서울 내일 날씨 - Meteocast"), url: URL(string: "https://ko.meteocast.net/tomorrow-forecast/kr/seoul/")!,
+               snippet: L("해돋이 06:11, 일몰 18:45. Asia/Seoul, GMT 9. 내일 서울 기온 18~24도, 흐리고 한때 비.")),
+        WebHit(title: L("서울특별시 날씨 - 네이버 날씨"), url: URL(string: "https://weather.naver.com/today/09140104")!,
+               snippet: L("오늘·내일·모레 날씨와 미세먼지, 시간별 강수 확률을 한눈에.")),
+        WebHit(title: L("Seoul weather tomorrow - AccuWeather"), url: URL(string: "https://www.accuweather.com/en/kr/seoul/226081/weather-tomorrow/226081")!,
+               snippet: L("Cloudy with a shower in spots. High 24°, low 18°. Winds SE 10 km/h.")),
+        WebHit(title: L("기상청 단기예보 — 서울·경기"), url: URL(string: "https://www.weather.go.kr/w/weather/forecast/short-term.do")!,
+               snippet: L("서울·경기 내일 오전 구름많음, 오후 흐리고 비. 강수 확률 60%.")),
+    ]
 }

@@ -335,6 +335,7 @@ struct StackView: View {
         case .asking: return String(localized: "\(scope)장 중 겹치는 것 없음 · 물으면 메모를 읽고 답합니다")
         case .searching: return String(localized: "\(scope)장 중 겹치는 것 없음 · 웹에서 찾아 답합니다")
         case .telling: return String(localized: "\(scope)장 중 겹치는 것 없음 · 시키면 어느 메모인지 묻습니다")
+        case .following: return String(localized: "\(scope)장 중 겹치는 것 없음 · 위의 답을 남깁니다")
         }
     }
 
@@ -368,31 +369,39 @@ struct StackView: View {
     private func answerRow(_ answer: AssistantAnswer) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             // 펜은 비었으니 무엇을 물었는지는 카드가 든다 — 맥은 상자 안에 답이 서지만 폰의 답은 목록 위에 혼자 선다.
-            if let asked = pen.asked {
+            if answer.isWeb {
+                HStack(spacing: 6) {
+                    Image(systemName: "globe").font(.caption2.weight(.semibold))
+                    Text("웹에서 찾음")
+                    if let question = pen.asked ?? assistant?.webQuestion {
+                        Text("·")
+                        Text(WebQuery.make(from: question)).lineLimit(1)
+                    }
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            } else if let asked = pen.asked {
                 Text(asked).font(.footnote.weight(.medium)).foregroundStyle(.secondary).lineLimit(2)
             }
             // 웹의 답에 문장이 없으면(모델 없이 결과만) 머리글 한 줄.
             Text(answer.found ? (answer.text.isEmpty ? String(localized: "웹에서 찾은 것") : ActionWords.soft(answer.text)) : String(localized: "메모에서 찾지 못했습니다"))
-                .font(.body)
+                .font(answer.isWeb && (answer.text.isEmpty || answer.text.hasPrefix("검색 결과에서")) ? .subheadline.weight(.medium) : .body)
                 .textSelection(.enabled)
-            if answer.isWeb {
-                // 출처가 곧 인용 — 제목 · 주소 밑에 발췌. 누르면 브라우저로.
-                ForEach(Array(zip(answer.sources, answer.quotes)), id: \.0.id) { source, quote in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Button { openURL(source.url) } label: {
-                            HStack(spacing: 6) {
-                                Text(source.title).lineLimit(1).foregroundStyle(Theme.accentInk)
-                                Text(source.host).foregroundStyle(.tertiary).lineLimit(1)
-                            }
-                            .contentShape(.rect)
-                        }
-                        .buttonStyle(.plain)
-                        if !quote.isEmpty { Text(quote).foregroundStyle(.secondary).lineLimit(3) }
+            if answer.isWeb, let assistant {
+                // **결과 전부** — 인용한 것이 앞에 서고 점이 찍힌다. 칸 전체가 단추, 누르면 브라우저로.
+                // 앞선 판은 인용한 한두 줄만 그려 나머지 결과는 있었는지도 몰랐다 (2026-09-17, 사용자).
+                let results = assistant.webResults
+                VStack(spacing: 0) {
+                    ForEach(Array(results.enumerated()), id: \.element.id) { index, result in
+                        webResultRow(result)
+                        if index < results.count - 1 { Divider().padding(.horizontal, 10) }
                     }
-                    .font(.footnote)
-                    .padding(.leading, 8)
-                    .overlay(alignment: .leading) { Rectangle().frame(width: 2).foregroundStyle(.tertiary) }
                 }
+                .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+                .padding(.top, 4)
+                .accessibilityIdentifier("web-results")
+                if !assistant.followUps.isEmpty { followUpRow(assistant) }
             } else {
                 ForEach(answer.quotes, id: \.self) { line in
                     Text(line)
@@ -411,6 +420,68 @@ struct StackView: View {
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .accessibilityIdentifier("answer")
+    }
+
+    /// 웹 결과 한 칸 — 제목 · 출처, 발췌 세 줄.
+    private func webResultRow(_ result: AssistantModel.WebResult) -> some View {
+        Button { openURL(result.url) } label: {
+            HStack(alignment: .top, spacing: 10) {
+                Circle()
+                    .fill(result.cited ? Theme.accentInk : Color.primary.opacity(0.18))
+                    .frame(width: 6, height: 6)
+                    .padding(.top, 6)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(result.title).font(.subheadline.weight(.medium)).foregroundStyle(Theme.accentInk).lineLimit(1)
+                        Text(result.host).font(.caption).foregroundStyle(.tertiary).lineLimit(1).layoutPriority(1)
+                    }
+                    if !result.snippet.isEmpty {
+                        Text(result.snippet).font(.footnote).foregroundStyle(.secondary).lineLimit(3)
+                    }
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.up.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary).padding(.top, 4)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 9)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(String(localized: "\(result.title) — 브라우저에서 엽니다")))
+    }
+
+    /// 「이걸 어떻게 할까요?」— 남기기 · 정리해서 남기기 · 붙이기. 펜에 「메모해」「치과 메모에 추가해줘」라고 적어도 같다.
+    private func followUpRow(_ assistant: AssistantModel) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(String(localized: String.LocalizationValue(WebFollowUp.question)))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(assistant.followUps, id: \.self) { choice in
+                        Button { assistant.followUp(choice) } label: {
+                            Text(PenModel.followUpLabel(choice))
+                                .font(.footnote.weight(.semibold))
+                                .padding(.horizontal, 12)
+                                .frame(minHeight: 32)
+                                .background(Theme.accentInk.opacity(0.10), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Theme.accentInk)
+                        .accessibilityIdentifier("follow-up-\(Self.followUpID(choice))")
+                    }
+                }
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private static func followUpID(_ choice: WebFollowUp) -> String {
+        switch choice {
+        case .keep: return "keep"
+        case .tidy: return "tidy"
+        case .append: return "append"
+        }
     }
 
     /// 「「치과 예약」을 9월 18일 (금) 10:00 에 다시 보여 줍니다 · 되돌리기」— 확인 대신 되돌리기 (D8).

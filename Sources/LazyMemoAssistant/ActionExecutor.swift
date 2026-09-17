@@ -79,6 +79,15 @@ public actor ActionExecutor {
                 }
             }
             receipt = ActionReceipt(actionID: action.id, requestID: action.requestID, kind: action.kind, before: before, after: after)
+        case .appendToMemo:
+            guard let id = action.memoID, let block = action.patch.body, !block.isEmpty else { throw ActionError.nothingToExecute }
+            let before = try await load(id)
+            let after = try await mapping(id) {
+                try await service.modify(id, expectedHash: action.expectedContentHash, now: now) { memo in
+                    memo.body = Self.append(block, to: memo.body)
+                }
+            }
+            receipt = ActionReceipt(actionID: action.id, requestID: action.requestID, kind: .appendToMemo, before: before, after: after)
         }
         receipts[action.requestID] = receipt
         return receipt
@@ -95,7 +104,7 @@ public actor ActionExecutor {
             }
         case .trash:
             return try await service.restore(receipt.after.id)
-        case .setRecall, .reschedule, .moveToFolder:
+        case .setRecall, .reschedule, .moveToFolder, .appendToMemo:
             guard let before = receipt.before else { return nil }
             return try await mapping(before.id, stale: true) {
                 try await service.modify(before.id, expectedHash: receipt.after.contentHash, now: now) { memo in
@@ -109,6 +118,12 @@ public actor ActionExecutor {
         case .ask, .none:
             return nil
         }
+    }
+
+    /// 끝에 한 줄 띄우고 잇는다. 본문이 비어 있으면 그것이 곧 본문이다.
+    static func append(_ block: String, to body: String) -> String {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? block : trimmed + "\n\n" + block
     }
 
     static func apply(_ patch: FieldPatch, to memo: inout Memo) {

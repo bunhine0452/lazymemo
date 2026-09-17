@@ -14,7 +14,10 @@ public enum ActionWords {
         case .none: return L("바꿀 것이 없습니다")
         case .trash: return L("\(name) 을(를) 휴지통으로 옮깁니다")
         case .createMemo:
-            var parts = [L("새 메모: \(action.patch.body ?? "")")]
+            // 여러 줄이면 첫 줄만 — 웹에서 남긴 메모는 출처까지 대여섯 줄이라 결과 줄이 본문을 통째로 되읽었다.
+            let body = action.patch.body ?? ""
+            let first = body.split(separator: "\n", omittingEmptySubsequences: true).first.map(String.init) ?? ""
+            var parts = [L("새 메모: \(first.count < body.count ? first + "…" : body)")]
             if case .set(let at) = action.patch.at { parts.append(L("약속 \(time(at))")) }
             else if case .set(let due) = action.patch.due { parts.append(L("날짜 \(due.description)")) }
             if let place = action.patch.place { parts.append(L("자리 \(place)")) }
@@ -31,6 +34,8 @@ public enum ActionWords {
             if case .set(let due) = action.patch.due { return L("\(name) 의 날짜를 \(due.description) 으로 옮깁니다") }
             if case .clear = action.patch.due { return L("\(name) 의 날짜를 지웁니다") }
             return L("바꿀 것이 없습니다")
+        case .appendToMemo:
+            return L("\(name) 끝에 덧붙입니다")
         case .moveToFolder:
             if case .set(let folder) = action.patch.folder { return L("\(name) 을(를) 「\(folder)」 폴더로 옮깁니다") }
             if case .clear = action.patch.folder { return L("\(name) 을(를) 폴더에서 뺍니다") }

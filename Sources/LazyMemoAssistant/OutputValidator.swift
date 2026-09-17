@@ -196,6 +196,7 @@ enum OutputValidator {
         case .reschedule: return FieldPatch(due: p.due, at: p.at)
         case .moveToFolder: return FieldPatch(folder: p.folder)
         case .createMemo: return p
+        case .appendToMemo: return FieldPatch(body: p.body)
         case .trash, .ask, .none: return FieldPatch()
         }
     }
