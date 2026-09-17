@@ -12,6 +12,7 @@ struct LazyMemoWidgets: WidgetBundle {
     var body: some Widget {
         NowWidget()
         NextWidget()
+        CalendarWidget()
         WriteWidget()
     }
 }

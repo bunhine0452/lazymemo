@@ -28,11 +28,19 @@ struct DrawerGeometry: Equatable {
     /// 닫힌 서랍 — **탭 하나.** 바탕화면에 늘 앉아 있으므로 작아야 한다.
     /// 비뚤게 깔린 종이 세 장을 그리던 앞선 판은 바탕화면에서 «흐트러진
     /// 카드» 로 보였다 — 몇 장인지는 두께가 아니라 숫자가 말한다.
-    static let closedSize = CGSize(width: 168, height: 48)
+    ///
+    /// **168×48 이었다.** 바탕화면에서 눈에 안 띄었고, 종이를 끌어다 놓기에는
+    /// 과녁이 종이(260×200)의 6분의 1이었다. 지금은 두 줄이다 — 이름과 장수,
+    /// 그 밑에 **최근 두 장의 제목**. 탭을 열어 보기 전에 무엇이 들었는지
+    /// 한 줄은 읽힌다 (§16.12).
+    static let closedSize = CGSize(width: 232, height: 60)
 
-    /// 펼친 판의 폭. 제목 한 줄과 시각, 그리고 손이 왔을 때의 조작 셋이 한
-    /// 줄에 서는 폭이다.
-    static let width: CGFloat = 372
+    /// 펼친 판의 폭. 제목 한 줄과 둘째 줄, 그리고 손이 왔을 때의 조작 넷
+    /// (꺼내기·펼치기·폴더·지우기)이 한 줄에 서는 폭이다.
+    ///
+    /// **372 였다.** 조작이 셋일 때의 값이라, 「꺼내기」를 줄에 글자로 세우니
+    /// 제목이 스무 자에서 잘렸다. 찾기 줄·폴더 띠도 그만큼 숨을 쉰다.
+    static let width: CGFloat = 440
 
     static let padding: CGFloat = 14
     static let headerHeight: CGFloat = 44
@@ -43,7 +51,10 @@ struct DrawerGeometry: Equatable {
     static let footerHeight: CGFloat = 32
 
     /// 목록의 한 줄. 제목 한 줄과 둘째 줄이 들어가는 높이다.
-    static let rowHeight: CGFloat = 50
+    ///
+    /// 줄이 곧 **누르면 꺼내는 단추**가 되면서(§16.12) 두 줄 사이를 조금 벌렸다 —
+    /// 과녁이 좁은 줄은 옆 줄이 눌린다 (`NoteControlLayout.spacing` 이 배운 것).
+    static let rowHeight: CGFloat = 54
     /// 펼친 줄이 더 차지하는 높이 — 본문 몇 줄과 조작 한 줄. **본문 줄 수를 따른다.**
     /// 여섯 줄로 못 박아 두었더니 한 줄짜리 메모 밑이 텅 비었다 — 빈자리는 공짜가 아니다 (§16.3).
     static func expandedExtra(lines: Int) -> CGFloat {

@@ -8,7 +8,8 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
     let id: ULID
     let model: NoteModel
 
-    private let window: DesktopLevelWindow
+    /// 시험이 키를 보내려고 본다 — 그 밖에는 이 컨트롤러만 만진다.
+    let window: DesktopLevelWindow
     private let onFrameChange: (ULID, CGRect) -> Void
     private let onCloseRequest: (ULID) -> Void
     /// 서랍으로 날아가는 중. **이때의 좌표는 적지 않는다** — 서랍만 한 크기로
@@ -54,6 +55,9 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
         ))
         hosting.rootView.onPlacesAppear = { [weak self] in self?.growForPlaces() }
         hosting.rootView.onRouteAppear = { [weak self] in self?.growForRoute() }
+        // Esc 는 어디서 눌리든 한곳으로 — 본문에서(텍스트 뷰), 손잡이만 잡은 채로(창).
+        hosting.rootView.onEscape = { [weak self] in self?.escape() }
+        window.onEscape = { [weak self] in self?.escape() }
         // 창 크기는 layout.json 이 정본이다. 뷰가 끌고 가게 두지 않는다.
         hosting.sizingOptions = []
 
@@ -162,6 +166,18 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
         window.cancelSettling()
         window.delegate = nil
         window.orderOut(nil)
+    }
+
+    /// Esc — 종이를 치운다. ×와 같은 길(서랍으로)이고 지우는 것이 아니다.
+    ///
+    /// 손이 키보드에 있을 때의 «닫기» 라, 종이가 사라진 뒤 **키보드를 원래 앱에
+    /// 돌려주는 것**까지가 한 동작이다 — 상주 앱이 활성인 채 남으면 다음 타자가
+    /// 허공으로 간다 (§7.1 다섯째 규칙). 방금 지운 종이는 되돌리는 줄이 서
+    /// 있으니(D6) 건드리지 않는다 — 그 줄을 Esc 로 걷어 내면 되돌릴 자리가 없어진다.
+    func escape() {
+        guard !isMourning else { return }
+        onCloseRequest(id)
+        NSApplication.shared.deactivate()
     }
 
     func focusEditor() {

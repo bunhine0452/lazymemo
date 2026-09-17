@@ -11,6 +11,12 @@ import SwiftUI
 /// 종이는 제목 한 줄만 들고 있었고 나머지는 손이 얹혀야 드러났다 (§16.3).
 /// 목록에서는 둘째 줄이 늘 보인다: 「장보기 목록」 밑의 「☑ 우유 · ☑ 계란」이
 /// 곧 그 메모가 무엇인지 말하고, 그것이 사람이 훑을 때 실제로 읽는 줄이다.
+///
+/// **줄을 누르면 꺼낸다** (§16.12). 앞선 판은 누르면 펼치고, 펼친 안의
+/// 「꺼내기」를 한 번 더 눌러야 했다 — 서랍을 여는 사람의 20% 손짓은
+/// 「저 종이 도로 꺼내기」인데(WWDC17 802 의 80/20) 그것이 세 번이었다.
+/// 펼쳐 보기는 손이 얹혔을 때의 꺾쇠(›)와 Space 로 남긴다 — 호버로 펼치면
+/// 판이 출렁인다는 §16.3 의 규칙 그대로.
 struct DrawerRow: View {
     let memo: Memo
     /// 손이 얹혔거나 키보드가 짚었다 — 같은 표시다 (§14.10).
@@ -22,6 +28,8 @@ struct DrawerRow: View {
     let folders: [String]
 
     var onTakeOut: () -> Void = {}
+    /// 펼쳐 본다 / 도로 접는다.
+    var onZoom: () -> Void = {}
     var onDelete: () -> Void = {}
     var onMove: (String?) -> Void = { _ in }
 
@@ -169,15 +177,25 @@ struct DrawerRow: View {
         .transition(.opacity)
     }
 
-    /// 꺼내기 · 폴더 · 지우기 — 종이가 하는 것과 같은 낱말이다 (`NoteView.paperControls`).
+    /// 꺼내기 · 펼치기 · 폴더 · 지우기 — 종이가 하는 것과 같은 낱말이다 (`NoteView.paperControls`).
+    ///
+    /// 줄 위(`compact`)의 「꺼내기」는 줄 전체가 이미 하는 일을 **글자로 한 번
+    /// 더 적은 것**이다 — 눌리는 것이면 눌리게 생겨야 한다(WWDC17 802 Affordances).
+    /// 손이 얹혔을 때 그 말이 보이지 않으면, 줄을 누르면 무엇이 되는지는 눌러
+    /// 봐야만 안다.
     private func controls(compact: Bool) -> some View {
         HStack(spacing: compact ? Theme.hairline : Theme.tight) {
             Button(action: onTakeOut) {
-                Text(L("꺼내기"))
-                    .font(.system(size: 10.5, weight: .medium))
-                    .padding(.horizontal, compact ? Theme.tight : Theme.snug)
-                    .frame(height: Theme.touchRow)
-                    .contentShape(.rect)
+                HStack(spacing: 3) {
+                    if compact {
+                        Image(systemName: "arrow.up.forward").font(.system(size: 9, weight: .bold))
+                    }
+                    Text(L("꺼내기"))
+                        .font(.system(size: 10.5, weight: compact ? .semibold : .medium))
+                }
+                .padding(.horizontal, compact ? Theme.tight : Theme.snug)
+                .frame(height: Theme.touchRow)
+                .contentShape(.rect)
             }
             .buttonStyle(.plain)
             .foregroundStyle(compact ? Theme.accentInk : Theme.onAccent)
@@ -187,7 +205,19 @@ struct DrawerRow: View {
                         .fill(Theme.accent)
                 }
             }
-            .spoken(L("꺼내기 — 이 종이를 바탕화면으로 되돌립니다"))
+            .spoken(L("꺼내기 — 이 종이를 바탕화면으로 되돌립니다 (↩)"))
+
+            Button(action: onZoom) {
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+                    .frame(width: Theme.touch, height: Theme.touchRow)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.accentInk)
+            .spoken(isExpanded
+                    ? L("접기 — 본문을 도로 접습니다 (Space)")
+                    : L("펼쳐 보기 — 본문을 이 자리에서 읽습니다. 고치려면 꺼냅니다 (Space)"))
 
             folderMenu
 

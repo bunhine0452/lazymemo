@@ -28,6 +28,8 @@ struct MemoTextEditor: NSViewRepresentable {
     var movesWindow = false
     /// Esc 로 편집에서 손을 뗄지. 빠른 입력은 Esc 를 자기가 쓰므로 끈다.
     var blursOnEscape = false
+    /// Esc 가 손을 뗀 다음 할 일 — 메모 창은 여기서 종이를 치운다.
+    var onEscape: (() -> Void)?
     /// 조합이 끝난 시점의 텍스트만 흘려보낸다. 자동 저장이 여기에 걸린다.
     var onEdit: (String) -> Void = { _ in }
     /// Return·Esc·화살표를 가로챈다. `true` 를 돌려주면 텍스트 뷰는 처리하지 않는다.
@@ -98,6 +100,7 @@ struct MemoTextEditor: NSViewRepresentable {
         textView.onCommandReturn = onCommandReturn
         textView.movesWindowOnDrag = movesWindow
         textView.blursOnEscape = blursOnEscape
+        textView.onEscape = onEscape
         textView.string = text
 
         scrollView.documentView = textView
@@ -122,6 +125,7 @@ struct MemoTextEditor: NSViewRepresentable {
         // 닫힘 위에 붙잡힌 값들은 갱신될 때마다 갈아 끼운다.
         (textView as? MemoNSTextView)?.onDelete = onDelete
         (textView as? MemoNSTextView)?.onCommandReturn = onCommandReturn
+        (textView as? MemoNSTextView)?.onEscape = onEscape
         context.coordinator.onHeightChange = onHeightChange
         // 조합 보호 규칙은 MemoTextSync 에 있다 — 테스트가 그쪽을 지킨다.
         if MemoTextSync.apply(text, to: textView) {

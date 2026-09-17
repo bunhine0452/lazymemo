@@ -9,6 +9,8 @@ public enum WidgetKind: String, CaseIterable, Sendable {
     case next
     /// 적기 — 누르면 펜이 올라온다.
     case write
+    /// 달력 — 이번 달 격자. 일정이 있는 날은 점.
+    case calendar
 
     /// WidgetKit 에 넘기는 식별자. 번들 id 를 앞에 붙여 다른 앱의 위젯과 겹치지 않게.
     public var identifier: String { "io.github.bunhine0452.lazymemo.widgets." + rawValue }

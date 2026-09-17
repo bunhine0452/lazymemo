@@ -9,15 +9,23 @@ import SwiftUI
 /// 머리 한 줄을 통째로 손잡이로 삼는다. 색띠도 그만큼 키워 "여기를 잡는다"
 /// 는 뜻이 보이게 한다.
 ///
-/// 끌기는 AppKit 에 맡긴다: `mouseDownCanMoveWindow` 만 열면 창의
-/// `isMovableByWindowBackground` 가 나머지를 한다. 직접 `performDrag` 를
-/// 부르지 않는 이유는 우클릭이다 — 창 배경 끌기는 왼쪽 버튼에만 걸리고
-/// 오른쪽 버튼은 그대로 응답자 사슬을 타고 올라 종이의 메뉴가 열린다.
+/// 끌기는 **본문과 같은 길**로 넘긴다 — `mouseDown` 에서 `performDrag`.
+/// 앞선 판은 `mouseDownCanMoveWindow` 만 열고 창의 `isMovableByWindowBackground`
+/// 에 맡겼는데, 호스팅 뷰 안에서는 그것이 실제로 끌리지 않았다(2026-09-17,
+/// 사용자 확인). 우클릭은 그대로다: `mouseDown` 은 왼쪽 버튼만 받고 오른쪽
+/// 버튼은 응답자 사슬을 타고 올라 종이의 메뉴가 열린다.
 struct PaperGrip: View {
     let tint: Color
 
-    /// 손잡이 한 줄의 키. 본문의 위 여백(`Theme.loose`)과 같아 글을 밀지 않는다.
-    static let height: CGFloat = Theme.loose
+    /// 손잡이 한 줄의 키.
+    ///
+    /// 본문의 위 여백(`Theme.loose`=20)보다 6pt 크다. 그 6pt 는 첫 줄의 **윗머리**다 —
+    /// 글줄은 23pt(`Paper.linePitch`)인데 14pt 글자의 제 키는 17pt 라, 남는 6pt 가
+    /// 글자 위에 얹힌다. 손잡이가 거기까지 내려와도 글자는 덮지 않고 글도 밀리지
+    /// 않는다 (`PaperGripTests` 가 그 경계를 잰다).
+    static let height: CGFloat = 26
+    /// 색띠의 크기. 손잡이가 커진 만큼 띠도 커야 "여기를 잡는다" 가 보인다.
+    static let barSize = CGSize(width: 64, height: 5)
 
     @Environment(\.rendersStatically) private var rendersStatically
 
@@ -27,7 +35,7 @@ struct PaperGrip: View {
             // 화면 밖 렌더에서는 끌 손도 없으니 그림만 남긴다.
             if !rendersStatically { GripSurface() }
             Capsule().fill(tint)
-                .frame(width: 52, height: 4)
+                .frame(width: Self.barSize.width, height: Self.barSize.height)
                 .allowsHitTesting(false)
         }
         .frame(maxWidth: .infinity)
@@ -41,9 +49,15 @@ private struct GripSurface: NSViewRepresentable {
     func updateNSView(_ view: NSView, context: Context) {}
 
     final class GripView: NSView {
-        /// 여기를 잡으면 창이 끌린다.
+        /// 여기를 잡으면 창이 끌린다 — 배경 끌기가 닿는 창에서는 이것만으로도.
         override var mouseDownCanMoveWindow: Bool { true }
         /// 다른 앱을 쓰다 바로 잡아도 첫 클릭부터 끌린다 (`FirstMouseHostingView` 와 같은 이유).
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+        /// 왼쪽 버튼으로 잡으면 창을 끈다. 본문(`MemoNSTextView.dragPaper`)과 같은 길이다.
+        override func mouseDown(with event: NSEvent) {
+            guard let window else { return }
+            window.performDrag(with: event)
+        }
     }
 }

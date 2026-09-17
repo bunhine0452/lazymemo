@@ -311,10 +311,20 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         calendarItem.state = calendar.isOpen ? .on : .off
         menu.addItem(calendarItem)
 
-        let drawerItem = item(title: L("서랍"), action: #selector(toggleDrawer), key: "")
+        // 「서랍」은 **펼친 채 앞으로 부른다** (`DrawerWindowController.summon`).
+        // 바탕화면에서 아예 치우는 것은 ⌥ 를 누른 채 — 상주 여부는 자주 바꾸는
+        // 일이 아니라 한 겹 아래가 맞다 (WWDC17 802 Progressive Disclosure).
+        let drawerItem = item(title: L("서랍"), action: #selector(summonDrawer), key: "")
         drawerItem.state = drawer.isVisible ? .on : .off
-        drawerItem.toolTip = L("밀어 둔 종이가 모이는 자리 — 바탕화면에 놓입니다")
+        drawerItem.toolTip = L("밀어 둔 종이가 모이는 자리 — 펼쳐서 앞으로 부릅니다. ⌥ 를 누르면 바탕화면에서 치웁니다")
         menu.addItem(drawerItem)
+        let drawerToggle = item(
+            title: drawer.isVisible ? L("서랍 치우기 — 바탕화면에서") : L("서랍 내놓기 — 바탕화면에"),
+            action: #selector(toggleDrawer), key: ""
+        )
+        drawerToggle.keyEquivalentModifierMask = .option
+        drawerToggle.isAlternate = true
+        menu.addItem(drawerToggle)
         menu.addItem(.separator())
 
         addMemoList(to: menu)
@@ -900,6 +910,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func toggleCalendar() { calendar.toggle() }
+
+    @objc private func summonDrawer() { drawer.summon() }
 
     @objc private func toggleDrawer() { drawer.toggle() }
 

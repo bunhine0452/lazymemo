@@ -15,11 +15,13 @@ import SwiftUI
 ///
 /// | 무엇 | 어떻게 |
 /// |---|---|
-/// | 닫힌 탭 | 바탕화면에 늘 앉아 있다. 「서랍」과 몇 장인지. 종이를 끌어다 놓는 자리다 |
-/// | 누르면 | 창이 **탭이 있던 모서리를 붙박은 채** 자라고, 찾기·폴더·목록이 선다 |
-/// | 줄을 누르면 | 그 줄이 아래로 자라 본문과 조작을 보인다. 한 번 더 누르면 접힌다 |
-/// | ⌘ 누른 채 누르면 | 고른다. 바닥 줄에 「모두 꺼내기 · 옮기기 · 지우기」 |
+/// | 닫힌 탭 | 바탕화면에 늘 앉아 있다. 「서랍」과 몇 장인지, 그 밑에 최근 두 장의 제목. 종이를 끌어다 놓는 자리다 |
+/// | 누르면 · 메뉴바 「서랍」 | 창이 **탭이 있던 모서리를 붙박은 채** 자라 **앞으로** 나오고, 찾기·폴더·목록이 선다 |
+/// | 줄을 누르면 · ↩ | **꺼낸다** — 종이가 제자리로 돌아가 잠깐 앞에 선다. 바닥 줄에 「도로 넣기」 (§16.12) |
+/// | 줄의 › · Space | 그 줄이 아래로 자라 본문을 보인다. 한 번 더 누르면 접힌다 |
+/// | ⌘ 누른 채 누르면 · ⇧↑↓ | 고른다. 바닥 줄에 「모두 꺼내기 · 옮기기 · 지우기」 |
 /// | 줄을 폴더로 끌면 | 그 폴더로 옮긴다 |
+/// | 종이를 판 어디에나 놓으면 | 들어온다 — 보고 있는 폴더로. 떠 있는 동안 판 전체가 「놓으면 들어옵니다」 |
 ///
 /// **움직임을 줄이라고 한 사람에게는 움직이지 않는다** (`accessibilityReduceMotion`).
 struct DrawerView: View {
@@ -42,7 +44,7 @@ struct DrawerView: View {
     private var plan: DrawerGeometry { model.geometry() }
     /// 지금 «짚힌» 한 줄. **손이 얹힌 것과 키보드가 짚은 것이 같은 자리다** —
     /// 두 곳에서 같은 일을 다르게 그리면 두 개의 물건이 된다 (§14.10).
-    private var pointed: ULID? { model.staged?.hovered ?? hovered ?? model.focused }
+    private var pointed: ULID? { model.staged?.hovered ?? hovered ?? model.shownTarget }
     private var landing: ULID? { model.shownLanding }
     private var isEditing: Bool { searchFocused || namingFocused || renamingFocused }
 
@@ -66,6 +68,9 @@ struct DrawerView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.paper(MemoColor.gray.ink, radius: Theme.panelRadius, dotted: false))
                     .overlay(Theme.edge(radius: Theme.panelRadius))
+                    // 종이가 떠 있으면 **판 전체가 놓을 자리다** — 바닥 한 줄의
+                    // 작은 글자로는 겨눌 자리가 어디까지인지 보이지 않았다.
+                    .overlay { if landing != nil { landingVeil } }
                     .compositingGroup()
                     .shadow(color: .black.opacity(0.05), radius: 1.5, y: 1)
                     .shadow(color: .black.opacity(0.10), radius: 16, y: 6)
@@ -79,6 +84,7 @@ struct DrawerView: View {
         .animation(quick, value: model.shownExpanded)
         .animation(quick, value: pointed)
         .animation(quick, value: model.shownLanding)
+        .animation(quick, value: model.shownLastTakenOut?.id)
         .animation(quick, value: model.shownPicked)
         .animation(quick, value: model.shownFolder)
         .animation(quick, value: model.shownNaming)
@@ -115,21 +121,25 @@ struct DrawerView: View {
     /// 보일까 걱정했지만, 안 읽히는 물건이 더 나쁘다.
     private var closed: some View {
         Button { model.toggle() } label: {
-            HStack(spacing: Theme.tight + 2) {
-                Image(systemName: "tray.full.fill")
-                    .font(.system(size: 13, weight: .semibold))
+            HStack(spacing: Theme.snug) {
+                Image(systemName: landing != nil ? "tray.and.arrow.down.fill" : "tray.full.fill")
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Theme.accentInk)
-                Text(L("서랍"))
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Paper.ink.opacity(0.9))
-                Spacer(minLength: 0)
-                if landing != nil {
-                    Text(L("놓으면 들어옵니다"))
-                        .font(Theme.micro)
-                        .foregroundStyle(Theme.accentInk)
+                    .frame(width: 22)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: Theme.tight) {
+                        Text(L("서랍"))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Paper.ink.opacity(0.9))
+                        countPill(model.total)
+                        Spacer(minLength: 0)
+                    }
+                    // 둘째 줄 — 열어 보기 전에 무엇이 들었는지 한 줄은 읽힌다.
+                    // 종이가 떠 있으면 그 줄이 「놓으면 들어옵니다」가 된다.
+                    Text(tabSubtitle)
+                        .font(.system(size: 11, weight: landing != nil ? .semibold : .regular))
+                        .foregroundStyle(landing != nil ? Theme.accentInk : Paper.ink.opacity(0.48))
                         .lineLimit(1)
-                } else {
-                    countPill(model.total)
                 }
             }
             .padding(.horizontal, Theme.normal - 2)
@@ -151,6 +161,41 @@ struct DrawerView: View {
         .scaleEffect(landing != nil ? 1.04 : (isHovering ? 1.02 : 1))
         .animation(quick, value: isHovering)
         .spoken(L("서랍 — \(model.title). 눌러서 펼칩니다"))
+    }
+
+    /// 닫힌 탭의 둘째 줄.
+    private var tabSubtitle: String {
+        if landing != nil { return L("놓으면 들어옵니다") }
+        let titles = model.recentTitles
+        if titles.isEmpty { return L("비어 있습니다 — 종이를 여기 끌어다 놓습니다") }
+        return titles.map(short).joined(separator: " · ")
+    }
+
+    /// 종이가 떠 있는 동안 펼친 판을 덮는 한 겹 — **판 전체가 과녁**이라는 말.
+    private var landingVeil: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: Theme.panelRadius, style: .continuous)
+                .fill(Paper.surface.opacity(0.82))
+            RoundedRectangle(cornerRadius: Theme.panelRadius - 5, style: .continuous)
+                .strokeBorder(Theme.accentInk.opacity(0.75), style: StrokeStyle(lineWidth: 2, dash: [9, 6]))
+                .padding(6)
+            VStack(spacing: Theme.tight) {
+                Image(systemName: "tray.and.arrow.down.fill")
+                    .font(.system(size: 30, weight: .semibold))
+                Text(landingTitle)
+                    .font(.system(size: 15, weight: .semibold))
+                    .multilineTextAlignment(.center)
+            }
+            .foregroundStyle(Theme.accentInk)
+            .padding(Theme.loose)
+        }
+        .allowsHitTesting(false)
+        .transition(.opacity)
+    }
+
+    private var landingTitle: String {
+        if let folder = model.shownFolder { return L("놓으면 「\(folder)」에 들어옵니다") }
+        return L("놓으면 들어옵니다")
     }
 
     private func countPill(_ count: Int) -> some View {
@@ -468,12 +513,14 @@ struct DrawerView: View {
             showsFolder: model.shownFolder == nil,
             folders: model.folders,
             onTakeOut: { model.takeOut(memo.id) },
+            onZoom: { model.zoom(memo.id) },
             onDelete: { model.delete(memo.id) },
             onMove: { model.move(memo.id, to: $0) }
         )
+        // **누르면 꺼낸다** (§16.12). 펼쳐 보는 것은 줄의 › 와 Space 다.
         // **⌘ 를 누른 채 누르면 고른다.** Finder 와 같은 손짓이라 배울
-        // 것이 없고, 그냥 누르는 것(펼치기)을 빼앗지도 않는다.
-        .onTapGesture { model.zoom(memo.id) }
+        // 것이 없고, 그냥 누르는 것을 빼앗지도 않는다.
+        .onTapGesture { model.takeOut(memo.id) }
         .simultaneousGesture(TapGesture().modifiers(.command).onEnded { model.pick(memo.id) })
         .draggable(memo.id.stringValue)
         .onHover { inside in
@@ -485,7 +532,7 @@ struct DrawerView: View {
                 ? L("\(memo.title) — 골랐습니다. \(MemoTimeLabel.text(for: memo))")
                 : "\(memo.title) — \(MemoTimeLabel.text(for: memo))"
         ))
-        .accessibilityHint(Text(L("눌러서 펼칩니다. ⌘ 를 누른 채 누르면 고릅니다")))
+        .accessibilityHint(Text(L("눌러서 꺼냅니다. Space 로 펼쳐 보고, ⌘ 를 누른 채 누르면 고릅니다")))
     }
 
     // MARK: 바닥 한 줄
@@ -495,22 +542,25 @@ struct DrawerView: View {
     /// | 언제 | 무엇을 말하나 |
     /// |---|---|
     /// | 골라 둔 줄이 있으면 | 「3장 골랐습니다」와 모두 꺼내기·옮기기·지우기 |
+    /// | 방금 꺼낸 것이 있으면 | 「「x」 꺼냈습니다」와 도로 넣기 — 줄 한 번이 꺼내기가 된 값을 싸게 |
     /// | 방금 넣은 것이 있으면 | 「「x」 넣었습니다」와 꺼내기 |
-    /// | 종이가 떠 있으면 | 「놓으면 들어옵니다」 |
+    /// | 종이가 떠 있으면 | 「놓으면 들어옵니다」 (판 전체의 덮개가 크게 말하고, 여기는 받쳐 준다) |
     /// | 그 밖에 | 손짓 안내 — 거의 안 보이게 |
     @ViewBuilder
     private var footer: some View {
         HStack(spacing: Theme.tight) {
             if model.pickedLabel != nil {
                 pickedControls
+            } else if let out = model.shownLastTakenOut {
+                takenOutNotice(out)
             } else if let filed = model.shownLastFiled {
                 filedNotice(filed)
             } else if landing != nil {
-                Text(L("놓으면 들어옵니다"))
+                Text(landingTitle)
                     .font(Theme.micro)
                     .foregroundStyle(Theme.accentInk)
             } else {
-                Text(L("⌘-클릭으로 여러 장 · ↑↓ 훑기 · ↩ 펼치기 · 줄을 폴더로 끌기"))
+                Text(L("줄을 누르면 꺼냅니다 · Space 펼쳐 보기 · ⌘-클릭으로 여러 장 · 줄을 폴더로 끌기"))
                     .font(Theme.micro)
                     .foregroundStyle(Paper.ink.opacity(isHovering ? 0.42 : 0.26))
                     .lineLimit(1)
@@ -518,6 +568,20 @@ struct DrawerView: View {
             Spacer(minLength: 0)
         }
         .frame(height: DrawerGeometry.footerHeight, alignment: .bottom)
+    }
+
+    /// 「「x」 꺼냈습니다 · 도로 넣기」 — 되돌리는 길이 보이면 잘못 누른 것은
+    /// 사고가 아니라 한 번 더 누르는 일이다 (HIG Undo and redo).
+    private func takenOutNotice(_ out: Memo) -> some View {
+        HStack(spacing: Theme.tight) {
+            Text(L("「\(short(out.title))」 꺼냈습니다"))
+                .font(Theme.micro)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+            footerButton(L("도로 넣기"), help: L("도로 넣기 — 방금 꺼낸 종이를 다시 서랍에 넣습니다")) {
+                model.putBack()
+            }
+        }
     }
 
     /// 고른 줄에 대한 조작 — **여기 말고는 자리가 없다.**

@@ -7,6 +7,20 @@ import SwiftUI
 /// 달력과 같은 낱말 (§10.4). 앞선 판은 일정 있는 칸을 네모 바탕으로 물들였는데,
 /// 그 네모가 「고른 날」과 같은 모양이라 두 칸이 골라진 것처럼 읽혔다.
 /// 여섯 주의 높이를 예약해 5주·6주를 오가도 아래가 흔들리지 않는다.
+///
+/// ## 넘김 — 손가락을 따라간다
+///
+/// 앞·이번·다음 세 판을 나란히 두고 손가락만큼 민다. 놓으면 **어디까지 갔을지**
+/// (`predictedEndTranslation` — 거리에 속도를 더한 값)로 넘길지 되돌릴지 정하고
+/// 스프링으로 자리 잡는다. 앞선 판은 손을 뗀 뒤에야 격자가 뚝 바뀌어 넘어갔는지
+/// 되돌아왔는지 손이 알 길이 없었다 — "Touch and content should stay together
+/// and move as one thing" (WWDC18 803).
+///
+/// 화살표·「오늘」·이웃 달의 칸을 눌러 달이 바뀔 때도 같은 미끄러짐이다. 넘김을
+/// 부르는 쪽은 여전히 `onStep`/`onToday` 만 부르고, **정본 `grid` 가 바뀌는 것을
+/// 보고** 판이 그리로 미끄러진다 — 손짓이든 단추든 한 길이라 한 물건으로 보인다.
+/// 움직임을 줄인 사람에게는 옆으로 밀지 않고 바꿔 끼운다 (HIG Accessibility —
+/// "Replacing transitions in x-, y-, and z-axes with fades").
 struct MonthGridView: View {
     let grid: MonthGrid
     let selected: CalendarDate?
@@ -20,7 +34,44 @@ struct MonthGridView: View {
     var onDrop: ((CalendarDate, [String]) -> Bool)?
 
     private static let cell: CGFloat = 44
+    /// 여섯 주 — 5주·6주를 오가도 아래가 흔들리지 않는 예약.
+    private static let gridHeight: CGFloat = cell * 6 + 4 * 5
     private let weekdays = DateWords.weekdayLetters()
+
+    // MARK: 넘김
+
+    /// 손가락이 붙어 있는 동안의 것 — 떼거나 빼앗기면(시트가 내려가거나 목록이 스크롤을
+    /// 가져가면) **스스로 제자리로** 돌아간다. `@State` 로 두면 빼앗긴 손짓은 `onEnded` 가
+    /// 안 와서 판이 옆으로 밀린 채 굳는다.
+    private struct Touch {
+        /// 첫 움직임으로 정한 축. 세로면 이 손짓은 격자의 것이 아니다.
+        var axis: Axis?
+        /// 손가락이 민 거리.
+        var offset: CGFloat = 0
+    }
+
+    /// 아직 화면에 놓인 달. 정본 `grid` 와 다르면 그리로 미끄러지는 중이다 — 다 가면 비운다.
+    @State private var shown: MonthGrid?
+    /// 손가락. 놓으면 `settle` 로 0 으로 돌아온다 — 되돌아오는 움직임은 그것으로 족하다.
+    @GestureState(initialValue: Touch(), reset: { _, transaction in transaction.animation = Self.settle })
+    private var touch
+    /// 미끄러지는 판의 자리. 손가락 몫(`touch.offset`)과 더해 그린다 — 넘길 때 둘이 같은
+    /// 곡선으로 하나는 0 으로, 하나는 한 판만큼으로 가서 합은 손이 놓은 자리에서 이어진다.
+    @State private var drag: CGFloat = 0
+    /// 들어오는 달이 어느 쪽에서 오는가 (+1 오른쪽, −1 왼쪽). `nil` 이면 쉬는 중.
+    @State private var incoming: Int?
+    /// 판 하나의 폭 — 놓을 때 「반을 넘었는가」 를 재는 자.
+    @State private var width: CGFloat = 0
+    /// 미끄러짐마다 하나씩. 끝맺음이 제 것인지 확인한다 — 중간에 새 손짓이 끼어들면 앞 것은 버린다.
+    @State private var generation = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// 놓은 뒤 자리 잡는 속도. 튕기지 않는다 — 판 셋 너머는 빈 자리라 넘치면 흰 띠가 비친다.
+    private static let settle: Animation = .smooth(duration: 0.3)
+    /// 손가락이 이 만큼 가야 격자의 손짓이다 — 칸 누르기와 가르는 문턱.
+    private static let slack: CGFloat = 12
+
+    private var current: MonthGrid { shown ?? grid }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -33,32 +84,160 @@ struct MonthGridView: View {
                         .frame(maxWidth: .infinity)
                 }
             }
-            VStack(spacing: 4) {
-                ForEach(Array(grid.weeks.enumerated()), id: \.offset) { _, week in
-                    HStack(spacing: 0) {
-                        ForEach(week) { day in cell(day) }
-                    }
+            .padding(.horizontal, 12)
+            pages
+        }
+        // 칸이 단추라 격자의 손짓이 그 밑에 깔리면 안 된다 — 판이 손가락을 따라가면 손 밑의
+        // 칸도 함께 가서, 놓는 순간 그 칸이 눌린다. 격자의 손짓이 먼저다; 움직이지 않은
+        // 손가락은 이 손짓이 되지 못하고(`slack`) 그때 칸이 눌린다.
+        .highPriorityGesture(
+            DragGesture(minimumDistance: Self.slack)
+                .updating($touch, body: follow)
+                .onEnded(release)
+        )
+        .onChange(of: grid) { old, new in
+            guard Self.ordinal(old) != Self.ordinal(new) else { return }
+            slide(from: old, to: new)
+        }
+    }
+
+    /// 세 판 — 앞·이번·다음. 화면 가장자리에서 자른다 (안쪽 여백에서 자르면 들어오는
+    /// 달이 여백 밖에서 뚝 나타난다).
+    private var pages: some View {
+        GeometryReader { proxy in
+            let width = proxy.size.width
+            HStack(spacing: 0) {
+                wing(neighbor(-1), width: width)
+                ZStack {
+                    panel(current)
+                        .id(Self.ordinal(current))
+                        .transition(.opacity)
+                }
+                .frame(width: width)
+                wing(neighbor(1), width: width)
+            }
+            .offset(x: -width + touch.offset + drag)
+        }
+        .frame(height: Self.gridHeight)
+        .clipped()
+        // 판 하나의 폭은 이 자리의 폭이다 — 세 판을 이은 줄의 폭(셋 곱)이 아니라.
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+    }
+
+    /// 옆 판. 들어오는 달이 정해져 있으면 그것이 — 「오늘」로 멀리 갈 때 그 사이 달을
+    /// 다 지나지 않고 목적지가 바로 옆에서 들어온다.
+    private func neighbor(_ side: Int) -> MonthGrid {
+        incoming == side ? grid : current.advanced(by: side)
+    }
+
+    /// 옆 판 — 눈에만 있다. 보조 기술과 UI 시험에는 없어야 한다: 화면 밖의 「15일」이 목록에
+    /// 서면 VoiceOver 가 거기로 가고, 시험은 그것을 먼저 집어 누르지 못한다 (`accessibilityHidden`
+    /// 만으로는 칸들이 남았다 — 묶어서 지운다).
+    private func wing(_ month: MonthGrid, width: CGFloat) -> some View {
+        panel(month)
+            .frame(width: width)
+            .accessibilityElement(children: .ignore)
+            .accessibilityHidden(true)
+    }
+
+    private func panel(_ month: MonthGrid) -> some View {
+        VStack(spacing: 4) {
+            ForEach(Array(month.weeks.enumerated()), id: \.offset) { _, week in
+                HStack(spacing: 0) {
+                    ForEach(week) { day in cell(day) }
                 }
             }
-            .frame(minHeight: Self.cell * 6 + 4 * 5, alignment: .top)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .padding(.horizontal, 12)
-        .gesture(
-            DragGesture(minimumDistance: 30).onEnded { value in
-                guard abs(value.translation.width) > abs(value.translation.height) else { return }
-                onStep(value.translation.width < 0 ? 1 : -1)
-            }
-        )
     }
+
+    // MARK: 손짓
+
+    private func follow(_ value: DragGesture.Value, touch: inout Touch, _: inout Transaction) {
+        if touch.axis == nil {
+            touch.axis = Self.isSideways(value) ? .horizontal : .vertical
+        }
+        guard touch.axis == .horizontal else { return }
+        // 미끄러지는 도중에 다시 잡으면 앞 것은 그 자리에 놓고 새 손짓을 따른다 —
+        // "Allow for constant redirection and interruption" (WWDC18 803).
+        if incoming != nil {
+            generation += 1
+            land()
+        }
+        // 움직임을 줄인 사람에게는 판이 손을 따라가지 않는다. 놓을 때의 판정은 같다.
+        guard !reduceMotion else { return }
+        touch.offset = min(max(value.translation.width, -width), width)
+    }
+
+    private static func isSideways(_ value: DragGesture.Value) -> Bool {
+        abs(value.translation.width) > abs(value.translation.height)
+    }
+
+    private func release(_ value: DragGesture.Value) {
+        // 손가락은 여기서 이미 돌아가는 중이다 (`touch` 의 reset). 넘기지 않으면 그것으로 끝.
+        guard Self.isSideways(value), width > 0 else { return }
+        // 손이 멈춘 자리가 아니라 **흘러갈 자리**로 판정한다 — 짧고 빠른 튕김도 넘어가고,
+        // 반 넘게 끌고 되돌아온 손은 되돌아온다 (시스템 페이징과 같은 문턱, 반).
+        let predicted = value.predictedEndTranslation.width
+        let sameWay = (predicted < 0) == (value.translation.width < 0)
+        guard sameWay, abs(predicted) > width / 2 else { return }
+        // 정본을 바꾼다 — 판은 `onChange(of: grid)` 에서 지금 자리에서 이어 미끄러진다.
+        onStep(predicted < 0 ? 1 : -1)
+    }
+
+    /// 정본이 바뀌었다 — 옛 달을 붙든 채 새 달을 옆에서 들여온다.
+    private func slide(from old: MonthGrid, to new: MonthGrid) {
+        generation += 1
+        let mine = generation
+        let side = Self.ordinal(new) > Self.ordinal(old) ? 1 : -1
+        shown = old
+        if reduceMotion {
+            // 다음 틱에 바꿔 끼운다 — 같은 갱신 안에서 갈아 끼우면 옛 달이 한 번도 안 그려져 바뀔 것이 없다.
+            Task { @MainActor in
+                guard generation == mine else { return }
+                withAnimation(.easeInOut(duration: 0.18)) { shown = nil }
+                incoming = nil
+                drag = 0
+            }
+            return
+        }
+        incoming = side
+        withAnimation(Self.settle) {
+            drag = CGFloat(-side) * width
+        } completion: {
+            guard generation == mine else { return }
+            land()
+        }
+    }
+
+    /// 다 갔다 — 정본이 가운데에 선다. **움직임 없이** 자리를 바꿔야 한 프레임도 안 튄다:
+    /// 옆 칸에 있던 새 달이 가운데 칸으로 옮겨 앉는 것과 판이 제자리로 돌아오는 것이 서로를 지운다.
+    private func land() {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            shown = nil
+            incoming = nil
+            drag = 0
+        }
+    }
+
+    private static func ordinal(_ grid: MonthGrid) -> Int { grid.year * 12 + grid.month }
+
+    // MARK: 머리
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
+            // 제목은 정본이다 — 넘기기로 한 순간 바뀐다. 「어디로 가는가」를 판보다 먼저 말한다.
             Text(DateWords.month(grid.month))
                 .font(.largeTitle.weight(.bold))
                 .foregroundStyle(Paper.ink)
+                .contentTransition(.opacity)
             Text(String(grid.year))
                 .font(.title3)
                 .foregroundStyle(.secondary)
+                .contentTransition(.numericText())
             Spacer()
             Button { onStep(-1) } label: {
                 Image(systemName: "chevron.left").frame(width: 44, height: 44)
@@ -73,9 +252,12 @@ struct MonthGridView: View {
                 .frame(minHeight: 44)
         }
         .foregroundStyle(Theme.accentInk)
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 20)
+        .animation(.easeInOut(duration: 0.18), value: Self.ordinal(grid))
         .accessibilityElement(children: .contain)
     }
+
+    // MARK: 칸
 
     @ViewBuilder
     private func cell(_ day: MonthGrid.Day) -> some View {

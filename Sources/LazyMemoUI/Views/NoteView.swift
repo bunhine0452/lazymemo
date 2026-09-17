@@ -12,6 +12,9 @@ import SwiftUI
 struct NoteView: View {
     @Bindable var model: NoteModel
     var onClose: () -> Void
+    /// Esc — 종이를 치운다. ×와 같은 곳으로 가되 **키보드를 돌려주는 일**이 하나
+    /// 더 있어 창(`NoteWindowController.escape`)이 맡는다.
+    var onEscape: () -> Void = {}
     /// 달력으로 건너가는 길 (설계문서 §7.2).
     ///
     /// 날짜가 없으면 **놓을 날을 고르러** 가고, 있으면 그 일정이 달력의
@@ -75,7 +78,8 @@ struct NoteView: View {
             // 읽을 수는 있어야 한다 — 물러나는 것과 안 보이는 것은 다르다.
             .opacity(0.72 + 0.28 * age.presence)
             // 머리의 손잡이 — 색띠이자 종이를 집는 자리. 조작(×)보다 **아래**에
-            // 두어 모서리에서는 치우기가 이긴다 (`PaperGrip`).
+            // 두어 모서리에서는 치우기가 이긴다 (`PaperGrip`). 본문 위 여백보다
+            // 조금 길어 첫 줄의 윗머리까지 덮지만 글자에는 닿지 않는다.
             .overlay(alignment: .top) { PaperGrip(tint: color.tint) }
 
             if showsControls, model.justDeleted == nil {
@@ -176,6 +180,8 @@ struct NoteView: View {
             // 메모를 옮길 자리가 남지 않는다.
             movesWindow: true,
             blursOnEscape: true,
+            // Esc 는 손을 떼는 데서 끝나지 않는다 — 종이째 서랍으로 (§7.1 일곱째 규칙).
+            onEscape: onEscape,
             placeholder: "…",
             onEdit: model.edited
         )

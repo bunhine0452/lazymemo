@@ -28,6 +28,9 @@ final class MemoNSTextView: NSTextView {
     var movesWindowOnDrag = false
     /// Esc 로 편집에서 손을 뗄지. 빠른 입력은 Esc 를 자기가 쓰므로 끈다.
     var blursOnEscape = false
+    /// Esc 가 손을 뗀 **다음** 할 일 — 메모 창에서는 종이를 치우는 길이다
+    /// (`NoteView.onEscape`). 없으면 앱만 물러난다.
+    var onEscape: (() -> Void)?
 
     /// 이 편집기의 바탕 글꼴.
     ///
@@ -435,18 +438,31 @@ final class MemoNSTextView: NSTextView {
 
     // MARK: 손 떼기
 
-    /// Esc — 편집에서 손을 뗀다.
+    /// Esc — 편집에서 손을 뗀다. 메모 창이면 종이째 치운다 (`onEscape`).
     ///
     /// 첫 응답자를 놓는 것만으로는 부족하다. 상주 앱이 활성인 채로 남으면
     /// 사용자가 하던 앱으로 키보드가 돌아가지 않아, 그 다음 타자가 허공으로
-    /// 간다. 앱을 물러나게 해야 종이도 바탕화면으로 내려앉는다.
+    /// 간다. 앱을 물러나게 해야 종이도 바탕화면으로 내려앉는다 — 종이를
+    /// 치우는 길(`onEscape`)도 끝에서 같은 일을 한다.
+    ///
+    /// **한글 조합 중에는 손대지 않는다.** 조합 중의 Esc 는 입력기의 것이다 —
+    /// 「장」을 치다 만 자모를 거두는 키가 종이를 서랍에 넣으면 안 된다.
+    ///
+    /// `super` 를 부르지 않는다. `NSTextView` 는 이 선택자를 **구현하지 않아**
+    /// 부르면 그대로 떨어진다(unrecognized selector). 우리 몫이 아니면 응답자
+    /// 사슬을 손으로 잇는다 — `tryToPerform` 은 받는 이가 없으면 조용히 끝난다.
     override func cancelOperation(_ sender: Any?) {
-        guard blursOnEscape else {
-            super.cancelOperation(sender)
+        guard !hasMarkedText() else { return }
+        guard blursOnEscape || onEscape != nil else {
+            nextResponder?.tryToPerform(#selector(cancelOperation(_:)), with: sender)
             return
         }
         window?.makeFirstResponder(nil)
-        NSApp.deactivate()
+        if let onEscape {
+            onEscape()
+        } else {
+            NSApplication.shared.deactivate()
+        }
     }
 
     // MARK: 오른쪽 버튼 — 지우는 유일한 길

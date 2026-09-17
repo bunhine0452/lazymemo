@@ -343,7 +343,7 @@ TabView                             (tabBarMinimizeBehavior: .onScrollDown)
 | 손짓 | 결과 |
 |---|---|
 | 칸 누름 | 그 날이 아래에 선다 |
-| 좌우로 쓸기 (격자) | 달을 넘긴다 |
+| 좌우로 쓸기 (격자) | 달을 넘긴다 — 판이 손가락을 따라오고, 놓으면 흘러갈 자리가 반을 넘겼는지로 넘길지 돌아올지 정한다 (`predictedEndTranslation`). 화살표·「오늘」도 같은 미끄러짐. "Touch and content should stay together and move as one thing" (→ 노트 §2, 803). Reduce Motion 이면 밀지 않고 바꿔 끼운다 |
 | 줄 오른쪽으로 밂 | 「미루기」 — `postponed(notBefore:)`. 앞으로 미는 방향 (Mapping → 노트 §2) |
 | 줄 왼쪽으로 밂 | 「날짜 떼기」 · 「지우기」(맨 끝) |
 | 줄 누름 | 편집 |

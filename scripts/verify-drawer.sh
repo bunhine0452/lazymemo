@@ -22,4 +22,7 @@ echo "$OUT" | grep "서랍" || { echo "✗ 서랍 진단이 나오지 않았습�
 echo "$OUT" | grep -q "모서리고정=true" || { echo "✗ 펼칠 때 폴더가 있던 모서리를 떠났습니다"; exit 1; }
 echo "$OUT" | grep -q "제자리복귀=true" || { echo "✗ 접었더니 자리가 달라졌습니다"; exit 1; }
 echo "$OUT" | grep -q "계획크기=true"   || { echo "✗ 펼친 크기가 판형과 다릅니다"; exit 1; }
+# 창 레벨은 그림에 안 찍힌다 — 펼치면 앞에 서고, 접으면 바탕으로 내려앉아야 한다 (§16.12).
+echo "$OUT" | grep -q "앞으로=true"     || { echo "✗ 펼친 서랍이 앞으로 나오지 않았습니다"; exit 1; }
+echo "$OUT" | grep -q "내려앉음=true"   || { echo "✗ 접은 서랍이 바탕으로 내려앉지 않았습니다"; exit 1; }
 echo "✓ 서랍"

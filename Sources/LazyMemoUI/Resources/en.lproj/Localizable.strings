@@ -92,7 +92,9 @@
 "전체" = "All";
 "첫 줄이 전부입니다" = "The first line is all there is";
 "꺼내기" = "Take out";
-"꺼내기 — 이 종이를 바탕화면으로 되돌립니다" = "Take out — puts this note back on the desktop";
+"꺼내기 — 이 종이를 바탕화면으로 되돌립니다 (↩)" = "Take out — puts this note back on the desktop (↩)";
+"펼쳐 보기 — 본문을 이 자리에서 읽습니다. 고치려면 꺼냅니다 (Space)" = "Peek — read the body right here. Take it out to edit (Space)";
+"접기 — 본문을 도로 접습니다 (Space)" = "Fold — closes the body again (Space)";
 "지우기 — 메뉴의 되돌리기로 살릴 수 있습니다" = "Delete — Undo in the menu brings it back";
 "폴더에서 빼기" = "Remove from folder";
 "폴더가 없습니다 — 위의 + 로 만듭니다" = "No folders yet — make one with + above";
@@ -115,8 +117,13 @@
 "줄을 이 폴더로 끌어다 놓거나, 이 폴더를 연 채로 종이를 서랍에 넣으면 여기로 옵니다" = "Drag rows onto this folder, or put a note into the drawer while this folder is open, and it lands here";
 "종이를 끌어다 놓거나, 종이의 ×를 누르면 들어옵니다" = "Drag a note here, or press its × — it goes in";
 "%@ — 골랐습니다. %@" = "%1$@ — selected. %2$@";
-"눌러서 펼칩니다. ⌘ 를 누른 채 누르면 고릅니다" = "Click to open. ⌘-click to select";
-"⌘-클릭으로 여러 장 · ↑↓ 훑기 · ↩ 펼치기 · 줄을 폴더로 끌기" = "⌘-click selects · ↑↓ browse · ↩ open · drag rows to folders";
+"눌러서 꺼냅니다. Space 로 펼쳐 보고, ⌘ 를 누른 채 누르면 고릅니다" = "Click to take out. Space peeks, ⌘-click selects";
+"줄을 누르면 꺼냅니다 · Space 펼쳐 보기 · ⌘-클릭으로 여러 장 · 줄을 폴더로 끌기" = "Click a row to take it out · Space peeks · ⌘-click selects · drag rows to folders";
+"비어 있습니다 — 종이를 여기 끌어다 놓습니다" = "Empty — drag notes here";
+"놓으면 「%@」에 들어옵니다" = "Drop to file in “%@”";
+"「%@」 꺼냈습니다" = "Took out “%@”";
+"도로 넣기" = "Put back";
+"도로 넣기 — 방금 꺼낸 종이를 다시 서랍에 넣습니다" = "Put back — returns the note you just took out to the drawer";
 "모두 꺼내기" = "Take all out";
 "모두 꺼내기 — 고른 종이를 전부 바탕화면으로 되돌립니다" = "Take all out — puts every selected note back on the desktop";
 "옮기기 — 고른 종이를 다른 폴더로 보냅니다" = "Move — sends the selected notes to another folder";
@@ -148,7 +155,9 @@
 "⚠︎ %@ 을 다른 앱이 쓰고 있습니다" = "⚠︎ %@ is used by another app";
 "빈 종이 꺼내기" = "New blank note";
 "달력" = "Calendar";
-"밀어 둔 종이가 모이는 자리 — 바탕화면에 놓입니다" = "Where notes you've put away gather — it sits on the desktop";
+"밀어 둔 종이가 모이는 자리 — 펼쳐서 앞으로 부릅니다. ⌥ 를 누르면 바탕화면에서 치웁니다" = "Where notes you've put away gather — opens it in front. Hold ⌥ to remove it from the desktop";
+"서랍 치우기 — 바탕화면에서" = "Remove Drawer — from the desktop";
+"서랍 내놓기 — 바탕화면에" = "Show Drawer — on the desktop";
 "시작하기 및 사용 안내…" = "Getting Started…";
 "lazymemo 종료" = "Quit lazymemo";
 "⚠︎ 옮겨 둔 메모 폴더를 찾지 못했습니다" = "⚠︎ Couldn't find the notes folder you moved to";

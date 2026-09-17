@@ -75,6 +75,7 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
 
         model.onToggle = { [weak self] open in self?.animate(open: open) }
         model.onTakeOut = { [weak self] id in self?.takeOut(id) }
+        model.onPutBack = { [weak self] id in self?.file(id) }
         model.onDelete = { [weak self] id in self?.delete(id) }
         // 폴더의 차례와 빈 폴더는 설정이 든다 (`Settings.folders`). 어느 메모가
         // 어느 폴더인지는 파일이 안다.
@@ -106,7 +107,34 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
 
     var isVisible: Bool { window != nil }
 
+    /// 바탕화면에 내놓거나 치운다 — 메뉴바의 ⌥ 항목. 상주 여부를 정하는 스위치다.
     func toggle() { isVisible ? close() : open() }
+
+    /// 메뉴바 「서랍」 — **펼친 채 앞으로 나온다** (§16.12).
+    ///
+    /// 앞선 판의 메뉴 항목은 접힌 탭을 바탕화면 레벨에 놓기만 했다. 브라우저가
+    /// 앞에 있으면 사람 눈에는 **아무 일도 안 일어난 것**으로 보였고, 그것은
+    /// 「열기」가 거짓말이 되는 `DesktopLevelWindow` 의 그 고장이다. 지금은
+    /// 탭이 없으면 내놓고, 접혀 있으면 펼치고(펼치는 것이 곧 앞으로 서는 것 —
+    /// `animate`), 앱을 활성화해 키보드가 바로 서랍에 간다. 커서는 찾기 줄에
+    /// 선다 — 치고, ↓, ↩ 로 끝나는 것이 이 길의 요점이다 (HIG Search fields:
+    /// "If possible, start search immediately when a person types").
+    ///
+    /// 이미 펼쳐져 앞에 서 있으면 **접는다** — 같은 항목을 두 번 누른 사람은
+    /// 열린 것을 닫으려는 것이지 한 번 더 열려는 것이 아니다.
+    func summon() {
+        if window == nil { open() }
+        guard let window else { return }
+        if model.isOpen, window.isKeyWindow {
+            model.setOpen(false)
+            return
+        }
+        model.setOpen(true)
+        NSApp.activate()
+        window.makeKey()
+        window.rise()
+        model.inviteSearch()
+    }
 
     /// 서랍을 바탕화면에 놓는다. **접힌 채로 나온다** — 상주하는 물건이
     /// 펼쳐진 채 나타나면 그것은 상주가 아니라 열린 창이다.
@@ -168,7 +196,18 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
 
         // 펼친 서랍은 앞에 선다 — 안의 종이를 누르고 끌 자리인데 브라우저
         // 뒤에 있으면 그 조작이 통째로 없는 것이 된다 (§7.1).
-        if open { window.rise() } else { window.settle() }
+        if open {
+            window.rise()
+        } else {
+            // 접는 사람은 서랍과 볼일이 끝난 것이다. 키를 쥔 채 접히면 상주 앱이
+            // 활성인 채 남아 **다음 타자가 허공으로 간다** (`MemoNSTextView.cancelOperation`
+            // 과 같은 이유). 앱을 물러나게 해야 하던 앱으로 키보드가 돌아가고,
+            // 탭도 `resignKey` 로 바탕에 내려앉는다. 무대(소개 영상) 위에서는 건드리지 않는다.
+            if window.isKeyWindow, DesktopLevelWindow.stageLevel == nil {
+                NSApp.deactivate()
+            }
+            window.settle()
+        }
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = reduceMotion ? 0.01 : Self.duration
@@ -364,10 +403,13 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
         model.setOpen(true)
         try? await Task.sleep(for: .milliseconds(600))
         let opened = window?.frame ?? .zero
+        // 펼친 서랍은 앞에 서야 한다 — 창 레벨은 그림에 안 찍힌다 (§14.9).
+        let raised = window?.level == DesktopLevelWindow.focusedLevel
 
         model.setOpen(false)
         try? await Task.sleep(for: .milliseconds(600))
         let back = window?.frame ?? .zero
+        let settled = window?.level == DesktopLevelWindow.desktopLevel
 
         let plan = model.geometry()
         // 자라는 방향은 화면 사정이 정한다 (`DrawerGeometry.openFrame`) — 지켜야
@@ -383,6 +425,7 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
         let frames = "장수=\(model.count) 닫힘=\(Self.text(closed)) 펼침=\(Self.text(opened))"
         let returned = " 되돌아옴=\(Self.text(back))"
         let flags = " 모서리고정=\(anchored) 제자리복귀=\(restored) 계획크기=\(sized)"
+            + " 앞으로=\(raised) 내려앉음=\(settled)"
         let planned = Self.text(CGRect(origin: .zero, size: plan.size))
         let shape = " (계획 \(planned), \(plan.rows)줄, 폴더=\(model.folders.count), 스크롤=\(plan.scrolls))"
         return frames + returned + flags + shape

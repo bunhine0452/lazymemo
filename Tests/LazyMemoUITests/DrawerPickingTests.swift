@@ -293,8 +293,8 @@ struct DrawerPickingTests {
         #expect(model.focused == order.first)
     }
 
-    @Test("↩ 는 짚은 줄을 펼치고, 한 번 더 누르면 접는다")
-    func returnTogglesTheRow() async throws {
+    @Test("Space 는 짚은 줄을 펼쳐 보고, 한 번 더 누르면 접는다")
+    func spaceTogglesTheRow() async throws {
         let (model, _, paths) = try await drawer(["하나", "둘"])
         defer { cleanUp(paths) }
         let first = try #require(model.shown.first?.id)
@@ -303,6 +303,86 @@ struct DrawerPickingTests {
         #expect(model.expanded == first)
         #expect(model.handle(.zoom))
         #expect(model.expanded == nil)
+    }
+
+    // MARK: 한 손짓으로 꺼내기 (§16.12)
+
+    /// 「치고 ↩」 — 짚지 않아도 찾은 첫 줄이 나온다. 겨눠진 줄은 손이 얹힌
+    /// 것과 같은 표시로 그려지므로(`shownTarget`) 무엇이 나올지 누르기 전에 보인다.
+    @Test("찾는 중의 ↩ 는 찾은 첫 줄을 꺼낸다 — 짚지 않았어도")
+    func returnWhileSearchingTakesOutTheFirstHit() async throws {
+        let (model, _, paths) = try await drawer(["장보기", "치과", "장난감"])
+        defer { cleanUp(paths) }
+        var takenOut: [ULID] = []
+        model.onTakeOut = { takenOut.append($0) }
+
+        #expect(model.shownTarget == nil)
+        model.query = "치"
+        let dentist = try #require(id(of: "치과", in: model))
+        #expect(model.shownTarget == dentist)
+        #expect(model.handle(.takeOut))
+        #expect(takenOut == [dentist])
+    }
+
+    /// 꺼내기는 넘겨짚어도 되돌릴 수 있지만 지우기는 아니다 — 지우기는 사람이 짚어야 한다.
+    @Test("찾는 중의 ⌘⌫ 는 첫 줄을 넘겨짚지 않는다")
+    func deleteNeverGuessesTheFirstHit() async throws {
+        let (model, _, paths) = try await drawer(["장보기", "치과"])
+        defer { cleanUp(paths) }
+        var deleted = 0
+        model.onDelete = { _ in deleted += 1 }
+        model.query = "치"
+        #expect(!model.handle(.delete))
+        #expect(deleted == 0)
+    }
+
+    /// 되돌리는 길이 보이면 잘못 누른 것은 사고가 아니라 한 번 더 누르는 일이다.
+    @Test("꺼낸 종이는 바닥 줄에 남고, 「도로 넣기」가 그 종이를 다시 부른다")
+    func takenOutPaperCanBePutBack() async throws {
+        let (model, _, paths) = try await drawer(["장보기", "치과"])
+        defer { cleanUp(paths) }
+        var putBack: [ULID] = []
+        model.onPutBack = { putBack.append($0) }
+        let groceries = try #require(id(of: "장보기", in: model))
+
+        model.takeOut(groceries)
+        #expect(model.lastTakenOut?.id == groceries)
+        model.putBack()
+        #expect(putBack == [groceries])
+        #expect(model.lastTakenOut == nil)
+        // 없는 것을 도로 넣을 수는 없다.
+        model.putBack()
+        #expect(putBack == [groceries])
+    }
+
+    @Test("접으면 「도로 넣기」도 내려놓는다 — 며칠 뒤 고쳐 쓴 종이를 도로 넣는 단추가 되면 안 된다")
+    func closingDropsThePutBackNotice() async throws {
+        let (model, _, paths) = try await drawer(["장보기"])
+        defer { cleanUp(paths) }
+        model.setOpen(true)
+        model.takeOut(try #require(id(of: "장보기", in: model)))
+        #expect(model.lastTakenOut != nil)
+        model.setOpen(false)
+        #expect(model.lastTakenOut == nil)
+    }
+
+    /// Finder 가 고름을 늘리는 그 손짓. 출발 줄도 고른다 — 「이 줄부터 저 줄까지」에서
+    /// 첫 줄이 빠지면 어디서 시작했는지 화면에서 확인할 수 없다.
+    @Test("⇧↓ 는 짚은 줄과 다음 줄을 함께 고른다")
+    func shiftArrowExtendsThePick() async throws {
+        let (model, _, paths) = try await drawer(["하나", "둘", "셋"])
+        defer { cleanUp(paths) }
+        let order = model.shown.map(\.id)
+        model.focused = order[0]
+        #expect(model.handle(.extend(1)))
+        #expect(model.picked == [order[0], order[1]])
+        #expect(model.focused == order[1])
+        #expect(model.handle(.extend(1)))
+        #expect(model.picked == Set(order))
+        // 끝에서 한 번 더 — 감아 돌지 않고, 고른 것도 그대로다.
+        #expect(model.handle(.extend(1)))
+        #expect(model.focused == order[2])
+        #expect(model.picked == Set(order))
     }
 
     // MARK: 한 겹씩 되돌리기

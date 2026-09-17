@@ -65,6 +65,52 @@ struct WidgetAgendaTests {
         #expect(rows[1].at == at(15, 9))
     }
 
+    @Test("오늘부터 세면 오늘 것이 앞에 선다 — 달력 위젯의 아래 절")
+    func upcomingIncludingToday() {
+        let memos = [
+            memo("내일", due: CalendarDate(year: 2026, month: 9, day: 15)),
+            memo("오늘 오후", at: at(14, 15)),
+            memo("오늘 아침 지남", at: at(14, 9)),
+            memo("어제", due: CalendarDate(year: 2026, month: 9, day: 13)),
+        ]
+        let rows = WidgetAgenda.upcoming(memos, now: now, calendar: calendar, limit: 4, includingToday: true)
+        #expect(rows.map(\.memo.title) == ["오늘 아침 지남", "오늘 오후", "내일"])
+        #expect(WidgetAgenda.upcoming(memos, now: now, calendar: calendar).map(\.memo.title) == ["내일"])
+    }
+
+    // MARK: 달력
+
+    @Test("달의 점 — 날짜별 수, 앞뒤 달에서 넘어온 칸까지, 물러난 것은 세고 지운 것은 안 센다")
+    func monthMarks() {
+        let grid = MonthGrid.make(year: 2026, month: 9)
+        var tidied = memo("물러난 것", due: CalendarDate(year: 2026, month: 9, day: 3)); tidied.tidied = now
+        var deleted = memo("지운 것", due: CalendarDate(year: 2026, month: 9, day: 3)); deleted.deleted = now
+        let memos = [
+            memo("치과", at: at(14, 15)),
+            memo("회의", at: at(14, 9)),
+            memo("날짜만", due: CalendarDate(year: 2026, month: 9, day: 20)),
+            // 9월 격자는 8월 30일(일)부터 10월 3일(토)까지 — 넘어온 칸의 일정도 점이 된다.
+            memo("넘어온 칸", due: CalendarDate(year: 2026, month: 10, day: 3)),
+            memo("격자 밖", due: CalendarDate(year: 2026, month: 10, day: 4)),
+            memo("날 없음"),
+            tidied, deleted,
+        ]
+        let marks = WidgetAgenda.monthMarks(memos, in: grid, calendar: calendar)
+        #expect(marks == [
+            CalendarDate(year: 2026, month: 9, day: 14): 2,
+            CalendarDate(year: 2026, month: 9, day: 20): 1,
+            CalendarDate(year: 2026, month: 10, day: 3): 1,
+            CalendarDate(year: 2026, month: 9, day: 3): 1,
+        ])
+    }
+
+    @Test("달력이 바뀌는 순간 — 지금, 그리고 자정 셋")
+    func dayChanges() {
+        #expect(WidgetAgenda.dayChanges(now: now, calendar: calendar) == [now, at(15, 0), at(16, 0), at(17, 0)])
+        // 자정 정각에 물어도 다음 자정으로 간다 — 같은 자정을 두 번 주지 않는다.
+        #expect(WidgetAgenda.dayChanges(now: at(15, 0), calendar: calendar, count: 1) == [at(15, 0), at(16, 0)])
+    }
+
     // MARK: 다음 약속
 
     @Test("다음 약속 — 앞으로 올 시각 중 가장 가까운 것, 날짜만 있는 것은 아니다")
@@ -168,10 +214,27 @@ struct WidgetLinkTests {
         #expect(WidgetLink.destination(of: URL(string: "https://example.com/memo/01ARZ3NDEKTSV4RRFFQ69G5FAV")!) == nil)
     }
 
+    @Test("달력 주소 — 이번 달, 또는 그 날. 깨진 날은 주소 전체가 모르는 것")
+    func calendar() {
+        #expect(WidgetLink.calendar().absoluteString == "lazymemo://calendar")
+        #expect(WidgetLink.calendarStop(of: WidgetLink.calendar()) == .month)
+        let day = CalendarDate(year: 2026, month: 9, day: 17)
+        #expect(WidgetLink.calendar(day).absoluteString == "lazymemo://calendar/2026-09-17")
+        #expect(WidgetLink.calendarStop(of: WidgetLink.calendar(day)) == .day(day))
+        #expect(WidgetLink.calendarStop(of: URL(string: "lazymemo:calendar/2026-09-17")!) == .day(day))
+        #expect(WidgetLink.calendarStop(of: URL(string: "lazymemo://calendar/2026-9-1")!) == nil)
+        #expect(WidgetLink.calendarStop(of: URL(string: "lazymemo://calendar/2026-09-17/x")!) == nil)
+        #expect(WidgetLink.calendarStop(of: WidgetLink.write) == nil)
+        // 앱이 아직 모르는 동사라 `destination` 은 nil — InboundLink 도 add 가 아니니 조용히 버린다.
+        #expect(WidgetLink.destination(of: WidgetLink.calendar(day)) == nil)
+        #expect(InboundLink.note(from: WidgetLink.calendar(day)) == nil)
+    }
+
     @Test("종류의 식별자는 번들 id 아래에 선다")
     func kinds() {
         #expect(WidgetKind.now.identifier == "io.github.bunhine0452.lazymemo.widgets.now")
-        #expect(WidgetKind.identifiers.count == 3)
+        #expect(WidgetKind.calendar.identifier == "io.github.bunhine0452.lazymemo.widgets.calendar")
+        #expect(WidgetKind.identifiers.count == 4)
     }
 }
 

@@ -23,9 +23,19 @@ struct DrawerKeysTests {
         #expect(intent("\u{F701}") == .move(1))
     }
 
-    @Test("↩ 는 펼치고, ⌘↩ 는 꺼내고, ⌘⌫ 는 지운다")
+    /// Finder 가 고름을 늘리는 그 손짓 — 앞선 판의 스페이스(이 앱만의 뜻)를 대신한다.
+    @Test("⇧↑↓ 는 고르면서 훑는다")
+    func shiftArrowsExtendThePick() {
+        #expect(intent("\u{F700}", .shift) == .extend(-1))
+        #expect(intent("\u{F701}", .shift) == .extend(1))
+        // 찾는 중에도 — 글자가 아니다.
+        #expect(intent("\u{F701}", .shift, editing: true) == .extend(1))
+    }
+
+    /// ↩ 는 줄을 누르는 것과 같은 일이다 (§16.12). ⌘↩ 는 앞선 판의 손버릇으로 남는다.
+    @Test("↩ 와 ⌘↩ 는 꺼내고, ⌘⌫ 는 지운다")
     func returnAndCommandCombos() {
-        #expect(intent("\r") == .zoom)
+        #expect(intent("\r") == .takeOut)
         #expect(intent("\r", .command) == .takeOut)
         #expect(intent("\u{7F}", .command) == .delete)
         #expect(intent("\u{8}", .command) == .delete)
@@ -61,21 +71,22 @@ struct DrawerKeysTests {
         #expect(intent("\u{F729}", editing: true) == nil)
     }
 
-    @Test("찾는 중이 아니면 스페이스로 고르고 Home·End 로 끝까지 간다")
+    /// 스페이스는 Finder 의 훑어보기와 같은 키 — 펼쳐 본다.
+    @Test("찾는 중이 아니면 스페이스로 펼쳐 보고 Home·End 로 끝까지 간다")
     func lettersActWhenNotEditing() {
-        #expect(intent(" ") == .pick)
+        #expect(intent(" ") == .zoom)
         #expect(intent("\u{F729}") == .move(-999))
         #expect(intent("\u{F72B}") == .move(999))
     }
 
     /// 찾는 중에도 화살표와 esc 와 ↩ 는 서랍 몫이다 — 치고, ↓ 로 짚고, ↩ 로
-    /// 펼치는 것이 한 손에서 끝나야 한다. 짚은 줄이 없으면 모델이 흘려보내므로
+    /// 꺼내는 것이 한 손에서 끝나야 한다. 겨눈 줄이 없으면 모델이 흘려보내므로
     /// 폴더 이름을 적고 누르는 ↩ 는 상자에 닿는다 (`DrawerModel.handle`).
     @Test("찾는 중에도 화살표·esc·↩ 는 서랍이 맡는다")
     func navigationSurvivesEditing() {
         #expect(intent("\u{F700}", editing: true) == .move(-1))
         #expect(intent("\u{1B}", editing: true) == .back)
-        #expect(intent("\r", editing: true) == .zoom)
+        #expect(intent("\r", editing: true) == .takeOut)
         #expect(intent("\r", .command, editing: true) == .takeOut)
     }
 

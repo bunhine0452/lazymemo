@@ -160,8 +160,12 @@ struct CalendarView: View {
     }
 
     private func load() async {
-        guard let range = grid.range else { return }
-        inRange = await store.scheduled(from: range.lowerBound, to: range.upperBound)
+        // 옆 달까지 읽는다 — 격자를 밀면 옆 달이 손가락을 따라 들어오는데(`MonthGridView`),
+        // 그 판의 점이 비어 있다가 놓은 뒤에 돋으면 「넘어가서야 채워지는」 달력이 된다.
+        guard let from = grid.advanced(by: -1).range?.lowerBound,
+              let to = grid.advanced(by: 1).range?.upperBound
+        else { return }
+        inRange = await store.scheduled(from: from, to: to)
     }
 
     private func move(_ memo: Memo, to day: CalendarDate) {

@@ -103,8 +103,16 @@ final class DrawerModel {
     /// 없다. 창을 지켜보는 쪽(`DrawerWindowController`)이 여기 적어 준다.
     var landing: ULID?
 
-    /// 방금 한 일. 바닥 한 줄에 적혔다가 다음 일이 생기면 밀려난다.
+    /// 방금 넣은 것. 바닥 한 줄에 적혔다가 다음 일이 생기면 밀려난다.
     var lastFiled: Memo?
+
+    /// 방금 꺼낸 것 — 바닥 한 줄의 「도로 넣기」가 가리키는 종이.
+    ///
+    /// 줄을 누르는 것이 곧 꺼내기가 되면서(§16.12) 읽으려던 손이 종이를
+    /// 꺼내는 일이 생긴다. 그 값을 싸게 만드는 것이 이 한 줄이다 — 되돌리는
+    /// 길이 보이면 잘못 누른 것은 사고가 아니라 한 번 더 누르는 일이다
+    /// (HIG Undo: "Help people predict the results of undo").
+    var lastTakenOut: Memo?
 
     /// 화면 밖 렌더에서만 채운다 (`PreviewRenderer`) — 펼친 모습도, 손이 얹힌
     /// 줄도, 서랍 위에 떠 있는 종이도 전부 **손이 있어야만** 나타난다.
@@ -116,6 +124,8 @@ final class DrawerModel {
         var hovered: ULID?
         var landing: ULID?
         var lastFiled: Memo?
+        /// 방금 꺼낸 모습 — 바닥 줄의 「도로 넣기」.
+        var lastTakenOut: Memo?
         /// 찾는 중인 모습. 화면 밖 렌더는 글 상자에 커서를 놓을 수 없다.
         var query: String?
         /// 어느 폴더를 보고 있는 모습. `nil` 은 「전체」.
@@ -139,6 +149,8 @@ final class DrawerModel {
 
     /// 서랍에서 도로 꺼낸다 — 바탕화면으로 돌려보낸다.
     var onTakeOut: (ULID) -> Void = { _ in }
+    /// 방금 꺼낸 것을 도로 넣는다 — 종이가 서랍으로 날아 들어오는 그 길로 (`DrawerWindowController.file`).
+    var onPutBack: (ULID) -> Void = { _ in }
     /// 지운다. 되돌리기는 메뉴에 있다 (D6).
     var onDelete: (ULID) -> Void = { _ in }
     /// 펼치고 접는 일은 창의 크기를 바꾸는 일이라 창이 맡는다.
@@ -168,6 +180,10 @@ final class DrawerModel {
         // 서랍에서 나간 종이를 계속 펼쳐 놓고 있을 수는 없다 — 꺼내기를
         // 누른 그 종이가 바로 그렇게 된다.
         if let filed = lastFiled, !held.contains(where: { $0.id == filed.id }) { lastFiled = nil }
+        // 도로 들어왔거나 지워진 종이에 「도로 넣기」를 걸어 둘 수는 없다.
+        if let out = lastTakenOut, held.contains(where: { $0.id == out.id }) || store.memo(out.id) == nil {
+            lastTakenOut = nil
+        }
         prune()
         onLayoutChanged()
     }
@@ -195,6 +211,10 @@ final class DrawerModel {
 
     /// 어느 폴더에도 안 넣은 종이 수.
     var loose: Int { papers.filter { $0.folder == nil }.count }
+
+    /// 닫힌 탭이 들고 있는 **최근 두 장의 제목** — 열어 보기 전에 무엇이 들었는지
+    /// 한 줄은 읽히게 (§16.12). 차례는 목록과 같아 맨 위 두 장이다.
+    var recentTitles: [String] { papers.prefix(2).map(\.title) }
 
     /// 찾은 결과를 한 줄로. 찾는 중이 아니면 `nil` (`DrawerSearch.summary`).
     var searchSummary: String? {
@@ -242,6 +262,9 @@ final class DrawerModel {
             query = ""
             isNamingFolder = false
             renamingFolder = nil
+            // 「도로 넣기」도 내려놓는다 — 며칠 뒤 열었을 때 남아 있으면 그새
+            // 고쳐 쓴 종이를 도로 서랍에 넣는 단추가 된다.
+            lastTakenOut = nil
         }
         onToggle(open)
     }
@@ -261,6 +284,7 @@ final class DrawerModel {
     /// 것으로 본다 — 그리고 그 종이는 「장보기」를 보는 동안 보이지 않는다.
     func received(_ memo: Memo) {
         lastFiled = memo
+        lastTakenOut = nil
         if isOpen, let folder = selectedFolder, memo.folder != folder {
             move(memo.id, to: folder)
         }
@@ -269,8 +293,17 @@ final class DrawerModel {
 
     func takeOut(_ id: ULID) {
         if expanded == id { expanded = nil }
+        if focused == id { focused = nil }
         if lastFiled?.id == id { lastFiled = nil }
+        lastTakenOut = papers.first { $0.id == id }
         onTakeOut(id)
+    }
+
+    /// 방금 꺼낸 것을 도로 넣는다 — 바닥 한 줄의 「도로 넣기」.
+    func putBack() {
+        guard let memo = lastTakenOut else { return }
+        lastTakenOut = nil
+        onPutBack(memo.id)
     }
 
     func delete(_ id: ULID) {
@@ -395,6 +428,27 @@ final class DrawerModel {
         focused = ids[next]
     }
 
+    /// ⇧↑↓ — 짚은 줄을 고르기에 넣으면서 한 줄 옮긴다. Finder 가 고름을 늘리는 손짓.
+    ///
+    /// 출발 줄도 고른다 — 「이 줄부터 저 줄까지」인데 첫 줄이 빠지면 사람은 자기가
+    /// 어디서 시작했는지 화면에서 확인할 수 없다.
+    func extendFocus(by step: Int) {
+        if let focused { picked.insert(focused) }
+        moveFocus(by: step)
+        if let focused { picked.insert(focused) }
+    }
+
+    /// 지금 ↩·Space 가 겨누는 한 줄 — 펼쳐 둔 것, 짚은 것, **그도 없으면 찾은 첫 줄.**
+    ///
+    /// 찾는 중의 첫 줄을 겨누는 이유: 「치고 ↩」 로 끝나는 것이 이 판의 요점이다
+    /// (§16.12). 겨누는 줄은 손이 얹힌 것과 같은 표시로 그려지므로(`DrawerView.pointed`)
+    /// 무엇이 나올지 누르기 전에 보인다 — 보이지 않는 과녁은 도박이다.
+    var target: ULID? {
+        if let expanded { return expanded }
+        if let focused { return focused }
+        return isSearching ? shown.first?.id : nil
+    }
+
     /// **한 겹만 되돌린다** — 고르기 → 이름 적기 → 찾기 → 펼친 줄 → 짚은 자리 → 폴더 → 서랍.
     ///
     /// esc 한 번에 전부 지우면 세 글자를 찾다가 한 번 잘못 눌렀을 때 서랍이
@@ -434,18 +488,23 @@ final class DrawerModel {
         switch intent {
         case .move(let step):
             moveFocus(by: step)
+        case .extend(let step):
+            guard !shown.isEmpty else { return false }
+            extendFocus(by: step)
         case .zoom:
-            guard let target = focused ?? expanded else { return false }
+            guard let target else { return false }
             zoom(target)
         case .takeOut:
             if !picked.isEmpty {
                 takeOutPicked()
-            } else if let one = aimed {
+            } else if let one = target {
                 takeOut(one)
             } else {
                 return false
             }
         case .delete:
+            // 지우기는 **짚은 줄에만** 걸린다 — 찾은 첫 줄을 말없이 겨누는
+            // 것은 꺼내기(되돌릴 수 있다)까지다. 지우기는 사람이 짚어야 한다.
             if !picked.isEmpty {
                 deletePicked()
             } else if let one = aimed {
@@ -453,9 +512,6 @@ final class DrawerModel {
             } else {
                 return false
             }
-        case .pick:
-            guard let target = focused else { return false }
-            pick(target)
         case .search:
             return false   // 커서를 옮기는 일은 뷰가 한다 (`DrawerView.searchFocused`).
         case .back:
@@ -467,7 +523,8 @@ final class DrawerModel {
         return true
     }
 
-    /// 지금 조작이 걸리는 한 줄 — 펼쳐 둔 것이 있으면 그것, 아니면 짚은 것.
+    /// 사람이 **직접** 짚은 한 줄 — 펼쳐 둔 것이 있으면 그것, 아니면 짚은 것. `target` 과
+    /// 다른 점은 찾은 첫 줄을 넘겨짚지 않는다는 것이다.
     private var aimed: ULID? { expanded ?? focused }
 
     // MARK: 연출값이 있으면 그것이 이긴다 (`PreviewRenderer`)
@@ -476,6 +533,9 @@ final class DrawerModel {
     var shownExpanded: ULID? { staged?.expanded ?? expanded }
     var shownLanding: ULID? { staged?.landing ?? landing }
     var shownLastFiled: Memo? { staged?.lastFiled ?? lastFiled }
+    var shownLastTakenOut: Memo? { staged?.lastTakenOut ?? lastTakenOut }
+    /// 지금 겨눠진 줄 — 손이 얹힌 것과 같은 표시로 그린다 (`target`).
+    var shownTarget: ULID? { staged?.expanded ?? target }
     var shownQuery: String { staged?.query ?? query }
     var shownFolder: String? {
         if let staged { return staged.folder }

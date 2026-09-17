@@ -7,6 +7,8 @@
 "다음 약속의 시각. 가는 길을 적어 두었으면 출발 시각도." = "When your next appointment is. With a route written down, when to leave.";
 "적기" = "Write";
 "누르면 펜이 올라와요." = "Tap to bring up the pen.";
+"달력" = "Calendar";
+"이번 달 한눈에. 일정이 있는 날은 점." = "This month at a glance. Days with plans get a dot.";
 
 /* 「지금」 */
 "다시 보기 · %@" = "Revisit · %@";
@@ -31,6 +33,12 @@
 "%@ 출발 · %@" = "Leave at %1$@ · %2$@";
 "%@ 뒤" = "in %@";
 
+/* 달력 */
+"일정 %lld" = "%lld planned";
+"일정 없음" = "Nothing planned";
+"적어 둔 일정이 없어요" = "No plans written down";
+"%@, 일정 %lld" = "%1$@, %2$lld planned";
+
 /* 적기 */
 "누르면 펜이 올라와요" = "Tap to bring up the pen";
 "lazymemo 에 적기" = "Write in lazymemo";
@@ -40,3 +48,5 @@
 "설계 문서 다시 읽기" = "Re-read the design doc";
 "장보기 — 우유·계란·두부" = "Groceries — milk, eggs, tofu";
 "주간 회의" = "Weekly meeting";
+"전기요금 납부" = "Pay the electricity bill";
+"엄마 생신" = "Mom's birthday";

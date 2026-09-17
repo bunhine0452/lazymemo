@@ -36,15 +36,18 @@ public enum WidgetAgenda {
         }
     }
 
-    /// 오늘 **뒤**의 일정, 가까운 날부터 `limit` 줄. 오늘 것은 「지금」이 맡으므로 여기 없다.
+    /// 오늘 **뒤**의 일정, 가까운 날부터 `limit` 줄. 오늘 것은 「지금」이 맡으므로 여기 없다 —
+    /// 달력 위젯처럼 오늘부터 세고 싶으면 `includingToday`.
     ///
     /// 같은 날이면 시각 순(날짜만 있는 것이 먼저), 그래도 같으면 id — 두 기기가 같은 차례를 얻는다.
     public static func upcoming(
-        _ memos: [Memo], now: Date, calendar: Calendar = .current, limit: Int = 4
+        _ memos: [Memo], now: Date, calendar: Calendar = .current, limit: Int = 4, includingToday: Bool = false
     ) -> [Upcoming] {
         let today = CalendarDate(now, calendar: calendar)
         return memos.compactMap { memo -> Upcoming? in
-            guard Recall.eligible(memo), let day = memo.scheduledDate(calendar: calendar), day > today else { return nil }
+            guard Recall.eligible(memo), let day = memo.scheduledDate(calendar: calendar),
+                  includingToday ? day >= today : day > today
+            else { return nil }
             return Upcoming(memo: memo, day: day, at: memo.at)
         }
         .sorted { left, right in
@@ -54,6 +57,41 @@ public enum WidgetAgenda {
         }
         .prefix(max(0, limit))
         .map { $0 }
+    }
+
+    // MARK: 달력
+
+    /// 달 격자의 점 — 날짜별 일정 수. 폰 달력의 `marks`(`CalendarView`)와 같은 셈이다.
+    ///
+    /// 여기서는 `Recall.eligible` 을 **쓰지 않는다.** 달력은 물러난(`tidied`) 종이도 그대로
+    /// 보여 주는 자리라(README 「끝난 것은 스스로 물러난다」) 「지금」과 기준이 다르다 —
+    /// 휴지통에 든 것만 뺀다 (`WidgetVault` 는 애초에 휴지통을 읽지 않지만, 견본과 시험은 든다).
+    public static func monthMarks(
+        _ memos: [Memo], in grid: MonthGrid, calendar: Calendar = .current
+    ) -> [CalendarDate: Int] {
+        guard let range = grid.range else { return [:] }
+        var counts: [CalendarDate: Int] = [:]
+        for memo in memos where memo.deleted == nil {
+            guard let day = memo.scheduledDate(calendar: calendar), range.contains(day) else { continue }
+            counts[day, default: 0] += 1
+        }
+        return counts
+    }
+
+    /// 달력이 바뀌는 순간들 — `now` 와 그 뒤의 자정 `count` 개. 자정에 「오늘」이 옮겨 가고,
+    /// 달이 넘어가면 격자가 통째로 바뀐다. 첫 원소는 늘 `now` 다 (`moments` 와 같은 꼴).
+    ///
+    /// 24시간 더하기가 아니라 `Calendar` 에게 다음 자정을 묻는다 — 서머타임 날은 하루가
+    /// 23·25시간이다 (`CalendarDate.nextMidnight`).
+    public static func dayChanges(now: Date, calendar: Calendar = .current, count: Int = 3) -> [Date] {
+        var result = [now]
+        var cursor = now
+        for _ in 0..<max(0, count) {
+            guard let midnight = CalendarDate.nextMidnight(after: cursor, calendar: calendar) else { break }
+            result.append(midnight)
+            cursor = midnight
+        }
+        return result
     }
 
     // MARK: 다음 약속

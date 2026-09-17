@@ -46,6 +46,13 @@ final class DesktopLevelWindow: NSPanel {
     /// 방금 적힌 메모를 잠깐 보였다가 내려앉히는 타이머.
     private var settleTask: Task<Void, Never>?
 
+    /// Esc — 이 창을 치우는 길. 메모 창만 건다 (`NoteWindowController.escape`).
+    ///
+    /// 본문에 커서가 있을 때는 텍스트 뷰가 Esc 를 받아 같은 곳으로 보내지만
+    /// (`MemoNSTextView.onEscape`), 손잡이나 카드만 눌러 창이 키를 잡은 상태에서는
+    /// 첫 응답자가 창 자신이라 키가 여기까지 올라온다. 두 길이 한곳에서 만난다.
+    var onEscape: (() -> Void)?
+
     init(contentRect: NSRect) {
         super.init(
             contentRect: contentRect,
@@ -124,6 +131,28 @@ final class DesktopLevelWindow: NSPanel {
     /// 메모 안에서 글을 써야 하므로(§8) 명시적으로 연다.
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    // MARK: Esc
+
+    /// 응답자 사슬을 타고 올라온 Esc (`doCommand(by:)` 길).
+    ///
+    /// `super` 를 부르지 않는다 — `NSResponder` 는 이 선택자를 선언만 하고
+    /// 구현하지 않아 부르면 그대로 떨어진다. 걸린 것이 없으면 조용히 끝난다.
+    override func cancelOperation(_ sender: Any?) {
+        onEscape?()
+    }
+
+    /// 아무도 안 받아 창까지 온 키 (`keyDown` 길). 호스팅 뷰가 어느 길로
+    /// 흘리든 Esc 는 같은 곳에 닿아야 한다.
+    override func keyDown(with event: NSEvent) {
+        if let onEscape, event.keyCode == Self.escapeKeyCode, event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty {
+            onEscape()
+            return
+        }
+        super.keyDown(with: event)
+    }
+
+    private static let escapeKeyCode: UInt16 = 53
 
     // MARK: 앞으로 나왔다 내려앉기
 

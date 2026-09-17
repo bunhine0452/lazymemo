@@ -35,6 +35,24 @@ struct PaperGripTests {
         #expect(hit?.acceptsFirstMouse(for: nil) == true)
     }
 
+    @Test("손잡이는 본문 위 여백보다 길지만 첫 줄의 글자는 덮지 않는다")
+    func gripStopsAboveFirstLineGlyphs() {
+        // 글줄(23pt)에서 글자의 제 키를 뺀 나머지는 글자 **위**에 얹힌다 — 손잡이는
+        // 거기까지만 내려올 수 있다. 여백(20)보다 짧으면 키운 뜻이 없고, 그 경계를
+        // 넘으면 첫 줄 글자를 누른 손이 커서 대신 종이를 끈다.
+        let font = NSFont.systemFont(ofSize: Paper.bodySize)
+        let natural = font.ascender - font.descender + font.leading
+        let glyphTop = Theme.loose + (Paper.linePitch - natural)
+        #expect(PaperGrip.height > Theme.loose)
+        #expect(PaperGrip.height <= glyphTop, Comment(rawValue: "글자 윗선 \(glyphTop)"))
+    }
+
+    @Test("색띠는 손잡이 줄 안에 든다")
+    func barFitsInsideGrip() {
+        #expect(PaperGrip.barSize.height < PaperGrip.height)
+        #expect(PaperGrip.barSize.width > 52, "앞선 판(52×4)보다 커야 «여기를 잡는다» 가 보인다")
+    }
+
     private func makeHosting() throws -> NSView {
         let root = URL(filePath: NSTemporaryDirectory(), directoryHint: .isDirectory)
             .appending(path: "lazymemo-grip-\(UUID().uuidString)", directoryHint: .isDirectory)

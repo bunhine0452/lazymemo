@@ -39,6 +39,11 @@ enum WidgetSample {
         let tomorrow = calendar.date(byAdding: .day, value: 1, to: now) ?? now
         let meeting = Memo(id: ULID(), at: calendar.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrow) ?? tomorrow,
                            body: String(localized: "주간 회의"))
-        return [dentist, design, groceries, meeting]
+        // 달력 격자에 점이 몇 개는 있어야 무엇인지 보인다 — 날짜만 있는 것 둘.
+        let bill = Memo(id: ULID(), due: CalendarDate(now, calendar: calendar).adding(days: 5, calendar: calendar),
+                        body: String(localized: "전기요금 납부"))
+        let birthday = Memo(id: ULID(), due: CalendarDate(now, calendar: calendar).adding(days: 12, calendar: calendar),
+                            body: String(localized: "엄마 생신"))
+        return [dentist, design, groceries, meeting, bill, birthday]
     }
 }

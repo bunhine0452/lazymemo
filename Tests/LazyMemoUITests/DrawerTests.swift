@@ -92,10 +92,13 @@ struct DrawerContentsTests {
 @Suite("서랍의 판형")
 struct DrawerGeometryTests {
 
+    /// 두 줄(이름·장수 / 최근 두 장)이 들어가는 크기까지는 키웠다 (§16.12) —
+    /// 그래도 펼친 판의 절반 남짓이고 종이(260×200)보다 작다.
     @Test("닫힌 탭은 작다 — 상주하는 물건이 창만 하면 그건 상주가 아니다")
     func closedTabIsSmall() {
-        #expect(DrawerGeometry.closedSize.height <= 56)
-        #expect(DrawerGeometry.closedSize.width < DrawerGeometry.width / 2)
+        #expect(DrawerGeometry.closedSize.height <= 64)
+        #expect(DrawerGeometry.closedSize.width <= DrawerGeometry.width * 0.55)
+        #expect(DrawerGeometry.closedSize.width < 260)
     }
 
     @Test("비어 있어도 목록 자리는 세 줄만큼은 된다 — «아무것도 없습니다» 가 설 자리")

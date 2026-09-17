@@ -20,6 +20,7 @@ struct MemoTextArea: View {
     var onDelete: (() -> Void)?
     var movesWindow = false
     var blursOnEscape = false
+    var onEscape: (() -> Void)?
     var placeholder: String
     var onEdit: (String) -> Void = { _ in }
     var onCommand: (Selector, NSTextView) -> Bool = { _, _ in false }
@@ -46,7 +47,7 @@ struct MemoTextArea: View {
                     stylesMarkdown: stylesMarkdown, hidesImageReferences: hidesImageReferences,
                     onPasteImage: onPasteImage, onPasteLink: onPasteLink,
                     onDelete: onDelete, movesWindow: movesWindow, blursOnEscape: blursOnEscape,
-                    onEdit: onEdit, onCommand: onCommand,
+                    onEscape: onEscape, onEdit: onEdit, onCommand: onCommand,
                     onCommandReturn: onCommandReturn, onHeightChange: onHeightChange
                 )
             }
