@@ -88,6 +88,7 @@ public actor AssistantCoordinator {
                 return
             }
             guard ready else { _ = await emit(.failed(.modelUnavailable)); return }
+            guard await emit(.preparing) else { return }
             try await provider.prepare(profile)
 
             var calls = 0
@@ -181,8 +182,8 @@ public actor AssistantCoordinator {
         for try await delta in provider.stream(prompt) {
             try Task.checkCancellation()
             text += delta
-            // JSON 은 다 받아야 뜻이 있다 — 부분 도구 토큰을 흘리지 않는다. 글은 흘린다.
-            if request.task == .tidy { guard await emit(.textDelta(delta)) else { throw CancellationError() } }
+            // JSON 은 다 받아야 뜻이 있다 — 화면은 다듬기의 글만 보이고 나머지 조각은 세기만 한다 (`AssistantEvent.textDelta`).
+            guard await emit(.textDelta(delta)) else { throw CancellationError() }
         }
         // 개발용 — 모델이 실제로 뭐라 했는지. `LAZYMEMO_ASSISTANT_TRACE=1` 일 때만, stderr 로.
         if ProcessInfo.processInfo.environment["LAZYMEMO_ASSISTANT_TRACE"] != nil {

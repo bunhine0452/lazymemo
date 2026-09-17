@@ -244,6 +244,10 @@ public enum AssistantFailure: Error, Sendable, Equatable {
 
 public enum AssistantEvent: Sendable, Equatable {
     case loading
+    /// 모델을 올리는 중 — 근거를 고른 뒤, 첫 글자 전. 콜드 스타트는 몇 초라 화면이 그 까닭을 말해야 한다.
+    case preparing
+    /// 모델이 낸 글자 조각. 다듬기는 글이라 그대로 보이고, 나머지(JSON)는 **움직임의 근거**로만 — 화면이 조각을
+    /// 세어 「답을 적는 중」의 획을 그만큼 밀어 준다 (2026-09-17 사용자: 「기다리는데 아무것도 안 뜨다 갑자기 팍」).
     case textDelta(String)
     case evidence([Evidence])
     case proposedAction(ProposedAction)

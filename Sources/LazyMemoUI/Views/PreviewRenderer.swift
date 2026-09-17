@@ -283,6 +283,18 @@ enum PreviewRenderer {
             content: QuickCaptureView(model: webbing, onCommit: {}, onCancel: {}),
             into: directory
         )
+        // 생각하는 중 — 획·단계의 말·숨 쉬는 테두리 (`ThinkingInk`). 한 장면은 한 숨의 한순간이다.
+        let thinking = QuickCaptureModel(store: store)
+        thinking.arrowOffset = QuickCaptureController.width - 70
+        thinking.assistant = assistant
+        thinking.query = L("엄마 선물 뭐 사기로 했지?")
+        assistant.stageThinkingForPreview(.writing(found: 6, tokens: 3), task: .answer)
+        await render(
+            name: "capture-thinking",
+            size: CGSize(width: QuickCaptureController.width, height: 200),
+            content: QuickCaptureView(model: thinking, onCommit: {}, onCancel: {}),
+            into: directory
+        )
         assistant.reset()
         for extra in [dentist, jisoo, jisoo2].compactMap({ $0 }) { try? await store.delete(extra.id) }
 

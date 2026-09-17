@@ -170,9 +170,10 @@ struct CoordinatorTests {
         provider.onStream = { await c.cancel(request.id) }
         var out: [AssistantEvent] = []
         for await e in await c.run(request) { out.append(e) }
-        #expect(out.count == 2)
+        #expect(out.count == 3)
         #expect(out.first == .loading)
-        if case .evidence = out.last {} else { Issue.record("\(out)") }
+        if case .evidence = out[1] {} else { Issue.record("\(out)") }
+        #expect(out.last == .preparing)
         #expect(provider.cancelled == [request.id])
     }
 

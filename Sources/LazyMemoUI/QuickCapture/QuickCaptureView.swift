@@ -108,6 +108,8 @@ struct QuickCaptureView: View {
         }
         .background(Theme.paper(MemoColor.gray.ink, radius: Theme.panelRadius, dotted: false))
         .overlay(Theme.edge(radius: Theme.panelRadius))
+        // 비서가 도는 동안 상자의 테두리가 숨 쉰다 — 곁눈으로도 「돌고 있다」 (`ThinkingInk`).
+        .thinkingGlow(model.assistant?.phase == .thinking, accent: Theme.accentInk, radius: Theme.panelRadius)
         .overlay(alignment: .topTrailing) { closeButton }
     }
 
@@ -907,12 +909,12 @@ struct QuickCaptureView: View {
             Text(hintText)
                 .font(.system(size: 11))
             Spacer(minLength: 0)
-            if model.assistant?.phase == .thinking {
-                // 읽는 동안 라벨은 없다 — 누를 것이 없다 (설계 E-1).
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text(thinkingLabel).font(.system(size: 11))
-                }
+            if let assistant = model.assistant, assistant.phase == .thinking {
+                // 읽는 동안 라벨은 없다 — 누를 것이 없다 (설계 E-1). 대신 획과 단계의 말 — 무엇을 기다리는지.
+                ThinkingInk(
+                    label: assistant.stageLabel, tokens: assistant.stage?.tokens ?? 0,
+                    style: ThinkingInkStyle(ink: Paper.ink, faded: Paper.fadedInk, accent: Theme.accentInk), size: 11
+                )
             } else if let commandLabel {
                 Button(action: onCommit) {
                     HStack(spacing: 12) {
@@ -935,15 +937,6 @@ struct QuickCaptureView: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, Theme.loose)
         .padding(.vertical, Theme.normal)
-    }
-
-    /// 「웹에서 찾는 중」「정리하는 중」「메모를 읽는 중」— 무엇을 기다리는지.
-    private var thinkingLabel: String {
-        switch model.assistant?.task {
-        case .webAnswer: return L("웹에서 찾는 중")
-        case .tidy: return L("정리하는 중")
-        default: return L("메모를 읽는 중")
-        }
     }
 
     private var hintText: String {

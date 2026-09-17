@@ -189,15 +189,6 @@ struct PenBar: View {
         .accessibilityIdentifier("pending-question")
     }
 
-    /// 「찾는 중」「정리하는 중」「읽는 중」— 무엇을 기다리는지.
-    private var thinkingLabel: String {
-        switch pen.assistant?.task {
-        case .webAnswer: return String(localized: "찾는 중")
-        case .tidy: return String(localized: "정리하는 중")
-        default: return String(localized: "읽는 중")
-        }
-    }
-
     // MARK: 칩 — 읽은 것을 누르기 전에 보인다
 
     @ViewBuilder
@@ -341,14 +332,18 @@ struct PenBar: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 4)
             .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18))
+            // 비서가 도는 동안 글 칸의 테두리가 숨 쉰다 — 맥 상자와 같은 잉크 (`ThinkingInk`).
+            .thinkingGlow(pen.assistant?.phase == .thinking, accent: Theme.accentInk, radius: 18)
 
-            if pen.assistant?.phase == .thinking {
-                // 읽는 동안 — 누르면 그만둔다 (맥의 「esc 그만」).
+            if let assistant = pen.assistant, assistant.phase == .thinking {
+                // 읽는 동안 — 누르면 그만둔다 (맥의 「esc 그만」). 획과 단계의 말이 무엇을 기다리는지 말한다.
                 Button { pen.cancelReading() } label: {
-                    HStack(spacing: 6) { ProgressView().controlSize(.small); Text(thinkingLabel) }
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 4)
-                        .frame(minHeight: 36)
+                    ThinkingInk(
+                        label: assistant.stageLabel, tokens: assistant.stage?.tokens ?? 0,
+                        style: ThinkingInkStyle(ink: Paper.ink, faded: .secondary, accent: Theme.accentInk), size: 14
+                    )
+                    .padding(.horizontal, 6)
+                    .frame(minHeight: 36)
                 }
                 .buttonStyle(.glass)
                 .accessibilityIdentifier("thinking")

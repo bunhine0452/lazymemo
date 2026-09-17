@@ -27,7 +27,31 @@ public final class AssistantModel {
     public private(set) var download: DownloadState?
     public private(set) var downloadError: String?
 
+    /// 생각하는 동안의 단계 — 화면이 「무엇을 기다리는지」를 말하고, 획이 실제 진행에 맞춰 움직이게 하는 근거.
+    ///
+    /// 2026-09-17 사용자: 「찾아줘 하고 기다리는데 아무것도 안 뜨다가 갑자기 팍 하고 뜬다」. 바퀴 하나로는 기다림이
+    /// 비어 있다. 단계는 전부 **실제 사건**이다 — 뒤지기(검색)·고르기(근거 도착)·깨우기(모델 로딩)·적기(글자 조각) —
+    /// 지어낸 진행률은 없다 (HIG Feedback: 「status 를 분명히, 진행을 보이게」).
+    public enum Stage: Equatable {
+        /// 메모(또는 웹)를 뒤지는 중.
+        case searching
+        /// 근거 N 을 골랐다 — 모델 없이 끝나는 길이면 여기서 답이 선다.
+        case found(Int)
+        /// 모델을 올리는 중 — 콜드 스타트는 몇 초.
+        case waking(found: Int)
+        /// 글자가 오고 있다. `tokens` 는 조각 수 — 획이 그만큼 나아간다.
+        case writing(found: Int, tokens: Int)
+
+        /// 지금까지 온 글자 조각 수. 화면의 획이 이것으로 움직인다.
+        public var tokens: Int {
+            if case .writing(_, let tokens) = self { return tokens }
+            return 0
+        }
+    }
+
     public private(set) var phase: Phase = .idle
+    /// 생각하는 동안의 단계. `thinking` 이 아니면 nil.
+    public private(set) var stage: Stage?
     /// 지금 도는(또는 방금 끝난) 일 — 「메모를 읽는 중」과 「웹에서 찾는 중」을 가른다.
     public private(set) var task: AssistantTask?
     public private(set) var answer: AssistantAnswer?
@@ -239,6 +263,7 @@ public final class AssistantModel {
         let request = AssistantRequest(task: .tidy, userText: WebFollowUp.draftForTidy(question: question, answer: answer, results: results))
         task = .tidy
         phase = .thinking
+        stage = .searching
         proposal = nil; receipt = nil; applyError = nil; applied = nil
         let job = Task { [weak self] in
             guard let self else { return }
@@ -328,12 +353,24 @@ public final class AssistantModel {
             switch event {
             case .completed(.tidied(let text)): result = text
             case .failed(let f): failure = f
+            case .evidence(let list): stage = .found(list.count)
+            case .preparing: stage = .waking(found: 0)
+            case .textDelta: stage = .writing(found: 0, tokens: (stage?.tokens ?? 0) + 1)
             default: break
             }
         }
+        stage = nil
         if let failure { throw failure }
         guard let result else { throw AssistantFailure.cancelled }
         return result
+    }
+
+    /// 렌더·시험용 — 생각하는 중의 한 단계를 세운다 (`PreviewRenderer`). 제품 코드는 부르지 않는다.
+    public func stageThinkingForPreview(_ stage: Stage, task: AssistantTask) {
+        cancel()
+        self.task = task
+        phase = .thinking
+        self.stage = stage
     }
 
     /// 렌더·시험용 — 모델 없이 화면 상태를 세운다 (`PreviewRenderer`). 제품 코드는 부르지 않는다.
@@ -364,6 +401,7 @@ public final class AssistantModel {
         Task { await coordinator.cancel(current.id) }
         self.current = nil
         if phase == .thinking { phase = .idle }
+        stage = nil
     }
 
     /// 뒤로 물러날 때 — 진행 중인 것을 끊고 모델을 내린다 (명세 §6 iPhone).
@@ -377,6 +415,7 @@ public final class AssistantModel {
         cancel()
         task = request.task
         phase = .thinking
+        stage = .searching
         answer = nil; evidence = []; proposal = nil; receipt = nil; applyError = nil; applied = nil; offersWeb = nil
         webQuestion = request.task == .webAnswer ? request.userText : nil
         pendingAppend = nil
@@ -386,8 +425,14 @@ public final class AssistantModel {
             for await event in await coordinator.run(request) {
                 guard !Task.isCancelled else { return }
                 switch event {
-                case .loading, .textDelta: break
-                case .evidence(let list): evidence = list
+                case .loading: break
+                case .preparing: stage = .waking(found: evidence.count)
+                case .textDelta:
+                    // 조각의 글은 보이지 않는다(JSON) — 세기만. 획이 실제 생성에 맞춰 나아간다.
+                    stage = .writing(found: evidence.count, tokens: stage.map(\.tokens).map { $0 + 1 } ?? 1)
+                case .evidence(let list):
+                    evidence = list
+                    stage = .found(list.count)
                 case .proposedAction(let action):
                     proposal = action
                     pendingDraft = action.kind == .ask ? action.draft : nil
@@ -410,10 +455,37 @@ public final class AssistantModel {
                 }
             }
             if phase == .thinking { phase = .idle }
+            stage = nil
             current = nil
             onSettled?()
         }
         current = (request.id, task)
+    }
+
+    /// 단계의 말 — 「메모를 뒤지는 중」「6장 골라 읽는 중」「답을 적는 중」. 웹·다듬기·시키기는 제 말로.
+    public var stageLabel: String {
+        guard let stage else { return "" }
+        let unit = task == .webAnswer ? L("줄") : L("장")
+        switch stage {
+        case .searching:
+            switch task {
+            case .webAnswer: return L("웹에서 찾는 중")
+            case .tidy: return L("글을 읽는 중")
+            case .brief: return L("오늘의 메모를 모으는 중")
+            default: return L("메모를 뒤지는 중")
+            }
+        case .found(let count):
+            return count == 0 ? L("읽는 중") : L("\(count)\(unit) 골라 읽는 중")
+        case .waking(let count):
+            return count == 0 ? L("비서를 깨우는 중") : L("\(count)\(unit) 골랐어요 · 비서를 깨우는 중")
+        case .writing:
+            switch task {
+            case .tidy: return L("정리하는 중")
+            case .command: return L("무엇을 할지 정하는 중")
+            case .brief: return L("브리핑을 적는 중")
+            default: return L("답을 적는 중")
+            }
+        }
     }
 
     // MARK: 제안 실행·되돌리기
