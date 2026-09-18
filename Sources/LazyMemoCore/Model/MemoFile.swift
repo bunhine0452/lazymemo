@@ -66,6 +66,7 @@ public enum MemoFile {
             due: frontmatter.string("due").flatMap(CalendarDate.init(iso:)),
             at: frontmatter.string("at").flatMap(Timestamp.date(from:)),
             every: frontmatter.string("every").flatMap(Recurrence.init),
+            anchor: frontmatter.string("anchor").flatMap(CalendarDate.init(iso:)),
             surface: frontmatter.string("surface").flatMap(Timestamp.date(from:)),
             place: frontmatter.string("place"),
             geo: geo,
@@ -97,6 +98,9 @@ public enum MemoFile {
         }
         if let every = memo.every {
             lines.append(Frontmatter.line(key: "every", scalar: every.label))
+        }
+        if let anchor = memo.anchor {
+            lines.append(Frontmatter.line(key: "anchor", scalar: anchor.description))
         }
         // 나올 때는 일이 언제인가 바로 다음이다 — 같은 종류의 값이라 붙여 둔다.
         if let surface = memo.surface {

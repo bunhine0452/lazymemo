@@ -141,8 +141,9 @@ public actor MemoService {
         var memo = try await vault.load(id)
 
         if let body { memo.body = body }
-        if let due { memo.due = due }
-        if let at { memo.at = at }
+        // 사람이 날을 옮기면 그 날이 되풀이의 새 처음이다 (`Memo.anchor`).
+        if let due { memo.due = due; memo.anchor = nil }
+        if let at { memo.at = at; memo.anchor = nil }
         if let every { memo.every = every }
         if let surface { memo.surface = surface }
         if let place { memo.place = place }
@@ -168,7 +169,10 @@ public actor MemoService {
         _ id: ULID, expectedHash: String?, now: Date = Date(), _ change: @Sendable (inout Memo) throws -> Void
     ) async throws -> Memo {
         let result = try await vault.modify(id, expectedHash: expectedHash) { memo in
+            let schedule = (memo.due, memo.at)
             try change(&memo)
+            // 날을 옮겼으면 되풀이의 처음 날도 그 날이다 (`update` 와 같다).
+            if (memo.due, memo.at) != schedule { memo.anchor = nil }
             memo.folder = MemoFolders.normalized(memo.folder)
             memo.updated = now.truncatingSubsecond
             memo.tidied = nil

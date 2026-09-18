@@ -81,6 +81,37 @@ struct RecurringMemoTests {
             == CalendarDate(year: 2026, month: 8, day: 31))
     }
 
+    @Test("「매월 31일」은 2월을 지나도 31일로 돌아온다 — 처음 날을 적어 두고 거기서 잰다")
+    func monthlyReturnsToTheAnchorDay() throws {
+        let rent = Memo(at: date(2026, 1, 31, 9), every: .monthly)
+        let february = try #require(Tidy.rolled(rent, now: date(2026, 2, 1, 12), calendar: calendar))
+        #expect(february.at == date(2026, 2, 28, 9))
+        #expect(february.anchor == CalendarDate(year: 2026, month: 1, day: 31))
+        // 파일을 오간 뒤에도 처음 날은 남는다.
+        let reread = try MemoFile.decode(MemoFile.encode(february))
+        #expect(reread.anchor == february.anchor)
+
+        let march = try #require(Tidy.rolled(reread, now: date(2026, 3, 1, 12), calendar: calendar))
+        #expect(march.at == date(2026, 3, 31, 9))
+        let april = try #require(Tidy.rolled(march, now: date(2026, 4, 1, 12), calendar: calendar))
+        #expect(april.at == date(2026, 4, 30, 9))
+    }
+
+    @Test("처음 날이 지금 날을 설명하지 못하면 지금 날이 새 처음이다 — 사람이 옮긴 날")
+    func movedDayBecomesTheNewAnchor() throws {
+        var memo = Memo(due: CalendarDate(year: 2026, month: 3, day: 15), every: .monthly)
+        memo.anchor = CalendarDate(year: 2026, month: 1, day: 31)   // 옛 처음 날 — 15일과 무관하다
+        let rolled = try #require(Tidy.rolled(memo, now: date(2026, 3, 16, 12), calendar: calendar))
+        #expect(rolled.due == CalendarDate(year: 2026, month: 4, day: 15))
+        #expect(rolled.anchor == CalendarDate(year: 2026, month: 3, day: 15))
+    }
+
+    @Test("매주·매일은 처음 날을 적지 않는다 — 잘릴 일이 없다")
+    func weeklyNeedsNoAnchor() {
+        let memo = Memo(at: date(2026, 8, 4, 8), every: .weekly)
+        #expect(Tidy.rolled(memo, now: date(2026, 8, 31, 12), calendar: calendar)?.anchor == nil)
+    }
+
     @Test("걸어간 것은 다시 산 것이다 — 치워 뒀더라도 도로 나온다")
     func revivesTidied() {
         var memo = Memo(at: date(2026, 8, 4, 8), every: .weekly)

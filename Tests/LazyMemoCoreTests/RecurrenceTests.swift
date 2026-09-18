@@ -57,6 +57,35 @@ struct RecurrenceTests {
         #expect(Recurrence.weekly.walk(future, past: date(2026, 8, 31), calendar: calendar) == nil)
     }
 
+    @Test("달 걸음은 처음 날에서 잰다 — 1월 31일이 2월을 지나도 28일이 되지 않는다")
+    func monthlyKeepsTheAnchorDay() {
+        let anchor = CalendarDate(year: 2026, month: 1, day: 31)
+        // 2월 28일에 서 있다(잘린 걸음). 3월 1일에 재면 3월 28일이 아니라 3월 31일이어야 한다.
+        #expect(Recurrence.monthly.walk(date(2026, 2, 28, 9), past: date(2026, 3, 1), anchor: anchor, calendar: calendar)
+            == date(2026, 3, 31, 9))
+        // 몇 달 밀렸어도 잘린 날에서 쌓지 않는다 — 1월 31일에서 곧장 4월 30일.
+        #expect(Recurrence.monthly.walk(date(2026, 1, 31, 9), past: date(2026, 4, 1), anchor: anchor, calendar: calendar)
+            == date(2026, 4, 30, 9))
+        // 시각은 지금 것 — 처음 날의 것이 아니다.
+        #expect(Recurrence.monthly.walk(date(2026, 2, 28, 18), past: date(2026, 3, 1), anchor: anchor, calendar: calendar)
+            == date(2026, 3, 31, 18))
+        // 해 걸음도 같다 — 2월 29일은 윤년에 돌아온다.
+        let leap = CalendarDate(year: 2028, month: 2, day: 29)
+        #expect(Recurrence.yearly.walk(date(2031, 2, 28), past: date(2031, 3, 1), anchor: leap, calendar: calendar)
+            == date(2032, 2, 29))
+    }
+
+    @Test("처음 날이 지금 날을 설명하는가 — 잘린 날은 설명하고, 옮긴 날은 못 한다")
+    func anchorExplainsClippedDays() {
+        let anchor = CalendarDate(year: 2026, month: 1, day: 31)
+        #expect(Recurrence.monthly.explains(anchor, CalendarDate(year: 2026, month: 2, day: 28), calendar: calendar))
+        #expect(Recurrence.monthly.explains(anchor, CalendarDate(year: 2026, month: 4, day: 30), calendar: calendar))
+        #expect(!Recurrence.monthly.explains(anchor, CalendarDate(year: 2026, month: 3, day: 28), calendar: calendar))
+        let leap = CalendarDate(year: 2028, month: 2, day: 29)
+        #expect(Recurrence.yearly.explains(leap, CalendarDate(year: 2029, month: 2, day: 28), calendar: calendar))
+        #expect(!Recurrence.yearly.explains(leap, CalendarDate(year: 2029, month: 3, day: 1), calendar: calendar))
+    }
+
     @Test("날짜로도 걸어간다")
     func walksCalendarDates() {
         let tuesday = CalendarDate(year: 2026, month: 9, day: 1)

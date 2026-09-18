@@ -28,6 +28,15 @@ public struct Memo: Sendable, Equatable, Identifiable {
     /// 되풀이하는 일은 지나가지 않는다.
     public var every: Recurrence?
 
+    /// 달·해마다 되풀이하는 일이 **처음 적힌 날** (`Recurrence.walk`).
+    ///
+    /// 달 걸음은 짧은 달에서 잘린다 — 1월 31일의 다음 달은 2월 28일. 거기서 또 한 걸음을
+    /// 재면 3월 28일이 되어 「매월 31일 월세」가 영영 사흘 앞당겨진다. 그래서 걸어간
+    /// 메모는 처음 날을 여기 적어 두고 늘 거기서부터 잰다: 2월 28일 → 3월 31일.
+    /// 사람이 날짜를 옮기면 지운다 — 옮긴 그 날이 새 처음이다 (`MemoService.update`).
+    /// 매일·매주는 잘릴 일이 없어 적지 않는다.
+    public var anchor: CalendarDate?
+
     /// **이 종이가 나올 시각.** 일이 언제인가(`due`·`at`)와 다른 것을 말한다 —
     /// 회의는 3시, 종이는 2시 30분.
     ///
@@ -83,7 +92,7 @@ public struct Memo: Sendable, Equatable, Identifiable {
 
     /// 앱이 해석하는 키 — 나머지는 전부 `preserved` 로 간다.
     public static let knownKeys: Set<String> = [
-        "id", "created", "updated", "due", "at", "every", "surface", "place", "geo",
+        "id", "created", "updated", "due", "at", "every", "anchor", "surface", "place", "geo",
         "tags", "color", "pinned", "folder", "deleted", "tidied",
     ]
 
@@ -94,6 +103,7 @@ public struct Memo: Sendable, Equatable, Identifiable {
         due: CalendarDate? = nil,
         at: Date? = nil,
         every: Recurrence? = nil,
+        anchor: CalendarDate? = nil,
         surface: Date? = nil,
         place: String? = nil,
         geo: Coordinate? = nil,
@@ -114,6 +124,7 @@ public struct Memo: Sendable, Equatable, Identifiable {
         self.due = due
         self.at = at?.truncatingSubsecond
         self.every = every
+        self.anchor = anchor
         self.surface = surface?.truncatingSubsecond
         self.place = place
         self.geo = geo

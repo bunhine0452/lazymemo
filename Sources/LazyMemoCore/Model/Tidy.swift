@@ -82,6 +82,10 @@ public enum Tidy {
     ///
     /// **나올 때도 함께 옮긴다.** 안 그러면 다음 회차에 종이가 안 나온다 —
     /// 「30분 전」이 지난 회차의 30분 전에 그대로 남는다.
+    ///
+    /// **달·해 걸음은 처음 적힌 날에서 잰다** (`Memo.anchor`). 안 그러면 「매월 31일」이
+    /// 2월을 지나며 28일이 되고 영영 돌아오지 않는다. 처음 날이 안 적혀 있으면 지금 날이
+    /// 처음이고, 적혀 있어도 지금 날을 설명하지 못하면(사람이 옮겼다) 지금 날이 처음이다.
     public static func rolled(
         _ memo: Memo, now: Date = Date(), calendar: Calendar = .current
     ) -> Memo? {
@@ -89,19 +93,25 @@ public enum Tidy {
         var moved = memo
 
         if let at = memo.at {
-            guard let next = every.walk(at, past: now, calendar: calendar) else { return nil }
+            let anchor = anchor(of: memo, on: CalendarDate(at, calendar: calendar), calendar: calendar)
+            guard let next = every.walk(at, past: now, anchor: anchor, calendar: calendar) else { return nil }
             let shift = next.timeIntervalSince(at)
             moved.at = next
+            moved.anchor = anchor
             if memo.due != nil { moved.due = CalendarDate(next, calendar: calendar) }
             if let surface = memo.surface { moved.surface = surface.addingTimeInterval(shift) }
         } else if let due = memo.due {
             // 날짜만 있는 것은 **그 날이 끝나야** 지난 것이다 (`pastGrace` 와 같은 셈).
+            let anchor = anchor(of: memo, on: due, calendar: calendar)
             guard let midnight = due.startOfDay(calendar: calendar),
                   let today = CalendarDate(now, calendar: calendar).startOfDay(calendar: calendar),
                   midnight < today,
-                  let next = every.walk(midnight, past: today.addingTimeInterval(-1), calendar: calendar)
+                  let next = every.walk(
+                      midnight, past: today.addingTimeInterval(-1), anchor: anchor, calendar: calendar
+                  )
             else { return nil }
             moved.due = CalendarDate(next, calendar: calendar)
+            moved.anchor = anchor
             if let surface = memo.surface {
                 moved.surface = surface.addingTimeInterval(next.timeIntervalSince(midnight))
             }
@@ -113,6 +123,13 @@ public enum Tidy {
         // 걸어간 것은 다시 산 것이다 — 치워 뒀더라도 도로 나온다.
         moved.tidied = nil
         return moved
+    }
+
+    /// 이 회차의 처음 날. 잘리지 않는 주기(매일·매주)는 없다 — 적어 둘 것이 없다.
+    private static func anchor(of memo: Memo, on day: CalendarDate, calendar: Calendar) -> CalendarDate? {
+        guard let every = memo.every, every.clips else { return nil }
+        if let known = memo.anchor, every.explains(known, day, calendar: calendar) { return known }
+        return day
     }
 
     /// 체크상자가 하나라도 있고 **전부** 체크됐는가.
