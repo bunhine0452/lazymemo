@@ -280,8 +280,13 @@ final class NoteModel {
             isUnsaved = false
             return
         }
+        let saving = text
         do {
-            memo = try await store.update(memo.id, body: text)
+            memo = try await store.update(memo.id, body: saving)
+            // 쓰는 사이에 더 쳤으면 그 글자는 아직 안 적힌 것이다 — `edited` 가 다시 잰 저장이
+            // 맡도록 표시를 그대로 둔다. 여기서 지우면 그 저장은 «적을 것 없음» 으로 돌아가고,
+            // 손이 멈춘 채 창을 닫으면 마지막 글자가 사라진다.
+            guard text == saving else { return }
             isDirty = false
             isUnsaved = false
             retriesLeft = Self.retryBudget

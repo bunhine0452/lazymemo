@@ -113,6 +113,27 @@ struct NoteSaveFailureTests {
         #expect(model.text == "잃으면 안 되는 글")
     }
 
+    @Test("쓰는 사이에 친 글자는 다음 저장이 맡는다 — 지금 저장이 그 표시를 지우면 안 된다")
+    func keystrokesDuringWriteAreNotLost() async throws {
+        let (store, paths) = try makeStore()
+        defer { cleanUp(paths) }
+        let memo = try await store.create(body: "")
+        let model = makeModel(memo, store, paths)
+
+        model.text = "치"
+        model.edited(model.text)
+        // 첫 저장이 파일에 쓰는 사이(actor 를 건너간 사이)에 한 글자를 더 친다.
+        let first = Task { await model.flush() }
+        await Task.yield()
+        model.text = "치과"
+        model.edited(model.text)
+        await first.value
+
+        // 예전에는 첫 저장이 돌아오며 «적을 것 없음» 으로 표시를 지워 「과」는 영영 안 적혔다.
+        await model.flush()
+        #expect(try await store.service.get(memo.id).body == "치과")
+    }
+
     @Test("실패는 메뉴가 읽는 자리까지 올라간다")
     func failureReachesTheStore() async throws {
         let (store, paths) = try makeStore()
