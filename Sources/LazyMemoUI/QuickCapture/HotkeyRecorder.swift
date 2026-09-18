@@ -26,6 +26,9 @@ final class HotkeyRecorder {
     private let model = Model()
     private var panel: NSPanel?
     private var monitor: Any?
+    /// 끝난 뒤에도 앱을 활성인 채 둘 것인가 — 설정 창에서 왔으면 그 창으로 돌아가야 한다.
+    /// 메뉴바에서 왔으면 물러나 키보드를 하던 앱에 돌려준다.
+    var keepsAppActive: () -> Bool = { false }
 
     /// - Parameters:
     ///   - title: 어느 동작의 단축키인지 — 패널 머리에 적힌다.
@@ -54,7 +57,7 @@ final class HotkeyRecorder {
         monitor = nil
         panel?.orderOut(nil)
         panel = nil
-        if NSApp.isActive { NSApp.deactivate() }
+        if NSApp.isActive, !keepsAppActive() { NSApp.deactivate() }
     }
 
     private func capture(_ event: NSEvent, apply: (Hotkey) -> String?) {

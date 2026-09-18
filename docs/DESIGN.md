@@ -412,7 +412,7 @@ Claude Desktop 은 외부 앱이 프롬프트를 보내고 결과를 받는 경�
 |---|---|
 | 캘린더(읽기) | 달력 창을 **처음 열 때** |
 | 위치(사용 중) | `⌥⌘L` 을 **처음 누를 때** |
-| 위치(항상) | 설정에서 「가면 떠오르게 하기」를 **켤 때만** |
+| 위치(항상) | 설정에서 「적어 둔 자리에 가면 그 종이 꺼내기」를 **켤 때만** |
 | 알림 | 설정 「알림…」(폰은 More → 알림)에서 「이 기기에서 알림 받기」를 **켤 때만.** 기본 꺼짐 · **기기별**(파일로 번지지 않는다) · 켜기 전에 잠금 화면에 제목이 보인다고 적는다 · 끄면 걸어 둔 것을 전부 뺀다. 안 켜면 종이가 앞으로 나오는 것으로 대신한다 |
 
 「가면 떠오르기」가 이 앱이 요구하는 것 중 가장 무겁다 — 앱을 안 보고 있을 때도 시스템이 자리를 알려 준다. 그래서 §9.3 의 조건 셋에 하나를 더해 넷으로 잠갔다: **기본 꺼짐 · 켜져 있다는 사실과 지켜보는 자리 수가 메뉴에 보임 · 좌표가 이미 적힌 메모만(이름을 좌표로 바꾸려고 밖에 보내지 않는다) · 도착만 세고 위치는 저장하지 않음.**
@@ -880,6 +880,20 @@ Tahoe 에서는 아니다. **재 보고 알았다.** 캔버스를 끝까지 채�
 
 **새 낱말을 만들지 않는다.** 이미 붙여 둔 도움말이 곧 이름이다 (`SpokenHelp`) — 「지우기 — 메뉴의 되돌리기로 살릴 수 있습니다」에서 「—」 앞이 이름, 뒤가 힌트다. 눈으로 읽는 말과 귀로 듣는 말이 어긋나지 않고, 도움말을 고치면 소리도 함께 고쳐진다. 여러 조각으로 된 줄(목록의 한 줄, 달력의 칸)은 하나로 묶어 「제목, 시간」·「8월 31일 — 4개」처럼 한 번에 읽힌다.
 
+### 14.12 설정은 창이다 — 한 판, 묶음마다 바닥 글 (2026-09-18)
+
+사용자: **「설정 디자인과 문구를 업그레이드해줘」**. 설정은 메뉴바 메뉴의 하위 메뉴였다 — 「항목이 몇 개뿐이라 창을 따로 짓지 않는다」던 때의 결정인데, 항목이 열넷이 되고 줄마다 두 줄짜리 설명이 붙자 메뉴가 화면 반을 차지했고, 켜고 끄는 것·여는 것·상태만 적은 것이 같은 줄 모양으로 섞여 무엇을 누를 수 있는지도 읽히지 않았다.
+
+**창으로 옮긴다** (`SettingsWindow` · `SettingsView`). 메뉴에는 「설정…」 한 줄(⌘,)만 남는다. HIG Settings(macOS): "When people choose the Settings item in your app's App menu, your custom settings window opens" · "Make settings available in ways people expect … Command-Comma". 판은 하나다 — "If your settings window doesn't have multiple panes, use the title *App Name Settings*" → 「lazymemo 설정」. 최소화·확대 단추는 없다 ("Dim a settings window's minimize and maximize buttons … a settings window accommodates the size of the current pane") — 판이 화면보다 길면 시스템 설정처럼 판이 스크롤한다.
+
+**묶음은 무엇을 건드리는가로** — 입력 · 종이 · 메모가 있는 곳 · 자리 · 함께 보기 · 알림, 그리고 판에 따라 Claude · 업데이트. `Form(.grouped)` 의 절 하나가 묶음 하나이고, 앞선 판의 부제(«기기 밖으로 나가지 않습니다», «구독 사용량이 듭니다»)는 각 묶음의 **바닥 글**로 내려간다 — 줄은 «이름 — 스위치» 한 모양으로 통일되고, 무엇이 밖으로 나가는지는 여전히 켜는 자리 바로 밑에 적혀 있다 (§9.3 은 그대로). 단축키는 `⌥⌘N` 키캡 옆에 「바꾸기…」, 폴더는 경로 옆에 「열기 · 옮기기…」, iCloud 는 이미 그 안이면 「동기화 중」 상태로.
+
+**문구.** 「가면 떠오르게 하기」→「적어 둔 자리에 가면 그 종이 꺼내기」(무엇이 가고 무엇이 떠오르는지가 없었다) · 「시스템 캘린더 함께 보기」→「달력에 시스템 일정 함께 보기」(어디에 보이는지) · 「알림…」→「이 기기에서 알림 — 켜짐/꺼짐 · 설정…」(누르기 전에 상태가 보인다). 나머지는 그대로 — 이미 이 앱의 낱말이다.
+
+**값의 주인은 제각각이다** — 설정 파일·로그인 항목·Spotlight·위치 감시·업데이트. 창이 그것들을 하나씩 관찰하게 두면 주인이 바뀔 때마다 창도 고쳐야 하므로, 창은 **사진 한 장**(`SettingsState`)을 보고 손을 댄 뒤 다시 찍는다 (`SettingsScreenModel.reload`) — 시스템 권한 창에 다녀오면(`didBecomeActive`) 한 번 더. 값을 바꾸는 손은 전부 메뉴바 컨트롤러의 것 그대로다 (`SettingsActions`).
+
+**확인하는 방법.** `LAZYMEMO_SETTINGS=<png>` 가 창을 열어 뷰가 스스로 그린 그림을 남긴다(`cacheDisplay` — 화면 기록 권한이 필요 없다). 사람 손 없이 뜬 앱은 활성화되지 못해 창이 남의 창 뒤에 서므로, 그때만 창을 위로 올린다(`liftedForVerification`). 스위치가 진짜로 값을 바꾸는지는 합성 마우스로 눌러 `settings.json` 을 읽어 확인했다 (`embedsLinks: false`).
+
 ## 15. 편집기 — 마크다운, 사진, 링크
 
 ### 15.1 글자를 바꾸지 않고 꾸민다
@@ -1122,11 +1136,6 @@ Tahoe 에서는 아니다. **재 보고 알았다.** 캔버스를 끝까지 채�
 
 **치우는 길이 보인다.** 나머지 절반: 바탕화면에서 치우는 것이 ⌥ 뒤에 숨어 있었다 (§16.12 의 Progressive Disclosure). 「서랍」이 상주 스위치이던 앞선 판의 손버릇으로 같은 항목을 눌렀더니 판이 앞으로 나올 뿐 사라지지 않았다. 되돌리는 길은 보여야 한다 (HIG Undo) — 메뉴에 「서랍 치우기 — 바탕화면에서」가 한 줄 아래에 그냥 선다. 탭의 **오른쪽 클릭**에도 「펼치기 · 바탕화면에서 치우기」— 물건 위에서 그 물건을 치우는 길이 하나는 있어야 한다.
 
-## 17. 참조
-
-- 결정 근거 전문: [`.oculpm/discussion/lazymemo-계획서/discussion.md`](../.oculpm/discussion/lazymemo-계획서/discussion.md)
-- 실행 계획: [`.oculpm/planner/lazymemo-v1.md`](../.oculpm/planner/lazymemo-v1.md)
-- 레퍼런스 제품: Windows Sticky Notes, DesktopCal, macOS Stickies.app, Raycast Notes
 ### 16.14 잡기만 해도 펼쳐지던 것 — `performDrag` 는 곧바로 돌아온다 (2026-09-18)
 
 다음 날 사용자: **「서랍은 아직도 이동도 안 되고 닫히지도 않아」**. §16.13 의 손잡이는 산수 검증(`verify-drawer.sh`)과 정적 렌더를 다 통과했는데도 실제로는 안 끌렸다 — 화면에 안 찍히는 고장이었고, 이번에는 **진짜 마우스**로 재현했다 (`scripts/verify-drawer-mouse.sh`: 합성 HID 이벤트를 창 서버에 넣고 창 목록으로 결과를 읽는다). 120pt 끌었더니 24pt 가고 **펼쳐졌다**.
@@ -1137,3 +1146,8 @@ Tahoe 에서는 아니다. **재 보고 알았다.** 캔버스를 끝까지 채�
 
 **확인하는 방법.** 산수는 `DrawerTests.pressBecomesDragOnce`. 실제는 `verify-drawer-mouse.sh` — 합성 이벤트는 그 자리의 **맨 앞 창**에 닿으므로 바탕화면 높이의 서랍에는 닿지 않는다; 무대 높이로 올린 판(`LAZYMEMO_STAGE=1`)에서 탭 끌기·누르기·머리 줄 끌기·×를, 메뉴바처럼 앞으로 부른 판(`LAZYMEMO_DRAWER=summon`)에서 머리 줄 끌기와 «다른 앱을 누르면 접힘»을 본다. 이 셸에 손쉬운 사용 권한이 있어야 한다. 종이의 본문 끌기(`MemoNSTextView.dragPaper`)도 같은 비동기지만 거기서는 「누르면 커서, 끌면 창도」가 맞는 동작이라 그대로다.
 
+## 17. 참조
+
+- 결정 근거 전문: [`.oculpm/discussion/lazymemo-계획서/discussion.md`](../.oculpm/discussion/lazymemo-계획서/discussion.md)
+- 실행 계획: [`.oculpm/planner/lazymemo-v1.md`](../.oculpm/planner/lazymemo-v1.md)
+- 레퍼런스 제품: Windows Sticky Notes, DesktopCal, macOS Stickies.app, Raycast Notes

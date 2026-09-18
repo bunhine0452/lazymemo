@@ -413,21 +413,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     ///
     /// 단계를 네 칸으로 끊는다 — 슬라이더는 조준해서 끌어야 하는 물건이고,
     /// 메뉴 안에서는 더 그렇다.
-    private func paperOpacityItem() -> NSMenuItem {
-        let parent = NSMenuItem(title: L("종이 투명도"), action: nil, keyEquivalent: "")
-        let submenu = NSMenu()
-        for step in PaperAppearance.steps {
-            let entry = item(title: step.label, action: #selector(setPaperOpacity(_:)), key: "")
-            entry.representedObject = step.opacity as NSNumber
-            entry.state = appearance.selected == step ? .on : .off
-            submenu.addItem(entry)
-        }
-        submenu.addItem(.separator())
-        submenu.addItem(disabled(L("포인터를 올리면 원래대로 진해집니다")))
-        parent.submenu = submenu
-        return parent
-    }
-
     private func addMemoList(to menu: NSMenu) {
         // 치워 둔 것은 여기 오지 않는다 (`Tidy`). 바로 아래 줄이 몇 장인지
         // 적고 한 번에 도로 꺼낸다 — 안 적으면 그건 삭제로 읽힌다.
@@ -615,157 +600,111 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
     }
 
-    /// 설정. 항목이 몇 개뿐이라 창을 따로 짓지 않는다 — 창을 여는 것 자체가
-    /// 조작 한 번이고, 이 앱은 그 한 번을 아끼는 앱이다.
+    /// 「설정…」 — 창을 연다 (`SettingsWindow`), ⌘, 로.
+    ///
+    /// 앞선 판은 하위 메뉴였다 — 항목이 몇 개뿐이라던 때의 결정인데, 열넷이 되고 설명이 두 줄씩
+    /// 붙으니 메뉴가 화면 반을 차지했다. HIG Settings(macOS): "When people choose the Settings
+    /// item … your custom settings window opens" · "Command-Comma".
     private func settingsItem() -> NSMenuItem {
-        let parent = NSMenuItem(title: L("설정"), action: nil, keyEquivalent: "")
-        let submenu = NSMenu()
-        submenu.addItem(item(title: L("알림…"), action: #selector(showReminders), key: ""))
-        submenu.addItem(.separator())
+        let entry = item(title: L("설정…"), action: #selector(showSettings), key: ",")
+        entry.keyEquivalentModifierMask = .command
+        return entry
+    }
 
-        let shortcut = item(title: L("단축키 바꾸기…"), action: #selector(changeHotkey), key: "")
-        shortcut.subtitle = L("빠른 입력 — 지금은 \(hotkey.current.displayName)")
-        submenu.addItem(shortcut)
+    @objc private func showSettings() { SettingsWindow.show(settingsScreen) }
+    /// 검증 주행이 창을 열고 그림으로 남긴다 (`LAZYMEMO_SETTINGS`).
+    func openSettingsForVerification() { showSettings() }
 
-        let pasteShortcut = item(title: L("클립보드 즉시 메모 단축키 바꾸기…"), action: #selector(changePasteHotkey), key: "")
-        pasteShortcut.subtitle = L("지금은 \(pasteHotkey.displayName)")
-        submenu.addItem(pasteShortcut)
+    /// 설정 창의 모델 — 사진을 찍는 법과 단추들을 넘긴다. 하는 일은 전부 여기 있던 것이다.
+    private lazy var settingsScreen: SettingsScreenModel = {
+        // 설정 창에서 단축키를 바꾼 뒤에는 그 창으로 돌아간다 (`HotkeyRecorder.keepsAppActive`).
+        recorder.keepsAppActive = { SettingsWindow.isOpen }
+        return SettingsScreenModel(
+            snapshot: { [unowned self] in settingsSnapshot() },
+            actions: settingsActions()
+        )
+    }()
 
-        submenu.addItem(loginItem())
-
-        submenu.addItem(.separator())
-        submenu.addItem(paperOpacityItem())
-
-        submenu.addItem(.separator())
-        submenu.addItem(vaultLocationItem())
-        submenu.addItem(cloudSyncItem())
-
-        submenu.addItem(.separator())
-        // `claude` 가 없으면 이 줄들도 없다 — 없는 사람에게는 존재하지 않는 기능이다.
-        // App Store 판에는 아예 없다 (`ClaudeSupport`).
+    private func settingsSnapshot() -> SettingsState {
+        var claude: SettingsState.Claude?
+        // `claude` 가 없으면 이 절도 없다 — 없는 사람에게는 존재하지 않는 기능이다. App Store 판에는 아예 없다 (`ClaudeSupport`).
         if !updater.source.isAppStore, windows.claude != nil || settings.current.claudePath != nil {
-            let tidy = item(title: L("종이에서 Claude 부르기"), action: #selector(toggleClaude), key: "")
-            tidy.state = settings.current.usesClaude ?? true ? .on : .off
-            tidy.subtitle = L("종이의 ✧ 를 누를 때만 나갑니다 · 8초 안에 되돌릴 수 있습니다")
-            submenu.addItem(tidy)
-
-            let morning = item(title: L("아침 여덟 시에 브리핑 놓기"), action: #selector(toggleMorningBrief), key: "")
-            morning.state = brief.isEnabled ? .on : .off
-            // **누르지 않았는데 값이 드는 유일한 기능이다.** 그 사실을 적는다.
-            morning.subtitle = L("매일 메모를 Claude 에게 보냅니다 — 구독 사용량이 듭니다")
-            submenu.addItem(morning)
-            submenu.addItem(.separator())
+            claude = .init(usesClaude: settings.current.usesClaude ?? true, morningBrief: brief.isEnabled)
         }
-
-        let watch = item(title: L("가면 떠오르게 하기"), action: #selector(togglePlaceWatch), key: "")
-        watch.state = watcher.isEnabled ? .on : .off
-        // **켜 둔 것을 잊게 두지 않는다** — 몇 자리를 지켜보는지까지 적는다.
-        watch.subtitle = watcher.note
-        submenu.addItem(watch)
-
-        // 위치는 켜고 끄는 값이 아니라 **권한이 정한다.** 그래서 토글이 아니라
-        // 지금 어떤 상태인지만 적는다 — 거절해 놓고 «왜 안 되지» 가 남으면 안 된다.
-        if let note = HereCapture.access.note {
-            let location = disabled(L("지금 여기 — ⌥⌘L"))
-            location.subtitle = note
-            submenu.addItem(location)
-            submenu.addItem(.separator())
-        }
-
-        let events = item(title: L("시스템 캘린더 함께 보기"), action: #selector(toggleSystemEvents), key: "")
-        events.state = settings.current.showsSystemEvents ?? true ? .on : .off
-        // 권한을 묻는 자리는 달력을 처음 열 때다. 거절했다면 그 사실이 여기 보인다 —
-        // 조용히 빈 달력을 내놓으면 사용자는 연동이 고장 난 줄 안다.
-        events.subtitle = EventKitFeed.access.note ?? L("달력을 처음 열 때 한 번 묻습니다 · 읽기만 합니다")
-        submenu.addItem(events)
-
-        // 앱을 열지 않고도 찾힌다. 기기 밖으로 나가는 것은 없지만 이 맥의 검색에 메모가
-        // 보인다는 사실은 적어 둔다 — 같이 쓰는 맥이면 끌 이유가 있다.
-        let spotlight = item(title: L("Spotlight 에서 찾기"), action: #selector(toggleSpotlight), key: "")
-        spotlight.state = SpotlightCenter.shared.enabled ? .on : .off
-        spotlight.subtitle = SpotlightCenter.shared.trouble
-            ?? L("메모 제목과 글이 이 맥의 검색에 보입니다 — 기기 밖으로 나가지 않습니다")
-        submenu.addItem(spotlight)
-        submenu.addItem(.separator())
-
+        var updates: SettingsState.Updates?
         if updater.source.allowsExternalUpdates {
-            let check = item(title: L("새 판이 나오면 알기"), action: #selector(toggleUpdateChecks), key: "")
-            check.state = updater.isEnabled ? .on : .off
-            // 네트워크를 쓰는 두 번째 기능이다. 켜져 있다는 사실이 보여야 한다 (§9.3).
-            check.subtitle = L("GitHub 에 판 번호만 물어봅니다 — 메모는 나가지 않습니다")
-            submenu.addItem(check)
-            submenu.addItem(.separator())
+            let line: String
+            var action: String?
+            switch updater.state {
+            case .found(let release):
+                line = L("새 판 \(release.version) 이 있습니다")
+                action = updater.source == .homebrew ? L("brew 명령 복사") : L("\(release.version) 으로 바꾸기")
+            case .installing: line = L("새 판을 받는 중입니다…")
+            case .checking: line = L("새 판이 있는지 보는 중…")
+            case .failed(let reason): line = reason
+            case .upToDate: line = L("\(LazyMemo.version) — 최신입니다")
+            case .idle: line = LazyMemo.version
+            }
+            updates = .init(checks: updater.isEnabled, line: line, action: action)
         }
+        return SettingsState(
+            capture: .init(name: hotkey.current.displayName, taken: !hotkeyAvailable),
+            paste: .init(name: pasteHotkey.displayName, taken: !pasteHotkeyAvailable),
+            loginEnabled: LoginItem.isEnabled, loginAvailable: LoginItem.isAvailable,
+            opacity: appearance.selected?.opacity ?? 1,
+            embedsLinks: settings.current.embedsLinks ?? true,
+            vaultPath: shortVaultPath, cloud: .init(syncing: isSyncingWithCloud),
+            watchesPlaces: watcher.isEnabled, placesNote: watcher.note,
+            hereNote: HereCapture.access.note,
+            asksRoutes: settings.current.asksRoutes ?? true,
+            showsSystemEvents: settings.current.showsSystemEvents ?? true,
+            eventsNote: EventKitFeed.access.note,
+            spotlight: SpotlightCenter.shared.enabled, spotlightTrouble: SpotlightCenter.shared.trouble,
+            remindersOn: ReminderCenter.shared.enabled && !ReminderCenter.shared.denied,
+            claude: claude, updates: updates
+        )
+    }
 
-        let embed = item(title: L("링크를 카드로 펼치기"), action: #selector(toggleLinkEmbedding), key: "")
-        embed.state = settings.current.embedsLinks ?? true ? .on : .off
-        // 네트워크를 쓰는 유일한 기능이다. 켜져 있다는 사실이 보여야 한다 (§9.3).
-        embed.subtitle = L("제목과 그림을 가져오려고 그 주소에 접속합니다")
-        submenu.addItem(embed)
+    private func settingsActions() -> SettingsActions {
+        var actions = SettingsActions()
+        actions.changeCaptureShortcut = { [weak self] in self?.changeHotkey() }
+        actions.changePasteShortcut = { [weak self] in self?.changePasteHotkey() }
+        actions.setLogin = { LoginItem.set($0) }
+        actions.setOpacity = { [weak self] in self?.appearance.set($0) }
+        actions.setEmbedsLinks = { [weak self] on in self?.settings.update { $0.embedsLinks = on } }
+        actions.moveVault = { [weak self] in self?.mover.begin() }
+        actions.openVault = { [weak self] in self?.openVault() }
+        actions.syncToCloud = { [weak self] in self?.mover.beginCloud() }
+        actions.setWatchesPlaces = { [weak self] in self?.watcher.setEnabled($0) }
+        actions.setAsksRoutes = { [weak self] on in self?.settings.update { $0.asksRoutes = on } }
+        actions.setShowsSystemEvents = { [weak self] on in self?.settings.update { $0.showsSystemEvents = on } }
+        actions.setSpotlight = { SpotlightCenter.shared.setEnabled($0) }
+        actions.showReminders = { [weak self] in self?.showReminders() }
+        actions.setUsesClaude = { [weak self] on in self?.setUsesClaude(on) }
+        actions.setMorningBrief = { [weak self] in self?.brief.setEnabled($0) }
+        actions.setChecksUpdates = { [weak self] in self?.updater.setEnabled($0) }
+        actions.checkUpdates = { [weak self] in self?.checkForUpdates() }
+        actions.takeUpdate = { [weak self] in
+            guard let self else { return }
+            if updater.source == .homebrew { copyBrewCommand() } else { installUpdate() }
+        }
+        return actions
+    }
 
-        submenu.addItem(.separator())
-        // 약속의 가는 길 — 되물음에 답할 때만 지도·길찾기에 접속한다. 세 번째로 §9.3 이 갈리는 자리.
-        let routes = item(title: L("약속을 적으면 가는 길 묻기"), action: #selector(toggleRouteAsking), key: "")
-        routes.state = settings.current.asksRoutes ?? true ? .on : .off
-        routes.subtitle = L("「어디서 출발하시나요?」에 답할 때만 지도와 길찾기에 접속합니다")
-        submenu.addItem(routes)
-
-        parent.submenu = submenu
-        return parent
+    /// 이미 iCloud 의 폴더를 보고 있는가. 샌드박스 안에서는 `NSHomeDirectory()` 가 컨테이너라
+    /// 디스크의 폴더를 못 찾는다 — 뜰 때 iCloud 에 직접 물어 둔 것이 먼저다.
+    private var isSyncingWithCloud: Bool {
+        let container = cloudContainer ?? AppPaths.cloudContainerOnDisk()
+        return container.map({ AppPaths.cloudVault(inContainer: $0) })
+            .map({ $0.standardizedFileURL.path(percentEncoded: false) })
+            == paths.vault.standardizedFileURL.path(percentEncoded: false)
     }
 
     /// 이 기기의 알림 — 켜기 전에 잠금 화면 표시와 기기별 동의를 읽는 창 (`ReminderSettingsView`).
     @objc private func showReminders() { RecallWindow.settings() }
 
-    /// 메모가 어디에 있는지, 그리고 옮기는 길 (설계문서 §5.1).
-    ///
-    /// **지금 자리를 먼저 적는다.** 옮기는 버튼만 있으면 어디서 어디로 가는지
-    /// 모른 채 누르게 되고, 이 앱에서 그것은 메모 전부가 걸린 조작이다.
-    private func vaultLocationItem() -> NSMenuItem {
-        let entry = item(title: L("메모 폴더 옮기기…"), action: #selector(moveVault), key: "")
-        entry.subtitle = L("지금은 \(shortVaultPath)")
-        entry.toolTip = L("고른 폴더에 이미 메모가 있으면 옮기지 않고 그것을 씁니다")
-        return entry
-    }
-
-    /// 아이폰과 같은 폴더를 보는 길. 이미 그 안이면 그렇다고 적고 누를 것이 없다.
-    private func cloudSyncItem() -> NSMenuItem {
-        // 샌드박스 안에서는 `NSHomeDirectory()` 가 컨테이너라 디스크의 폴더를 못 찾는다 —
-        // 뜰 때 iCloud 에 직접 물어 둔 것이 먼저다.
-        let container = cloudContainer ?? AppPaths.cloudContainerOnDisk()
-        if container.map({ AppPaths.cloudVault(inContainer: $0) })
-            .map({ $0.standardizedFileURL.path(percentEncoded: false) })
-            == paths.vault.standardizedFileURL.path(percentEncoded: false) {
-            let entry = disabled(L("iCloud 로 동기화 중"))
-            entry.subtitle = L("아이폰의 lazymemo 와 같은 폴더를 봅니다")
-            return entry
-        }
-        let entry = item(title: L("iCloud 로 동기화…"), action: #selector(syncToCloud), key: "")
-        entry.subtitle = L("iCloud Drive 의 LazyMemo 폴더로 옮깁니다 — 아이폰과 같은 자리")
-        entry.toolTip = L("별도 계정 없이 iCloud 가 옮깁니다. 이미 거기 메모가 있으면 합칩니다")
-        return entry
-    }
-
-    /// 홈 아래는 `~` 로 줄인다. 메뉴 한 줄에 전체 경로는 안 들어간다.
+    /// 홈 아래는 `~` 로 줄인다. 한 줄에 전체 경로는 안 들어간다.
     private var shortVaultPath: String { VaultLabel.readable(paths.vault) }
-
-    /// 재부팅을 넘기는 스위치 (`LoginItem`).
-    ///
-    /// 설정 안에서 가장 위에 둔다. 이 앱은 켜져 있지 않으면 아무것도 아니라서,
-    /// 여기 있는 항목 중 유일하게 **안 켜면 앱 전체가 없어지는** 것이다.
-    private func loginItem() -> NSMenuItem {
-        let entry = item(title: L("로그인할 때 시작"), action: #selector(toggleLoginItem), key: "")
-        entry.state = LoginItem.isEnabled ? .on : .off
-        if LoginItem.isAvailable {
-            entry.subtitle = L("껐다 켜도 메모가 그대로 떠 있습니다")
-        } else {
-            // 개발 빌드(`swift run`)는 등록할 몸이 없다. 켤 수 없는 스위치를
-            // 멀쩡한 척 보여 주지 않는다.
-            entry.isEnabled = false
-            entry.subtitle = L("앱 번들로 실행할 때만 됩니다")
-        }
-        return entry
-    }
 
     // MARK: 메뉴 항목 만들기
 
@@ -862,18 +801,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
     }
 
-    @objc private func setPaperOpacity(_ sender: NSMenuItem) {
-        guard let value = sender.representedObject as? NSNumber else { return }
-        appearance.set(value.doubleValue)
-    }
-
-    @objc private func toggleLoginItem() {
-        LoginItem.set(!LoginItem.isEnabled)
-    }
-
-    @objc private func moveVault() { mover.begin() }
-    @objc private func syncToCloud() { mover.beginCloud() }
-
     @objc private func checkForUpdates() {
         Task { await updater.check(userAsked: true) }
     }
@@ -889,41 +816,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         NSPasteboard.general.setString(advice, forType: .string)
     }
 
-    @objc private func toggleClaude() {
-        settings.update { $0.usesClaude = !($0.usesClaude ?? true) }
+    private func setUsesClaude(_ on: Bool) {
+        settings.update { $0.usesClaude = on }
         // 껐으면 이번 실행에서도 바로 사라져야 한다 — 다시 켤 때까지 기다리게 하지 않는다.
         Task { [weak self] in
             guard let self else { return }
             windows.adoptClaude(await ClaudeSupport.resolve(settings: settings))
         }
-    }
-
-    @objc private func toggleMorningBrief() {
-        brief.setEnabled(!brief.isEnabled)
-    }
-
-    @objc private func togglePlaceWatch() {
-        watcher.setEnabled(!watcher.isEnabled)
-    }
-
-    @objc private func toggleSystemEvents() {
-        settings.update { $0.showsSystemEvents = !($0.showsSystemEvents ?? true) }
-    }
-
-    @objc private func toggleSpotlight() {
-        SpotlightCenter.shared.setEnabled(!SpotlightCenter.shared.enabled)
-    }
-
-    @objc private func toggleUpdateChecks() {
-        updater.setEnabled(!updater.isEnabled)
-    }
-
-    @objc private func toggleLinkEmbedding() {
-        settings.update { $0.embedsLinks = !($0.embedsLinks ?? true) }
-    }
-
-    @objc private func toggleRouteAsking() {
-        settings.update { $0.asksRoutes = !($0.asksRoutes ?? true) }
     }
 
 

@@ -225,6 +225,18 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             if environment["LAZYMEMO_CALENDAR"] == "1" {
                 menuBar.openCalendar()
             }
+            // 설정 창을 열고, 경로를 주면 그림으로 남기고 끝낸다 (`scripts/render-settings.sh`).
+            if let shot = environment["LAZYMEMO_SETTINGS"], !shot.isEmpty {
+                SettingsWindow.liftedForVerification = true
+                menuBar.openSettingsForVerification()
+                if shot != "1" {
+                    // 마우스 주행이 먼저 누를 시간을 줄 수 있다 (`LAZYMEMO_SETTINGS_DELAY`, ms).
+                    let delay = environment["LAZYMEMO_SETTINGS_DELAY"].flatMap(Int.init) ?? 1200
+                    try? await Task.sleep(for: .milliseconds(delay))
+                    SettingsWindow.snapshot(to: URL(filePath: shot), scrolledToEnd: environment["LAZYMEMO_SETTINGS_END"] == "1")
+                    exit(0)
+                }
+            }
             // `{#capture-over-apps}` — 다른 앱이 앞에 있는 상태에서 상자가
             // 실제로 화면에 오르는지 검증하기 위한 통로 (`verify-capture.sh`).
             // 초를 주면 그만큼 기다렸다 연다 — 그 사이 검증 스크립트가 다른
@@ -262,6 +274,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 Self.log("서랍 \(await menuBar.drawerDiagnostics())")
                 exit(0)
             }
+            // 메뉴바 「서랍」처럼 펼친 채 앞으로 세워 두고 마우스를 받는다 (`verify-drawer-mouse.sh`).
+            if environment["LAZYMEMO_DRAWER"] == "summon" {
+                menuBar.summonDrawerForVerification()
+            }
             if environment["LAZYMEMO_MENU"] == "1" {
                 Self.log("메뉴\n\(menuBar.menuDiagnostics)")
                 exit(0)
@@ -274,10 +290,6 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 // 저장할 것이 없는 렌더 전용 모드다. `NSApp.terminate` 는
                 // 이 자리(비동기 Task 안)에서 델리게이트를 부르지 못하고 멈춘다.
                 exit(0)
-            // 메뉴바 「서랍」처럼 펼친 채 앞으로 세워 두고 마우스를 받는다 (`verify-drawer-mouse.sh`).
-            if environment["LAZYMEMO_DRAWER"] == "summon" {
-                menuBar.summonDrawerForVerification()
-            }
             }
             if let rounds = environment["LAZYMEMO_MEASURE"].flatMap(Int.init), rounds > 0 {
                 await Self.measureQuickCapture(rounds: rounds, menuBar: menuBar)

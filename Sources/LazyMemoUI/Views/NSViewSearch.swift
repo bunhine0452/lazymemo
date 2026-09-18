@@ -12,4 +12,13 @@ extension NSView {
         }
         return nil
     }
+
+    /// 계층에서 처음 만나는 그 종류의 뷰 — 검증이 스크롤 뷰를 찾을 때 (`SettingsWindow.snapshot`).
+    func firstDescendant<T: NSView>(_ type: T.Type) -> T? {
+        if let match = self as? T { return match }
+        for subview in subviews {
+            if let found = subview.firstDescendant(type) { return found }
+        }
+        return nil
+    }
 }

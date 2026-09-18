@@ -167,8 +167,6 @@
 "빠른 입력" = "Quick Capture";
 "클립보드 즉시 메모" = "Paste as New Note";
 "복사한 글이나 사진을 창 없이 즉시 메모로 저장합니다" = "Turns whatever you copied — text or a picture — into a note without opening a window";
-"종이 투명도" = "Note Opacity";
-"포인터를 올리면 원래대로 진해집니다" = "Hover and it turns solid again";
 "아직 적은 것이 없습니다" = "Nothing written yet";
 "… 외 %lld장 — 빠른 입력에서 찾기·지우기" = "… and %lld more — find or delete them in Quick Capture";
 "치워 둔 %lld장 — %@" = "%1$lld retired — %2$@";
@@ -187,34 +185,17 @@
 "업데이트 확인" = "Check for Updates";
 "%@ — 최신입니다" = "%@ — up to date";
 "지금은 %@" = "Currently %@";
-"빠른 입력 — 지금은 %@" = "Quick Capture — currently %@";
-"클립보드 즉시 메모 단축키 바꾸기…" = "Change Paste-as-Note Shortcut…";
 "%@ 은 클립보드 즉시 메모가 쓰고 있습니다" = "%@ is already used by Paste as New Note";
 "%@ 은 빠른 입력이 쓰고 있습니다" = "%@ is already used by Quick Capture";
 "설정" = "Settings";
-"단축키 바꾸기…" = "Change Shortcut…";
 "종이에서 Claude 부르기" = "Call Claude from a Note";
-"종이의 ✧ 를 누를 때만 나갑니다 · 8초 안에 되돌릴 수 있습니다" = "Only sent when you press ✧ on a note · undo within 8 seconds";
 "아침 여덟 시에 브리핑 놓기" = "Morning Brief at Eight";
-"매일 메모를 Claude 에게 보냅니다 — 구독 사용량이 듭니다" = "Sends your notes to Claude every day — uses your subscription";
-"가면 떠오르게 하기" = "Surface When I Arrive";
-"지금 여기 — ⌥⌘L" = "Here Now — ⌥⌘L";
-"시스템 캘린더 함께 보기" = "Show System Calendar Events";
-"달력을 처음 열 때 한 번 묻습니다 · 읽기만 합니다" = "Asks once when you first open the calendar · read only";
 "새 판이 나오면 알기" = "Tell Me About New Versions";
 "GitHub 에 판 번호만 물어봅니다 — 메모는 나가지 않습니다" = "Only asks GitHub for the version number — no notes leave";
 "링크를 카드로 펼치기" = "Unfold Links into Cards";
-"제목과 그림을 가져오려고 그 주소에 접속합니다" = "Connects to the address to fetch its title and picture";
-"메모 폴더 옮기기…" = "Move Notes Folder…";
 "고른 폴더에 이미 메모가 있으면 옮기지 않고 그것을 씁니다" = "If the chosen folder already holds notes, nothing is moved — those notes are used";
-"iCloud 로 동기화 중" = "Syncing with iCloud";
-"아이폰의 lazymemo 와 같은 폴더를 봅니다" = "Shares its folder with lazymemo on your iPhone";
 "iCloud 로 동기화…" = "Sync with iCloud…";
-"iCloud Drive 의 LazyMemo 폴더로 옮깁니다 — 아이폰과 같은 자리" = "Moves to the LazyMemo folder in iCloud Drive — the same place as your iPhone";
-"별도 계정 없이 iCloud 가 옮깁니다. 이미 거기 메모가 있으면 합칩니다" = "No extra account — iCloud does the moving. Notes already there are merged in";
 "로그인할 때 시작" = "Open at Login";
-"껐다 켜도 메모가 그대로 떠 있습니다" = "Your notes are still up after a restart";
-"앱 번들로 실행할 때만 됩니다" = "Only available when run as an app bundle";
 "적는 사이에 글이 바뀌어 그대로 두었습니다" = "The text changed while writing, so it was left alone";
 "다듬을 것이 없었습니다" = "Nothing to tidy";
 "치우기 — 서랍에 들어갑니다. 지워지지 않습니다" = "Put away — goes into the drawer. Not deleted";
@@ -350,7 +331,6 @@
 "메모는 내 Mac에 저장돼요. 가입 없이 바로 시작하세요." = "Notes are stored on your Mac. No sign-up — just start.";
 "연습 공간 · 여기에 적은 내용은 저장되지 않아요" = "Practice area · nothing typed here is saved";
 "다시 보기…" = "Revisit…";
-"알림…" = "Notifications…";
 
 /* 비서 — 이 기기의 모델 */
 "메모에게 묻기…" = "Ask My Memos…";
@@ -390,7 +370,6 @@
 "메모에게 묻기" = "Ask memos";
 "답하기" = "Answer";
 "Spotlight 에서 찾기" = "Find in Spotlight";
-"메모 제목과 글이 이 맥의 검색에 보입니다 — 기기 밖으로 나가지 않습니다" = "Memo titles and text appear in this Mac's search — nothing leaves the device";
 
 /* 가는 길 — 약속을 적으면 출발지를 묻고 길을 메모에 적는다 (RoutePlanner · RouteCard) */
 "석촌고분역 · 신천동29 · 지도 링크" = "Seokchon Station · an address · a map link";
@@ -398,7 +377,6 @@
 "잠깐만요…" = "One moment…";
 "↵ 답하기 · esc 길은 그만" = "↵ answer · esc skips the route";
 "약속을 적으면 가는 길 묻기" = "Ask how to get to appointments";
-"「어디서 출발하시나요?」에 답할 때만 지도와 길찾기에 접속합니다" = "Connects to maps and routing only when you answer “Where are you leaving from?”";
 "밥약속\nhttps://naver.me/GFB1MHiW" = "Dinner\nhttps://naver.me/GFB1MHiW";
 "밥약속 · 9월 16일 (수) 18:30 · 투파인드피터 잠실점" = "Dinner · Wed, Sep 16 18:30 · To Find Peter Jamsil";
 "경로 5개를 찾았어요 — 버스 21분 · 지하철 19분 (환승) · 택시 12분 (약 9,800원). 무엇으로 갈까요?" = "Found 5 routes — bus 21 min · subway 19 min (transfer) · taxi 12 min (about ₩9,800). How would you like to go?";
@@ -425,3 +403,40 @@
 "기존 메모에 붙이기" = "Add to a memo";
 "「%@」에 붙이기" = "Add to “%@”";
 "껐다 켜도 종이가 그대로 떠 있어요. 언제든 설정에서 바꿀 수 있어요." = "Your notes are still up after a restart. You can change this in Settings anytime.";
+
+/* 설정 창 — SettingsScreen · SettingsWindow (2026-09-18) */
+"설정…" = "Settings…";
+"lazymemo 설정" = "lazymemo Settings";
+"입력" = "Input";
+"단축키는 어느 앱에서나 듣습니다. 로그인할 때 시작을 켜 두면 껐다 켜도 메모가 그대로 떠 있습니다" = "Shortcuts work from any app. With Open at Login on, your notes are still up after a restart";
+"앱 번들로 실행할 때만 로그인 항목을 켤 수 있습니다" = "Open at Login is available only when running the app bundle";
+"다른 앱이 쓰고 있습니다" = "Taken by another app";
+"바꾸기…" = "Change…";
+"종이" = "Notes";
+"투명도" = "Opacity";
+"비치게 해 둔 종이도 포인터를 올리면 원래대로 진해집니다. 링크 카드는 제목과 그림을 가져오려고 그 주소에 접속합니다" = "Translucent notes turn solid while the pointer is over them. Link cards connect to the address to fetch its title and image";
+"메모가 있는 곳" = "Where Notes Live";
+"폴더" = "Folder";
+"옮기기…" = "Move…";
+"동기화 중" = "Syncing";
+"iCloud 로 동기화…" = "Sync with iCloud…";
+"아이폰의 lazymemo 와 같은 폴더를 봅니다 — 어느 쪽에서 적어도 양쪽에 있습니다" = "Same folder as lazymemo on your iPhone — write on either, it's on both";
+"iCloud Drive 의 LazyMemo 폴더로 옮기면 아이폰과 같은 자리를 봅니다. 이미 거기 메모가 있으면 합칩니다" = "Moving to the LazyMemo folder in iCloud Drive shares the same place with your iPhone. Notes already there are merged";
+"자리" = "Places";
+"적어 둔 자리에 가면 그 종이 꺼내기" = "Surface a Note When I Arrive at Its Place";
+"지금 여기 (⌥⌘L)" = "Here Now (⌥⌘L)";
+"가는 길은 「어디서 출발하시나요?」에 답할 때만 지도와 길찾기에 접속합니다" = "Directions connect to maps and routing only when you answer “Where are you leaving from?”";
+"함께 보기" = "Also Show";
+"달력에 시스템 일정 함께 보기" = "System Calendar Events in the Calendar";
+"일정은 읽기만 합니다 — 달력을 처음 열 때 한 번 묻습니다" = "Events are read only — asked once when the calendar first opens";
+"메모 제목과 글이 이 맥의 검색에 보입니다. 기기 밖으로 나가지 않습니다" = "Note titles and text appear in this Mac's search. Nothing leaves the device";
+"알림" = "Notifications";
+"이 기기에서 알림" = "Notifications on This Device";
+"켜짐" = "On";
+"꺼짐" = "Off";
+"일정 시각과 다시 볼 시각에 이 기기가 알립니다" = "This device notifies you at event times and recall times";
+"종이의 ✧ 를 누를 때만 그 종이가 나갑니다 · 8초 안에 되돌릴 수 있습니다. 아침 브리핑은 매일 메모를 Claude 에게 보냅니다 — 구독 사용량이 듭니다" = "A note goes out only when you press its ✧ · undo within 8 seconds. The morning brief sends your notes to Claude every day — it uses your subscription";
+"업데이트" = "Updates";
+"지금 판" = "Current Version";
+"brew 명령 복사" = "Copy brew Command";
+"%@ 으로 바꾸기" = "Update to %@";
