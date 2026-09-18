@@ -45,6 +45,18 @@ struct MemoFileTests {
         #expect(again.created == decoded.created)
     }
 
+    @Test("따옴표가 든 값도 그대로 돌아온다 — 감쌀 때 넣은 역빗금이 남지 않는다")
+    func roundTripsQuotedValues() throws {
+        for place in ["\"봄\" 카페", "카페: \"봄\"", "@\"집\"", "역빗금 \\ 그대로", "a\\\"b", "'봄'", "\""] {
+            let encoded = MemoFile.encode(Memo(place: place, body: "약속"))
+            let once = try MemoFile.decode(encoded)
+            #expect(once.place == place, "한 번: \(place)")
+            // 두 번째 왕복에서도 같아야 한다 — 한 번은 맞고 두 번째부터 어긋나는 것이 이 버그의 꼴이었다.
+            let twice = try MemoFile.decode(MemoFile.encode(once))
+            #expect(twice.place == place, "두 번: \(place)")
+        }
+    }
+
     @Test("폴더 이름표는 파일에 적히고 그대로 돌아온다")
     func roundTripsFolder() throws {
         let memo = Memo(body: "우유", folder: " 장보기 ")

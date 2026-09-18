@@ -119,10 +119,15 @@ public struct Frontmatter: Sendable, Equatable {
         return Frontmatter(entries: entries)
     }
 
+    /// 따옴표를 벗긴다. 큰따옴표 안의 `\"` 는 `quoteIfNeeded` 가 감쌀 때 넣은 것이라 되돌린다 —
+    /// 안 되돌리면 `"봄" 카페` 가 한 번 오갈 때마다 `\"봄\" 카페` 로 남는다.
     private static func unquote(_ value: String) -> String {
         guard value.count >= 2 else { return value }
         let first = value.first, last = value.last
-        if (first == "\"" && last == "\"") || (first == "'" && last == "'") {
+        if first == "\"" && last == "\"" {
+            return String(value.dropFirst().dropLast()).replacingOccurrences(of: "\\\"", with: "\"")
+        }
+        if first == "'" && last == "'" {
             return String(value.dropFirst().dropLast())
         }
         return value
@@ -138,7 +143,7 @@ public struct Frontmatter: Sendable, Equatable {
             || value.hasSuffix(":")
             || value.contains(" #")
             || value.first == "#"
-            || "[]{}\",&*!|>%@`".contains(value.first!)
+            || "[]{}\"',&*!|>%@`".contains(value.first!)
             || value.first == " " || value.last == " "
         guard needsQuote else { return value }
         return "\"" + value.replacingOccurrences(of: "\"", with: "\\\"") + "\""
