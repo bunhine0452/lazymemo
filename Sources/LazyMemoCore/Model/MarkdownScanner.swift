@@ -24,6 +24,8 @@ public enum MarkdownScanner {
             case route
             /// 마커 자체 (`**`, `#`, `[]()`). 흐리게 눌러 둔다.
             case syntax
+            /// 표의 세로선. 흐리지만 **감추지는 않는다** — 커서가 오가도 열이 흔들리지 않게 너비를 지킨다.
+            case tablePipe
         }
 
         public let range: NSRange
@@ -111,9 +113,9 @@ public enum MarkdownScanner {
 
     /// `| 구분 | 금액 |` 줄 — 비서가 정리한 메모(`Digest`)가 값이 여럿일 때 적는 모양이다.
     ///
-    /// 글자를 바꾸지 않고 꾸민다는 규칙(§15.1) 안에서 할 수 있는 것은 셋이다: 세로선을 마커로
-    /// 눌러 두고, `| --- |` 줄은 통째로 마커라 흐려지며, 바로 위의 머리 줄은 굵게. 칸을 열로 맞추려면
-    /// 글자를 탭으로 바꿔야 해서 하지 않는다 — 커서가 그 줄에 오면 세로선이 도로 보이니 고칠 수 있다.
+    /// 글자를 바꾸지 않고 꾸민다는 규칙(§15.1) 안에서: 세로선은 흐리게(`tablePipe`), `| --- |` 줄은
+    /// 통째로 마커라 감춰지고, 바로 위의 머리 줄은 굵게. 열은 편집기가 칸의 마지막 글자에 kern 을 얹어
+    /// 맞춘다 (`MarkdownStyler.alignTables`).
     private static func scanTables(_ lines: [(String, NSRange)]) -> [Span] {
         var result: [Span] = []
         for (index, (line, lineRange)) in lines.enumerated() {
@@ -126,7 +128,7 @@ public enum MarkdownScanner {
             var pipes: [Int] = []
             for i in 0..<body.length where body.character(at: i) == 0x7C { pipes.append(i) }   // `|`
             for i in pipes {
-                result.append(Span(range: NSRange(location: lineRange.location + i, length: 1), kind: .syntax))
+                result.append(Span(range: NSRange(location: lineRange.location + i, length: 1), kind: .tablePipe))
             }
             // 머리 줄 — 다음 줄이 `| --- |` 이면 이 줄의 칸들이 제목이다.
             guard index + 1 < lines.count, isTableRule(lines[index + 1].0) else { continue }
@@ -138,13 +140,52 @@ public enum MarkdownScanner {
         return result
     }
 
+    /// `range` 가 닿는 표 덩이(잇달아 선 표 줄들) 전체의 줄 구간. 표에 닿지 않으면 nil.
+    /// 편집기가 한 줄만 다시 깔 때 열 너비는 표 전체를 봐야 맞으므로 이만큼 넓힌다.
+    public static func tableBlock(containing range: NSRange, in source: NSString) -> NSRange? {
+        let lines = source.lineRange(for: range)
+        var start = lines.location
+        var end = NSMaxRange(lines)
+        func line(at location: Int) -> String {
+            source.substring(with: source.lineRange(for: NSRange(location: location, length: 0)))
+                .trimmingCharacters(in: .newlines)
+        }
+        // 구간 안에 표 줄이 하나라도 있어야 한다.
+        var probe = start
+        var touches = false
+        while probe < end {
+            if isTableRow(line(at: probe)) { touches = true; break }
+            probe = NSMaxRange(source.lineRange(for: NSRange(location: probe, length: 0)))
+            if probe <= start { break }
+        }
+        guard touches else { return nil }
+        while start > 0 {
+            let previous = source.lineRange(for: NSRange(location: start - 1, length: 0))
+            guard isTableRow(source.substring(with: previous).trimmingCharacters(in: .newlines)) else { break }
+            start = previous.location
+        }
+        while end < source.length {
+            let next = source.lineRange(for: NSRange(location: end, length: 0))
+            guard isTableRow(source.substring(with: next).trimmingCharacters(in: .newlines)) else { break }
+            end = NSMaxRange(next)
+        }
+        return NSRange(location: start, length: end - start)
+    }
+
+    /// 표의 한 줄에서 세로선(`|`)들의 자리 — 줄 안 오프셋. 표 줄이 아니거나 구분 줄이면 빈 배열.
+    public static func tablePipes(in line: String) -> [Int] {
+        guard isTableRow(line), !isTableRule(line) else { return [] }
+        let body = line as NSString
+        return (0..<body.length).filter { body.character(at: $0) == 0x7C }
+    }
+
+    public static func isTableRule(_ line: String) -> Bool {
+        line.wholeMatch(of: /[ \t]*\|(?:[ \t]*:?-+:?[ \t]*\|)+[ \t]*/) != nil
+    }
+
     private static func isTableRow(_ line: String) -> Bool {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         return trimmed.count >= 3 && trimmed.hasPrefix("|") && trimmed.hasSuffix("|")
-    }
-
-    private static func isTableRule(_ line: String) -> Bool {
-        line.wholeMatch(of: /[ \t]*\|(?:[ \t]*:?-+:?[ \t]*\|)+[ \t]*/) != nil
     }
 
     // MARK: 인라인

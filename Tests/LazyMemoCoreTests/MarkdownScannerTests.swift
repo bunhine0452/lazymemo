@@ -17,15 +17,16 @@ struct MarkdownScannerTests {
         let text = "| 구분 | 금액 |\n| --- | --- |\n| 시급 | 10,320원 |"
         let spans = MarkdownScanner.spans(in: text)
         let ns = text as NSString
-        // 머리 줄 세로선 셋, 본문 줄 세로선 셋, 구분 줄 하나 = 마커 일곱
+        // 머리 줄 세로선 셋, 본문 줄 세로선 셋 = 세로선 여섯, 구분 줄은 통째로 마커 하나
+        #expect(spans.filter { $0.kind == .tablePipe }.count == 6)
         let syntax = spans.filter { $0.kind == .syntax }
-        #expect(syntax.count == 7)
+        #expect(syntax.count == 1)
         #expect(syntax.contains { ns.substring(with: $0.range) == "| --- | --- |" })
         // 머리 줄의 칸 둘이 굵게 — 본문 줄은 아니다
         let strong = spans.filter { $0.kind == .strong }.map { ns.substring(with: $0.range).trimmingCharacters(in: .whitespaces) }
         #expect(strong == ["구분", "금액"])
         // 세로선으로 시작하지 않는 줄은 표가 아니다
-        #expect(!MarkdownScanner.spans(in: "a | b").contains { $0.kind == .syntax })
+        #expect(!MarkdownScanner.spans(in: "a | b").contains { $0.kind == .syntax || $0.kind == .tablePipe })
     }
 
     @Test("제목의 단계를 읽는다")

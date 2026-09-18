@@ -76,6 +76,7 @@ enum MarkdownStyler {
         // 옮기면 기호가 되돌아와 고칠 수 있다.
         for span in spans where shouldHide(span, activeLine: activeLine) {
             hide(span.range, in: storage)
+            thinIfTableRule(span.range, in: storage, source: source)
         }
 
         // 줄머리 표시(`- `, `- [ ] `, `> `)는 감추고 **왼쪽 여백에 자리를 만든다.**
@@ -90,6 +91,77 @@ enum MarkdownStyler {
             else { continue }
             place(marker, markerRange: markerRange, in: storage, text: text, paragraph: paragraph)
         }
+
+        alignTables(in: storage, region: region)
+    }
+
+    // MARK: 표 — 글자를 바꾸지 않고 열을 맞춘다
+
+    /// 같은 열의 칸들을 같은 너비로.
+    ///
+    /// 세로선은 마커라 커서 밖에서는 감춰지는데(0.01pt), 그러면 「구분  금액 / 시급  10,320원」처럼
+    /// 열이 흐트러진다. 글자를 탭으로 바꿀 수는 없다(§15.1 — 파일이 정본이다). 대신 **칸의 마지막
+    /// 글자에 kern 을 얹는다** — 글자 뒤의 여백만 늘어나므로 파일도 커서 자리도 그대로이고, 다음
+    /// 세로선이 그 열의 가장 넓은 칸 뒤에 와서 선다. 너비는 꾸민 뒤의 실제 글꼴로 잰다(머리 칸은
+    /// 굵게, 감춘 마커는 0.01pt) — 그려지는 그대로여야 맞는다.
+    private static func alignTables(in storage: NSTextStorage, region: NSRange) {
+        let source = storage.string as NSString
+        var cursor = region.location
+        var done: [NSRange] = []
+        while cursor < NSMaxRange(region) {
+            let line = source.lineRange(for: NSRange(location: cursor, length: 0))
+            defer { cursor = NSMaxRange(line) }
+            guard let block = MarkdownScanner.tableBlock(containing: line, in: source),
+                  !done.contains(block) else { continue }
+            done.append(block)
+            alignTable(block, in: storage, source: source)
+        }
+    }
+
+    private static func alignTable(_ block: NSRange, in storage: NSTextStorage, source: NSString) {
+        // 줄마다 (칸 구간들). 칸 = 세로선 사이의 글자 전부(양옆 공백 포함).
+        var rows: [[NSRange]] = []
+        var location = block.location
+        while location < NSMaxRange(block) {
+            let lineRange = source.lineRange(for: NSRange(location: location, length: 0))
+            location = NSMaxRange(lineRange)
+            let line = source.substring(with: lineRange).trimmingCharacters(in: .newlines)
+            let pipes = MarkdownScanner.tablePipes(in: line)
+            guard pipes.count >= 2 else { continue }
+            rows.append(zip(pipes, pipes.dropFirst()).map { a, b in
+                NSRange(location: lineRange.location + a + 1, length: b - a - 1)
+            })
+        }
+        guard rows.count >= 2 else { return }
+        let columns = rows.map(\.count).max() ?? 0
+        guard columns > 0 else { return }
+
+        func width(_ range: NSRange) -> CGFloat {
+            guard range.length > 0 else { return 0 }
+            return storage.attributedSubstring(from: range).size().width
+        }
+        var widest = [CGFloat](repeating: 0, count: columns)
+        let widths = rows.map { $0.map(width) }
+        for row in widths { for (c, w) in row.enumerated() { widest[c] = max(widest[c], w) } }
+
+        // 맞춘 표가 종이 폭을 넘으면 줄이 접혀 도리어 못 읽는다 — 그때는 맞추지 않고 둔다 (좁은 종이).
+        if let container = storage.layoutManagers.first?.textContainers.first {
+            let available = container.size.width - container.lineFragmentPadding * 2
+            let pipeWidth = width(NSRange(location: block.location, length: 1))
+            let total = widest.reduce(0, +) + CGFloat(columns + 1) * pipeWidth
+            if available > 0, total > available { return }
+        }
+
+        for (row, cells) in zip(widths, rows) {
+            for (c, cell) in cells.enumerated() {
+                let pad = widest[c] - row[c]
+                // 빈 칸이면 앞의 세로선에 얹는다 — 얹을 글자가 없다.
+                let target = cell.length > 0 ? NSRange(location: NSMaxRange(cell) - 1, length: 1)
+                                             : NSRange(location: cell.location - 1, length: 1)
+                guard pad > 0.5, target.location >= 0, NSMaxRange(target) <= storage.length else { continue }
+                storage.addAttribute(.kern, value: pad, range: target)
+            }
+        }
     }
 
     // MARK: 고친 줄만 다시 깔기
@@ -102,7 +174,9 @@ enum MarkdownStyler {
     private static func region(_ scope: NSRange?, in source: NSString, full: NSRange) -> NSRange {
         guard let scope, scope.location >= 0, NSMaxRange(scope) <= full.length else { return full }
         guard source.range(of: RouteNote.heading).location == NSNotFound else { return full }
-        return source.lineRange(for: scope)
+        let lines = source.lineRange(for: scope)
+        // 표는 열 너비를 표 전체가 함께 정한다 — 한 줄을 고쳤어도 그 표를 통째로.
+        return MarkdownScanner.tableBlock(containing: lines, in: source) ?? lines
     }
 
     /// 구간 안의 꾸밈 구간들. 좁은 구간이면 **그만큼만 스캔한다** — 여기가 비용의 8할이다.
@@ -255,6 +329,20 @@ enum MarkdownStyler {
         }
     }
 
+    /// 표의 `| --- |` 줄 — 글자를 감춰도 줄 높이는 괘선 한 칸(`linePitch`)이라 표 머리 아래에 빈 줄이
+    /// 선다. 그 줄의 문단만 얇게 — 머리와 몸 사이의 얇은 틈이 되어 오히려 표처럼 읽힌다.
+    private static func thinIfTableRule(_ range: NSRange, in storage: NSTextStorage, source: NSString) {
+        let line = source.lineRange(for: range)
+        guard line.location == range.location,
+              MarkdownScanner.isTableRule(source.substring(with: line).trimmingCharacters(in: .newlines))
+        else { return }
+        let thin = (storage.attribute(.paragraphStyle, at: line.location, effectiveRange: nil) as? NSParagraphStyle)?
+            .mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
+        thin.minimumLineHeight = 6
+        thin.maximumLineHeight = 6
+        storage.addAttribute(.paragraphStyle, value: thin, range: line)
+    }
+
     private static func hide(_ range: NSRange, in storage: NSTextStorage) {
         guard range.location >= 0, range.location + range.length <= storage.length else { return }
         storage.addAttribute(.font, value: NSFont.systemFont(ofSize: hiddenSize), range: range)
@@ -367,6 +455,10 @@ enum MarkdownStyler {
         case .route:
             // 커서가 들어와 보일 때는 그냥 글이다 — 꾸밈은 그 안의 제목·붙임표가 입는다.
             break
+
+        case .tablePipe:
+            // 흐리되 크기는 그대로 — 감추면 커서가 든 줄만 세로선 너비만큼 밀려 열이 흔들린다.
+            storage.addAttribute(.foregroundColor, value: Paper.inkNSColor.withAlphaComponent(0.16), range: range)
 
         case .syntax:
             storage.addAttribute(.foregroundColor, value: Paper.inkNSColor.withAlphaComponent(0.22), range: range)
