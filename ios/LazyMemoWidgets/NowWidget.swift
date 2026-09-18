@@ -5,9 +5,11 @@ import WidgetKit
 
 /// 「지금」 — 앱의 띠 그대로 홈 화면에 (`Recall.nowCards`).
 ///
-/// 작은 것은 한 장, 중간은 세 장, 큰 것은 세 장과 그 아래 「다음」 — 오늘 뒤에 올 일정 몇 줄.
-/// 잠금 화면에는 한 장. 카드를 누르면 그 메모가 열린다 (`WidgetLink.memo`), 빈 위젯을
-/// 누르면 펜이 올라온다 — 펼칠 것이 없으면 적을 차례다.
+/// 작은 것은 한 장, 중간은 세 장, 큰 것은 세 장과 그 아래 「다음」. 잠금 화면에는 한 장.
+/// 카드를 누르면 그 메모가 열리고(`WidgetLink.memo`), 카드 오른쪽의 **「봤어요」**가 그 자리에서
+/// 카드를 내려놓는다 (`SeenIntent`, 폰만). 펼칠 것이 없으면 「적기」 문 하나가 남는다.
+///
+/// 얼굴은 `NowFaces.swift` 에 있다.
 struct NowWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: WidgetKind.now.identifier, provider: NowProvider()) { entry in
@@ -37,13 +39,20 @@ struct NowEntry: TimelineEntry, Sendable {
         NowEntry(
             date: date,
             cards: WidgetAgenda.nowCards(memos, now: date, seen: seen),
-            // 큰 위젯의 아래 절 — 세 장 아래 여섯 줄이 들어간다.
-            upcoming: WidgetAgenda.upcoming(memos, now: date, limit: 6)
+            // 큰 위젯의 아래 절. 넉이다 — 카드 세 장과 「다음」 머리를 빼고 남는 자리에 줄을
+            // 30pt 씩 놓으면 그만큼이 들어간다. 더 부르면 잘린 줄이 생기고, 잘린 줄은
+            // 안 보이는 것보다 나쁘다.
+            upcoming: WidgetAgenda.upcoming(memos, now: date, limit: 4)
         )
     }
 
     static func sample(at date: Date = Date()) -> NowEntry {
         make(WidgetSample.memos(now: date), at: date, seen: [:])
+    }
+
+    /// 빈 위젯의 견본 — 빈 상태를 눈으로 보려면 이것이 필요하다.
+    static func empty(at date: Date = Date()) -> NowEntry {
+        NowEntry(date: date, cards: [], upcoming: [])
     }
 }
 
@@ -71,209 +80,27 @@ struct NowProvider: TimelineProvider {
     }
 }
 
-// MARK: - 얼굴
-
-/// 확장 안에서는 시스템이 크기를 준다. 얼굴(`NowView`)은 크기를 손으로도 받는다 — 렌더 검증이 그렇게 부른다.
-private struct NowRoot: View {
+/// 확장 안에서는 시스템이 크기와 렌더 모드를 준다. 얼굴(`NowView`)은 크기를 손으로도 받는다 —
+/// `@Environment(\.widgetFamily)` 는 읽기 전용이라 렌더 검증이 그렇게 부른다.
+struct NowRoot: View {
     let entry: NowEntry
+
     @Environment(\.widgetFamily) private var family
+    @Environment(\.widgetRenderingMode) private var mode
 
     var body: some View {
         NowView(entry: entry, family: family)
-            .containerBackground(for: .widget) { Paper.surface }
+            .widgetPaper(.resolved(mode))
     }
 }
 
-struct NowView: View {
-    let entry: NowEntry
-    let family: WidgetFamily
-
-    var body: some View {
-        switch family {
-        case .systemSmall: small
-        case .systemMedium: medium
-        case .systemLarge: large
-        #if os(iOS)
-        case .accessoryRectangular: rectangular
-        case .accessoryInline: inline
-        #endif
-        default: small
-        }
-    }
-
-    /// 한 장 — 이유와 제목. 나머지는 「외 N장」으로만.
-    private var small: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            header
-            if let card = entry.cards.first {
-                reason(card, lines: 2)
-                Text(card.memo.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Paper.ink)
-                    .lineLimit(3)
-                Spacer(minLength: 0)
-                if entry.cards.count > 1 {
-                    Text("외 \(entry.cards.count - 1)장")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Spacer(minLength: 0)
-                empty
-                Spacer(minLength: 0)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .widgetURL(entry.cards.first.map { WidgetLink.memo($0.id) } ?? WidgetLink.write)
-    }
-
-    /// 세 장 — 한 줄씩.
-    private var medium: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            header
-            if entry.cards.isEmpty {
-                Spacer(minLength: 0)
-                empty
-                Spacer(minLength: 0)
-            } else {
-                ForEach(entry.cards) { card in
-                    Link(destination: WidgetLink.memo(card.id)) { row(card, titleLines: 1) }
-                }
-                Spacer(minLength: 0)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .widgetURL(entry.cards.isEmpty ? WidgetLink.write : nil)
-    }
-
-    /// 세 장과 「다음」.
-    private var large: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            header
-            if entry.cards.isEmpty {
-                empty.padding(.vertical, 8)
-            } else {
-                ForEach(entry.cards) { card in
-                    Link(destination: WidgetLink.memo(card.id)) { row(card, titleLines: 2, roomy: true) }
-                }
-            }
-            if !entry.upcoming.isEmpty {
-                Text("다음")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 8)
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(entry.upcoming) { row in
-                        Link(destination: WidgetLink.memo(row.id)) { upcomingRow(row) }
-                    }
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .widgetURL(entry.cards.isEmpty && entry.upcoming.isEmpty ? WidgetLink.write : nil)
-    }
-
-    private var header: some View {
-        Text("지금")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .accessibilityAddTraits(.isHeader)
-    }
-
-    private var empty: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("펼칠 것이 없어요")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Paper.ink)
-            Text("적어 두면 여기 올라와요")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private func reason(_ card: Recall.Card, lines: Int) -> some View {
-        Label(WidgetWords.reason(card, now: entry.date), systemImage: WidgetWords.symbol(card.reason))
-            .font(.caption2.weight(.medium).monospacedDigit())
-            .foregroundStyle(Theme.accentInk)
-            .lineLimit(lines)
-    }
-
-    /// 종이 한 장 — 이유 한 줄, 제목 한두 줄. `roomy` 는 큰 위젯의 숨 쉴 자리.
-    private func row(_ card: Recall.Card, titleLines: Int, roomy: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: roomy ? 4 : 2) {
-            reason(card, lines: 1)
-            Text(card.memo.title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Paper.ink)
-                .lineLimit(titleLines)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, roomy ? 12 : 10)
-        .padding(.vertical, roomy ? 10 : 6)
-        .background(Paper.card, in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
-                .strokeBorder(Theme.accentInk.opacity(0.35), lineWidth: 1)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    /// 「내일 · 오후 3:00   치과」 — 시각이 없으면 날만.
-    private func upcomingRow(_ row: WidgetAgenda.Upcoming) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text([WidgetWords.day(row.day, now: entry.date), row.at.map(WidgetWords.time)].compactMap { $0 }.joined(separator: " · "))
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(Theme.highlightInk)
-                .lineLimit(1)
-                .layoutPriority(1)
-            Text(row.memo.title)
-                .font(.caption)
-                .foregroundStyle(Paper.ink)
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-    }
-
-    #if os(iOS)
-    /// 잠금 화면의 한 장 — 색은 시스템이 걷어 내므로 계층으로만 말한다.
-    private var rectangular: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            if let card = entry.cards.first {
-                Label(WidgetWords.reason(card, now: entry.date), systemImage: WidgetWords.symbol(card.reason))
-                    .font(.caption2.weight(.medium).monospacedDigit())
-                    .widgetAccentable()
-                    .lineLimit(1)
-                Text(card.memo.title)
-                    .font(.headline)
-                    .lineLimit(2)
-            } else {
-                Label("지금", systemImage: "note.text")
-                    .font(.caption2.weight(.medium))
-                    .widgetAccentable()
-                Text("펼칠 것이 없어요")
-                    .font(.headline)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .widgetURL(entry.cards.first.map { WidgetLink.memo($0.id) } ?? WidgetLink.write)
-    }
-
-    /// 시계 위의 한 줄 — 「🔔 오후 3:00 치과 예약」.
-    private var inline: some View {
-        Group {
-            if let card = entry.cards.first {
-                Label {
-                    Text(verbatim: "\(WidgetWords.shortReason(card)) \(card.memo.title)")
-                } icon: {
-                    Image(systemName: WidgetWords.symbol(card.reason))
-                }
-            } else {
-                Label("지금 펼칠 것이 없어요", systemImage: "note.text")
-            }
-        }
-        .widgetURL(entry.cards.first.map { WidgetLink.memo($0.id) } ?? WidgetLink.write)
-    }
-    #endif
-}
+#if DEBUG
+#Preview("지금 · 작게", as: .systemSmall) { NowWidget() } timeline: { NowEntry.sample() }
+#Preview("지금 · 중간", as: .systemMedium) { NowWidget() } timeline: { NowEntry.sample() }
+#Preview("지금 · 크게", as: .systemLarge) { NowWidget() } timeline: { NowEntry.sample() }
+#Preview("지금 · 빈 자리", as: .systemMedium) { NowWidget() } timeline: { NowEntry.empty() }
+#if os(iOS)
+#Preview("지금 · 잠금 네모", as: .accessoryRectangular) { NowWidget() } timeline: { NowEntry.sample() }
+#Preview("지금 · 잠금 한 줄", as: .accessoryInline) { NowWidget() } timeline: { NowEntry.sample() }
+#endif
+#endif

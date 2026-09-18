@@ -6,8 +6,8 @@ import WidgetKit
 /// 다음 약속 — 시각이 적힌 것 중 가장 가까운 한 장 (`WidgetAgenda.next`).
 ///
 /// 큰 글자는 시각이다. 그 아래 제목, 그리고 가는 길을 적어 두었으면 **출발 시각과 첫 탈것**
-/// (「18:12 출발 · 2호선」) — 길이 없으면 남은 시간이 흐른다. 누르면 그 메모.
-/// 시각이 지나면 다음 장면이 그다음 약속을 든다 (`WidgetAgenda.moments`).
+/// (「18:12 출발 · 2호선」). 마지막 줄은 **스스로 흐르는 남은 시간** — 시간표 장면을 더 만들지
+/// 않고 시스템이 그 글자만 고쳐 그린다 (`Text(_:style:.relative)`). 누르면 그 메모.
 struct NextWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: WidgetKind.next.identifier, provider: NextProvider()) { entry in
@@ -38,6 +38,10 @@ struct NextEntry: TimelineEntry, Sendable {
     static func sample(at date: Date = Date()) -> NextEntry {
         make(WidgetSample.memos(now: date), at: date)
     }
+
+    static func empty(at date: Date = Date()) -> NextEntry {
+        NextEntry(date: date, next: nil)
+    }
 }
 
 struct NextProvider: TimelineProvider {
@@ -59,19 +63,23 @@ struct NextProvider: TimelineProvider {
 
 // MARK: - 얼굴
 
-private struct NextRoot: View {
+struct NextRoot: View {
     let entry: NextEntry
+
     @Environment(\.widgetFamily) private var family
+    @Environment(\.widgetRenderingMode) private var mode
 
     var body: some View {
         NextView(entry: entry, family: family)
-            .containerBackground(for: .widget) { Paper.surface }
+            .widgetPaper(.resolved(mode))
     }
 }
 
 struct NextView: View {
     let entry: NextEntry
     let family: WidgetFamily
+
+    @Environment(\.widgetTheme) private var theme
 
     var body: some View {
         switch family {
@@ -86,40 +94,25 @@ struct NextView: View {
 
     private var small: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("다음 약속")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .accessibilityAddTraits(.isHeader)
+            WidgetHead(kind: Text("다음"), trailing: entry.next.map { Text(WidgetWords.day(CalendarDate($0.at), now: entry.date)) })
             if let next = entry.next {
-                // 시각이 큰 글자, 날은 그 옆에 작게 — 한 줄을 아껴야 작은 위젯에 제목 두 줄이 선다.
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(WidgetWords.time(next.at))
-                        .font(.title2.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(Paper.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                    Text(WidgetWords.day(CalendarDate(next.at), now: entry.date))
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(Theme.accentInk)
-                        .lineLimit(1)
-                }
+                Text(WidgetWords.time(next.at))
+                    .font(.title2.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(theme.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .widgetAccentable()
                 Text(next.memo.title)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Paper.ink)
+                    .foregroundStyle(theme.ink)
                     .lineLimit(2)
-                Spacer(minLength: 0)
+                    .minimumScaleFactor(0.9)
+                    .privacySensitive()
+                Spacer(minLength: 2)
                 tail(next)
-                    .font(.caption2.monospacedDigit())
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
             } else {
                 Spacer(minLength: 0)
-                Text("약속이 없어요")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Paper.ink)
-                Text("시각을 적은 메모가 여기 서요")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                EmptyFace(line: Text("약속이 없어요"))
                 Spacer(minLength: 0)
             }
         }
@@ -127,17 +120,44 @@ struct NextView: View {
         .widgetURL(entry.next.map { WidgetLink.memo($0.memo.id) } ?? WidgetLink.write)
     }
 
-    /// 마지막 줄 — 출발이 적혀 있으면 「18:12 출발 · 2호선」, 아니면 남은 시간이 흐른다.
+    /// 마지막 줄들 — 출발이 적혀 있으면 「18:12 출발 · 2호선」, 그 아래 흐르는 남은 시간.
+    /// 자리가 얕으면 남은 시간만 남는다 (그것이 더 급한 말이다).
     @ViewBuilder
     private func tail(_ next: WidgetAgenda.NextAppointment) -> some View {
+        ViewThatFits(in: .vertical) {
+            VStack(alignment: .leading, spacing: 1) {
+                departureLine(next)
+                countdown(next)
+            }
+            countdown(next)
+        }
+        .font(.caption2.monospacedDigit())
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+    }
+
+    @ViewBuilder
+    private func departureLine(_ next: WidgetAgenda.NextAppointment) -> some View {
         if let departure = next.departure {
             Label(WidgetWords.departure(departure), systemImage: "figure.walk")
-                .foregroundStyle(Theme.highlightInk)
-        } else {
-            Text("\(Text(next.at, style: .relative)) 뒤")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.highlightInk)
+                .widgetAccentable()
         }
     }
+
+    /// **스스로 흐르는 한 줄.** 출발이 아직 오지 않았으면 그쪽까지, 아니면 약속까지.
+    @ViewBuilder
+    private func countdown(_ next: WidgetAgenda.NextAppointment) -> some View {
+        if let departure = next.departure?.at, departure > entry.date {
+            Text("\(Text(departure, style: .relative)) 뒤 출발").foregroundStyle(theme.secondary)
+        } else if next.at > entry.date {
+            Text("\(Text(next.at, style: .relative)) 뒤").foregroundStyle(theme.secondary)
+        } else {
+            Text("지금").foregroundStyle(theme.highlightInk)
+        }
+    }
+
+    // MARK: 잠금 화면
 
     #if os(iOS)
     private var rectangular: some View {
@@ -150,9 +170,8 @@ struct NextView: View {
                 Text(next.memo.title)
                     .font(.caption)
                     .lineLimit(1)
+                    .privacySensitive()
                 tail(next)
-                    .font(.caption2.monospacedDigit())
-                    .lineLimit(1)
             } else {
                 Label("다음 약속", systemImage: "calendar")
                     .font(.caption2.weight(.medium))
@@ -178,7 +197,7 @@ struct NextView: View {
                         .font(.caption.weight(.semibold).monospacedDigit())
                         .minimumScaleFactor(0.7)
                 } else {
-                    Text("—")
+                    Text(verbatim: "—")
                         .font(.caption.weight(.semibold))
                 }
             }
@@ -190,7 +209,7 @@ struct NextView: View {
         Group {
             if let next = entry.next {
                 Label {
-                    Text(verbatim: "\(WidgetWords.time(next.at)) \(next.memo.title)")
+                    Text(verbatim: "\(WidgetWords.time(next.at)) \(next.memo.title)").privacySensitive()
                 } icon: {
                     Image(systemName: "calendar")
                 }
@@ -202,3 +221,13 @@ struct NextView: View {
     }
     #endif
 }
+
+#if DEBUG
+#Preview("다음 · 작게", as: .systemSmall) { NextWidget() } timeline: { NextEntry.sample() }
+#Preview("다음 · 빈 자리", as: .systemSmall) { NextWidget() } timeline: { NextEntry.empty() }
+#if os(iOS)
+#Preview("다음 · 잠금 네모", as: .accessoryRectangular) { NextWidget() } timeline: { NextEntry.sample() }
+#Preview("다음 · 잠금 동그라미", as: .accessoryCircular) { NextWidget() } timeline: { NextEntry.sample() }
+#Preview("다음 · 잠금 한 줄", as: .accessoryInline) { NextWidget() } timeline: { NextEntry.sample() }
+#endif
+#endif

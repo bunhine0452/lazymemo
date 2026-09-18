@@ -6,6 +6,10 @@ import WidgetKit
 ///
 /// 폰은 글 칸에 포커스가 가고 키보드가 오른다, 맥은 빠른 입력 상자가 뜬다 — 단축키 ⌥⌘N 과 같다.
 /// 얼굴은 앱 아이콘의 두 글줄. 위젯이 말을 많이 하면 그건 위젯이지 문이 아니다.
+///
+/// **위젯 전체가 과녁이다** — 여기에 단추를 그려 넣으면 과녁 안에 작은 과녁을 파는 꼴이 된다
+/// ("When people interact with your widget in areas that aren't buttons or toggles, the
+/// interaction launches your app").
 struct WriteWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: WidgetKind.write.identifier, provider: WriteProvider()) { entry in
@@ -42,19 +46,23 @@ struct WriteProvider: TimelineProvider {
     }
 }
 
-private struct WriteRoot: View {
+struct WriteRoot: View {
     let entry: WriteEntry
+
     @Environment(\.widgetFamily) private var family
+    @Environment(\.widgetRenderingMode) private var mode
 
     var body: some View {
         WriteView(entry: entry, family: family)
-            .containerBackground(for: .widget) { Paper.surface }
+            .widgetPaper(.resolved(mode))
     }
 }
 
 struct WriteView: View {
     let entry: WriteEntry
     let family: WidgetFamily
+
+    @Environment(\.widgetTheme) private var theme
 
     var body: some View {
         Group {
@@ -72,15 +80,17 @@ struct WriteView: View {
             #endif
             default:
                 VStack(alignment: .leading, spacing: 10) {
-                    BrandMark(size: 40)
+                    BrandMark(size: 40, theme: theme)
+                        .widgetAccentable()
                     Spacer(minLength: 0)
                     Text("적기")
                         .font(.headline)
-                        .foregroundStyle(Paper.ink)
+                        .foregroundStyle(theme.ink)
                     Text("누르면 펜이 올라와요")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.secondary)
                         .lineLimit(2)
+                        .minimumScaleFactor(0.9)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
@@ -89,3 +99,11 @@ struct WriteView: View {
         .widgetURL(WidgetLink.write)
     }
 }
+
+#if DEBUG
+#Preview("적기 · 작게", as: .systemSmall) { WriteWidget() } timeline: { WriteEntry(date: Date()) }
+#if os(iOS)
+#Preview("적기 · 잠금 동그라미", as: .accessoryCircular) { WriteWidget() } timeline: { WriteEntry(date: Date()) }
+#Preview("적기 · 잠금 한 줄", as: .accessoryInline) { WriteWidget() } timeline: { WriteEntry(date: Date()) }
+#endif
+#endif

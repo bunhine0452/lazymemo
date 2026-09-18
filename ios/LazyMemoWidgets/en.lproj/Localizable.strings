@@ -21,17 +21,25 @@
 "외 %lld장" = "and %lld more";
 "다음" = "Next";
 "펼칠 것이 없어요" = "Nothing to show";
-"적어 두면 여기 올라와요" = "Notes you write show up here";
 "지금 펼칠 것이 없어요" = "Nothing to show right now";
 "오늘" = "Today";
 "내일" = "Tomorrow";
+/* 고정 칸의 날 — 같은 달이면 날만 */
+"%lld일" = "%lld";
+
+/* 「봤어요」 — 위젯 안에서 카드를 내려놓는 단추 (SeenIntent) */
+"봤어요" = "Got it";
+"「지금」에서 내려놓습니다" = "Puts this card down in Now";
+"「지금」에서 이 카드를 내려놓습니다." = "Puts this card down in Now.";
+"메모" = "Note";
+"이름표" = "Stamp";
 
 /* 다음 약속 */
 "약속이 없어요" = "No appointments";
-"시각을 적은 메모가 여기 서요" = "A note with a time stands here";
 "%@ 출발" = "Leave at %@";
 "%@ 출발 · %@" = "Leave at %1$@ · %2$@";
 "%@ 뒤" = "in %@";
+"%@ 뒤 출발" = "leave in %@";
 
 /* 달력 */
 "일정 %lld" = "%lld planned";

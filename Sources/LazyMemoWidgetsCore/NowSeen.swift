@@ -27,6 +27,20 @@ public enum NowSeen {
         return seen
     }
 
+    /// 카드 한 장을 내려놓는다 — 위젯의 「봤어요」가 두드리는 문.
+    ///
+    /// **읽고-고치고-쓰기를 한 걸음으로 묶는다.** 앱과 위젯이 같은 defaults 를 보므로 각자
+    /// 들고 있던 표를 통째로 덮어쓰면 한쪽이 방금 내려놓은 것이 조용히 되살아난다. 위젯은
+    /// 자기 화면의 카드 한 장만 알면 되고, 나머지는 방금 읽은 표가 들고 있다.
+    /// 어제 것 버리기는 `save` 가 한다.
+    public static func putDown(
+        _ id: ULID, stamp: Date, now: Date = Date(), calendar: Calendar = .current, defaults: UserDefaults = shared
+    ) {
+        var seen = load(defaults: defaults)
+        seen[id] = stamp
+        save(seen, now: now, calendar: calendar, defaults: defaults)
+    }
+
     public static func save(
         _ seen: [ULID: Date], now: Date = Date(), calendar: Calendar = .current, defaults: UserDefaults = shared
     ) {

@@ -256,4 +256,37 @@ struct NowSeenTests {
         let loaded = NowSeen.load(defaults: defaults)
         #expect(loaded == [today: now.addingTimeInterval(3600)])
     }
+
+    /// 위젯의 「봤어요」 — 앱이 이미 내려놓은 것을 덮지 않는다.
+    @Test("한 장을 내려놓아도 먼저 내려놓은 것은 그대로 남는다")
+    func putDownKeepsOthers() {
+        let suite = "lazymemo-widgets-test-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 9, day: 14, hour: 12))!
+        let first = ULID(), second = ULID()
+
+        NowSeen.save([first: now], now: now, calendar: calendar, defaults: defaults)
+        NowSeen.putDown(second, stamp: now.addingTimeInterval(3600), now: now, calendar: calendar, defaults: defaults)
+
+        #expect(NowSeen.load(defaults: defaults) == [first: now, second: now.addingTimeInterval(3600)])
+    }
+
+    @Test("같은 메모를 다시 내려놓으면 이름표만 바뀐다 — 어제 것은 그때 버려진다")
+    func putDownReplacesStamp() {
+        let suite = "lazymemo-widgets-test-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 9, day: 14, hour: 12))!
+        let card = ULID(), stale = ULID()
+
+        NowSeen.save([card: now, stale: now.addingTimeInterval(-86_400)], now: now, calendar: calendar, defaults: defaults)
+        NowSeen.putDown(card, stamp: now.addingTimeInterval(7200), now: now, calendar: calendar, defaults: defaults)
+
+        #expect(NowSeen.load(defaults: defaults) == [card: now.addingTimeInterval(7200)])
+    }
 }

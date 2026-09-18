@@ -54,6 +54,23 @@ enum WidgetWords {
         return DateWords.monthDayWeekday(day, calendar: calendar)
     }
 
+    /// 고정 칸의 날 — 「오늘」·「내일」·「20일」. 칸이 좁아 **달은 넘어갈 때만** 적는다
+    /// (그 위에 달 격자나 오늘 날짜가 늘 서 있어 어느 달인지는 이미 보인다).
+    static func columnDay(_ day: CalendarDate, now: Date, calendar: Calendar = .current) -> String {
+        let today = CalendarDate(now, calendar: calendar)
+        if day == today { return String(localized: "오늘") }
+        if let next = calendar.date(byAdding: .day, value: 1, to: now), day == CalendarDate(next, calendar: calendar) {
+            return String(localized: "내일")
+        }
+        if day.year == today.year, day.month == today.month { return String(localized: "\(day.day)일") }
+        return "\(day.month).\(day.day)"
+    }
+
+    /// 머리 오른쪽의 오늘 — 「9월 18일 (목)」. 카드가 **오늘의 것**임을 한 줄이 말한다.
+    static func headDay(_ now: Date, calendar: Calendar = .current) -> String {
+        DateWords.monthDayWeekday(CalendarDate(now, calendar: calendar), calendar: calendar)
+    }
+
     /// 「18:12 출발 · 2호선」 — 알림의 둘째 줄과 같은 시계(`RouteNote.clock`).
     static func departure(_ departure: WidgetAgenda.Departure, calendar: Calendar = .current) -> String {
         let clock = RouteNote.clock(departure.at, calendar: calendar)
