@@ -196,8 +196,10 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
             guard let self else { return }
             onFrameChange(id, window.frame)
             // 커서가 보이는 자리에 남아야 한다 — 붙여 넣은 글 끝이 화면 밖이면
-            // 사람은 자기가 무엇을 붙였는지 못 본다.
-            if let textView = window.contentView?.firstTextView {
+            // 사람은 자기가 무엇을 붙였는지 못 본다. **적는 중일 때만이다** — 파일에서 온 긴 메모는
+            // 커서가 글 끝에 서 있어서, 여기서 따라가면 종이가 열리자마자 끝(출처 줄)만 보인다
+            // (2026-09-18 확인). 읽으러 연 종이는 첫 줄부터.
+            if let textView = window.contentView?.firstTextView, window.firstResponder === textView {
                 textView.scrollRangeToVisible(textView.selectedRange())
             }
             if wantsRemeasure {
