@@ -18,23 +18,48 @@ public actor AssistantCoordinator {
     private let evidence: any EvidenceSource
     /// 웹 검색 창구. 없으면(시험·렌더) `webAnswer` 는 「웹에 닿지 못했습니다」다.
     private let web: (any WebSearcher)?
+    /// 검색 결과 페이지의 본문을 읽어 오는 창구. 없으면 발췌 한 줄이 그대로 근거다.
+    private let pages: (any PageFetcher)?
+    /// 맥에 `claude` 가 있을 때 빌리는 엔진 (`ClaudeCLIProvider`). 웹의 답·다듬기·정리에만 쓴다.
+    private var cli: (any LocalModelProvider)?
     private let profile: ModelProfile
     private let limits: Limits
     private var generation = 0
     private var live: [AssistantRequest.ID: Int] = [:]
 
     public init(provider: any LocalModelProvider, evidence: any EvidenceSource, web: (any WebSearcher)? = nil,
-                profile: ModelProfile, limits: Limits = Limits()) {
+                pages: (any PageFetcher)? = nil, profile: ModelProfile, limits: Limits = Limits()) {
         self.provider = provider
         self.evidence = evidence
         self.web = web
+        self.pages = pages
         self.profile = profile
         self.limits = limits
+    }
+
+    /// 앱이 `claude` 를 찾은 뒤에 건네준다 — 켤 때는 아직 모르고, 설정에서 끄면 nil 로 돌아온다.
+    public func adopt(cli: (any LocalModelProvider)?) {
+        self.cli = cli
+    }
+
+    /// 이 일을 누가 하는가. 웹의 답·다듬기·정리는 `claude` 가 있으면 그쪽이 낫다 —
+    /// 메모에서 답 찾기·시키기는 **메모 본문이 나가는 일**이라 언제나 이 기기 안이다 (§9.3).
+    private func engine(for task: AssistantTask) -> any LocalModelProvider {
+        guard let cli, Self.prefersCLI(task) else { return provider }
+        return cli
+    }
+
+    static func prefersCLI(_ task: AssistantTask) -> Bool {
+        switch task {
+        case .webAnswer, .tidy, .digest: return true
+        case .answer, .brief, .command: return false
+        }
     }
 
     public func cancel(_ requestID: AssistantRequest.ID) async {
         live[requestID] = nil
         await provider.cancel(requestID: requestID)
+        await cli?.cancel(requestID: requestID)
     }
 
     public func run(_ request: AssistantRequest) -> AsyncStream<AssistantEvent> {
@@ -59,15 +84,17 @@ public actor AssistantCoordinator {
     private func perform(_ request: AssistantRequest, gen: Int, emit: @Sendable (AssistantEvent) async -> Bool) async {
         do {
             guard await emit(.loading) else { return }
-            let ready = await provider.availability == .ready
+            let engine = engine(for: request.task)
+            let ready = await engine.availability == .ready
             // 묻기·다듬기·브리핑은 모델이 있어야 한다. 시키기는 아래에서 말만으로 끝날 수 있으니 먼저 해 본다.
             // 웹은 모델이 없어도 검색 결과 셋을 그대로 보여 줄 수 있다.
             guard ready || request.task == .command || request.task == .webAnswer else { _ = await emit(.failed(.modelUnavailable)); return }
 
             let (selected, gathered) = try await gather(request)
             guard await emit(.evidence(gathered)) else { return }
-            // 다듬기는 열린 메모가 있거나, 글을 직접 들고 왔거나 — 웹의 답을 「정리해서 남기기」는 아직 메모가 아닌 글을 다듬는다.
-            if request.task == .tidy, selected == nil, request.userText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            // 다듬기·정리는 열린 메모가 있거나, 글을 직접 들고 왔거나 — 웹의 답을 「정리해서 남기기」는 아직 메모가 아닌 글을 다듬는다.
+            if request.task == .tidy || request.task == .digest, selected == nil,
+               request.userText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 _ = await emit(.failed(.noEvidence)); return
             }
             // 걸리는 메모가 한 장도 없으면 모델을 부를 것도 없다 — 바로 「찾지 못했습니다」, 화면은 웹을 권한다.
@@ -93,8 +120,8 @@ public actor AssistantCoordinator {
             var calls = 0
             var text: String
             do {
-                try await provider.prepare(profile)
-                text = try await generate(request, selected: selected, evidence: gathered, repair: nil, calls: &calls, emit: emit)
+                try await engine.prepare(profile)
+                text = try await generate(request, engine: engine, selected: selected, evidence: gathered, repair: nil, calls: &calls, emit: emit)
             } catch let failure as AssistantFailure where request.task == .webAnswer && !gathered.isEmpty {
                 // 웹의 결과는 이미 손에 있다 — 모델이 넘어졌다고 그것까지 버리지 않는다. 모델 없는
                 // 기기와 같은 길로 결과 셋을 그대로 보인다 (2026-09-18, 폰에서 엔진이 첫 prefill 에 넘어짐).
@@ -110,7 +137,7 @@ public actor AssistantCoordinator {
                 return
             }
             // 명세 §3: 잘못된 구조는 한 번만 교정 요청. 다시 실패하면 변경 없이 오류.
-            text = try await generate(request, selected: selected, evidence: gathered,
+            text = try await generate(request, engine: engine, selected: selected, evidence: gathered,
                                       repair: "앞선 답의 모양이 맞지 않았다. " + AssistantPrompts.jsonRule, calls: &calls, emit: emit)
             guard isCurrent(request.id, gen) else { return }
             if var result = validate(text, request: request, evidence: gathered) {
@@ -137,7 +164,7 @@ public actor AssistantCoordinator {
         }
         var found: [Memo] = []
         switch request.task {
-        case .tidy:
+        case .tidy, .digest:
             break
         case .brief:
             reads += 1
@@ -162,12 +189,16 @@ public actor AssistantCoordinator {
         case .webAnswer:
             // 검색어는 앱이 만든다(「검색해줘」·물음표만 뗀다). 결과는 다섯 줄 — 4096 토큰 안에 넉넉하다.
             guard let web else { throw AssistantFailure.webUnavailable }
-            let hits: [WebHit]
-            do { hits = try await web.search(WebQuery.make(from: request.userText), limit: limits.maxEvidence - 1) }
-            catch let failure as AssistantFailure { throw failure }
-            catch { throw AssistantFailure.webUnavailable }
+            let query = WebQuery.make(from: request.userText)
+            var hits = try await search(web, query)
+            // 빈손이면 한 번만 더 — 문장째 던진 것을 낱말로 줄여서 (`WebQuery.simplify`).
+            // 두 번째도 빈손이면 정말 없는 것이다.
+            if hits.isEmpty {
+                let simpler = WebQuery.simplify(from: request.userText)
+                if simpler != query { hits = try await search(web, simpler) }
+            }
             if hits.isEmpty { throw AssistantFailure.webEmpty }
-            return (nil, hits.map(Evidence.init(hit:)))
+            return (nil, await readPages(into: hits.map(Evidence.init(hit:))))
         }
         var list = selected.map { [$0] } ?? []
         for memo in found where memo.id != selected?.memoID && list.count < limits.maxEvidence {
@@ -176,8 +207,43 @@ public actor AssistantCoordinator {
         return (selected, list)
     }
 
+    private func search(_ web: any WebSearcher, _ query: String) async throws -> [WebHit] {
+        do { return try await web.search(query, limit: limits.maxEvidence - 1) }
+        catch let failure as AssistantFailure { throw failure }
+        catch { throw AssistantFailure.webUnavailable }
+    }
+
+    /// 앞의 몇 쪽은 **본문까지 읽는다** — 발췌 한 줄로는 답이 자주 어긋난다 (`PageReader`).
+    ///
+    /// 나란히 읽고, 한 쪽이 못 읽히면 그 쪽만 발췌로 남는다. 상한(8초·1MB)은 읽는 쪽이 들고,
+    /// 여기서는 **글자 몫**만 나눈다 — 세 쪽이면 한 쪽에 800자 (`PageBudget`).
+    private func readPages(into list: [Evidence]) async -> [Evidence] {
+        guard let pages else { return list }
+        let targets = list.prefix(PageBudget.maxPages).compactMap { e in e.url.map { (e.memoID, $0) } }
+        guard !targets.isEmpty else { return list }
+        let budget = PageBudget.perSource(targets.count)
+        let read: [ULID: String] = await withTaskGroup(of: (ULID, String)?.self) { group in
+            for (id, url) in targets {
+                group.addTask { await pages.read(url).map { (id, Readable.clip($0.text, to: budget)) } }
+            }
+            var out: [ULID: String] = [:]
+            for await item in group {
+                guard let item, !item.1.isEmpty else { continue }
+                out[item.0] = item.1
+            }
+            return out
+        }
+        guard !read.isEmpty else { return list }
+        return list.map { e in
+            guard let passage = read[e.memoID] else { return e }
+            var copy = e
+            copy.passage = passage
+            return copy
+        }
+    }
+
     private func generate(
-        _ request: AssistantRequest, selected: Evidence?, evidence: [Evidence], repair: String?,
+        _ request: AssistantRequest, engine: any LocalModelProvider, selected: Evidence?, evidence: [Evidence], repair: String?,
         calls: inout Int, emit: @Sendable (AssistantEvent) async -> Bool
     ) async throws -> String {
         calls += 1
@@ -189,7 +255,7 @@ public actor AssistantCoordinator {
             requestID: request.id, system: AssistantPrompts.system(for: request.task, now: now), user: user,
             maxOutputTokens: request.outputBudget, jsonSchema: AssistantPrompts.jsonSchema(for: request.task))
         var text = ""
-        for try await delta in provider.stream(prompt) {
+        for try await delta in engine.stream(prompt) {
             try Task.checkCancellation()
             text += delta
             // JSON 은 다 받아야 뜻이 있다 — 화면은 다듬기의 글만 보이고 나머지 조각은 세기만 한다 (`AssistantEvent.textDelta`).
@@ -216,6 +282,9 @@ public actor AssistantCoordinator {
         case .tidy:
             let cleaned = ClaudePrompts.clean(text)
             return cleaned.isEmpty ? nil : .tidied(cleaned)
+        case .digest:
+            // 자리(제목·출처·꼬리)는 앱이 채운다 — 여기서는 **쓸 만한 가운데**가 나왔는지만 본다.
+            return Digest.repair(text).map(AssistantResult.tidied)
         }
     }
 

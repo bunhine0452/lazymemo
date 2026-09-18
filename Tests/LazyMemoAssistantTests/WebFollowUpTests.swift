@@ -43,42 +43,7 @@ struct WebFollowUpTests {
         #expect(WebFollowUp.read("금요일 10시에 다시 알려줘") == nil)
     }
 
-    @Test("남길 글 — 답 한 줄, 인용한 출처마다 제목·발췌·주소, 끝에 어디서 찾았는지")
-    func composesBody() {
-        let hits = [weather, meteo, naver].map(Evidence.init(hit:))
-        let answer = AssistantAnswer(found: true, text: "내일 서울은 비가 온대요", evidence: [hits[1].memoID],
-                                     quotes: [meteo.snippet], sources: [WebSource(id: hits[1].memoID, title: meteo.title, url: meteo.url)])
-        let body = WebFollowUp.body(question: "웹에서 서울 내일 날씨", answer: answer, results: hits, footer: "「서울 내일 날씨」 웹에서 찾음 · 9월 17일")
-        let lines = body.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-        #expect(lines.first == "내일 서울은 비가 온대요")
-        // 인용한 것만 — 기상청·네이버는 화면에 있었을 뿐이다.
-        #expect(body.contains(meteo.title) && body.contains(meteo.url.absoluteString) && body.contains(meteo.snippet))
-        #expect(!body.contains(weather.title) && !body.contains(naver.url.absoluteString))
-        #expect(lines.last == "「서울 내일 날씨」 웹에서 찾음 · 9월 17일")
-    }
-
-    @Test("답 문장이 없으면(모델 없이 결과만) 첫 줄은 물음이고, 보여 준 결과 셋이 실린다")
-    func plainAnswerUsesQuestion() {
-        let hits = [weather, meteo, naver].map(Evidence.init(hit:))
-        let plain = OutputValidator.plainWebAnswer(hits)
-        let body = WebFollowUp.body(question: "서울 내일 날씨 검색해줘", answer: plain, results: hits, footer: "꼬리")
-        #expect(body.hasPrefix("서울 내일 날씨\n"))
-        #expect(body.contains(weather.url.absoluteString) && body.contains(meteo.url.absoluteString) && body.contains(naver.url.absoluteString))
-    }
-
-    @Test("다듬을 글에는 주소가 없고, 다듬은 뒤에 출처와 꼬리가 도로 붙는다")
-    func tidyDraftAndSources() {
-        let hits = [weather, meteo].map(Evidence.init(hit:))
-        let answer = AssistantAnswer(found: true, text: "내일 비", evidence: [hits[0].memoID], quotes: [weather.snippet],
-                                     sources: [WebSource(id: hits[0].memoID, title: weather.title, url: weather.url)])
-        let draft = WebFollowUp.draftForTidy(question: "서울 내일 날씨", answer: answer, results: hits)
-        #expect(!draft.contains("https://"))
-        #expect(draft.contains(weather.snippet))
-        let done = WebFollowUp.attachSources(to: "- 내일 비\n- 강풍 유의", answer: answer, results: hits, footer: "꼬리")
-        #expect(done.hasPrefix("- 내일 비\n- 강풍 유의\n\n"))
-        #expect(done.contains("\(weather.title) — \(weather.url.absoluteString)"))
-        #expect(done.hasSuffix("\n\n꼬리"))
-    }
+    // 남길 글·정리한 글의 자리(제목·핵심·출처·꼬리)는 `DigestTests` 가 본다 — 틀이 `Digest` 로 옮겨 갔다.
 
     @Test("붙이기는 끝에 한 줄 띄우고 잇고, 되돌리면 원래 본문이다")
     func appendAndUndo() async throws {

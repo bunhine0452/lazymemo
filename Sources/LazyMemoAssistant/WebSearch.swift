@@ -106,21 +106,30 @@ enum DuckDuckGoHTML {
         return decode(untagged).split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }
 
-    static let entities: [String: String] = ["&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": "\"", "&#x27;": "'", "&#39;": "'", "&nbsp;": " "]
+    /// 이름 있는 참조. **`&amp;` 는 여기 없다** — 그것만은 맨 나중에 푼다(아래).
+    static let entities: [String: String] = [
+        "&lt;": "<", "&gt;": ">", "&quot;": "\"", "&apos;": "'", "&nbsp;": " ",
+        "&mdash;": "—", "&ndash;": "–", "&hellip;": "…", "&middot;": "·",
+        "&laquo;": "«", "&raquo;": "»", "&lsquo;": "‘", "&rsquo;": "’", "&ldquo;": "“", "&rdquo;": "”",
+        "&deg;": "°", "&sup2;": "²", "&sup3;": "³", "&times;": "×", "&divide;": "÷",
+        "&trade;": "™", "&copy;": "©", "&reg;": "®", "&euro;": "€", "&pound;": "£", "&yen;": "¥", "&bull;": "•",
+    ]
 
     static func decode(_ text: String) -> String {
         var out = text
         for (entity, char) in entities { out = out.replacingOccurrences(of: entity, with: char) }
         // `&#12345;` 숫자 참조.
-        guard let regex = try? NSRegularExpression(pattern: "&#(x?[0-9A-Fa-f]+);") else { return out }
-        let matches = regex.matches(in: out, range: NSRange(out.startIndex..., in: out)).reversed()
-        for m in matches {
-            guard let whole = Range(m.range, in: out), let inner = Range(m.range(at: 1), in: out) else { continue }
-            let code = String(out[inner])
-            let value = code.hasPrefix("x") ? UInt32(code.dropFirst(), radix: 16) : UInt32(code)
-            if let value, let scalar = Unicode.Scalar(value) { out.replaceSubrange(whole, with: String(Character(scalar))) }
+        if let regex = try? NSRegularExpression(pattern: "&#(x?[0-9A-Fa-f]+);") {
+            for m in regex.matches(in: out, range: NSRange(out.startIndex..., in: out)).reversed() {
+                guard let whole = Range(m.range, in: out), let inner = Range(m.range(at: 1), in: out) else { continue }
+                let code = String(out[inner])
+                let value = code.hasPrefix("x") ? UInt32(code.dropFirst(), radix: 16) : UInt32(code)
+                if let value, let scalar = Unicode.Scalar(value) { out.replaceSubrange(whole, with: String(Character(scalar))) }
+            }
         }
-        return out
+        // `&amp;` 는 **맨 나중**이다. 먼저 풀면 `&amp;lt;` 가 `&lt;` 를 거쳐 `<` 가 된다 — 글에 적힌
+        // 「&lt;」를 태그로 둔갑시키는 길이라 순서가 곧 규칙이다.
+        return out.replacingOccurrences(of: "&amp;", with: "&")
     }
 }
 
@@ -131,7 +140,17 @@ public enum WebQuery {
     /// 「인터넷」·「찾아봐」 홀로는 안 된다 — 「인터넷 요금 언제 냈지?」는 메모 질문이다. 애매하면 메모 먼저, 못 찾으면 웹을 권한다.
     public static let words = ["웹에서", "웹으로", "인터넷에서", "인터넷으로", "검색해", "검색 해", "검색좀", "검색 좀", "구글", "search the web", "google"]
     /// 검색어에서 떼는 말 — 「구글」·「인터넷」 홀로는 남긴다(「구글 캘린더 공유 방법」).
-    static let tails = ["검색해줘", "검색해 줘", "검색해봐", "검색해 봐", "검색해", "검색 해줘", "검색 해 줘", "검색좀", "검색 좀", "찾아봐줘", "찾아봐", "찾아 봐", "알려줘", "알려 줘", "알려주세요", "구글링", "구글에서", "웹에서", "웹으로", "인터넷에서", "인터넷으로", "on the web", "search the web for"]
+    ///
+    /// **떼는 것은 시키는 말뿐이다.** 이름·숫자·날짜는 한 글자도 건드리지 않는다 — 「2026년 최저임금」에서
+    /// 「2026년」이 빠지면 검색 엔진은 올해를 답하고, 그 답은 틀린 답이다.
+    static let tails = ["검색해줘", "검색해 줘", "검색해봐", "검색해 봐", "검색해", "검색 해줘", "검색 해 줘", "검색좀", "검색 좀",
+                        "찾아봐줘", "찾아봐", "찾아 봐", "찾아줘", "찾아 줘", "알려줘", "알려 줘", "알려주세요", "알려주라",
+                        "가르쳐줘", "가르쳐 줘", "말해줘", "말해 줘", "설명해줘", "설명해 줘", "정리해줘", "요약해줘",
+                        "궁금한데", "궁금해요", "궁금해", "궁금합니다", "부탁해요", "부탁해", "구글링", "구글에서",
+                        "웹에서", "웹으로", "인터넷에서", "인터넷으로",
+                        "on the web", "search the web for", "search for", "look up", "tell me", "please"]
+    /// 뜻을 담지 않은 채 사이에 끼는 말. 뗀 자리에 한 칸이 남으므로 낱말끼리 붙지 않는다.
+    static let noise = [" 좀 ", " 좀", "제발", "빨리", " 그냥 "]
 
     public static func mentionsWeb(_ text: String) -> Bool {
         let lower = text.lowercased()
@@ -141,8 +160,41 @@ public enum WebQuery {
     public static func make(from text: String) -> String {
         var out = text
         for tail in tails { out = out.replacingOccurrences(of: tail, with: " ", options: .caseInsensitive) }
-        out = out.replacingOccurrences(of: "[?？]", with: " ", options: .regularExpression)
+        for word in noise { out = out.replacingOccurrences(of: word, with: " ", options: .caseInsensitive) }
+        out = out.replacingOccurrences(of: "[?？!！]", with: " ", options: .regularExpression)
         let cleaned = out.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+            .trimmingCharacters(in: CharacterSet(charactersIn: " .,·\"'「」“”"))
         return cleaned.isEmpty ? text : cleaned
+    }
+
+    /// 다시 던질 때 빼는 말 — 물음의 «모양»을 이루는 것들. 낱말이 아니라 문장의 부속이다.
+    static let questionWords: Set<String> = [
+        "얼마나", "얼마", "언제", "어디", "어디서", "어떻게", "어떤", "무엇", "뭐가", "뭐야", "뭐", "왜", "누가", "누구", "몇",
+        "에서", "에는", "이거", "그거", "요즘", "현재", "지금",
+        "what", "when", "where", "how", "why", "who", "which", "is", "are", "the", "of", "in", "to", "for",
+    ]
+    /// 풀이말의 끝 — 이것으로 끝나는 말은 검색어의 알맹이가 아니다 (「바뀌었는지」·「오르는지」).
+    static let questionEndings = ["는지", "은지", "인지", "나요", "까요", "습니까", "인가요", "일까", "할까", "될까", "인가", "이야"]
+
+    /// 첫 검색이 빈손일 때 한 번 더 던지는 **더 짧은** 검색어.
+    ///
+    /// 사람은 문장으로 묻고(「내년 최저임금이 얼마나 오르는지 알려줘」) 검색 엔진은 낱말로 찾는다.
+    /// 물음말·풀이말을 떼고 알맹이만 남긴다 — 다만 **글자는 원문 그대로** 옮긴다: 「Swift 6.2」의
+    /// 대소문자와 소수점까지 뭉개면 그것대로 못 찾는다. 줄일 것이 없으면 `make` 와 같은 글이고,
+    /// 그러면 코디네이터는 같은 검색을 두 번 던지지 않는다.
+    public static func simplify(from text: String) -> String {
+        let base = make(from: text)
+        let kept = base.split(whereSeparator: \.isWhitespace)
+            .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: ".,·\"'()「」")) }
+            .filter(keepsInQuery)
+            .prefix(6)
+        let simplified = kept.joined(separator: " ")
+        return simplified.isEmpty ? base : simplified
+    }
+
+    static func keepsInQuery(_ word: String) -> Bool {
+        let lowered = word.lowercased()
+        guard lowered.count >= 2, QueryTerms.normalize(lowered) != nil, !questionWords.contains(lowered) else { return false }
+        return !questionEndings.contains { lowered.hasSuffix($0) && lowered.count > $0.count + 1 }
     }
 }

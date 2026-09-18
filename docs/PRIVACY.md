@@ -19,9 +19,10 @@
 | 약속의 가는 길 묻기 (맥·폰) | 출발지·약속 자리의 좌표와 이름 | 애플 지도 검색(이름→좌표) · 지도 링크의 서비스(네이버 등, 짧은 링크를 풀려고) · 네이버 지도 웹 길찾기(버스·지하철) · 애플 지도 길찾기(택시) | 약속을 적은 뒤 「어디서 출발하시나요?」에 **답할 때만**. 「됐어」면 아무것도 안 나간다. 설정에서 묻지 않게 끌 수 있다. 메모 본문은 나가지 않는다 |
 | Claude 연동 (맥, MCP) | 메모 본문 | Claude | `claude_desktop_config.json` 에 **직접 등록**했을 때 |
 | 종이 위 ✧ 다듬기 (맥) | 그 메모 본문 | Claude | `claude` 가 깔려 있고 **누를 때마다** |
+| 웹의 답·정리해서 남기기 (맥) | 물은 말과 웹 검색 결과(앞 세 쪽의 본문) — **메모 본문은 아니다** | Claude | `claude` 가 깔려 있고 「종이에서 Claude 부르기」가 켜져 있을 때, **웹에서 찾을 때마다**. 끄면 이 기기의 모델이 한다 |
 | 아침 브리핑 (맥) | 메모 제목과 시각 | Claude | 설정에서 **직접 켤 때만** (기본 꺼짐) |
 | 이 기기의 비서 — 묻기·시키기·오늘·다듬기 (맥·폰) | **메모는 아무것도 안 나간다** — 모델이 이 기기 안에서 읽고 답한다 | — | 모델 파일(약 2.6GB)을 **「받기」를 직접 누를 때** 한 번 Hugging Face 에서 내려받는다. 그때 나가는 것은 파일 요청뿐이다. 모델은 iCloud·백업 밖 앱 폴더에 있고 앱 안에서 지울 수 있다 |
-| 웹에서 찾기 (맥·폰) | **물은 말 한 줄**(「달러 환율 얼마야?」) | DuckDuckGo 웹 검색 (키·계정 없음, 쿠키 안 남김) | 메모에서 못 찾은 뒤 「웹에서 찾기」를 **누를 때**, 또는 「웹에서 …」「… 검색해줘」라고 **말할 때만**. 메모 본문은 나가지 않는다. 답은 검색 결과 다섯 줄을 이 기기의 모델이 읽어 만들고, 출처 링크를 누르면 브라우저가 그 페이지를 연다 |
+| 웹에서 찾기 (맥·폰) | **물은 말 한 줄**(「달러 환율 얼마야?」) | DuckDuckGo 웹 검색 (키·계정 없음, 쿠키 안 남김), 그리고 검색 결과 **앞의 세 쪽** | 메모에서 못 찾은 뒤 「웹에서 찾기」를 **누를 때**, 또는 「웹에서 …」「… 검색해줘」라고 **말할 때만**. 메모 본문은 나가지 않는다. 답을 정확하게 하려고 결과 **앞의 세 쪽 본문을 앱이 읽어 온다**(2026-09-18) — 그 세 주소에 접속하므로 **어느 페이지를 열었는지는 그 사이트가 알게 된다**(쿠키·캐시 없이, 한 쪽에 8초·1MB 상한, 물은 말은 그 사이트로 나가지 않는다). 읽은 본문은 이 기기의 모델이 읽고 답을 만들며 어디에도 저장하지 않는다. 출처 링크를 누르면 브라우저가 그 페이지를 연다 |
 | 링크를 카드로 펼치기 (맥) | 주소 하나 | 그 주소 | 기본 켜짐 · 끌 수 있다 |
 | 새 판 확인 (맥) | 주소 하나 (판 번호도 안 보낸다) | GitHub | 기본 켜짐 · 끌 수 있다 |
 | 다시 보기 알림 (맥·폰) | **아무것도 안 나간다** — 기기 안의 로컬 알림 | — | 설정에서 「이 기기에서 알림 받기」를 **직접 켤 때만** (기본 꺼짐, 기기별). 잠금 화면에 **메모 제목**이 보인다 |
@@ -77,6 +78,7 @@ By default lazymemo connects to nothing. The table below is the complete list of
 | Routes for appointments (Mac · iPhone) | the coordinates and names of the starting place and the appointment | Apple Maps search (name → coordinate) · the map link's service (Naver etc., to resolve a short link) · Naver Map web directions (bus · subway) · Apple Maps directions (taxi) | only when you answer "Where are you leaving from?" after writing an appointment. "Skip" sends nothing. Can be turned off in Settings. Memo text is never sent |
 | Claude integration (Mac, MCP) | memo text | Claude | only after you register it in `claude_desktop_config.json` yourself |
 | ✧ Tidy on a note (Mac) | that memo's text | Claude | only if the `claude` CLI is installed, each time you press it |
+| Web answers and tidied web memos (Mac) | your question and the web results (text of the top three pages) — **never your memos** | Claude | only if the `claude` CLI is installed and "Call Claude from a note" is on, each time you search the web; off → the on-device model does it |
 | Morning brief (Mac) | memo titles and times | Claude | only if you turn it on in Settings (off by default) |
 | On-device assistant — ask, do, today, tidy (Mac · iPhone) | **none of your memos** — the model reads and answers on this device | — | the model file (about 2.6 GB) is downloaded once from Hugging Face **when you press "Download"**; only that file request leaves. The model lives in the app folder outside iCloud and backups, and can be deleted in the app |
 | Link cards (Mac) | one URL | that site | on by default; can be turned off |

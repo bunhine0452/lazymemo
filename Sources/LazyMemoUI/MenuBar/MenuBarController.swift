@@ -223,7 +223,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     func closeCapture() { capture.close(returningFocus: false) }
     /// 이 기기의 비서를 빠른 입력 상자에 끼운다.
-    func adoptAssistant(_ assistant: AssistantModel?) { capture.adoptAssistant(assistant) }
+    func adoptAssistant(_ assistant: AssistantModel?) {
+        self.assistant = assistant
+        capture.adoptAssistant(assistant)
+    }
+    /// 설정의 「종이에서 Claude 부르기」가 바뀌면 비서에게도 같은 것을 건네야 한다 (`setUsesClaude`).
+    private var assistant: AssistantModel?
     /// 「이 메모에게 시키기…」 — 그 메모를 대상으로 빠른 입력 상자를 연다.
     func showCapture(target: ULID) { capture.show(target: target) }
 
@@ -821,7 +826,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // 껐으면 이번 실행에서도 바로 사라져야 한다 — 다시 켤 때까지 기다리게 하지 않는다.
         Task { [weak self] in
             guard let self else { return }
-            windows.adoptClaude(await ClaudeSupport.resolve(settings: settings))
+            let runner = await ClaudeSupport.resolve(settings: settings)
+            windows.adoptClaude(runner)
+            // 웹의 답·다듬기·정리도 같은 스위치를 따른다 — 끄면 이 기기의 모델로 돌아온다.
+            assistant?.adoptClaude(runner)
         }
     }
 

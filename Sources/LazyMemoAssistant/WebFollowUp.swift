@@ -73,57 +73,11 @@ public enum WebFollowUp: Hashable, Sendable {
 
     // MARK: 메모 본문
 
-    /// 남길 글 — 답 한 줄(없으면 물음), 출처마다 제목·발췌·주소, 끝에 어디서 찾았는지.
+    /// 남길 글 — 제목(물음)·답 한 문장·출처 목록·꼬리. 자리는 정리한 메모와 같다 (`Digest.keep`).
     ///
     /// 답이 인용한 것만 담는다. 나머지 결과는 화면에 있을 뿐이다 — 메모는 사람이 읽은 것이어야지 검색
-    /// 페이지의 복사본이어서는 안 된다. 인용이 없으면(모델 없이 결과만) 보여 준 결과 그대로.
+    /// 페이지의 복사본이어서는 안 된다. 인용이 없으면(모델 없이 결과만) 보여 준 앞의 셋.
     public static func body(question: String, answer: AssistantAnswer, results: [Evidence], footer: String) -> String {
-        var lines: [String] = [headline(question: question, answer: answer)]
-        let cited = answer.sources.map(\.id)
-        let picked = results.filter { cited.contains($0.memoID) }.sorted { (cited.firstIndex(of: $0.memoID) ?? 0) < (cited.firstIndex(of: $1.memoID) ?? 0) }
-        for e in picked.isEmpty ? Array(results.prefix(3)) : picked {
-            guard let url = e.url else { continue }
-            lines.append("")
-            if let title = e.title, !title.isEmpty { lines.append(title) }
-            if !e.excerpt.isEmpty { lines.append(e.excerpt) }
-            lines.append(url.absoluteString)
-        }
-        lines.append("")
-        lines.append(footer)
-        return lines.joined(separator: "\n")
-    }
-
-    /// 모델에게 다듬으라고 줄 글 — 주소는 뺀다. 작은 모델은 주소를 잘라 먹고, 주소는 어차피 앱이 뒤에 다시 단다.
-    public static func draftForTidy(question: String, answer: AssistantAnswer, results: [Evidence]) -> String {
-        var lines: [String] = [headline(question: question, answer: answer)]
-        let cited = answer.sources.map(\.id)
-        let picked = results.filter { cited.contains($0.memoID) }
-        for e in picked.isEmpty ? Array(results.prefix(3)) : picked where !e.excerpt.isEmpty {
-            lines.append("- " + e.excerpt)
-        }
-        return lines.joined(separator: "\n")
-    }
-
-    /// 다듬은 글 뒤에 출처와 어디서 찾았는지를 단다 — 다듬어도 근거는 남는다.
-    public static func attachSources(to tidied: String, answer: AssistantAnswer, results: [Evidence], footer: String) -> String {
-        var lines = [tidied.trimmingCharacters(in: .whitespacesAndNewlines)]
-        let cited = answer.sources.map(\.id)
-        let picked = results.filter { cited.contains($0.memoID) }
-        let shown = picked.isEmpty ? Array(results.prefix(3)) : picked
-        if !shown.isEmpty { lines.append("") }
-        for e in shown {
-            guard let url = e.url else { continue }
-            lines.append([e.title, url.absoluteString].compactMap { $0 }.joined(separator: " — "))
-        }
-        lines.append("")
-        lines.append(footer)
-        return lines.joined(separator: "\n")
-    }
-
-    /// 첫 줄 — 답 문장이 있으면 그것, 앱이 대신 세운 머리글(「검색 결과에서 이 부분을 찾았어요」)이면 물음.
-    static func headline(question: String, answer: AssistantAnswer) -> String {
-        let text = answer.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let generic = text.isEmpty || text.hasPrefix("검색 결과에서") || text.hasPrefix("메모에서")
-        return generic ? WebQuery.make(from: question) : text
+        Digest.keep(question: question, answer: answer, results: results, footer: footer)
     }
 }

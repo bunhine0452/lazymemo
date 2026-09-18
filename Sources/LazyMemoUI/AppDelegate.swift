@@ -69,6 +69,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         let layouts = LayoutStore(location: paths.layout)
         let settings = SettingsStore(location: paths.settings)
         rememberVault(location, in: settings)
+        // 고른 테마를 settings.json 에 적고 읽는다 — 파일이 정본, App Group 거울은 위젯의 것 (`ThemeStore`).
+        ThemeStore.shared.attach(settings: settings)
         let previews = LinkPreviewStore(
             cacheDirectory: paths.support.appending(path: "links", directoryHint: .isDirectory),
             settings: settings
@@ -115,6 +117,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { [weak windows, weak menuBar] in
             let runner = await ClaudeSupport.resolve(settings: settings)
             windows?.adoptClaude(runner)
+            // 웹의 답·다듬기·정리를 claude 가 맡는다 — 메모 답변·시키기는 언제나 기기 안 (§9.3).
+            assistant.adoptClaude(runner)
             // `claude` 가 없으면(App Store 판) 종이의 다듬기는 이 기기의 모델이 한다.
             if runner == nil {
                 windows?.adoptLocalTidy(NoteModel.LocalTidy(

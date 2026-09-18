@@ -68,7 +68,8 @@ enum OutputValidator {
         if ["found", "true", "false", "answer", ":", "-"].contains(answer.lowercased()) { answer = "" }
         let denies = negations.contains { answer.contains($0) }
         let concepts = QueryTerms.concepts(question)
-        let hits = Dictionary(uniqueKeysWithValues: allowed.map { ($0.memoID, QueryTerms.conceptHits(concepts, in: $0.excerpt)) })
+        // 페이지 본문까지 읽어 왔으면 그것도 함께 센다 — 발췌에만 없고 본문에 있는 낱말이 흔하다 (`Evidence.readable`).
+        let hits = Dictionary(uniqueKeysWithValues: allowed.map { ($0.memoID, QueryTerms.conceptHits(concepts, in: $0.readable)) })
         let allowedIDs = Set(allowed.map(\.memoID))
         var cited = memoIDs(obj["evidence"]).filter(allowedIDs.contains)
         if cited.isEmpty, flag, !denies, !answer.isEmpty { cited = attribute(answer, to: allowed) }
@@ -84,7 +85,7 @@ enum OutputValidator {
         }
         if answer.isEmpty || cited.isEmpty || (!flag && denies) {
             // 모델은 못 찾았다. 질문의 개념을 둘 이상 담은 메모가 있으면 그 원문이 답이다.
-            guard best >= 2, let first = top.first else { return AssistantAnswer(found: false, text: "", evidence: []) }
+            guard best >= 2, !top.isEmpty else { return AssistantAnswer(found: false, text: "", evidence: []) }
             let picked = Array(top.prefix(2))
             return AssistantAnswer(found: true, text: foundHere, evidence: picked.map(\.memoID), quotes: picked.map(quote), sources: picked.compactMap(source))
         }
@@ -115,7 +116,7 @@ enum OutputValidator {
         let terms = QueryTerms.extract(answer).filter { $0.weight >= 0.9 }.map(\.text)
         guard !terms.isEmpty else { return [] }
         let scored = allowed.map { e -> (ULID, Int) in
-            let hay = e.excerpt.lowercased()
+            let hay = e.readable.lowercased()
             return (e.memoID, terms.filter { hay.contains($0) }.count)
         }
         guard let best = scored.map(\.1).max(), best > 0 else { return [] }

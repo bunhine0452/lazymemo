@@ -5,8 +5,9 @@ import LazyMemoCore
 // 엔진 어댑터는 `LocalModelProvider` 를 구현하는 별도 타깃에 산다.
 
 /// 무엇을 시키는가. `webAnswer` 는 근거가 메모가 아니라 웹 검색 결과인 `answer` — 검색은 앱이 하고 모델은 읽기만 한다.
+/// `digest` 는 그렇게 찾은 것을 **메모 한 장으로 정리**하는 일이다 (`Digest`) — 다듬기와 달리 자리(제목·핵심·세부)가 정해져 있다.
 public enum AssistantTask: String, Sendable, Codable, CaseIterable {
-    case answer, tidy, brief, command, webAnswer
+    case answer, tidy, brief, command, webAnswer, digest
 }
 
 public struct AssistantRequest: Sendable, Identifiable {
@@ -45,7 +46,11 @@ public enum TokenBudget {
     public static func output(for task: AssistantTask) -> Int {
         switch task {
         case .tidy, .brief: return 192
-        case .answer, .webAnswer: return 384
+        // 384 는 한국어 두 문장 + 근거 둘을 겨우 담는다. 여러 쪽을 견줘 답하라고 시킨 뒤로는
+        // 뒷부분이 잘려 JSON 이 안 닫히는 일이 생겼다 — 512 로 올린다 (구조는 `OutputValidator` 가 다시 본다).
+        case .answer, .webAnswer: return 512
+        // 정리 메모는 제목·답·핵심 목록·표까지 한 번에 나온다. 여기서 잘리면 표가 반 토막 난다.
+        case .digest: return 640
         case .command: return 256
         }
     }
@@ -65,6 +70,11 @@ public struct Evidence: Sendable, Equatable, Identifiable {
     /// 웹 검색 결과면 그 주소와 제목. 메모면 nil — 검증·인용 규칙은 같고, 화면이 링크로 그린다.
     public let url: URL?
     public let title: String?
+    /// 그 페이지에서 읽어 온 본문 발췌 (`PageReader`). 못 읽었으면 nil 이고 그때는 `excerpt` 가 근거다.
+    ///
+    /// **덧붙는 자리다** — 화면은 여전히 `excerpt`(검색 발췌 한 줄)를 보여 준다. 길고 지저분한
+    /// 본문을 카드에 흘리지 않으려는 것이고, 모델과 검증만 `readable` 로 둘을 함께 읽는다.
+    public internal(set) var passage: String?
 
     public enum State: String, Sendable { case active, done, trashed, unreadable }
 
@@ -80,6 +90,7 @@ public struct Evidence: Sendable, Equatable, Identifiable {
         else { state = .active }
         url = nil
         title = nil
+        passage = nil
     }
 
     /// 웹 검색 결과 하나. id 는 이 요청 안에서만 뜻이 있는 새 ULID — 모델이 인용할 26자가 필요할 뿐이다.
@@ -93,9 +104,16 @@ public struct Evidence: Sendable, Equatable, Identifiable {
         state = .active
         url = hit.url
         title = hit.title
+        passage = nil
     }
 
     public var isWeb: Bool { url != nil }
+
+    /// 모델과 검증이 실제로 읽는 글 — 본문을 읽어 왔으면 발췌 + 본문, 아니면 발췌뿐.
+    public var readable: String {
+        guard let passage, !passage.isEmpty else { return excerpt }
+        return excerpt.isEmpty ? passage : excerpt + "\n" + passage
+    }
 
     public static func hash(of body: String) -> String { Memo.contentHash(of: body) }
 }

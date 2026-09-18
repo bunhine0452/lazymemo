@@ -81,6 +81,8 @@ public final class AssistantModel {
     public private(set) var webQuestion: String?
     /// 붙일 메모를 고르는 중인 글 — 「어느 메모에 붙일까요?」의 답(`pick`)이 이것을 그 메모 끝에 단다.
     private var pendingAppend: String?
+    /// 맥에서 `claude` 를 찾았는가 — 이 기기의 모델이 없어도 「정리해서 남기기」가 선다 (`ClaudeCLIProvider`).
+    private var hasCLI = false
     /// 답·제안·적용·실패가 정해질 때마다 부른다 — 빠른 입력 상자가 목록을 근거·후보로 갈아 끼우는 고리.
     public var onSettled: (() -> Void)?
 
@@ -91,9 +93,23 @@ public final class AssistantModel {
         store = ModelStore(support: support)
         provider = LiteRTProvider(store: store, manifest: manifest)
         coordinator = AssistantCoordinator(provider: provider, evidence: MemoServiceEvidenceSource(service: service),
-                                           web: DuckDuckGoSearcher(), profile: self.profile)
+                                           web: DuckDuckGoSearcher(), pages: WebPageReader(), profile: self.profile)
         executor = ActionExecutor(service: service)
     }
+
+    #if os(macOS)
+    /// 이 맥이 `claude` 를 찾았으면 비서에게 건넨다 — **웹의 답·다듬기·정리**를 그쪽이 맡는다
+    /// (`ClaudeCLIProvider`). 없으면 아무것도 달라지지 않는다: 이 기기의 모델이 그대로 답한다.
+    /// 설정에서 끄면 nil 이 와서 도로 이 기기의 모델로 돌아온다.
+    public func adoptClaude(_ runner: ClaudeRunner?) {
+        hasCLI = runner != nil
+        let engine = runner.map(ClaudeCLIProvider.init(runner:))
+        Task { await coordinator.adopt(cli: engine) }
+    }
+    #endif
+
+    /// 정리·다듬기를 맡길 곳이 있는가 — 이 기기의 모델이거나 `claude` 거나.
+    public var canTidy: Bool { isReady || hasCLI }
 
     public var isReady: Bool { availability == .ready }
     public var isBusy: Bool { phase == .thinking }
@@ -199,7 +215,7 @@ public final class AssistantModel {
     /// 답 밑에 되물을 다음 손짓 — 웹의 답이 서 있고 아직 아무것도 안 했을 때만. 정리는 모델이 있어야 한다.
     public var followUps: [WebFollowUp] {
         guard let answer, answer.isWeb, phase == .done, applied == nil, proposal == nil, pendingAppend == nil else { return [] }
-        return [.keep] + (isReady ? [.tidy] : []) + [.append(hint: nil)]
+        return [.keep] + (canTidy ? [.tidy] : []) + [.append(hint: nil)]
     }
 
     /// 붙일 메모를 고르는 중인가 — 「어느 메모?」의 줄을 누르면 시키는 말 대신 답을 붙인다.
@@ -216,7 +232,7 @@ public final class AssistantModel {
             let body = WebFollowUp.body(question: question, answer: answer, results: results, footer: footer)
             settle(ProposedAction(requestID: UUID(), kind: .createMemo, patch: FieldPatch(body: body)))
         case .tidy:
-            guard isReady else { followUp(.keep); return }
+            guard canTidy else { followUp(.keep); return }
             tidyAndKeep(question: question, answer: answer, results: results, footer: footer)
         case .append(let hint):
             let block = WebFollowUp.body(question: question, answer: answer, results: results, footer: footer)
@@ -257,21 +273,24 @@ public final class AssistantModel {
         onSettled?()
     }
 
-    /// 모델이 답과 발췌를 다듬고, 앱이 출처와 꼬리를 도로 단다. 다듬는 동안은 「읽는 중」이다.
+    /// 모델이 가운데(답 한 문장·핵심·세부)를 쓰고 **앱이 틀을 든다** — 제목·출처·꼬리 (`Digest`).
+    ///
+    /// 모델이 넘어져도 메모는 나온다. 그때는 앱이 발췌만으로 같은 자리를 채운다(`Digest.compose`) —
+    /// 「정리해서 남기기」를 눌렀는데 아무것도 안 남는 일은 없다.
     private func tidyAndKeep(question: String, answer: AssistantAnswer, results: [Evidence], footer: String) {
         cancel()
-        let request = AssistantRequest(task: .tidy, userText: WebFollowUp.draftForTidy(question: question, answer: answer, results: results))
-        task = .tidy
+        let request = AssistantRequest(task: .digest, userText: Digest.draft(question: question, answer: answer, results: results))
+        task = .digest
         phase = .thinking
         stage = .searching
         proposal = nil; receipt = nil; applyError = nil; applied = nil
         let job = Task { [weak self] in
             guard let self else { return }
-            let tidied = try? await runTidy(request)
+            let written = try? await runTidy(request)
             guard !Task.isCancelled else { return }
             current = nil
-            let body = tidied.map { WebFollowUp.attachSources(to: $0, answer: answer, results: results, footer: footer) }
-                ?? WebFollowUp.body(question: question, answer: answer, results: results, footer: footer)
+            let body = written.map { Digest.assemble(question: question, answer: answer, written: $0, results: results, footer: footer) }
+                ?? Digest.compose(question: question, answer: answer, results: results, footer: footer)
             settle(ProposedAction(requestID: UUID(), kind: .createMemo, patch: FieldPatch(body: body)))
         }
         current = (request.id, job)
@@ -470,7 +489,7 @@ public final class AssistantModel {
         case .searching:
             switch task {
             case .webAnswer: return L("웹에서 찾는 중")
-            case .tidy: return L("글을 읽는 중")
+            case .tidy, .digest: return L("글을 읽는 중")
             case .brief: return L("오늘의 메모를 모으는 중")
             default: return L("메모를 뒤지는 중")
             }
@@ -480,7 +499,7 @@ public final class AssistantModel {
             return count == 0 ? L("비서를 깨우는 중") : L("\(count)\(unit) 골랐어요 · 비서를 깨우는 중")
         case .writing:
             switch task {
-            case .tidy: return L("정리하는 중")
+            case .tidy, .digest: return L("정리하는 중")
             case .command: return L("무엇을 할지 정하는 중")
             case .brief: return L("브리핑을 적는 중")
             default: return L("답을 적는 중")
