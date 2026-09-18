@@ -19,5 +19,13 @@
 	<array>
 		<string>group.io.github.bunhine0452.lazymemo</string>
 	</array>
+	<!-- 로컬 모델(Gemma 4 E2B, 2.6GB). 층별 임베딩 약 1.3GB 가 **이어진 주소 공간 하나**에 mmap 돼야
+	     하는데, 기본 주소 공간에서는 앱이 조금만 오래 돌아도 그 자리가 없어 엔진이 그 절을 건너뛰고
+	     첫 prefill 에서 넘어진다 (LiteRT-LM #2545 · LiteRTProvider.isEngineBroken). 넓힌 주소 공간과
+	     올린 메모리 한도가 그 자리를 준다 — 둘 다 App ID 의 capability 라 자동 서명이 등록한다. -->
+	<key>com.apple.developer.kernel.extended-virtual-addressing</key>
+	<true/>
+	<key>com.apple.developer.kernel.increased-memory-limit</key>
+	<true/>
 </dict>
 </plist>

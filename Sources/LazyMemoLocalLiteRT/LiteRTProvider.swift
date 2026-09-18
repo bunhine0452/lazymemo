@@ -86,9 +86,54 @@ public actor LiteRTProvider: LocalModelProvider {
                 if !piece.isEmpty { continuation.yield(piece) }
             }
             continuation.finish()
+        } catch let error as LiteRTLMError {
+            // 엔진의 말은 사람 말이 아니다 — 화면에는 우리말 한 줄, 원문은 로그로.
+            FileHandle.standardError.write("[litert] \(error)\n".data(using: .utf8)!)
+            if Self.isEngineBroken(error) {
+                // 이 엔진으로는 다시 해도 같다 — 내려서 다음 부탁이 새로 올리게 한다 (자리가 나면 된다).
+                live[prompt.requestID] = nil
+                await unload()
+            }
+            continuation.finish(throwing: AssistantFailure.provider(Self.explain(error)))
         } catch {
             continuation.finish(throwing: error)
         }
+    }
+
+    /// 엔진이 올라간 채로는 고쳐지지 않는 고장인가.
+    ///
+    /// 아이폰에서 Gemma 의 층별 임베딩(약 1.3GB)은 **이어진 주소 공간 하나**에 통째로 mmap 돼야
+    /// 하는데, 앱이 오래 돌아 주소 공간이 조각나 있으면 그 mmap 이 실패한다. 엔진은 그 절을
+    /// 건너뛰고도 「준비됨」이라 하고, 첫 prefill 에서야 `FAILED_PRECONDITION … per_layer_embedding_
+    /// lookup_ is null` 로 넘어진다 (LiteRT-LM #2545, 2026-09-18 사용자 화면). 같은 엔진으로는
+    /// 백 번 해도 같다 — 내려놓고 다시 올려야 한 번 더 자리를 잡아 볼 수 있다.
+    static func isEngineBroken(_ error: LiteRTLMError) -> Bool {
+        switch error {
+        case .engine: return true
+        case .conversation(.invalidResponse(let detail)):
+            return detail.contains("FAILED_PRECONDITION") || detail.contains("is null")
+        case .conversation(.failedToStartStream), .conversation(.notAlive): return true
+        default: return false
+        }
+    }
+
+    /// 화면에 보일 한 줄. 자세한 원문은 짧게 뒤에 — 알려 줄 때 도움이 된다.
+    static func explain(_ error: LiteRTLMError) -> String {
+        switch error {
+        case .conversation(.invalidResponse(let detail)) where detail.contains("per_layer_embedding"):
+            return "이 기기에서 모델이 자리를 잡지 못했습니다 — 한 번 더 해 보고, 그래도 안 되면 앱을 껐다 켜 주세요"
+        case .engine:
+            return "모델을 올리지 못했습니다 — 앱을 껐다 켜고 다시 해 보세요"
+        case .conversation(.invalidResponse(let detail)):
+            return "모델이 답하지 못했습니다 — 다시 해 보세요 (\(Self.brief(detail)))"
+        default:
+            return "모델이 답하지 못했습니다 — 다시 해 보세요 (\(Self.brief(error.errorDescription ?? String(describing: error))))"
+        }
+    }
+
+    private static func brief(_ detail: String) -> String {
+        let line = detail.split(whereSeparator: \.isNewline).first.map(String.init) ?? detail
+        return line.count > 80 ? String(line.prefix(80)) + "…" : line
     }
 
     public func cancel(requestID: AssistantRequest.ID) async {

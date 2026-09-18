@@ -41,7 +41,7 @@ owner: codex
 
 ## 실기기 완성 검증과 배포 {#release}
 - [ ] 명세 §9: iPhone15Pro/M1 8GB에서 질문→근거→시각변경→재시작·오프라인·iCloud 왕복·잠금 검증 {#device-e2e}
-- [ ] OS27 빌드 설정·Mac/iOS sandbox archive·모델 미설치 회귀·서명/엔타이틀먼트 검증 {#sandbox-release}
+- [~] OS27 빌드 설정·Mac/iOS sandbox archive·모델 미설치 회귀·서명/엔타이틀먼트 검증 {#sandbox-release}
 - [x] README/PRIVACY/스토어 문구에 로컬 모델 다운로드·상주 한계·지원 기기·삭제 반영 {#privacy-copy}
 
 ## 기본 기능 검증 뒤 확장 {#extensions}
@@ -69,4 +69,5 @@ owner: codex
 | 2026-09-15T21:17:59+09:00 | #semantic-retrieval | claude-code | ☐→x | .oculpm/journal/20260915/Features_to_add/2117_feature_assistant-retrieval-resolver-quality.md | 동의어 표+어간 부분 일치로 fixture Recall@6 21/22(95%) ≥ 90% 통과 — RetrievalTests 가 지킨다. 임베딩은 이월(실사용 메모에서 미달이 보이면) |
 | 2026-09-15T21:18:06+09:00 | #assistant-regressions | claude-code | ☐→~ | .oculpm/journal/20260915/Features_to_add/2117_feature_assistant-retrieval-resolver-quality.md | 근거 없음/충돌·메모 속 지시·부분 JSON·지어낸 인용 테스트 36개 + 앱 파이프라인 벤치(lazymemo-assistant-bench). 남음: 동시 수정, 다듬기 첨부 보존 단위 테스트 |
 | 2026-09-15T21:30:55+09:00 | #device-toolchain | claude-code | ~→~ | .oculpm/journal/20260915/Chores/2130_chore_testflight-upload-assistant-quality.md | Xcode 27.0(27A266a) 설치·라이선스 동의 확인, 아카이브·업로드 동작. CoreSimulator 구판 경고 — 실기기·시뮬레이터는 Xcode 27 첫 실행 뒤. iPhone15Pro·M1 연결은 아직 |
+| 2026-09-18T16:51:46+09:00 | #sandbox-release | claude-code | ☐→~ | .oculpm/journal/20260918/Bugs/1650_bug_ios-litert-per-layer-embedding-null.md | 폰 entitlement 둘(넓힌 주소 공간·올린 메모리 한도) 추가, 기기 빌드 서명 확인 — 실기기 확인은 다음 TestFlight |
 <!-- oculpm:plan-log end -->

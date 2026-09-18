@@ -89,10 +89,20 @@ public actor AssistantCoordinator {
             }
             guard ready else { _ = await emit(.failed(.modelUnavailable)); return }
             guard await emit(.preparing) else { return }
-            try await provider.prepare(profile)
 
             var calls = 0
-            var text = try await generate(request, selected: selected, evidence: gathered, repair: nil, calls: &calls, emit: emit)
+            var text: String
+            do {
+                try await provider.prepare(profile)
+                text = try await generate(request, selected: selected, evidence: gathered, repair: nil, calls: &calls, emit: emit)
+            } catch let failure as AssistantFailure where request.task == .webAnswer && !gathered.isEmpty {
+                // 웹의 결과는 이미 손에 있다 — 모델이 넘어졌다고 그것까지 버리지 않는다. 모델 없는
+                // 기기와 같은 길로 결과 셋을 그대로 보인다 (2026-09-18, 폰에서 엔진이 첫 prefill 에 넘어짐).
+                guard case .provider = failure else { throw failure }
+                var plain = AssistantResult.answer(OutputValidator.plainWebAnswer(gathered))
+                _ = await finish(&plain, request: request, emit: emit)
+                return
+            }
             guard isCurrent(request.id, gen) else { return }
 
             if var result = validate(text, request: request, evidence: gathered) {
