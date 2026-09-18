@@ -35,6 +35,8 @@ struct NoteView: View {
 
     @State private var isHovering = false
     @State private var isPickingColor = false
+    /// 보이는 칸 아래에 글이 더 있다 (`MemoTextEditor.onOverflowChange`).
+    @State private var textOverflows = false
     /// 종이의 높이. 사진이 가질 수 있는 몫을 여기서 잰다.
     @State private var paperHeight: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -186,8 +188,24 @@ struct NoteView: View {
             onEscape: onEscape,
             placeholder: "…",
             onEdit: model.edited,
-            onHeightChange: onTextHeight
+            onHeightChange: onTextHeight,
+            onOverflowChange: { textOverflows = $0 }
         )
+        // 아래로 글이 더 있으면 바닥에 작은 화살표 하나 — 스크롤러는 숨어 있어서, 카드가 종이 아래를
+        // 차지해 글 칸이 짧아지면 잘린 줄이 «사라진 글»로 읽혔다 (2026-09-18 사용자). 페이드 대신 화살표인
+        // 이유: 종이는 색이 스미고 테마가 갈려 바탕과 같은 색을 지어 덮을 수가 없다.
+        .overlay(alignment: .bottom) {
+            if textOverflows {
+                Image(systemName: "chevron.compact.down")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Paper.ink.opacity(0.35))
+                    .padding(.bottom, 2)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+                    .accessibilityHidden(true)
+            }
+        }
+        .animation(Theme.reveal, value: textOverflows)
     }
 
     // MARK: 겹쳐 뜨는 조작
@@ -431,12 +449,15 @@ struct NoteView: View {
     /// 사진과 같은 규칙이다. 날 것의 주소는 사람이 읽어도 무엇인지 모르는데,
     /// 게으른 사람에게 "이게 뭐였더라" 를 남기는 것이 이 앱의 가장 흔한 실패다.
     private var linkCards: some View {
-        VStack(alignment: .leading, spacing: Theme.tight) {
+        // 둘 이상이면 한 줄씩 — 카드마다 두 줄과 그림을 주면 종이 아래를 카드가 다 차지해 글이
+        // 잘린다 (정리한 메모의 「출처」는 늘 둘·셋이다).
+        let compact = model.links.count >= 2
+        return VStack(alignment: .leading, spacing: compact ? Theme.hairline : Theme.tight) {
             ForEach(model.links) { card in
                 Button {
                     NSWorkspace.shared.open(card.url)
                 } label: {
-                    linkCard(card)
+                    linkCard(card, compact: compact)
                 }
                 .buttonStyle(.plain)
                 .help(card.url.absoluteString)
@@ -448,40 +469,57 @@ struct NoteView: View {
         .padding(.bottom, Theme.snug)
     }
 
-    private func linkCard(_ card: LinkPreviewStore.Card) -> some View {
-        HStack(spacing: Theme.snug) {
+    private func linkCard(_ card: LinkPreviewStore.Card, compact: Bool = false) -> some View {
+        let side: CGFloat = compact ? 18 : 40
+        return HStack(spacing: compact ? Theme.tight : Theme.snug) {
             if let image = card.image {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 40, height: 40)
+                    .frame(width: side, height: side)
                     .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
             } else {
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
                     .fill(Paper.ink.opacity(0.06))
-                    .frame(width: 40, height: 40)
+                    .frame(width: side, height: side)
                     .overlay {
                         Image(systemName: "link")
-                            .font(.system(size: 13))
+                            .font(.system(size: compact ? 9 : 13))
                             .foregroundStyle(Paper.fadedInk)
                     }
             }
 
-            VStack(alignment: .leading, spacing: 2) {
+            if compact {
+                // 좁은 종이에서는 제목이 이긴다 — 「2025 다이…  aiart0114.tistory.com」은 무엇인지 모른다.
                 Text(card.title)
                     .font(Theme.label)
                     .foregroundStyle(Paper.ink)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .layoutPriority(1)
                 Text(card.host)
                     .font(Theme.micro)
                     .foregroundStyle(Paper.ink.opacity(0.40))
                     .lineLimit(1)
+                    .truncationMode(.middle)
+            } else {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(card.title)
+                        .font(Theme.label)
+                        .foregroundStyle(Paper.ink)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    Text(card.host)
+                        .font(Theme.micro)
+                        .foregroundStyle(Paper.ink.opacity(0.40))
+                        .lineLimit(1)
+                }
             }
 
             Spacer(minLength: 0)
         }
-        .padding(Theme.tight)
+        .padding(.vertical, compact ? Theme.hairline + 1 : Theme.tight)
+        .padding(.horizontal, Theme.tight)
         .background {
             RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
                 .fill(Paper.ink.opacity(0.04))

@@ -38,7 +38,7 @@ struct DigestTests {
         #expect(body.hasPrefix("# 서울 내일 날씨\n"))
         #expect(body.contains("## 핵심"))
         #expect(body.contains("| 시각 | 기온 |"))
-        #expect(body.contains("- 홈 - 기상청 날씨누리 — https://www.weather.go.kr/"))
+        #expect(body.contains("- [홈 - 기상청 날씨누리](https://www.weather.go.kr/"))
         #expect(body.hasSuffix("\n\(footer)"))
         // 메모 목록에 서는 제목은 「# 」가 걷힌 물음이다.
         #expect(Memo(body: body).title == "서울 내일 날씨")

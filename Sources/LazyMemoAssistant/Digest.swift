@@ -10,7 +10,7 @@ import LazyMemoCore
 ///     답 한두 문장               ← 모델 (없으면 앱이 답 문장을 그대로)
 ///     ## 핵심                    ← 모델 (없으면 앱이 발췌로)
 ///     ## 세부                    ← 모델 (표·번호 목록·할 일. 그럴 것이 없으면 아예 없다)
-///     ## 출처                    ← **앱만** (제목 — 주소)
+///     ## 출처                    ← **앱만** ([제목](주소))
 ///     「물음」 웹에서 찾음 · 9월 18일  ← 앱
 ///
 /// 출처를 모델에게 맡기지 않는 이유는 `WebFollowUp.attachSources` 때와 같다 — 작은 모델은 주소를
@@ -84,7 +84,7 @@ public enum Digest {
         lines.append(sourceHeading)
         for e in picked {
             guard let url = e.url else { continue }
-            lines.append("- \(e.title ?? url.host() ?? url.absoluteString) — \(url.absoluteString)")
+            lines.append(sourceLine(e, url))
             let note = highlight(e)
             if !note.isEmpty { lines.append("  \(note)") }
         }
@@ -134,9 +134,20 @@ public enum Digest {
     static func sourceBlock(_ picked: [Evidence]) -> [String] {
         let rows = picked.compactMap { e -> String? in
             guard let url = e.url else { return nil }
-            return "- \(e.title ?? url.host() ?? url.absoluteString) — \(url.absoluteString)"
+            return sourceLine(e, url)
         }
         return rows.isEmpty ? [] : ["", sourceHeading] + rows
+    }
+
+    /// 출처 한 줄 — 마크다운 링크 `- [제목](주소)`.
+    ///
+    /// 앞선 판은 「제목 — 주소」였다. 한국어 페이지의 주소는 퍼센트 인코딩이 다섯 줄을 먹고
+    /// (`%EB%8B%A4%EC%9D%B4…`), 종이에서는 그것이 «읽을 것»을 밀어냈다 (2026-09-18 사용자의 다이어트
+    /// 메모). 링크로 적으면 종이·폰이 이름만 보이고 주소는 카드와 클릭에 남는다. 제목에 든 `]` 는 뺀다.
+    static func sourceLine(_ e: Evidence, _ url: URL) -> String {
+        let name = (e.title ?? url.host() ?? url.absoluteString)
+            .replacingOccurrences(of: "[", with: "(").replacingOccurrences(of: "]", with: ")")
+        return "- [\(name)](\(url.absoluteString))"
     }
 
     /// 앱이 대신 세운 머리글(「검색 결과에서 이 부분을 찾았어요」)은 답 문장이 아니다.

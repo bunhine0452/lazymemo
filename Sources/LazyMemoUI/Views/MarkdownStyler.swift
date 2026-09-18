@@ -145,11 +145,18 @@ enum MarkdownStyler {
         for row in widths { for (c, w) in row.enumerated() { widest[c] = max(widest[c], w) } }
 
         // 맞춘 표가 종이 폭을 넘으면 줄이 접혀 도리어 못 읽는다 — 그때는 맞추지 않고 둔다 (좁은 종이).
-        if let container = storage.layoutManagers.first?.textContainers.first {
-            let available = container.size.width - container.lineFragmentPadding * 2
+        // 폭은 **텍스트 뷰의 실제 폭**으로 잰다. 컨테이너의 size 는 첫 배치 전에 천만 pt 라, 그것으로
+        // 재면 긴 칸 하나가 다른 줄의 세로선을 수천 pt 밀어 혼자 다음 줄에 떨어뜨린다 (2026-09-18 재현).
+        if let textView = storage.layoutManagers.first?.firstTextView,
+           let container = textView.textContainer {
+            let available = textView.bounds.width - textView.textContainerInset.width * 2 - container.lineFragmentPadding * 2
             let pipeWidth = width(NSRange(location: block.location, length: 1))
             let total = widest.reduce(0, +) + CGFloat(columns + 1) * pipeWidth
-            if available > 0, total > available { return }
+            // 폭을 아직 모르는 첫 깔기(bounds 0)도 맞추지 않는다 — 폭이 정해지면 편집기가 다시 깐다
+            // (`MemoTextEditor.Coordinator.watch`).
+            guard available > 0, total <= available else { return }
+        } else {
+            return   // 배치가 없는 저장소(미리보기 문자열)는 폭을 모른다 — 맞추지 않는다.
         }
 
         for (row, cells) in zip(widths, rows) {

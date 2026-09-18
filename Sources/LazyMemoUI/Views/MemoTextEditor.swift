@@ -42,6 +42,8 @@ struct MemoTextEditor: NSViewRepresentable {
     var onCommandReturn: (() -> Void)?
     /// 글이 차지한 높이. 빠른 입력 상자가 줄 수에 맞춰 자라는 근거다.
     var onHeightChange: ((CGFloat) -> Void)?
+    /// 보이는 칸 아래에 글이 더 있는가 — 종이가 「더 있다」는 표시를 세우는 근거 (`NoteView`).
+    var onOverflowChange: ((Bool) -> Void)?
 
     /// 편집기의 텍스트 뷰를 짓는다.
     ///
@@ -112,6 +114,10 @@ struct MemoTextEditor: NSViewRepresentable {
             coordinator?.focusChanged(view, focused: focused)
         }
         context.coordinator.onHeightChange = onHeightChange
+        context.coordinator.onOverflowChange = onOverflowChange
+        // 스크롤·크기가 바뀔 때마다 「아래에 더 있는가」를 다시 본다.
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        context.coordinator.watch(scrollView)
         context.coordinator.stylesMarkdown = stylesMarkdown
         context.coordinator.hidesImageReferences = hidesImageReferences
         context.coordinator.baseFont = font
@@ -129,6 +135,7 @@ struct MemoTextEditor: NSViewRepresentable {
         (textView as? MemoNSTextView)?.onCommandReturn = onCommandReturn
         (textView as? MemoNSTextView)?.onEscape = onEscape
         context.coordinator.onHeightChange = onHeightChange
+        context.coordinator.onOverflowChange = onOverflowChange
         // 조합 보호 규칙은 MemoTextSync 에 있다 — 테스트가 그쪽을 지킨다.
         if MemoTextSync.apply(text, to: textView) {
             context.coordinator.restyle(textView)
@@ -149,6 +156,9 @@ struct MemoTextEditor: NSViewRepresentable {
         private let onCommand: (Selector, NSTextView) -> Bool
         var onHeightChange: ((CGFloat) -> Void)?
         private var reportedHeight: CGFloat = -1
+        var onOverflowChange: ((Bool) -> Void)?
+        private var reportedOverflow: Bool?
+        private var observers: [NSObjectProtocol] = []
         weak var textView: NSTextView?
 
         var stylesMarkdown = false
@@ -273,9 +283,58 @@ struct MemoTextEditor: NSViewRepresentable {
             textView.typingAttributes = MarkdownStyler.baseAttributes(baseFont, paragraph)
         }
 
+        /// 스크롤과 크기 변화를 듣는다 — 「아래에 더 있는가」는 둘 다에 달렸다.
+        func watch(_ scrollView: NSScrollView) {
+            observers.forEach { NotificationCenter.default.removeObserver($0) }
+            let center = NotificationCenter.default
+            observers = [
+                center.addObserver(forName: NSView.boundsDidChangeNotification, object: scrollView.contentView, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.reportOverflow() }
+                },
+                center.addObserver(forName: NSView.frameDidChangeNotification, object: scrollView, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated {
+                        self?.reportOverflow()
+                        self?.realignTablesIfWidthChanged(scrollView.contentSize.width)
+                    }
+                },
+                // 글이 자라 문서 뷰가 길어져도 클립 뷰의 bounds 는 그대로다 — 문서 뷰의 크기도 들어야
+                // 「아래에 더 있다」가 늦지 않는다.
+                center.addObserver(forName: NSView.frameDidChangeNotification, object: scrollView.documentView, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.reportOverflow() }
+                },
+            ]
+        }
+
+        private var lastWidth: CGFloat = 0
+
+        /// 표의 열 너비는 종이 폭에 달렸다 — 폭이 바뀌면(처음 정해질 때 포함) 표가 있는 글만 다시 깐다.
+        private func realignTablesIfWidthChanged(_ width: CGFloat) {
+            guard abs(width - lastWidth) > 0.5 else { return }
+            lastWidth = width
+            guard stylesMarkdown, let textView, !textView.hasMarkedText() else { return }
+            let source = textView.string as NSString
+            guard MarkdownScanner.tableBlock(containing: NSRange(location: 0, length: source.length), in: source) != nil else { return }
+            restyle(textView)
+        }
+
+        /// 보이는 칸의 아래로 글이 더 이어지는가. 같은 답이면 알리지 않는다.
+        ///
+        /// 사용자(2026-09-18): 「메모의 한글이 가끔 안 보인다」— 링크 카드 둘이 종이 아래를 차지해
+        /// 글 칸이 짧아졌는데 스크롤러는 숨어 있어, 잘린 줄이 «없어진 글»로 보였다.
+        func reportOverflow() {
+            guard let onOverflowChange, let textView, let scrollView = textView.enclosingScrollView else { return }
+            let visible = scrollView.contentView.bounds
+            let overflows = textView.frame.maxY - visible.maxY > 1
+            guard overflows != reportedOverflow else { return }
+            reportedOverflow = overflows
+            // 알림은 AppKit 배치 도중에 온다 — 그 안에서 SwiftUI 상태를 흔들면 갱신이 버려진다. 다음 턴에.
+            DispatchQueue.main.async { onOverflowChange(overflows) }
+        }
+
         /// 글이 차지한 높이를 알린다. 같은 값이면 알리지 않는다 —
         /// SwiftUI 상태를 다시 흔들면 갱신이 끝없이 돈다.
         func reportHeight() {
+            defer { reportOverflow() }
             guard let onHeightChange, let textView,
                   let layoutManager = textView.layoutManager,
                   let container = textView.textContainer

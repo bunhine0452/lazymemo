@@ -26,6 +26,7 @@ struct MemoTextArea: View {
     var onCommand: (Selector, NSTextView) -> Bool = { _, _ in false }
     var onCommandReturn: (() -> Void)?
     var onHeightChange: ((CGFloat) -> Void)?
+    var onOverflowChange: ((Bool) -> Void)?
 
     @Environment(\.rendersStatically) private var rendersStatically
 
@@ -48,7 +49,8 @@ struct MemoTextArea: View {
                     onPasteImage: onPasteImage, onPasteLink: onPasteLink,
                     onDelete: onDelete, movesWindow: movesWindow, blursOnEscape: blursOnEscape,
                     onEscape: onEscape, onEdit: onEdit, onCommand: onCommand,
-                    onCommandReturn: onCommandReturn, onHeightChange: onHeightChange
+                    onCommandReturn: onCommandReturn, onHeightChange: onHeightChange,
+                    onOverflowChange: onOverflowChange
                 )
             }
 
