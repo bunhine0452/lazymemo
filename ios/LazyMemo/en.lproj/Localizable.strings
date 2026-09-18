@@ -185,3 +185,12 @@
 "「%@」에 붙이기" = "Add to “%@”";
 "%@ — 브라우저에서 엽니다" = "%@ — opens in your browser";
 "%lld장 중 겹치는 것 없음 · 위의 답을 남깁니다" = "No match among %lld notes · keeps the answer above";
+
+/* 「테마」 시트 (ThemeSettingsView) */
+"테마" = "Theme";
+"직접 고르기" = "Choose Your Own";
+"강조색" = "Accent";
+"종이에 스미는 색" = "Paper Tint";
+"종이 결" = "Paper Grain";
+"기본으로" = "Reset";
+"고른 색이 글을 가릴 만큼 흐리면 읽히는 데까지 되끌어 올려 씁니다. 테마는 메모 폴더의 설정에 적힙니다 — 기기 밖의 다른 곳으로는 나가지 않습니다" = "If a color you pick would hide the text, it's pulled back until it reads. Your theme is written into the settings in your notes folder — it goes nowhere else";

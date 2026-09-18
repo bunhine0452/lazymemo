@@ -14,10 +14,15 @@ mkdir -p "$OUT"
 swift build 2>&1 | grep -E "error:" || true
 BIN="$(swift build --show-bin-path)/LazyMemo"
 
+# LAZYMEMO_SETTINGS_APPEARANCE=light|dark 로 창 하나만 갈아 끼운다 (시스템 설정은 안 건드린다).
+# LAZYMEMO_THEME=<id> 를 내보내 두면 그 테마로 뜬다 (`ThemeRuntime`).
 shoot() {  # <파일> [끝까지 스크롤]
     local vault; vault="$(mktemp -d)/lazymemo-settings"
     mkdir -p "$vault"
-    env LAZYMEMO_VAULT="$vault" LAZYMEMO_SETTINGS="$OUT/$1" ${2:+LAZYMEMO_SETTINGS_END=1} "$BIN" >/dev/null 2>&1 &
+    # 지난 주행의 그림을 먼저 치운다 — 아래의 기다림은 «파일이 생겼는가» 로
+    # 끝나므로, 남아 있으면 앱이 그리기도 전에 끝내고 옛 그림을 보게 된다.
+    rm -f "$OUT/$1"
+    env LAZYMEMO_VAULT="$vault" LAZYMEMO_SETTINGS_APPEARANCE="${LAZYMEMO_SETTINGS_APPEARANCE:-light}" LAZYMEMO_SETTINGS="$OUT/$1" ${2:+LAZYMEMO_SETTINGS_END=1} "$BIN" >/dev/null 2>&1 &
     local app=$!
     disown
     for _ in $(seq 1 60); do [[ -f "$OUT/$1" ]] && break; sleep 0.25; done
@@ -27,5 +32,7 @@ shoot() {  # <파일> [끝까지 스크롤]
 }
 
 echo "▸ 설정 창"
-shoot settings.png
-shoot settings-end.png end
+LAZYMEMO_SETTINGS_APPEARANCE=light shoot settings.png
+LAZYMEMO_SETTINGS_APPEARANCE=light shoot settings-end.png end
+LAZYMEMO_SETTINGS_APPEARANCE=dark shoot settings-dark.png
+LAZYMEMO_SETTINGS_APPEARANCE=dark shoot settings-dark-end.png end

@@ -34,6 +34,11 @@ enum SettingsWindow {
         next.titlebarSeparatorStyle = .none
         next.isReleasedWhenClosed = false
         if liftedForVerification { next.level = .floating }
+        // 검증 주행만 — 두 외관을 한 번에 찍으려고 (`scripts/render-settings.sh`).
+        // 시스템 설정을 건드리지 않고 이 창 하나만 갈아 끼운다.
+        if let forced = ProcessInfo.processInfo.environment["LAZYMEMO_SETTINGS_APPEARANCE"], !forced.isEmpty {
+            next.appearance = NSAppearance(named: forced == "dark" ? .darkAqua : .aqua)
+        }
         window = next
         NSApp.activate()
         next.makeKeyAndOrderFront(nil)

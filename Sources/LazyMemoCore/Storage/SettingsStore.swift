@@ -109,6 +109,20 @@ public struct Settings: Codable, Sendable, Equatable {
     /// 나가는 것은 없다. 매번 「됐어」로 넘기는 사람은 여기서 끈다.
     public var asksRoutes: Bool?
 
+    /// 고른 테마의 id (`ThemeID`). `nil` 이면 「크림과 포레스트」 — 지금까지의 화면 그대로.
+    ///
+    /// **id 만 적는다.** 색 스물넷을 파일에 펼쳐 두면 앱이 테마의 값을 고쳤을 때
+    /// 그 사람만 옛 색에 남는다. 사람이 정한 것은 「어느 테마」이지 그 안의 숫자가
+    /// 아니므로, 숫자는 앱이 들고 이름만 파일에 남긴다 (`vaultPath` 와 같은 결).
+    public var theme: String?
+
+    /// 그 위에 사람이 얹은 것 — 강조색·종이 색·잉크·글자 크기·종이 결 (`ThemeOverrides`).
+    ///
+    /// 색은 `"#295245"` 한 조각으로 적힌다. 여기 적은 색이 글을 못 읽게 만들면
+    /// 앱이 읽히는 데까지 되끌어 올려서 쓴다 — 파일은 사람이 손으로 고칠 수
+    /// 있는 자리라(§5.1), 잘못 적은 한 줄이 앱을 못 쓰게 만들어서는 안 된다.
+    public var themeOverrides: ThemeOverrides?
+
     public init(
         hotkeyKeyCode: UInt32? = nil,
         hotkeyModifiers: UInt32? = nil,
@@ -127,7 +141,9 @@ public struct Settings: Codable, Sendable, Equatable {
         checksForUpdates: Bool? = nil,
         greeted: Bool? = nil,
         folders: [String]? = nil,
-        asksRoutes: Bool? = nil
+        asksRoutes: Bool? = nil,
+        theme: String? = nil,
+        themeOverrides: ThemeOverrides? = nil
     ) {
         self.hotkeyKeyCode = hotkeyKeyCode
         self.hotkeyModifiers = hotkeyModifiers
@@ -147,6 +163,8 @@ public struct Settings: Codable, Sendable, Equatable {
         self.greeted = greeted
         self.folders = folders
         self.asksRoutes = asksRoutes
+        self.theme = theme
+        self.themeOverrides = themeOverrides
     }
 
     public static let `default` = Settings()

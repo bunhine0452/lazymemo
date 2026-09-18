@@ -77,3 +77,21 @@
 "%@ 에 쓸 수 없습니다" = "Can't write to %@";
 "그 사이 메모가 바뀌었습니다: %@" = "The memo changed in the meantime: %@";
 "치과 언제였지? — 물으면 답합니다" = "When was the dentist? — ask and it answers";
+
+/* 테마 — 고를 수 있는 종이 (ThemeCatalog) */
+"크림과 포레스트" = "Cream & Forest";
+"미색 종이에 포레스트 초록" = "Forest green on cream paper";
+"미드나잇" = "Midnight";
+"깊은 남색 종이에 미색 잉크" = "Ivory ink on deep navy paper";
+"세피아" = "Sepia";
+"바랜 양피지에 갈색 잉크" = "Brown ink on aged parchment";
+"흑백 잉크" = "Black & White";
+"색을 줄이고 읽기를 남긴다" = "Less color, more legibility";
+"봄 파스텔" = "Spring Pastel";
+"환한 종이에 라즈베리" = "Raspberry on bright paper";
+"숲속 어둠" = "Forest Night";
+"짙은 초록 종이에 세이지" = "Sage on deep green paper";
+"바다" = "Sea";
+"서늘한 종이에 남색" = "Navy on cool paper";
+"장미" = "Rose";
+"따뜻한 종이에 장미빛" = "Rose on warm paper";

@@ -65,10 +65,10 @@ enum Theme {
     // MARK: 글자 — 넷
 
     /// 메모 본문. 읽는 글.
-    static let body = Font.system(size: 14)
+    static var body: Font { .system(size: scaled(14)) }
     /// 빠른 입력. 한 줄 적고 마는 자리라 크다.
-    static let capture = Font.system(size: 19, weight: .light)
-    static let title = Font.system(size: 13, weight: .semibold)
+    static var capture: Font { .system(size: scaled(19), weight: .light) }
+    static var title: Font { .system(size: scaled(13), weight: .semibold) }
 
     /// 꼬리에 적히는 글 — **숫자가 열을 이루는 자리다.**
     ///
@@ -81,95 +81,130 @@ enum Theme {
     /// 로 통째로 갈아 끼우면 한글이 그 글꼴에 없어 다른 얼굴로 떨어져 나가,
     /// 한 줄 안에서 두 글꼴이 섞인다. `monospacedDigit()` 은 같은 얼굴의 숫자만
     /// 등폭으로 바꾼다.
-    static let label = Font.system(size: 11).monospacedDigit()
-    static let micro = Font.system(size: 10).monospacedDigit()
-    static let microMono = Font.system(size: 10, design: .monospaced)
+    static var label: Font { .system(size: scaled(11)).monospacedDigit() }
+    static var micro: Font { .system(size: scaled(10)).monospacedDigit() }
+    static var microMono: Font { .system(size: scaled(10), design: .monospaced) }
 
-    static let bodyLineSpacing: CGFloat = 3
+    static var bodyLineSpacing: CGFloat { scaled(3) }
 
-    // MARK: 색
-
-    /// 앱 마크와 주요 행동 버튼이 공유하는 포레스트 색.
-    /// **면을 칠하는 색이다** — 글자에 쓰면 안 된다 (아래 `accentInk`).
-    static let accent = Color(red: 0.16, green: 0.32, blue: 0.27)
-    static let onAccent = Color(red: 0.98, green: 0.98, blue: 0.94)
-    static var softAccent: Color { accentInk.opacity(0.09) }
-    static var secondaryInk: Color { Paper.ink.opacity(0.64) }
-
-    /// 작은 글자와 아이콘은 다크 모드에서 밝은 세이지로 바꾼다.
-    static let accentInkNSColor = NSColor(name: nil) { appearance in
-        appearance.isDark
-            ? NSColor(srgbRed: 0.65, green: 0.83, blue: 0.73, alpha: 1)
-            : NSColor(srgbRed: 0.16, green: 0.32, blue: 0.27, alpha: 1)
+    /// 글자 한 칸(`ThemeOverrides.textStep`)만큼 키운 pt.
+    ///
+    /// **층의 비율은 건드리지 않는다.** 넷(본문·빠른 입력·제목·꼬리)이 같은
+    /// 비율로 함께 자란다 — 제목만 키우면 그건 큰 글자가 아니라 다른 디자인이다.
+    /// 반 칸으로 끊는 것은 글꼴이 그보다 잘게는 다르게 앉지 않기 때문이다.
+    static func scaled(_ points: CGFloat) -> CGFloat {
+        track()
+        return (points * CGFloat(ThemeRuntime.shared.resolved.textScale) * 2).rounded() / 2
     }
-    static var accentInk: Color { Color(nsColor: accentInkNSColor) }
-    /// 아이콘의 흘러내리는 획 색. 오늘·지금을 가리킬 때만 쓴다.
-    /// **면을 칠하는 색이다** — 글자에 쓰면 안 된다 (아래 `highlightInk`).
-    static let highlight = Color(red: 0.99, green: 0.76, blue: 0.31)
 
-    /// 같은 호박색을 **글자로 쓸 때.**
+    // MARK: 색 — 테마가 정한다
+
+    /// 그 외관에서 쓰는 색 한 벌 (`ThemeCatalog`). 그리는 닫힘 안에서도 부를 수
+    /// 있도록 메인에 매이지 않는다.
+    nonisolated static func variant(dark: Bool, highContrast: Bool = false) -> ThemeVariant {
+        ThemeRuntime.shared.variant(dark: dark, highContrast: highContrast)
+    }
+
+    /// 지금 그리는 화면의 한 벌 — SwiftUI 본문에서.
+    static func variant(_ scheme: ColorScheme) -> ThemeVariant {
+        track()
+        return ThemeRuntime.shared.variant(dark: scheme == .dark)
+    }
+
+    /// **이 종이가 어두운가** — 외관이 아니다.
+    ///
+    /// 「미드나잇」·「숲속 어둠」은 빛 모드에서도 어두운 종이다. 가장자리의 두께·
+    /// 그림자·주말 색을 `colorScheme` 으로 고르면 그 테마에서만 전부 뒤집힌다
+    /// (`ThemeVariant.darkPaper`).
+    static func papersDark(_ scheme: ColorScheme) -> Bool { variant(scheme).darkPaper }
+
+    /// **본문이 색을 읽었다고 알린다.**
+    ///
+    /// 색을 읽는 자리가 칠백 곳이라 그 전부를 관찰 대상으로 바꿀 수는 없었다.
+    /// 대신 색을 돌려주는 계산 속성이 여기를 스치고 간다 — SwiftUI 가 본문을
+    /// 부르는 동안이면 `ThemeStore.generation` 을 읽은 것이 되어, 테마를 바꾸면
+    /// 그 본문들이 다시 그려진다. 메인 밖에서 불리면(그리는 닫힘 안) 아무 일도
+    /// 하지 않는다: 그쪽은 `ThemeRuntime` 에서 값을 바로 읽으므로 알릴 것이 없다.
+    nonisolated static func track() {
+        guard Thread.isMainThread else { return }
+        MainActor.assumeIsolated { _ = ThemeStore.shared.generation }
+    }
+
+    /// 앱 마크와 주요 행동 버튼이 공유하는 강조색.
+    /// **면을 칠하는 색이다** — 글자에 쓰면 안 된다 (아래 `accentInk`).
+    static let accentNSColor = themedColor { $0.accent }
+    static var accent: Color { track(); return Color(nsColor: accentNSColor) }
+    static let onAccentNSColor = themedColor { $0.onAccent }
+    static var onAccent: Color { track(); return Color(nsColor: onAccentNSColor) }
+    static var softAccent: Color { accentInk.opacity(0.09) }
+
+    /// 둘째 줄·시각·안내. 잉크를 묽게 쓴다 (테마마다 묽기가 다르다).
+    static let secondaryInkNSColor = themedColor { $0.secondaryInk }
+    static var secondaryInk: Color { track(); return Color(nsColor: secondaryInkNSColor) }
+
+    /// 같은 강조색을 **작은 글자와 아이콘으로 쓸 때** — 어두운 종이에서는
+    /// 밝은 쪽으로 간다. 값은 테마가 정하고, 사용자가 색을 고른 경우에는
+    /// 앱이 종이 위에서 4.5:1 까지 끌어올려 만든다 (`ThemeVariant.applying`).
+    static let accentInkNSColor = themedColor { $0.accentInk }
+    static var accentInk: Color { track(); return Color(nsColor: accentInkNSColor) }
+
+    /// 오늘·지금을 가리키는 **면**. 글자에 쓰면 안 된다 (아래 `highlightInk`).
+    static let highlightNSColor = themedColor { $0.highlight }
+    static var highlight: Color { track(); return Color(nsColor: highlightNSColor) }
+
+    /// 같은 색을 **글자로 쓸 때.**
     ///
     /// 밝은 호박색은 미색 종이 위에서 읽히지 않는다 — 대비 1.5:1 로, 날짜
     /// 칩의 글씨가 "있는 줄은 알겠는데 안 읽히는" 상태였다. 앱이 대신 읽어
     /// 준 날짜는 **확인하라고 보여주는 것**이라 안 읽히면 아무 일도 안 한
-    /// 것과 같다.
-    ///
-    /// 그래서 빛 모드에서는 같은 색을 잉크 쪽으로 가라앉힌다(5.2:1). 어두운
-    /// 모드에서는 원래 호박색이 이미 또렷하므로(9.9:1) 그대로 쓴다.
-    static let highlightInkNSColor = NSColor(name: nil) { appearance in
-        appearance.isDark
-            ? NSColor(srgbRed: 0.99, green: 0.76, blue: 0.31, alpha: 1)
-            : NSColor(srgbRed: 0.56, green: 0.37, blue: 0.05, alpha: 1)
-    }
-    static var highlightInk: Color { Color(nsColor: highlightInkNSColor) }
+    /// 것과 같다. 그래서 밝은 종이에서는 잉크 쪽으로 가라앉힌다(5.2:1).
+    /// 여덟 테마가 전부 이 바닥 위에 있는지는 `ThemeContrastTests` 가 잰다.
+    static let highlightInkNSColor = themedColor { $0.highlightInk }
+    static var highlightInk: Color { track(); return Color(nsColor: highlightInkNSColor) }
 
     /// 호박색 칩의 바탕. 글자가 가라앉은 만큼 바탕도 또렷해져야 칩이
-    /// "붙은 딱지" 로 읽힌다. 세기를 외관마다 따로 잡는다.
-    static let highlightWashNSColor = NSColor(name: nil) { appearance in
-        appearance.isDark
-            ? NSColor(srgbRed: 0.99, green: 0.76, blue: 0.31, alpha: 0.18)
-            : NSColor(srgbRed: 0.97, green: 0.72, blue: 0.24, alpha: 0.38)
-    }
-    static var highlightWash: Color { Color(nsColor: highlightWashNSColor) }
+    /// "붙은 딱지" 로 읽힌다.
+    static let highlightWashNSColor = themedColor { $0.highlightWash }
+    static var highlightWash: Color { track(); return Color(nsColor: highlightWashNSColor) }
 
     /// 지우기. 종이 위에서 튀지 않을 만큼 죽인 붉은색 — 경고등이 아니라
     /// "다른 종류의 버튼" 이라는 표시다.
     ///
-    /// **원판을 칠하는 색이다.** 그 위에는 흰 글리프가 올라가므로 두 외관에서
-    /// 같은 값을 쓴다 — 밝히면 흰 글리프가 도리어 안 보인다.
+    /// **테마가 건드리지 않는다.** 되돌아오지 않는 쪽으로 가는 버튼의 색은
+    /// 종이의 취향이 아니라 약속이다 — 테마를 바꿨더니 지우기가 다른 색이면
+    /// 그 약속을 매번 다시 배워야 한다. 원판 위에는 흰 글리프가 올라가므로
+    /// 어느 종이에서나 같은 값이다.
     static let danger = Color(red: 0.76, green: 0.36, blue: 0.34)
 
-    /// 같은 붉은색을 **종이 위의 글자·그림으로 쓸 때.**
-    static let dangerInkNSColor = NSColor(name: nil) { appearance in
-        appearance.isDark
-            ? NSColor(srgbRed: 0.94, green: 0.58, blue: 0.54, alpha: 1)
-            : NSColor(srgbRed: 0.76, green: 0.36, blue: 0.34, alpha: 1)
-    }
-    static var dangerInk: Color { Color(nsColor: dangerInkNSColor) }
+    /// 같은 붉은색을 **종이 위의 글자·그림으로 쓸 때.** 어두운 종이에서 밝힌다.
+    static let dangerInkNSColor = paperAwareColor(
+        onLight: NSColor(srgbRed: 0.76, green: 0.36, blue: 0.34, alpha: 1),
+        onDark: NSColor(srgbRed: 0.94, green: 0.58, blue: 0.54, alpha: 1)
+    )
+    static var dangerInk: Color { track(); return Color(nsColor: dangerInkNSColor) }
 
-    /// 한국 달력 관행 — 일요일 빨강, 토요일 파랑.
+    /// 한국 달력 관행 — 일요일 빨강, 토요일 파랑. 이것도 테마 밖이다(관행이다).
     ///
-    /// 숯색 종이 위에서는 둘 다 밝은 쪽으로 올린다. 빛 모드의 값을 그대로 쓰면
-    /// 주말 숫자만 평일보다 흐려서, 관행을 지키려던 색이 도리어 그 이틀을
+    /// 어두운 종이 위에서는 둘 다 밝은 쪽으로 올린다. 밝은 종이의 값을 그대로
+    /// 쓰면 주말 숫자만 평일보다 흐려서, 관행을 지키려던 색이 도리어 그 이틀을
     /// 가장 안 읽히는 칸으로 만든다.
-    static let sundayNSColor = NSColor(name: nil) { appearance in
-        appearance.isDark
-            ? NSColor(srgbRed: 0.94, green: 0.52, blue: 0.50, alpha: 1)
-            : NSColor(srgbRed: 0.85, green: 0.35, blue: 0.35, alpha: 1)
-    }
-    static let saturdayNSColor = NSColor(name: nil) { appearance in
-        appearance.isDark
-            ? NSColor(srgbRed: 0.52, green: 0.68, blue: 0.96, alpha: 1)
-            : NSColor(srgbRed: 0.35, green: 0.50, blue: 0.82, alpha: 1)
-    }
-    static var sunday: Color { Color(nsColor: sundayNSColor) }
-    static var saturday: Color { Color(nsColor: saturdayNSColor) }
+    static let sundayNSColor = paperAwareColor(
+        onLight: NSColor(srgbRed: 0.85, green: 0.35, blue: 0.35, alpha: 1),
+        onDark: NSColor(srgbRed: 0.94, green: 0.52, blue: 0.50, alpha: 1)
+    )
+    static let saturdayNSColor = paperAwareColor(
+        onLight: NSColor(srgbRed: 0.35, green: 0.50, blue: 0.82, alpha: 1),
+        onDark: NSColor(srgbRed: 0.52, green: 0.68, blue: 0.96, alpha: 1)
+    )
+    static var sunday: Color { track(); return Color(nsColor: sundayNSColor) }
+    static var saturday: Color { track(); return Color(nsColor: saturdayNSColor) }
 
     // MARK: 움직임
 
-    /// 되살아나고 물러나는 속도. 튀거나 튕기지 않는다.
-    static let reveal = Animation.easeOut(duration: 0.18)
-    static let settle = Animation.easeInOut(duration: 0.28)
+    /// 되살아나고 물러나는 속도 — 낱말은 `Motion` 하나다. 종이가 또렷해지는 것과
+    /// 서랍의 줄이 밝아지는 것이 다른 속도면 같은 앱으로 안 읽힌다 (2026-09-18 모션 감사).
+    static var reveal: Animation { Motion.quick }
+    static var settle: Animation { Motion.settle }
 }
 
 // MARK: - 종이
@@ -194,7 +229,8 @@ struct PaperSurface: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var isDark: Bool { colorScheme == .dark }
+    /// 외관이 아니라 **이 테마의 종이가** 어두운가 (`Theme.papersDark`).
+    private var isDark: Bool { Theme.papersDark(colorScheme) }
 
     /// 종이 한 장의 색. 잉크를 종이로 눕히고 스미는 몫까지 `PaperTint` 가 잰다 —
     /// 그 값들은 여섯 장을 나란히 놓고 재야 옳은지 알 수 있어서 뷰 밖에 있다.
@@ -213,12 +249,19 @@ struct PaperSurface: View {
                     //
                     // 숯색 종이에서 조금 더 진한 것은 앞선 판과 같은 이유다:
                     // 어두운 바탕에서 옅은 점은 점이 아니라 잡티로 보인다.
-                    DotGrid(color: tint.opacity(isDark ? 0.08 : 0.07))
+                    // 세기는 테마가 정한다. 무채로 가는 테마는 색까지 고정한다
+                    // (`ThemeVariant.ruleInk`) — 그 종이에서는 점도 색을 띠지 않는다.
+                    DotGrid(color: (Theme.variant(colorScheme).ruleInk?.color ?? tint)
+                        .opacity(Theme.variant(colorScheme).ruleOpacity))
                 }
             }
             .overlay {
-                PaperGrain()
-                    .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+                // 결은 꺼 둘 수 있다 (`ThemeOverrides.paperTexture`) — 아주 옅지만
+                // 매끈한 면을 좋아하는 사람이 있다.
+                if ThemeRuntime.shared.resolved.paperTexture {
+                    PaperGrain()
+                        .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+                }
             }
     }
 }
@@ -286,7 +329,8 @@ struct RaisedSurface: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let fill = Color(nsColor: PaperTint.raised(ink: ink, dark: colorScheme == .dark))
+        let dark = Theme.papersDark(colorScheme)
+        let fill = Color(nsColor: PaperTint.raised(ink: ink, dark: dark))
         Group {
             if let radius {
                 RoundedRectangle(cornerRadius: radius, style: .continuous).fill(fill)
@@ -299,11 +343,11 @@ struct RaisedSurface: View {
         // 붙는다. 실제 물건은 둘을 동시에 한다 — 닿는 자리에 좁고 진한 그림자가
         // 있고, 그 둘레로 넓고 옅은 그림자가 퍼진다.
         .shadow(
-            color: .black.opacity(colorScheme == .dark ? 0.20 : 0.06),
+            color: .black.opacity(dark ? 0.20 : 0.06),
             radius: 1, y: 0.5
         )
         .shadow(
-            color: .black.opacity(colorScheme == .dark ? 0.16 : 0.06),
+            color: .black.opacity(dark ? 0.16 : 0.06),
             radius: shadow * 1.6, y: lift + 1
         )
     }
@@ -342,7 +386,7 @@ struct PaperEdge: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let dark = colorScheme == .dark
+        let dark = Theme.papersDark(colorScheme)
         RoundedRectangle(cornerRadius: radius, style: .continuous)
             .strokeBorder(
                 LinearGradient(

@@ -14,19 +14,19 @@ import SwiftUI
 /// 종이가 색에 잡아먹히지 않는다.
 extension MemoColor {
     /// 종이에 스며든 색. 채도가 아니라 **온기**로 구분된다.
+    ///
+    /// 숫자는 테마가 들고 있다 (`ThemeCatalog`). 보라가 파랑 쪽에서 한 걸음
+    /// 물러나 있는 이유는 어느 테마에서나 같다 — 색상환에서 47° 밖에 안 떨어져
+    /// 있으면 두 종이가 나란히 놓였을 때 같은 장으로 보인다 (`PaperPaletteTests`
+    /// 의 가장 닮은 두 장이 늘 이 둘이었다). 종이에 스미면 채도가 절반 아래로
+    /// 눌리므로 잉크에서 벌려 두어야 하고, 그 거리는 여덟 테마 전부에서 잰다
+    /// (`ThemeContrastTests`).
+    ///
+    /// **외관을 따지지 않는다.** 어둠을 감당하는 것은 잉크를 종이로 눕히는
+    /// 비율(`PaperTint`)이고, 잉크까지 둘로 나누면 같은 일을 두 곳에서 한다.
     var ink: Color {
-        switch self {
-        case .yellow: Color(red: 0.82, green: 0.66, blue: 0.28)
-        case .green: Color(red: 0.42, green: 0.62, blue: 0.42)
-        case .blue: Color(red: 0.36, green: 0.55, blue: 0.72)
-        // 보라는 파랑 쪽에서 한 걸음 물러나 있다. 색상환에서 47° 밖에 안
-        // 떨어져 있던 때에는 두 종이가 나란히 놓였을 때 같은 장으로 보였다
-        // (`PaperPaletteTests` 의 가장 닮은 두 장이 늘 이 둘이었다) — 종이에
-        // 스미면 채도가 절반 아래로 눌리므로 잉크에서 벌려 두어야 한다.
-        case .purple: Color(red: 0.58, green: 0.44, blue: 0.72)
-        case .pink: Color(red: 0.78, green: 0.48, blue: 0.56)
-        case .gray: Color(red: 0.52, green: 0.51, blue: 0.48)
-        }
+        Theme.track()
+        return ThemeRuntime.shared.resolved.ink(self).color
     }
 
     /// 점·막대처럼 작게 찍을 때.
@@ -45,26 +45,23 @@ extension MemoColor {
 }
 
 enum Paper {
-    /// 종이 바탕. 라이트는 미색, 다크는 따뜻한 숯색.
+    /// 종이 바탕. 기본 테마는 라이트가 미색, 다크가 따뜻한 숯색이다.
     ///
     /// 다크 모드에서 밝은 종이를 그대로 두면 어두운 화면에 흰 판이 박혀
-    /// 눈이 아프다. 검은 문구류가 실제로 있고 그쪽이 훨씬 낫다.
-    static let surfaceNSColor = NSColor(name: nil) { appearance in
-        appearance.isDark
-            ? NSColor(srgbRed: 0.137, green: 0.129, blue: 0.118, alpha: 1)
-            : NSColor(srgbRed: 0.980, green: 0.969, blue: 0.949, alpha: 1)
-    }
+    /// 눈이 아프다. 검은 문구류가 실제로 있고 그쪽이 훨씬 낫다. 「미드나잇」
+    /// 처럼 **빛 모드에서도 어두운** 종이를 고르는 테마도 있다.
+    static let surfaceNSColor = themedColor { $0.surface }
+
+    /// 목록의 종이 한 장 — 바탕과 명도만 달리해 내용의 경계를 만든다.
+    static let cardNSColor = themedColor { $0.card }
 
     /// 종이 위의 잉크.
-    static let inkNSColor = NSColor(name: nil) { appearance in
-        appearance.isDark
-            ? NSColor(srgbRed: 0.902, green: 0.886, blue: 0.855, alpha: 1)
-            : NSColor(srgbRed: 0.161, green: 0.149, blue: 0.129, alpha: 1)
-    }
+    static let inkNSColor = themedColor { $0.ink }
 
-    static var surface: Color { Color(nsColor: surfaceNSColor) }
-    static var ink: Color { Color(nsColor: inkNSColor) }
-    static var fadedInk: Color { Color(nsColor: inkNSColor).opacity(0.52) }
+    static var surface: Color { Theme.track(); return Color(nsColor: surfaceNSColor) }
+    static var card: Color { Theme.track(); return Color(nsColor: cardNSColor) }
+    static var ink: Color { Theme.track(); return Color(nsColor: inkNSColor) }
+    static var fadedInk: Color { Theme.track(); return Color(nsColor: inkNSColor).opacity(0.52) }
 
     /// 본문 안의 링크.
     ///
@@ -73,18 +70,49 @@ enum Paper {
     /// 같은 일이라 여기서도 외관마다 따로 잡는다 (§8.2).
     /// 재는 자리는 맨 종이가 아니라 **여섯 색 중 가장 불리한 종이**다 —
     /// 링크는 어느 색 종이에도 붙는다.
-    static let linkNSColor = NSColor(name: nil) { appearance in
-        appearance.isDark
-            ? NSColor(srgbRed: 0.56, green: 0.75, blue: 1.0, alpha: 1)
-            : NSColor(srgbRed: 0.20, green: 0.40, blue: 0.66, alpha: 1)
-    }
-    static var linkColor: Color { Color(nsColor: linkNSColor) }
+    static let linkNSColor = themedColor { $0.link }
+    static var linkColor: Color { Theme.track(); return Color(nsColor: linkNSColor) }
 
     /// 글줄 간격. 좋은 종이는 글이 숨 쉴 자리를 준다.
-    static let linePitch: CGFloat = 23
-    static let bodySize: CGFloat = 14
+    /// 글자를 한 칸 키우면 줄 간격과 점 격자도 함께 자란다 — 글만 커지면
+    /// 줄이 서로 붙는다 (`Theme.scaled`).
+    static var linePitch: CGFloat { Theme.scaled(23) }
+    static var bodySize: CGFloat { Theme.scaled(14) }
     /// 도트 그리드 간격.
-    static let dotPitch: CGFloat = 23
+    static var dotPitch: CGFloat { Theme.scaled(23) }
+}
+
+// MARK: - 테마를 읽는 색
+
+/// **그릴 때 테마를 읽는 색 하나.**
+///
+/// 객체는 하나로 고정된다. 마크다운 칠하기가 글자에 색 *객체* 를 물려 두므로
+/// (`MarkdownStyler`), 테마마다 새 객체를 만들면 이미 칠해 둔 글은 옛 색에
+/// 남는다 — 값만 갈리고 객체는 그대로여야 한다. 동적 색은 그릴 때 해석되므로
+/// 창을 다시 그리게 하는 것만으로 새 색이 앉는다 (`ThemeStore.redrawAppKit`).
+func themedColor(_ pick: @escaping @Sendable (ThemeVariant) -> ThemeRGB) -> NSColor {
+    NSColor(name: nil) { appearance in
+        pick(ThemeRuntime.shared.variant(
+            dark: appearance.isDark, highContrast: appearance.wantsHighContrast
+        )).nsColor
+    }
+}
+
+/// 테마가 정하지 않는 색 중 **종이의 밝기만 따르는** 것 — 지우기의 붉은색,
+/// 달력의 주말. 외관이 아니라 그 테마의 종이가 어두운가로 고른다.
+func paperAwareColor(onLight: NSColor, onDark: NSColor) -> NSColor {
+    NSColor(name: nil) { appearance in
+        ThemeRuntime.shared.variant(
+            dark: appearance.isDark, highContrast: appearance.wantsHighContrast
+        ).darkPaper ? onDark : onLight
+    }
+}
+
+extension ThemeRGB {
+    var nsColor: NSColor {
+        NSColor(srgbRed: CGFloat(red), green: CGFloat(green), blue: CGFloat(blue), alpha: CGFloat(alpha))
+    }
+    var color: Color { Color(nsColor: nsColor) }
 }
 
 // MARK: - 잉크를 종이로
@@ -139,13 +167,31 @@ public enum PaperTint {
 
     public static func recipe(dark isDark: Bool) -> Recipe { isDark ? dark : light }
 
+    /// **그 외관에서 지금 테마의 종이 한 벌.**
+    ///
+    /// 앞선 판은 외관만 알면 종이를 알았다. 테마가 여덟이 되면서 그 둘이 갈렸다 —
+    /// 「미드나잇」은 빛 모드에서도 어두운 종이라, 외관으로 비율을 고르면 숯색
+    /// 바탕에 미색 종이의 비율(19%·밝기 0.95)이 얹혀 여섯 장이 전부 밝은 색 판이
+    /// 된다. 그래서 **그 종이가 실제로 어두운가**(`darkPaper`)로 고른다.
+    ///
+    /// 한 벌을 인자로 받는 갈래를 함께 두는 이유는 시험 때문이다. 여덟 테마를
+    /// 재려면 전역을 여덟 번 갈아 끼워야 하는데, 그러면 나란히 도는 다른 시험이
+    /// 남의 테마에서 색을 잰다.
+    public static func variant(dark isDark: Bool) -> ThemeVariant {
+        ThemeRuntime.shared.variant(dark: isDark)
+    }
+
     /// 잉크를 종이 색으로 눕힌다.
     public static func papered(_ ink: Color, dark isDark: Bool) -> NSColor? {
+        papered(ink, on: variant(dark: isDark))
+    }
+
+    public static func papered(_ ink: Color, on variant: ThemeVariant) -> NSColor? {
         guard let rgb = NSColor(ink).usingColorSpace(.sRGB) else { return nil }
         var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
         rgb.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
 
-        let recipe = recipe(dark: isDark)
+        let recipe = recipe(dark: variant.darkPaper)
         return NSColor(
             hue: hue,
             saturation: min(saturation * 1.5, recipe.saturationCap),
@@ -154,17 +200,10 @@ public enum PaperTint {
         ).usingColorSpace(.sRGB)
     }
 
-    /// 그 외관에서 쓰는 맨 종이. 동적 색을 sRGB 로 바꾸는 순간 "지금 그리는
-    /// 외관" 으로 굳으므로 반드시 해당 외관 **안에서** 해석해야 한다
-    /// (화면 밖 렌더가 그렇다).
-    public static func base(dark isDark: Bool) -> NSColor {
-        var base = NSColor.white
-        NSAppearance(named: isDark ? .darkAqua : .aqua)?
-            .performAsCurrentDrawingAppearance {
-                base = Paper.surfaceNSColor.usingColorSpace(.sRGB) ?? .white
-            }
-        return base
-    }
+    /// 그 외관에서 쓰는 맨 종이.
+    public static func base(dark isDark: Bool) -> NSColor { base(variant(dark: isDark)) }
+
+    public static func base(_ variant: ThemeVariant) -> NSColor { variant.surface.opaque.nsColor }
 
     /// 종이 위에 **떠 있는 조각** — 겹쳐 뜨는 조작 캡슐의 면.
     ///
@@ -176,17 +215,25 @@ public enum PaperTint {
     /// 종이의 색을 그대로 들고 올라간다 — 재질은 하나이므로(§14.5) 떠 있는
     /// 조각도 같은 종이의 한 조각이다.
     public static func raised(ink: Color, dark isDark: Bool) -> NSColor {
-        let paper = surface(ink: ink, dark: isDark)
+        raised(ink: ink, on: variant(dark: isDark))
+    }
+
+    public static func raised(ink: Color, on variant: ThemeVariant) -> NSColor {
+        let paper = surface(ink: ink, on: variant)
         // 어두운 종이에서는 조금만 올려도 뜬다. 밝은 종이에서는 흰 쪽으로
         // 크게 당겨야 미색 바탕에서 갈린다.
-        return paper.blended(withFraction: isDark ? 0.16 : 0.55, of: .white) ?? paper
+        return paper.blended(withFraction: variant.darkPaper ? 0.16 : 0.55, of: .white) ?? paper
     }
 
     /// 완성된 종이 한 장. `presence` 는 나이가 남긴 몫이다 (철학 3).
     public static func surface(ink: Color, dark isDark: Bool, presence: Double = 1) -> NSColor {
-        let base = base(dark: isDark)
-        let bleed = recipe(dark: isDark).bleed * (0.4 + 0.6 * presence)
-        guard let tint = papered(ink, dark: isDark),
+        surface(ink: ink, on: variant(dark: isDark), presence: presence)
+    }
+
+    public static func surface(ink: Color, on variant: ThemeVariant, presence: Double = 1) -> NSColor {
+        let base = base(variant)
+        let bleed = recipe(dark: variant.darkPaper).bleed * (0.4 + 0.6 * presence)
+        guard let tint = papered(ink, on: variant),
               let mixed = base.blended(withFraction: bleed, of: tint)
         else { return base }
         return mixed
@@ -196,5 +243,14 @@ public enum PaperTint {
 extension NSAppearance {
     var isDark: Bool {
         bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+    }
+
+    /// 손쉬운 사용의 「대비 높이기」가 켜져 있는가 — 테마가 그 벌을 따로 든다
+    /// (`ThemeSpec.variant(dark:highContrast:)`).
+    var wantsHighContrast: Bool {
+        let match = bestMatch(from: [
+            .aqua, .darkAqua, .accessibilityHighContrastAqua, .accessibilityHighContrastDarkAqua,
+        ])
+        return match == .accessibilityHighContrastAqua || match == .accessibilityHighContrastDarkAqua
     }
 }

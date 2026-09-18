@@ -441,3 +441,17 @@
 "지금 판" = "Current Version";
 "brew 명령 복사" = "Copy brew Command";
 "%@ 으로 바꾸기" = "Update to %@";
+
+/* 설정 창의 「테마」 절 (ThemeSection) */
+"테마" = "Theme";
+"직접 고르기" = "Choose Your Own";
+"강조색" = "Accent";
+"종이에 스미는 색" = "Paper Tint";
+"글자 크기" = "Text Size";
+"작게" = "Small";
+"기본" = "Default";
+"크게" = "Large";
+"더 크게" = "Larger";
+"종이 결" = "Paper Grain";
+"기본으로" = "Reset";
+"고른 색이 글을 가릴 만큼 흐리면 읽히는 데까지 되끌어 올려 씁니다. 테마는 이 맥에만 남습니다 — 기기 밖으로 나가지 않습니다" = "If a color you pick would hide the text, it's pulled back until it reads. Themes stay on this Mac — nothing leaves the device";

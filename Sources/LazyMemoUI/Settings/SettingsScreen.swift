@@ -136,6 +136,7 @@ struct SettingsView: View {
         Form {
             input
             paper
+            ThemeSection(store: ThemeStore.shared)
             vault
             places
             together

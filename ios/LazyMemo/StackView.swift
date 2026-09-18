@@ -15,6 +15,7 @@ struct StackView: View {
 
     @Environment(\.undoManager) private var undoManager
     @Environment(\.openURL) private var openURL
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var opened: ULID?
     @State private var dating: ULID?
     @State private var showsTrash = false
@@ -26,6 +27,7 @@ struct StackView: View {
     @State private var showsTutorial = false
     @State private var showsReminders = false
     @State private var showsRoutes = false
+    @State private var showsTheme = false
     @State private var reminders = ReminderCenter.shared
     /// 「지금」 띠의 시계. 분이 바뀌면 다시 재고, 자정을 넘기면 「오늘」이 바뀐다.
     @State private var clock = Date()
@@ -44,10 +46,14 @@ struct StackView: View {
     }
 
     /// 「지금」에 오른 것은 목록에서 뺀다 — 같은 줄이 두 번 서면 화면이 무겁다.
-    private var listed: [Memo] {
+    ///
+    /// **카드를 밖에서 받는다.** 계산 속성이던 때에는 `listed` 를 볼 때마다
+    /// `nowCards` 가 메모를 통째로 다시 훑었고, `body` 한 번에 둘 다 예닐곱 번씩
+    /// 읽혀 목록을 열 번 넘게 셌다. 지금은 `body` 가 한 번 세어 들고 다닌다.
+    private func listed(excluding cards: [Recall.Card]) -> [Memo] {
         // 비서가 목록을 정했으면(근거·관련·후보) 폴더로 거르지 않는다 — 그 목록은 답의 일부다.
         let all = pen.shown ?? MemoFolders.filter(pen.found ?? store.active, folder: folders.selected)
-        let risen = Set(nowCards.map(\.id))
+        let risen = Set(cards.map(\.id))
         return risen.isEmpty ? all : all.filter { !risen.contains($0.id) }
     }
 
@@ -56,7 +62,11 @@ struct StackView: View {
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
+        // **한 번만 센다.** 「지금」도 목록도 메모 전부를 훑는 일이라, 화면을
+        // 그릴 때마다 여러 번 읽히면 그 자체가 스크롤을 붙잡는다.
+        let cards = nowCards
+        let rows = listed(excluding: cards)
+        return ScrollViewReader { proxy in
             List {
                 // 폴더 띠는 목록의 머리다 — 큰 제목 밑에서 내용과 함께 스크롤된다.
                 // 안전 영역 인셋으로 두면 큰 제목이 그려지지 않는다.
@@ -66,10 +76,10 @@ struct StackView: View {
                     .listRowSeparator(.hidden)
 
                 // 비서의 답·결과 — 「지금」보다 위, 목록 맨 위에 선다. 목록은 그 답의 근거·후보로 갈려 있다 (`PenModel.reflectAssistant`).
-                if let assistant, pen.pendingQuestion == nil { assistantBlock(assistant) }
+                if let assistant, pen.pendingQuestion == nil { assistantBlock(assistant, listed: rows.count) }
 
-                if !nowCards.isEmpty {
-                    NowBand(cards: nowCards, now: clock, open: open, putDown: putDown, postpone: postpone, pin: pin, delete: delete)
+                if !cards.isEmpty {
+                    NowBand(cards: cards, now: clock, open: open, putDown: putDown, postpone: postpone, pin: pin, delete: delete)
                 }
 
                 // 조용히 지나가면 안 되는 실패 — 저장이 안 되고 있으면 여기 선다.
@@ -86,7 +96,7 @@ struct StackView: View {
                         .listRowSeparator(.hidden)
                 }
 
-                if let heading = listingHeading {
+                if let heading = listingHeading(listed: rows.count) {
                     Text(heading)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -99,17 +109,17 @@ struct StackView: View {
                     // 전부다 — 적는 중에 「없어요」라는 큰 제목이 서면 새 메모를 쓰는 사람이
                     // 무언가 틀린 것처럼 읽는다. 펜은 적기가 먼저고 찾기는 곁이다.
                     let scope = MemoFolders.filter(store.active, folder: folders.selected).count
-                    Text(listed.isEmpty ? emptyScopeLine(scope) : String(localized: "\(scope)장 중 \(listed.count)장"))
+                    Text(rows.isEmpty ? emptyScopeLine(scope) : String(localized: "\(scope)장 중 \(rows.count)장"))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
-                        .accessibilityIdentifier(listed.isEmpty ? "search-empty" : "scope")
+                        .accessibilityIdentifier(rows.isEmpty ? "search-empty" : "scope")
                 }
 
                 // 띠가 서 있으면 아래는 「나머지」다 — 머리와 몸이 다른 것임을 한 줄이 적는다.
-                if !nowCards.isEmpty, !listed.isEmpty {
-                    Text("나머지 \(listed.count)장")
+                if !cards.isEmpty, !rows.isEmpty {
+                    Text("나머지 \(rows.count)장")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .padding(.leading, 4)
@@ -120,7 +130,7 @@ struct StackView: View {
                         .listRowSeparator(.hidden)
                 }
 
-                ForEach(listed) { memo in
+                ForEach(rows) { memo in
                     // 후보 목록의 줄은 여는 것이 아니라 고르는 것 — 그 메모에게 같은 말을 한다 (D10).
                     Button { if pen.listing == .candidates, pen.shown != nil { pen.pick(memo.id) } else { open(memo) } } label: {
                         MemoRowView(memo: memo)
@@ -132,7 +142,10 @@ struct StackView: View {
                         RoundedRectangle(cornerRadius: 18)
                             .fill(reveal.target == memo.id ? Color.accentColor.opacity(0.14) : .clear)
                             .padding(.horizontal, 8)
-                            .animation(.easeOut(duration: 0.6), value: reveal.target)
+                            // 0.6초였다 — 밝아지는 데만 그만큼 걸려서 「방금 생긴
+                            // 줄」이 1.4초 중 절반을 켜지는 데 썼다 (`Reveal`).
+                            // 앱이 함께 쓰는 낱말로 (`Motion.settle`).
+                            .animation(Motion.settle(reduceMotion), value: reveal.target)
                     )
                     .listRowSeparator(.hidden)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -177,7 +190,7 @@ struct StackView: View {
                     }
                 }
 
-                if listed.isEmpty, !searching, nowCards.isEmpty {
+                if rows.isEmpty, !searching, cards.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "square.and.pencil")
                             .font(.system(size: 28, weight: .light))
@@ -206,7 +219,7 @@ struct StackView: View {
             .scrollDismissesKeyboard(.immediately)
             .onChange(of: reveal.target) { _, target in
                 guard let target else { return }
-                withAnimation(.snappy) { proxy.scrollTo(target, anchor: .top) }
+                withAnimation(Motion.fly(reduceMotion)) { proxy.scrollTo(target, anchor: .top) }
             }
         }
         .navigationTitle("메모")
@@ -253,6 +266,15 @@ struct StackView: View {
             }
             .presentationDetents([.medium, .large])
         }
+        .sheet(isPresented: $showsTheme) {
+            NavigationStack {
+                ThemeSettingsView(settings: session.settings)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) { Button("닫기") { showsTheme = false } }
+                    }
+            }
+            .presentationDetents([.medium, .large])
+        }
         // 분이 바뀔 때마다 「지금」을 다시 잰다. 앞으로 올 때·시계가 크게 뛸 때도.
         .task {
             while !Task.isCancelled {
@@ -267,7 +289,7 @@ struct StackView: View {
             seen = NowSeen.load()
         }
         // 앞에 있는 동안 배너에서 눌렀을 때는 앞으로 오는 순간이 없다 — 센터가 오른 수를 보고 읽는다.
-        .onChange(of: reminders.seenVersion) { _, _ in withAnimation(.snappy) { seen = NowSeen.load() } }
+        .onChange(of: reminders.seenVersion) { _, _ in withAnimation(Motion.quick(reduceMotion)) { seen = NowSeen.load() } }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in clock = Date() }
         // 폴더를 지우는 것은 되돌릴 수 없다 (이름표가 떨어진다) — 한 번 묻는다.
         .confirmationDialog(
@@ -321,6 +343,8 @@ struct StackView: View {
                     .accessibilityIdentifier("reminders-button")
                 Button { showsRoutes = true } label: { Label("가는 길", systemImage: "bus") }
                     .accessibilityIdentifier("routes-button")
+                Button { showsTheme = true } label: { Label("테마", systemImage: "paintpalette") }
+                    .accessibilityIdentifier("theme-button")
                 Button { showsTutorial = true } label: { Label("사용법", systemImage: "questionmark.circle") }
                     .accessibilityIdentifier("tutorial-button")
             } label: {
@@ -333,12 +357,12 @@ struct StackView: View {
     // MARK: 비서 — 답·결과·되물음이 목록 위에 선다 (quick-capture-assistant D8·D9·D10·D11)
 
     /// 비서가 정한 목록의 이름. 검색이면 nil — 그때는 범위 줄이 선다.
-    private var listingHeading: String? {
+    private func listingHeading(listed: Int) -> String? {
         guard pen.shown != nil else { return nil }
         switch pen.listing {
         case .search: return nil
         case .reading: return String(localized: "「\(pen.asked ?? "")」 · 이 중에서 읽는 중")
-        case .evidence: return String(localized: "근거 \(listed.count)장")
+        case .evidence: return String(localized: "근거 \(listed)장")
         case .related: return String(localized: "관련 메모")
         case .candidates: return String(localized: "어느 메모? 누르면 그 메모에게 합니다")
         }
@@ -356,7 +380,7 @@ struct StackView: View {
     }
 
     @ViewBuilder
-    private func assistantBlock(_ assistant: AssistantModel) -> some View {
+    private func assistantBlock(_ assistant: AssistantModel, listed: Int) -> some View {
         switch assistant.phase {
         case .idle, .thinking:
             EmptyView()
@@ -666,7 +690,7 @@ struct StackView: View {
 
     /// 「봤어요」 — 이 등장의 이름표를 적어 둔다. 시각을 미루거나 날이 바뀌면 다시 오른다.
     private func putDown(_ card: Recall.Card) {
-        withAnimation(.snappy) { seen[card.id] = card.stamp }
+        withAnimation(Motion.quick(reduceMotion)) { seen[card.id] = card.stamp }
         NowSeen.save(seen, now: clock)
     }
 

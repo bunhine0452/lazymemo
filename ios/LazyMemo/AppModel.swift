@@ -59,9 +59,12 @@ final class AppModel {
             SpotlightCenter.shared.start(store: store)
             // 홈 화면의 위젯도 같은 파일을 본다 — 바뀌면 다시 그리게 한다.
             WidgetRefresher.shared.start(store: store)
+            let settings = SettingsStore(location: resolved.paths.settings)
+            // 맥에서 고른 테마가 시트를 열기 전에도 폰에 앉게 — 같은 settings.json 을 읽는다.
+            ThemeModel.shared.attach(settings: settings)
             phase = .ready(Session(
                 store: store,
-                settings: SettingsStore(location: resolved.paths.settings),
+                settings: settings,
                 draft: CaptureDraftStore(location: resolved.paths.captureDraft),
                 usingCloud: resolved.usingCloud,
                 assistant: AssistantModel(service: store.service, support: resolved.paths.support)
