@@ -39,11 +39,14 @@ public enum MarkdownScanner {
         let source = text as NSString
         var result: [Span] = []
 
+        var lines: [(String, NSRange)] = []
         source.enumerateSubstrings(in: NSRange(location: 0, length: source.length), options: [.byLines]) {
             line, lineRange, _, _ in
             guard let line else { return }
+            lines.append((line, lineRange))
             result.append(contentsOf: scanLine(line, at: lineRange, in: text))
         }
+        result.append(contentsOf: scanTables(lines))
 
         // 가는 길의 절은 한 덩어리다 — 줄마다 감추면 커서가 한 줄에 들어갔을 때 그 줄만 보인다.
         if let section = RouteNote.sectionRange(in: text) {
@@ -102,6 +105,46 @@ public enum MarkdownScanner {
         let remainder = body.substring(from: contentStart)
         result.append(contentsOf: scanInline(remainder, offset: lineRange.location + contentStart))
         return result
+    }
+
+    // MARK: 표
+
+    /// `| 구분 | 금액 |` 줄 — 비서가 정리한 메모(`Digest`)가 값이 여럿일 때 적는 모양이다.
+    ///
+    /// 글자를 바꾸지 않고 꾸민다는 규칙(§15.1) 안에서 할 수 있는 것은 셋이다: 세로선을 마커로
+    /// 눌러 두고, `| --- |` 줄은 통째로 마커라 흐려지며, 바로 위의 머리 줄은 굵게. 칸을 열로 맞추려면
+    /// 글자를 탭으로 바꿔야 해서 하지 않는다 — 커서가 그 줄에 오면 세로선이 도로 보이니 고칠 수 있다.
+    private static func scanTables(_ lines: [(String, NSRange)]) -> [Span] {
+        var result: [Span] = []
+        for (index, (line, lineRange)) in lines.enumerated() {
+            guard isTableRow(line) else { continue }
+            if isTableRule(line) {
+                result.append(Span(range: lineRange, kind: .syntax))
+                continue
+            }
+            let body = line as NSString
+            var pipes: [Int] = []
+            for i in 0..<body.length where body.character(at: i) == 0x7C { pipes.append(i) }   // `|`
+            for i in pipes {
+                result.append(Span(range: NSRange(location: lineRange.location + i, length: 1), kind: .syntax))
+            }
+            // 머리 줄 — 다음 줄이 `| --- |` 이면 이 줄의 칸들이 제목이다.
+            guard index + 1 < lines.count, isTableRule(lines[index + 1].0) else { continue }
+            for (a, b) in zip(pipes, pipes.dropFirst()) where b - a > 1 {
+                let cell = NSRange(location: lineRange.location + a + 1, length: b - a - 1)
+                result.append(Span(range: cell, kind: .strong))
+            }
+        }
+        return result
+    }
+
+    private static func isTableRow(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        return trimmed.count >= 3 && trimmed.hasPrefix("|") && trimmed.hasSuffix("|")
+    }
+
+    private static func isTableRule(_ line: String) -> Bool {
+        line.wholeMatch(of: /[ \t]*\|(?:[ \t]*:?-+:?[ \t]*\|)+[ \t]*/) != nil
     }
 
     // MARK: 인라인

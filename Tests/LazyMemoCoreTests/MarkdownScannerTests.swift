@@ -12,6 +12,22 @@ struct MarkdownScannerTests {
         MarkdownScanner.spans(in: text).first { predicate($0.kind) }
     }
 
+    @Test("표 — 세로선과 구분 줄은 마커, 머리 줄의 칸은 굵게")
+    func stylesTables() {
+        let text = "| 구분 | 금액 |\n| --- | --- |\n| 시급 | 10,320원 |"
+        let spans = MarkdownScanner.spans(in: text)
+        let ns = text as NSString
+        // 머리 줄 세로선 셋, 본문 줄 세로선 셋, 구분 줄 하나 = 마커 일곱
+        let syntax = spans.filter { $0.kind == .syntax }
+        #expect(syntax.count == 7)
+        #expect(syntax.contains { ns.substring(with: $0.range) == "| --- | --- |" })
+        // 머리 줄의 칸 둘이 굵게 — 본문 줄은 아니다
+        let strong = spans.filter { $0.kind == .strong }.map { ns.substring(with: $0.range).trimmingCharacters(in: .whitespaces) }
+        #expect(strong == ["구분", "금액"])
+        // 세로선으로 시작하지 않는 줄은 표가 아니다
+        #expect(!MarkdownScanner.spans(in: "a | b").contains { $0.kind == .syntax })
+    }
+
     @Test("제목의 단계를 읽는다")
     func readsHeadingLevels() {
         #expect(kinds("# 큰 제목").contains(.heading(level: 1)))
