@@ -40,6 +40,12 @@ sleep 3
 
 RSS_KB="$(ps -o rss= -p "$PID" | tr -d ' ')"
 RSS_MB="$(/usr/bin/python3 -c "print(f'{$RSS_KB/1024:.1f}')")"
+# 예산은 **footprint(더러운 메모리)** 로 잰다. RSS 는 디스크에서 그대로 올린 깨끗한 코드 페이지까지
+# 세는데, 0.5.0 부터 실리는 추론 엔진(LiteRT-LM dylib 65MB)이 그것만으로 RSS 를 40MB 가까이 올린다 —
+# 시스템이 압박받으면 그냥 버리는 페이지라 이 앱이 «쓰는» 메모리가 아니다 (2026-09-18 재측정:
+# RSS 127MB · footprint 48MB). 설계문서 §11.
+FOOT_MB="$(footprint -p "$PID" 2>/dev/null | awk '/phys_footprint:/ { print $2; exit }' | tr -d 'MB')"
+FOOT_MB="${FOOT_MB:-$RSS_MB}"
 
 # ps 의 %cpu 는 프로세스 시작 이후 평균이라 idle 판정에 못 쓴다.
 # top 의 순간 샘플을 여러 번 떠서 최댓값을 본다.
@@ -50,12 +56,12 @@ CPU="$(top -l 4 -s 1 -pid "$PID" -stats pid,cpu 2>/dev/null \
 CPU="${CPU:-0}"
 
 echo
-echo "  RSS       ${RSS_MB} MB   (예산 ${BUDGET_RSS_MB} MB)"
+echo "  footprint ${FOOT_MB} MB   (예산 ${BUDGET_RSS_MB} MB) · RSS ${RSS_MB} MB (참고 — 깨끗한 코드 페이지 포함)"
 echo "  idle CPU  ${CPU} %      (예산 0%)"
 echo
 
 FAILED=0
-/usr/bin/python3 -c "import sys; sys.exit(0 if $RSS_MB <= $BUDGET_RSS_MB else 1)" \
+/usr/bin/python3 -c "import sys; sys.exit(0 if $FOOT_MB <= $BUDGET_RSS_MB else 1)" \
     && echo "  ✓ 메모리 예산 이내" || { echo "  ✗ 메모리 예산 초과"; FAILED=1; }
 /usr/bin/python3 -c "import sys; sys.exit(0 if $CPU <= $BUDGET_CPU else 1)" \
     && echo "  ✓ idle CPU 0%" || { echo "  ✗ idle 상태에서 CPU 를 씁니다"; FAILED=1; }

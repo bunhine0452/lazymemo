@@ -557,7 +557,7 @@ Claude Desktop 은 외부 앱이 프롬프트를 보내고 결과를 받는 경�
 
 | 항목 | 목표 | 실측 | 근거·방법 |
 |---|---|---|---|
-| 메모 10장 표시 시 RSS | ≤ 100MB | **88.8MB** | `scripts/verify-performance.sh` (release 빌드, 창 10개 확인 후 3초 안정화) |
+| 메모 10장 표시 시 메모리 | ≤ 100MB (footprint) | **48MB** footprint · RSS 127MB (2026-09-18 재측정; 0.4 판은 RSS 88.8MB) | `scripts/verify-performance.sh` (release 빌드, 창 10개 확인 후 3초 안정화). RSS 가 오른 것은 0.5.0 부터 실리는 추론 엔진(LiteRT-LM dylib 65MB)의 **깨끗한 코드 페이지** — 압박받으면 버려지는 것이라 예산은 더러운 메모리(footprint)로 잰다 |
 | idle CPU | 0% | **0.0%** | 같은 스크립트, `top` 순간 표본 3회 중 최댓값 |
 | 단축키 → 커서 표시 | ≤ 150ms | **중앙값 12.5ms** (최소 4.1 / 최대 34.3) | `scripts/measure-capture.sh`, release 12회 |
 | 생각 → 저장 조작 수 | ≤ 2회 | **2회** | ⌥⌘N → 타자 → (자동 저장). 저장 버튼 없음 |
