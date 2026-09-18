@@ -90,10 +90,16 @@ public struct AttachmentStore: Sendable {
     }
 
     /// 어디서도 참조하지 않는 첨부를 찾는다. 지우는 것은 호출자가 정한다 (D6).
+    ///
+    /// **숨은 파일은 보지 않는다.** iCloud 가 아직 안 내려받은 사진은 `.<이름>.jpg.icloud` 자리표로
+    /// 있는데, 그 이름은 어느 본문에도 없으므로 고아로 읽혀 휴지통으로 갔다 — 맥이 「저장 공간
+    /// 최적화」로 치워 둔 오래된 사진, 폰이 한 번도 안 연 메모의 사진이 그렇다. 자리표를 옮기는
+    /// 것은 iCloud 의 그 파일을 옮기는 것이라 다른 기기에서도 사진이 사라진다. 그 사진의 진짜
+    /// 파일을 가진 기기가 치울 것이다 (`MemoVault.scan` 도 숨은 파일을 건너뛴다).
     public func orphans(referencedBy bodies: [String]) throws -> [URL] {
         let referenced = Set(bodies.flatMap(MarkdownScanner.imagePaths(in:)))
         guard let entries = try? fileManager.contentsOfDirectory(
-            at: directory, includingPropertiesForKeys: nil
+            at: directory, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
         ) else { return [] }
 
         return entries.filter { entry in

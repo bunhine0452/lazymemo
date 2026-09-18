@@ -64,6 +64,23 @@ struct AttachmentSweepTests {
         #expect(exists(inTrash))
     }
 
+    @Test("iCloud 가 아직 안 내려받은 자리표는 고아가 아니다 — 옮기면 다른 기기의 사진까지 사라진다")
+    func leavesCloudPlaceholdersAlone() async throws {
+        let (store, paths) = try makeStore()
+        defer { cleanUp(paths) }
+        try FileManager.default.createDirectory(at: store.attachments.directory, withIntermediateDirectories: true)
+        let placeholder = store.attachments.directory
+            .appending(path: ".01K4ZR0000000000000000AA.png.icloud", directoryHint: .notDirectory)
+        try Data("plist".utf8).write(to: placeholder)
+        let old = Date().addingTimeInterval(-400 * 24 * 60 * 60)
+        try FileManager.default.setAttributes([.modificationDate: old], ofItemAtPath: placeholder.path(percentEncoded: false))
+
+        await store.tidy()
+
+        #expect(exists(placeholder))
+        #expect(try store.attachments.orphans(referencedBy: []).isEmpty)
+    }
+
     @Test("메모가 쓰고 있는 사진은 아무리 오래돼도 그대로 있다")
     func keepsReferencedAttachments() async throws {
         let (store, paths) = try makeStore()
