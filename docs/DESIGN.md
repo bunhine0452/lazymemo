@@ -1127,3 +1127,13 @@ Tahoe 에서는 아니다. **재 보고 알았다.** 캔버스를 끝까지 채�
 - 결정 근거 전문: [`.oculpm/discussion/lazymemo-계획서/discussion.md`](../.oculpm/discussion/lazymemo-계획서/discussion.md)
 - 실행 계획: [`.oculpm/planner/lazymemo-v1.md`](../.oculpm/planner/lazymemo-v1.md)
 - 레퍼런스 제품: Windows Sticky Notes, DesktopCal, macOS Stickies.app, Raycast Notes
+### 16.14 잡기만 해도 펼쳐지던 것 — `performDrag` 는 곧바로 돌아온다 (2026-09-18)
+
+다음 날 사용자: **「서랍은 아직도 이동도 안 되고 닫히지도 않아」**. §16.13 의 손잡이는 산수 검증(`verify-drawer.sh`)과 정적 렌더를 다 통과했는데도 실제로는 안 끌렸다 — 화면에 안 찍히는 고장이었고, 이번에는 **진짜 마우스**로 재현했다 (`scripts/verify-drawer-mouse.sh`: 합성 HID 이벤트를 창 서버에 넣고 창 목록으로 결과를 읽는다). 120pt 끌었더니 24pt 가고 **펼쳐졌다**.
+
+원인은 하나다. `NSWindow.performDrag(with:)` 는 마우스를 놓을 때까지 붙잡고 있지 않는다 — **곧바로 돌아오고** 창 서버가 비동기로 끈다. 그래서 「돌아온 뒤 창이 3pt 안에서 멈췄으면 누른 것」은 언제나 참이었다(0ms, 0pt): 잡기만 해도 누른 것이 되어 서랍이 펼쳐지고, 펼치는 애니메이션의 `setFrame` 이 창 서버의 끌기를 잘랐다. 24pt 는 그 사이에 창 서버가 옮긴 두 걸음이다. 「닫히지 않는다」도 같은 뿌리다 — 옮기려고 잡을 때마다 펼쳐지니, 펼친 판만 남았다.
+
+**손이 움직인 거리로 가른다** (`WindowDragSurface.Press`). `mouseDown` 에 잡은 자리를 적고, `mouseDragged` 가 3pt 문턱을 **처음** 넘는 순간에 한 번만 창 서버에 넘기며(넘기는 이벤트는 잡은 순간의 것 — 넘어선 이벤트를 넘기면 창이 그 자리부터 따라와 첫 걸음이 빠진다), 넘긴 적 없이 `mouseUp` 이 오면 누른 것이다. 넘긴 뒤의 `mouseUp` 은 오지 않을 수도 있으니 기다리지 않는다. 펼친 판의 손잡이는 글자 **위**에 얹는다 — 밑에 깔았더니 「서랍」 글자와 장수가 누르기를 가로채 글자 아닌 틈에서만 끌렸다.
+
+**확인하는 방법.** 산수는 `DrawerTests.pressBecomesDragOnce`. 실제는 `verify-drawer-mouse.sh` — 합성 이벤트는 그 자리의 **맨 앞 창**에 닿으므로 바탕화면 높이의 서랍에는 닿지 않는다; 무대 높이로 올린 판(`LAZYMEMO_STAGE=1`)에서 탭 끌기·누르기·머리 줄 끌기·×를, 메뉴바처럼 앞으로 부른 판(`LAZYMEMO_DRAWER=summon`)에서 머리 줄 끌기와 «다른 앱을 누르면 접힘»을 본다. 이 셸에 손쉬운 사용 권한이 있어야 한다. 종이의 본문 끌기(`MemoNSTextView.dragPaper`)도 같은 비동기지만 거기서는 「누르면 커서, 끌면 창도」가 맞는 동작이라 그대로다.
+

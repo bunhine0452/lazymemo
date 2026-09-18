@@ -25,4 +25,6 @@ echo "$OUT" | grep -q "계획크기=true"   || { echo "✗ 펼친 크기가 판�
 # 창 레벨은 그림에 안 찍힌다 — 펼치면 앞에 서고, 접으면 바탕으로 내려앉아야 한다 (§16.12).
 echo "$OUT" | grep -q "앞으로=true"     || { echo "✗ 펼친 서랍이 앞으로 나오지 않았습니다"; exit 1; }
 echo "$OUT" | grep -q "내려앉음=true"   || { echo "✗ 접은 서랍이 바탕으로 내려앉지 않았습니다"; exit 1; }
+# 탭 한가운데를 누르면 끌기 자리가 받아야 한다 — 단추가 덮으면 잡을 데가 없다 (§16.13). 진짜 마우스는 verify-drawer-mouse.sh.
+echo "$OUT" | grep -q "탭클릭=Surface"  || { echo "✗ 탭을 누른 것이 끌기 자리(WindowDragSurface)에 닿지 않습니다"; exit 1; }
 echo "✓ 서랍"

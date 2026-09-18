@@ -219,6 +219,27 @@ struct DrawerGeometryTests {
         #expect(!WindowDragSurface.isClick(moved: 3))
         #expect(!WindowDragSurface.isClick(moved: 40))
     }
+
+    /// `performDrag` 는 곧바로 돌아온다 — 창이 움직였는지로는 가를 수 없고, **손이 움직인 거리**로
+    /// 가른다. 문턱을 넘는 첫 순간에 한 번만 창 서버에 넘기고, 그 뒤의 놓기는 누르기가 아니다
+    /// (2026-09-18, 잡기만 해도 서랍이 펼쳐지던 고장).
+    @Test("누름의 셈 — 떨림은 누르기, 문턱을 넘으면 한 번만 끌기로, 끈 뒤의 놓기는 누르기가 아니다")
+    func pressBecomesDragOnce() {
+        var press = WindowDragSurface.Press(at: CGPoint(x: 10, y: 10))
+        let jitter = press.moved(to: CGPoint(x: 11, y: 12))
+        #expect(!jitter)                                    // 떨림
+        #expect(press.isClick)
+        let crossed = press.moved(to: CGPoint(x: 14, y: 10))
+        #expect(crossed)                                    // 4pt — 이제 끌기, 창 서버에 넘긴다
+        let again = press.moved(to: CGPoint(x: 40, y: 40))
+        #expect(!again)                                     // 이미 넘겼다 — 다시 넘기지 않는다
+        #expect(!press.isClick)
+
+        var tap = WindowDragSurface.Press(at: .zero)
+        let small = tap.moved(to: CGPoint(x: 2, y: 0))
+        #expect(!small)
+        #expect(tap.isClick)
+    }
 }
 
 /// 읽기만 하는 자리에서는 **체크상자가 글자로 보이면 안 된다** — 편집기는

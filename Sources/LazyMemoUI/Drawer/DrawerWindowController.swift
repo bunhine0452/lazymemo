@@ -424,6 +424,9 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
     func diagnostics() async -> String {
         open()
         let closed = window?.frame ?? .zero
+        // 탭 한가운데를 누르면 어느 뷰가 받는가 — 끌기 자리(`WindowDragSurface`)여야 한다.
+        try? await Task.sleep(for: .milliseconds(300))
+        let tabHit = hitName(at: CGPoint(x: closed.width / 2, y: closed.height / 2))
 
         model.setOpen(true)
         try? await Task.sleep(for: .milliseconds(600))
@@ -453,7 +456,13 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
             + " 앞으로=\(raised) 내려앉음=\(settled)"
         let planned = Self.text(CGRect(origin: .zero, size: plan.size))
         let shape = " (계획 \(planned), \(plan.rows)줄, 폴더=\(model.folders.count), 스크롤=\(plan.scrolls))"
-        return frames + returned + flags + shape
+        return frames + returned + flags + shape + " 탭클릭=\(tabHit)"
+    }
+
+    private func hitName(at point: CGPoint) -> String {
+        guard let content = window?.contentView else { return "창없음" }
+        let hit = content.hitTest(content.convert(point, from: nil))
+        return hit.map { String(describing: type(of: $0)) } ?? "없음"
     }
 
     private static func text(_ frame: CGRect) -> String {

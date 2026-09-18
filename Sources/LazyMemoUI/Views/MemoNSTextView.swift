@@ -321,11 +321,13 @@ final class MemoNSTextView: NSTextView {
         return inContainer.x > line.maxX + Self.blankMargin
     }
 
-    /// 종이를 끈다. 안 끌었으면 그 자리에 커서를 세운다.
+    /// 종이를 끈다 — 그리고 그 자리에 커서를 세운다.
     ///
-    /// `performDrag` 가 마우스를 놓을 때까지 붙잡고 있으므로, 끝난 뒤 창이
-    /// 실제로 움직였는지로 "끌기였나 클릭이었나" 를 가른다. 여기서 다시
-    /// `super.mouseDown` 을 부르면 이미 끝난 마우스 업을 기다리며 멈춰 버린다.
+    /// `performDrag` 는 **곧바로 돌아온다** — 창 서버가 비동기로 끈다 (2026-09-18, 서랍의 탭에서
+    /// 확인 — `WindowDragSurface`). 그래서 아래의 「움직였는지」는 늘 0 이고, 커서는 잡는 순간에
+    /// 선다. 글 상자에서는 그것이 맞는 동작이다(누르면 커서, 끌면 창도 따라온다). 누르기와
+    /// 끌기를 **갈라야** 하는 자리는 `WindowDragSurface.Press` 를 쓴다. 여기서 `super.mouseDown`
+    /// 을 부르면 텍스트 뷰가 제 끌기 추적을 시작해 창 서버의 끌기와 겹친다.
     private func dragPaper(from event: NSEvent, in window: NSWindow) {
         let before = window.frame.origin
         window.performDrag(with: event)

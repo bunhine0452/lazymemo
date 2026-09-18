@@ -197,6 +197,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     /// 서랍이 실제 창에서 약속대로 자라고 접히는가 (`verify-drawer.sh`).
     func drawerDiagnostics() async -> String { await drawer.diagnostics() }
+    /// 메뉴바 「서랍」과 같은 길로 펼친 채 앞으로 (`verify-drawer-mouse.sh`).
+    func summonDrawerForVerification() { drawer.summon() }
 
     /// 소개 영상 주행 (`scripts/record-demo.sh`). 창들은 여기만 들고 있으므로 여기서 짓는다.
     func demoTour(in region: CGRect, layouts: LayoutStore) -> DemoTour {

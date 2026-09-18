@@ -158,6 +158,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 .flatMap(DemoTour.region(from:))
                 .map { menuBar.demoTour(in: $0, layouts: layouts) }
             if let demo { await demo.seed() }
+            // 검증 주행이 창을 **남의 창 위에** 세운다 — 합성 마우스 이벤트는 그 자리의
+            // 맨 앞 창에 닿으므로, 바탕화면 높이의 창은 브라우저 뒤에서 아무것도 못 받는다
+            // (`scripts/verify-drawer-mouse.sh`). 무대와 같은 자리다 (`DemoTour`).
+            if ProcessInfo.processInfo.environment["LAZYMEMO_STAGE"] == "1" {
+                DesktopLevelWindow.stageLevel = NSWindow.Level(rawValue: NSWindow.Level.normal.rawValue + 2)
+            }
             let firstLaunch = WelcomeNote.shouldGreet(
                 greeted: settings.current.greeted, memoCount: store.memos.count
             )
@@ -268,6 +274,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 // 저장할 것이 없는 렌더 전용 모드다. `NSApp.terminate` 는
                 // 이 자리(비동기 Task 안)에서 델리게이트를 부르지 못하고 멈춘다.
                 exit(0)
+            // 메뉴바 「서랍」처럼 펼친 채 앞으로 세워 두고 마우스를 받는다 (`verify-drawer-mouse.sh`).
+            if environment["LAZYMEMO_DRAWER"] == "summon" {
+                menuBar.summonDrawerForVerification()
+            }
             }
             if let rounds = environment["LAZYMEMO_MEASURE"].flatMap(Int.init), rounds > 0 {
                 await Self.measureQuickCapture(rounds: rounds, menuBar: menuBar)

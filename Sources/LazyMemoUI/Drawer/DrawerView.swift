@@ -251,6 +251,8 @@ struct DrawerView: View {
     private var heading: some View {
         HStack(spacing: Theme.tight + 2) {
             // 머리 줄이 펼친 판의 손잡이다 — 종이의 색띠와 같은 자리, 같은 길 (`PaperGrip`).
+            // 손잡이는 글자 **위에** 얹는다 — 밑에 깔면 「서랍」 글자와 장수가 누르기를
+            // 가로채 글자 아닌 틈에서만 끌렸다 (2026-09-18, 합성 마우스로 재현).
             HStack(spacing: Theme.tight + 2) {
                 Image(systemName: "tray.full.fill")
                     .foregroundStyle(Theme.accentInk)
@@ -259,7 +261,7 @@ struct DrawerView: View {
                 Spacer()
             }
             .contentShape(.rect)
-            .background { if !rendersStatically { WindowDragSurface() } }
+            .overlay { if !rendersStatically { WindowDragSurface() } }
             QuietButton(symbol: "xmark", help: L("접기 — 서랍을 닫습니다")) {
                 model.setOpen(false)
             }
