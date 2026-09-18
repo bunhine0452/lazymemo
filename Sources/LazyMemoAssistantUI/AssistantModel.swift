@@ -296,18 +296,52 @@ public final class AssistantModel {
         current = (request.id, job)
     }
 
-    /// 정해진 것을 바로 적용한다 — 답은 그대로 두고 밑에 결과 줄이 선다.
+    /// 정해진 것을 바로 적용한다 — **적히고 나면 웹의 답은 물러나고 결과 줄 하나만 남는다.**
+    ///
+    /// 2026-09-18 사용자: 「정리하기 버튼 누르고 난 뒤 검색 결과가 esc 눌러도 사라지지 않는다」. 할 일이
+    /// 끝난 카드가 화면에 남아 있으면 다음 손짓이 무엇인지 흐려지고, 상자를 닫았다 열어도 그 카드가 도로
+    /// 선다 — 치우는 길이 아예 없었다. 남길 것은 「메모로 남겼습니다 · 되돌리기」 한 줄이면 족하다.
+    ///
+    /// **못 적었을 때만 답을 그대로 둔다** — 다시 눌러 볼 것이 없으면 그건 답을 잃은 것이다.
     private func settle(_ action: ProposedAction) {
         proposal = action
         receipt = nil; applyError = nil; applied = nil
         phase = .done
-        Task { await apply() }
+        Task { [weak self] in
+            guard let self else { return }
+            await apply()
+            guard applyError == nil else { return }
+            dismissWebAnswer()
+            onSettled?()
+        }
+    }
+
+    /// 웹의 답과 결과 카드를 내린다 — 남기기·정리·붙이기가 끝난 뒤. **결과 줄(되돌리기)은 남는다**:
+    /// 방금 무엇을 했는지와 무르는 길이라 그것까지 치우면 되돌릴 수 없다.
+    public func dismissWebAnswer() {
+        answer = nil
+        evidence = []
+        webQuestion = nil
+        offersWeb = nil
+        pendingAppend = nil
+    }
+
+    /// 화면에 **서 있는 것**이 있는가 — 답·제안·결과 줄·웹 권유·실패·붙일 메모 고르기.
+    ///
+    /// esc(맥 상자)나 ⊗(폰 펜)가 **한 겹 벗길 것이 있는지**를 묻는 자리다 (설계문서 §16.10 「esc 는 한
+    /// 겹씩 벗긴다」). 벗길 것이 없을 때만 그 키가 상자를 닫는 제 일로 돌아간다.
+    public var isStanding: Bool {
+        if case .failed = phase { return true }
+        return answer != nil || proposal != nil || applied != nil || receipt != nil
+            || offersWeb != nil || applyError != nil || isChoosingWhereToAppend
     }
 
     /// 모델·검색 없이 정해진 것을 바로 적용한다.
     private func accept(_ action: ProposedAction) {
         cancel()
         answer = nil; evidence = []; receipt = nil; applyError = nil; applied = nil
+        // 웹의 물음·권유도 함께 놓는다 — 답이 없어진 뒤에 남은 물음은 나중에 **아무도 안 한 검색**을 부른다.
+        webQuestion = nil; offersWeb = nil; pendingAppend = nil
         proposal = action
         phase = .done
         Task { await apply() }
@@ -412,6 +446,9 @@ public final class AssistantModel {
         phase = .idle
         answer = nil; evidence = []; proposal = nil; receipt = nil; applied = nil; applyError = nil; briefItems = nil
         pendingDraft = nil; offersWeb = nil; webQuestion = nil; pendingAppend = nil
+        // 마지막 시키기·마지막 일도 놓는다. 들고 있으면 다음에 고른 후보가 **아까 한 말**을 다시 하고,
+        // 지난번이 웹이었는지 메모였는지가 다음 화면의 낱말을 고른다 (`stageLabel`).
+        lastCommand = nil; task = nil
     }
 
     public func cancel() {

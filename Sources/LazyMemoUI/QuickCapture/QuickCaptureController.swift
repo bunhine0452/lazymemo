@@ -500,6 +500,10 @@ final class QuickCaptureController {
                 announce(memo)
             }
         }
+        // **닫은 상자는 빈 손으로 다시 열린다.** 읽던 중이면 그만두고(reset 이 먼저 cancel 한다), 서 있던
+        // 답·결과 카드는 내린다 — 지난번 웹의 답이 다음 열림에 도로 서 있으면 그것은 지금 하려는 일이
+        // 아니라 아까 한 일이고, 치우는 길도 없었다 (2026-09-18 사용자). 되돌리기는 메뉴가 들고 있다.
+        model.assistant?.reset()
         CaptureTrace.log("close 돌려줌=\(returningFocus) visible=\(panel.isVisible)")
         stopWatchingOutsideClicks()
         panel.orderOut(nil)

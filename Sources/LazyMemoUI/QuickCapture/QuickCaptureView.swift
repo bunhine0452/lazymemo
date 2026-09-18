@@ -967,8 +967,12 @@ struct QuickCaptureView: View {
         if model.assistant?.phase == .thinking { return L("esc 그만") }
         if model.planner?.isActive == true { return L("↵ 답하기 · esc 길은 그만") }
         if model.pendingQuestion != nil { return L("↵ 줄바꿈 · esc 시각 없이 남기기") }
-        if model.listing == .candidates { return L("↑↓ 고르기 · esc 닫기") }
-        return selectedMemo == nil ? L("↵ 줄바꿈 · esc 닫기") : L("↑↓ 선택 · ⌘⌫ 지우기")
+        // 답·결과가 서 있는 동안 esc 는 상자를 닫는 대신 **그것부터** 치운다. 줄이 그렇게 말해야
+        // 사람이 「이건 어떻게 없애지」를 묻지 않는다 (2026-09-18 사용자).
+        let peels = model.canDismissAssistantResult
+        if model.listing == .candidates { return peels ? L("↑↓ 고르기 · esc 결과 치우기") : L("↑↓ 고르기 · esc 닫기") }
+        if selectedMemo != nil { return L("↑↓ 선택 · ⌘⌫ 지우기") }
+        return peels ? L("↵ 줄바꿈 · esc 결과 치우기") : L("↵ 줄바꿈 · esc 닫기")
     }
 
     /// 단추에 들어갈 만큼의 제목.
@@ -1002,8 +1006,11 @@ struct QuickCaptureView: View {
     func handle(command: Selector, in textView: NSTextView) -> Bool {
         switch command {
         case #selector(NSResponder.cancelOperation(_:)):
-            // 읽는 중이면 그만둔다 — 상자는 남는다 (설계 E-1 「esc 그만」).
+            // **한 겹씩 벗긴다** (설계문서 §16.10). 읽는 중이면 그만두고, 답·결과가 서 있으면 그것부터
+            // 치우며, 벗길 것이 없을 때에만 상자를 닫는다 — 한 번에 전부 닫히면 웹의 답을 치우려던
+            // 한 번이 적던 글까지 데리고 사라진다.
             if model.assistant?.phase == .thinking { model.assistant?.cancel(); return true }
+            if model.dismissAssistantResult() { return true }
             onCancel()
             return true
 

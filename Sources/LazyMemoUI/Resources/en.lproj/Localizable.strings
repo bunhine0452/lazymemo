@@ -455,3 +455,7 @@
 "종이 결" = "Paper Grain";
 "기본으로" = "Reset";
 "고른 색이 글을 가릴 만큼 흐리면 읽히는 데까지 되끌어 올려 씁니다. 테마는 이 맥에만 남습니다 — 기기 밖으로 나가지 않습니다" = "If a color you pick would hide the text, it's pulled back until it reads. Themes stay on this Mac — nothing leaves the device";
+
+/* 빠른 입력 — 답·결과가 서 있을 때의 esc (QuickCaptureView.hintText) */
+"↵ 줄바꿈 · esc 결과 치우기" = "↵ new line · esc clear the result";
+"↑↓ 고르기 · esc 결과 치우기" = "↑↓ pick · esc clear the result";

@@ -31,7 +31,8 @@ final class QuickCaptureModel {
             // **웹의 답은 남는다** — 다음 말이 「메모해」「치과 메모에 추가해줘」처럼 그 답에 대한 것일 수 있다 (`WebFollowUp`).
             // 새 물음·새 메모로 끝나면 그때 물러난다 (`QuickCaptureController.commit`).
             let keepsWeb = assistant?.answer?.isWeb == true && assistant?.phase == .done
-            if !keepsWeb, assistant?.answer != nil || assistant?.proposal != nil || assistant?.phase == .thinking || assistant?.offersWeb != nil { assistant?.reset() }
+            if !keepsWeb, assistant?.answer != nil || assistant?.proposal != nil || assistant?.phase == .thinking
+                || assistant?.offersWeb != nil || assistant?.applyError != nil { assistant?.reset() }
             // 낱말이 바뀌면 목록은 다른 물건이다. 넓혀 둔 것은 그때 것이라
             // 도로 접는다 — 지운 뒤의 다시 짓기(`refreshListing`)는 같은
             // 목록이므로 접지 않는다.
@@ -199,6 +200,28 @@ final class QuickCaptureModel {
 
     /// 답을 기다리던 초안을 놓는다 — esc, 또는 답이 아닌 새 말.
     func dropPending() { pending = nil }
+
+    /// esc 가 벗길 겹이 있는가 — 서 있는 답·결과 카드·권유. 되물음(시각·가는 길)은 제 규칙이 있어
+    /// 여기 오지 않는다: 그때의 esc 는 「시각 없이 남기기」다 (설계 D12).
+    var canDismissAssistantResult: Bool {
+        guard !isAsking else { return false }
+        return assistant?.isStanding == true
+    }
+
+    /// **esc 한 번이 한 겹만 벗긴다** — 서 있던 답·결과 카드를 치우고 상자는 친 글을 든 채 남는다
+    /// (서랍과 같은 규칙, 설계문서 §16.10).
+    ///
+    /// 2026-09-18 사용자: 「정리하기 버튼 누르고 난 뒤 검색 결과가 esc 눌러도 사라지지 않는다」. 그때 esc 는
+    /// 상자만 닫고 비서는 그대로 두었으므로, 다시 열면 그 결과가 도로 서 있었다 — 새 글을 치는 것 말고는
+    /// 치우는 길이 없었다. 벗길 것이 없으면 `false` 이고, 그때 esc 는 제 일(상자 닫기)로 돌아간다.
+    @discardableResult
+    func dismissAssistantResult() -> Bool {
+        guard canDismissAssistantResult, let assistant else { return false }
+        assistant.reset()
+        // 근거·후보로 갈려 있던 목록은 평소로 돌아간다 — 빈 상자면 요즘 것, 글이 남아 있으면 그 글로 찾은 것.
+        Task { await refreshListing() }
+        return true
+    }
 
     /// esc 로 닫을 때 — 초안을 시각 없이 그대로 적는다 (설계 D12: 이미 ⌘⏎ 로 «적어라» 했다).
     func takePendingDraft() -> FieldPatch? {
