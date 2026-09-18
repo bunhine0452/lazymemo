@@ -35,6 +35,27 @@ struct MemoVaultTests {
         #expect(loaded.color == .blue)
     }
 
+    @Test("사람이 다른 폴더로 옮겨 둔 파일은 그 자리에 되쓴다 — 같은 메모가 두 파일이 되지 않는다")
+    func modifiesMovedFileInPlace() async throws {
+        let paths = try makeTemporaryPaths()
+        defer { remove(paths) }
+        let vault = MemoVault(paths: paths)
+        let memo = Memo(body: "치과 예약")
+        try await vault.save(memo)
+
+        // Finder 로 다른 달 폴더에 옮겼다.
+        let elsewhere = paths.notes.appending(path: "2020/01", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true)
+        let moved = elsewhere.appending(path: MemoFile.fileName(for: memo.id), directoryHint: .notDirectory)
+        try FileManager.default.moveItem(at: vault.url(for: memo.id), to: moved)
+
+        try await vault.modify(memo.id, expectedHash: nil) { $0.body = "치과 예약 — 3시" }
+
+        #expect(try await vault.loadAll().count == 1)
+        #expect(try await vault.load(memo.id).body == "치과 예약 — 3시")
+        #expect(!FileManager.default.fileExists(atPath: vault.url(for: memo.id).path(percentEncoded: false)))
+    }
+
     @Test("파일 경로는 ULID 의 생성 시각에서 나온다")
     func pathComesFromIdentifierTimestamp() async throws {
         let paths = try makeTemporaryPaths()

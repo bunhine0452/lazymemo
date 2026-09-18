@@ -93,9 +93,11 @@ public actor MemoVault {
 
     // MARK: 쓰기
 
+    /// `at` 을 주면 그 자리에 쓴다 — 사람이 Finder 로 다른 달 폴더에 옮겨 둔 파일을 고칠 때.
+    /// 규격 자리에 새로 쓰면 같은 메모가 두 파일이 되어 목록에 둘로 선다.
     @discardableResult
-    public func save(_ memo: Memo) throws -> SaveResult {
-        let location = url(for: memo.id)
+    public func save(_ memo: Memo, at location: URL? = nil) throws -> SaveResult {
+        let location = location ?? url(for: memo.id)
         try fileManager.createDirectory(
             at: location.deletingLastPathComponent(), withIntermediateDirectories: true
         )
@@ -129,7 +131,7 @@ public actor MemoVault {
         var memo = try read(at: location, id: id)
         if let expectedHash, memo.contentHash != expectedHash { throw Failure.changed(id) }
         try change(&memo)
-        return try save(memo)
+        return try save(memo, at: location)
     }
 
     // MARK: 삭제 — 하드 삭제로 가는 길이 없다 (D6)

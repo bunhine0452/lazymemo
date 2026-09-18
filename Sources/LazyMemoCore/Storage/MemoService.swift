@@ -138,26 +138,29 @@ public actor MemoService {
         folder: String?? = nil,
         now: Date = Date()
     ) async throws -> Memo {
-        var memo = try await vault.load(id)
-
-        if let body { memo.body = body }
-        // 사람이 날을 옮기면 그 날이 되풀이의 새 처음이다 (`Memo.anchor`).
-        if let due { memo.due = due; memo.anchor = nil }
-        if let at { memo.at = at; memo.anchor = nil }
-        if let every { memo.every = every }
-        if let surface { memo.surface = surface }
-        if let place { memo.place = place }
-        if let geo { memo.geo = geo }
-        if let tags { memo.tags = tags }
-        if let color { memo.color = color }
-        if let pinned { memo.pinned = pinned }
-        if let folder { memo.folder = MemoFolders.normalized(folder) }
-        memo.updated = now.truncatingSubsecond
-        // 손댄 것은 다시 산 것이다. 치워 둔 메모를 고쳤는데 여전히 목록에
-        // 없으면, 사람은 자기가 고친 글이 어디로 갔는지 알 길이 없다.
-        memo.tidied = nil
-
-        return try await persist(memo)
+        // 읽고 고치고 쓰기를 vault 의 한 호출 안에서 — 파일이 규격 밖 자리에 있어도 그 자리에 되쓴다.
+        let result = try await vault.modify(id, expectedHash: nil) { memo in
+            if let body { memo.body = body }
+            // 사람이 날을 옮기면 그 날이 되풀이의 새 처음이다 (`Memo.anchor`).
+            if let due { memo.due = due; memo.anchor = nil }
+            if let at { memo.at = at; memo.anchor = nil }
+            if let every { memo.every = every }
+            if let surface { memo.surface = surface }
+            if let place { memo.place = place }
+            if let geo { memo.geo = geo }
+            if let tags { memo.tags = tags }
+            if let color { memo.color = color }
+            if let pinned { memo.pinned = pinned }
+            if let folder { memo.folder = MemoFolders.normalized(folder) }
+            memo.updated = now.truncatingSubsecond
+            // 손댄 것은 다시 산 것이다. 치워 둔 메모를 고쳤는데 여전히 목록에
+            // 없으면, 사람은 자기가 고친 글이 어디로 갔는지 알 길이 없다.
+            memo.tidied = nil
+        }
+        try? await index.upsert(
+            result.memo, relativePath: result.relativePath, modifiedAt: result.modifiedAt
+        )
+        return result.memo
     }
 
     /// 조건부 변경 — `expectedHash` 가 지금 본문과 다르면 `MemoVault.Failure.changed`, 아무것도 안 쓴다.
