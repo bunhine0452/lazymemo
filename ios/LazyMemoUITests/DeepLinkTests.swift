@@ -38,6 +38,10 @@ final class DeepLinkTests: XCTestCase {
         let capture = app.descendants(matching: .any)["capture"]
         XCTAssertTrue(capture.waitForExistence(timeout: 10), "펜이 없다")
         // 켜면 펜에 키보드가 올라와 있다 — 먼저 내려 두어야 「올라온다」를 볼 수 있다.
+        // 시뮬레이터가 하드웨어 키보드를 물고 있으면 글자를 치기 전에는 화면의 키보드가 안 뜨는데
+        // `keyboards` 에는 하나가 잡혀 있어 「못 내렸다」로 끝났다 (2026-09-18). 한 글자 치고 지워
+        // 진짜 키보드를 올린 뒤 내린다 — SmokeTests 의 시험들이 지나는 그 길이다.
+        capture.tap(); capture.typeText("a"); capture.typeText(XCUIKeyboardKey.delete.rawValue)
         dismissKeyboard(app)
         XCTAssertEqual(app.keyboards.count, 0, "키보드를 내리지 못했다")
 
@@ -76,7 +80,12 @@ final class DeepLinkTests: XCTestCase {
     private func seed() throws {
         let notes = root.appending(path: "vault/notes/2026/09", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: notes, withIntermediateDirectories: true)
-        let text = "---\nid: \(Self.memoID)\ncreated: 2026-09-11T10:00:00+09:00\nupdated: 2026-09-11T10:00:00+09:00\nat: 2026-09-15T15:00:00+09:00\ntags: []\ncolor: blue\npinned: false\n---\n치과 예약 — 강남역 3번 출구\n"
+        // 약속은 내일이다 — 지난 날을 심으면 물러난 메모라 목록이 비고, 빈 목록에서는 쓸어 내려도
+        // 키보드가 안 내려가 「펜이 올라온다」를 볼 수 없었다 (2026-09-18).
+        let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.timeZone = TimeZone(identifier: "Asia/Seoul")
+        f.dateFormat = "yyyy-MM-dd"
+        let tomorrow = f.string(from: Calendar.current.date(byAdding: .day, value: 1, to: Date())!)
+        let text = "---\nid: \(Self.memoID)\ncreated: 2026-09-11T10:00:00+09:00\nupdated: 2026-09-11T10:00:00+09:00\nat: \(tomorrow)T15:00:00+09:00\ntags: []\ncolor: blue\npinned: false\n---\n치과 예약 — 강남역 3번 출구\n"
         try text.write(to: notes.appending(path: Self.memoID + ".md"), atomically: true, encoding: .utf8)
     }
 }

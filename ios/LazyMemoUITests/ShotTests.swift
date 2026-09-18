@@ -8,10 +8,17 @@ final class ShotTests: XCTestCase {
         let root = URL(filePath: "/tmp/lazymemo-shots-\(UUID().uuidString)", directoryHint: .isDirectory)
         let notes = root.appending(path: "vault/notes/2026/09", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: notes, withIntermediateDirectories: true)
+        // 날짜는 오늘 기준이다 — 고정 날짜를 심으면 그 날이 지난 뒤부터 물러난 메모라 목록에 안 서고,
+        // 찍는 시험이 「치과 예약」을 못 찾는다 (2026-09-18 에 그렇게 빨갰다).
+        let day = { (offset: Int) -> String in
+            let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.timeZone = TimeZone(identifier: "Asia/Seoul")
+            f.dateFormat = "yyyy-MM-dd"
+            return f.string(from: Calendar.current.date(byAdding: .day, value: offset, to: Date())!)
+        }
         let memos: [(String, String, String, String, Bool, String?)] = [
-            ("01K4ZR0000000000000000AA", "장보기\n우유, 계란, 두부", "due: 2026-09-14\n", "yellow", false, nil),
-            ("01K4ZR0000000000000000AB", "치과 예약 — 강남역 3번 출구", "at: 2026-09-15T15:00:00+09:00\nplace: 강남역\n", "blue", false, nil),
-            ("01K4ZR0000000000000000AC", "회의 자료 보내기", "due: 2026-09-15\n", "green", false, "일"),
+            ("01K4ZR0000000000000000AA", "장보기\n우유, 계란, 두부", "due: \(day(1))\n", "yellow", false, nil),
+            ("01K4ZR0000000000000000AB", "치과 예약 — 강남역 3번 출구", "at: \(day(2))T15:00:00+09:00\nplace: 강남역\n", "blue", false, nil),
+            ("01K4ZR0000000000000000AC", "회의 자료 보내기", "due: \(day(3))\n", "green", false, "일"),
             ("01K4ZR0000000000000000AD", "읽을 것: 설계 문서", "", "gray", true, "읽을 것"),
             ("01K4ZR0000000000000000AE", "집 — 전구 갈기\n거실 등, E26", "", "pink", false, "집"),
             ("01K4ZR0000000000000000AF", "명함 — 김 디자이너\n![](attachments/01K4ZR0000000000000000AF.png)", "", "green", false, nil),
