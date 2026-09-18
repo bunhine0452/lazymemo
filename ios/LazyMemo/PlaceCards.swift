@@ -14,6 +14,7 @@ struct PlaceCardsView: View {
 
     @State private var page: String?
     @State private var apps = MapApp.installed
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 6) {
@@ -39,9 +40,11 @@ struct PlaceCardsView: View {
                         Capsule()
                             .fill(current ? Theme.accentInk : Theme.accentInk.opacity(0.25))
                             .frame(width: current ? 16 : 6, height: 6)
-                            .animation(.snappy, value: page)
                     }
                 }
+                // 점마다 걸려 있던 것을 줄 하나로 모았다 (`Motion`) — 맥의 같은
+                // 카드와 같은 속도다.
+                .animation(Motion.quick(reduceMotion), value: page)
                 .accessibilityHidden(true)
             }
         }

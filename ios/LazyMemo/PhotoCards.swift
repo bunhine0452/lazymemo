@@ -204,6 +204,7 @@ struct PhotoViewer: View {
     let originalURL: URL?
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var original: UIImage?
     @State private var scale: CGFloat = 1
 
@@ -216,7 +217,7 @@ struct PhotoViewer: View {
                     .aspectRatio(contentMode: .fit)
                     .scaleEffect(scale)
                     .gesture(MagnifyGesture().onChanged { scale = max(1, $0.magnification) }.onEnded { _ in
-                        withAnimation(.snappy) { scale = 1 }
+                        withAnimation(Motion.settle(reduceMotion)) { scale = 1 }
                     })
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .accessibilityLabel(String(localized: "사진 \(photo.name)"))

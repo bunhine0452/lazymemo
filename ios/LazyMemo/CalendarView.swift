@@ -32,7 +32,11 @@ struct CalendarView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        // 점과 오늘은 **한 번만 센다** — 아래 목록과 격자가 같은 `body` 에서
+        // 각각 읽으면 일정 목록을 두 번 훑는다.
+        let marks = marks
+        let today = today
+        return VStack(spacing: 0) {
             MonthGridView(
                 grid: grid, selected: picked, marks: marks, today: today,
                 onPick: pick,
@@ -73,6 +77,10 @@ struct CalendarView: View {
         .task(id: grid) { await load() }
         .onChange(of: store.memos) { _, _ in Task { await load() } }
         .onAppear { pen.presetDay = picked }
+        // 날을 고른 손끝에 한 번. 아래 목록이 바뀌는 것이 유일한 대답이었는데,
+        // 그 날이 비어 있으면 **누른 것과 아무 일도 없는 것이 똑같이** 보였다
+        // (HIG Feedback — "confirm that a significant action… has completed").
+        .sensoryFeedback(.selection, trigger: picked)
     }
 
     private var dayList: some View {

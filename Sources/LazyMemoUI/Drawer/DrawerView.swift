@@ -28,7 +28,6 @@ import SwiftUI
 struct DrawerView: View {
     @Bindable var model: DrawerModel
 
-    @State private var hovered: ULID?
     @State private var isHovering = false
     @State private var newFolderName = ""
     @State private var renameText = ""
@@ -43,23 +42,39 @@ struct DrawerView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private var plan: DrawerGeometry { model.geometry() }
-    /// 지금 «짚힌» 한 줄. **손이 얹힌 것과 키보드가 짚은 것이 같은 자리다** —
-    /// 두 곳에서 같은 일을 다르게 그리면 두 개의 물건이 된다 (§14.10).
-    private var pointed: ULID? { model.staged?.hovered ?? hovered ?? model.shownTarget }
+    /// 키보드가 짚은 한 줄. **손이 얹힌 것은 줄이 스스로 안다** (`DrawerRow`) —
+    /// 표시는 같지만 정본이 다르다. 여기 두면 손이 스칠 때마다 판 전체가 다시
+    /// 그려지고, 판에 걸린 애니메이션을 스물몇 줄이 함께 탄다.
+    private var pointed: ULID? { model.staged?.hovered ?? model.shownTarget }
     private var landing: ULID? { model.shownLanding }
     private var isEditing: Bool { searchFocused || namingFocused || renamingFocused }
 
-    // MARK: 움직임
+    // MARK: 움직임 — 낱말은 `Motion` 한자리에 있다
 
-    /// 펼치고 접는 속도. 창의 크기 변화와 **같은 시간**이어야 한다
-    /// (`DrawerWindowController.duration`) — 둘이 다르면 내용이 먼저 나오고
-    /// 창이 뒤따라 커지면서 한 프레임 잘려 보인다.
-    private var opening: Animation {
-        reduceMotion ? .linear(duration: 0.01) : .timingCurve(0.22, 0.9, 0.24, 1, duration: 0.30)
+    /// 펼치고 접는 속도. 창의 크기 변화와 **같은 시간·같은 곡선**이어야 한다
+    /// (`DrawerWindowController` 도 `Motion.flyContext` 를 쓴다) — 둘이 다르면
+    /// 내용이 먼저 나오고 창이 뒤따라 커지면서 한 프레임 잘려 보인다.
+    private var opening: Animation { Motion.fly(reduceMotion) }
+
+    private var quick: Animation { Motion.quick(reduceMotion) }
+
+    /// 판이 함께 움직이는 것들. 한 줄로 묶어 **수식어를 하나만** 쌓는다 —
+    /// 값마다 `.animation` 을 붙이면 목록·글 상자·폴더 띠가 그 수만큼 갈래를 탄다.
+    private struct PanelKey: Equatable {
+        var expanded: ULID?
+        var landing: ULID?
+        var takenOut: ULID?
+        var picked: Set<ULID>
+        var folder: String?
+        var naming: Bool
     }
 
-    private var quick: Animation {
-        reduceMotion ? .linear(duration: 0.01) : .easeOut(duration: 0.14)
+    private var panelKey: PanelKey {
+        PanelKey(
+            expanded: model.shownExpanded, landing: model.shownLanding,
+            takenOut: model.shownLastTakenOut?.id, picked: model.shownPicked,
+            folder: model.shownFolder, naming: model.shownNaming
+        )
     }
 
     var body: some View {
@@ -82,13 +97,7 @@ struct DrawerView: View {
         }
         .overlay { HoverSensor { isHovering = $0 } }
         .animation(opening, value: model.shownOpen)
-        .animation(quick, value: model.shownExpanded)
-        .animation(quick, value: pointed)
-        .animation(quick, value: model.shownLanding)
-        .animation(quick, value: model.shownLastTakenOut?.id)
-        .animation(quick, value: model.shownPicked)
-        .animation(quick, value: model.shownFolder)
-        .animation(quick, value: model.shownNaming)
+        .animation(quick, value: panelKey)
         // **한 겹씩 되돌린다** (`DrawerModel.escape`).
         .onExitCommand { model.escape() }
         // 커서를 옮겨 달라는 부탁 (`DrawerModel.focusRequest`) — ⌘F 로 들어오고,
@@ -538,10 +547,16 @@ struct DrawerView: View {
     }
 
     private func row(_ memo: Memo) -> some View {
-        DrawerRow(
+        // 시각 한 조각은 **줄마다 한 번만** 짓는다 — `MemoTimeLabel` 은 부를
+        // 때마다 `Calendar.current` 와 `Date()` 를 새로 뜬다. 앞선 판은 줄 안에서
+        // 둘, 여기서 하나 — 스무 줄이면 판을 한 번 그릴 때마다 예순 번이었다.
+        let picked = model.shownPicked.contains(memo.id)
+        let time = MemoTimeLabel.text(for: memo)
+        return DrawerRow(
             memo: memo,
+            time: time,
             isPointed: pointed == memo.id,
-            isPicked: model.shownPicked.contains(memo.id),
+            isPicked: picked,
             isExpanded: model.shownExpanded == memo.id,
             showsFolder: model.shownFolder == nil,
             folders: model.folders,
@@ -550,20 +565,16 @@ struct DrawerView: View {
             onDelete: { model.delete(memo.id) },
             onMove: { model.move(memo.id, to: $0) }
         )
+        .equatable()
         // **누르면 꺼낸다** (§16.12). 펼쳐 보는 것은 줄의 › 와 Space 다.
         // **⌘ 를 누른 채 누르면 고른다.** Finder 와 같은 손짓이라 배울
         // 것이 없고, 그냥 누르는 것을 빼앗지도 않는다.
         .onTapGesture { model.takeOut(memo.id) }
         .simultaneousGesture(TapGesture().modifiers(.command).onEnded { model.pick(memo.id) })
         .draggable(memo.id.stringValue)
-        .onHover { inside in
-            if inside { hovered = memo.id } else if hovered == memo.id { hovered = nil }
-        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(
-            model.shownPicked.contains(memo.id)
-                ? L("\(memo.title) — 골랐습니다. \(MemoTimeLabel.text(for: memo))")
-                : "\(memo.title) — \(MemoTimeLabel.text(for: memo))"
+            picked ? L("\(memo.title) — 골랐습니다. \(time)") : "\(memo.title) — \(time)"
         ))
         .accessibilityHint(Text(L("눌러서 꺼냅니다. Space 로 펼쳐 보고, ⌘ 를 누른 채 누르면 고릅니다")))
     }

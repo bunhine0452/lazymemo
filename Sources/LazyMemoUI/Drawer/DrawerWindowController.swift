@@ -18,8 +18,10 @@ import SwiftUI
 final class DrawerWindowController: NSObject, NSWindowDelegate {
     private static let layoutKey = "drawer"
 
-    /// 펼치고 접는 데 걸리는 시간. `DrawerView.opening` 과 짝이다.
-    private static let duration: TimeInterval = 0.30
+    /// 펼치고 접는 데 걸리는 시간. `DrawerView.opening` 과 짝이다 — **둘이 같은
+    /// 한 값을 본다** (`Motion.flyDuration`). 앞선 판은 여기 0.30 을 적고 뷰에도
+    /// 0.30 을 적어 두었는데, 우연히 같았을 뿐 같은 값이 아니었다.
+    private static let duration: TimeInterval = Motion.flyDuration
 
     /// 종이의 **포인터**가 서랍 안에 있어야 들어온다.
     ///
@@ -234,9 +236,10 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
             window.settle()
         }
 
+        // 창의 프레임과 안의 내용이 **같은 곡선·같은 시간**으로 간다 (`Motion.fly`).
         NSAnimationContext.runAnimationGroup { context in
             context.duration = reduceMotion ? 0.01 : Self.duration
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 0.9, 0.24, 1)
+            context.timingFunction = Motion.flyTiming
             window.animator().setFrame(target, display: true)
         } completionHandler: { [weak self] in
             // 완료 핸들러는 메인에서 온다 — 격리를 그대로 잇는다.
@@ -259,6 +262,7 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
         isAnimating = true
         NSAnimationContext.runAnimationGroup { context in
             context.duration = reduceMotion ? 0.01 : duration
+            context.timingFunction = Motion.flyTiming
             window.animator().setFrame(target, display: true)
         } completionHandler: { [weak self] in
             MainActor.assumeIsolated { self?.isAnimating = false }
@@ -266,9 +270,7 @@ final class DrawerWindowController: NSObject, NSWindowDelegate {
         lastFrame = target
     }
 
-    private var reduceMotion: Bool {
-        NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-    }
+    private var reduceMotion: Bool { Motion.systemReducesMotion }
 
     // MARK: 종이를 받아 든다
 

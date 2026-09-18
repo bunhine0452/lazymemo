@@ -24,6 +24,7 @@ struct RowTrash: View {
     let action: () -> Void
 
     @State private var isOver = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// 평상시 세기. 있는 줄을 알 만큼만 (메뉴 목록의 24% 와 같은 뜻).
     static let resting: Double = 0.28
@@ -49,7 +50,7 @@ struct RowTrash: View {
         }
         .buttonStyle(.plain)
         .onHover { isOver = $0 }
-        .animation(Theme.reveal, value: over)
+        .animation(Motion.quick(reduceMotion), value: over)
         .spoken(help)
     }
 }

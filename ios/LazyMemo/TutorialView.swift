@@ -11,6 +11,7 @@ import SwiftUI
 /// 이름**으로 적는다. 기능 목록이 아니다.
 struct TutorialView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var page = 0
 
     private static let pages: [Page] = [
@@ -62,7 +63,7 @@ struct TutorialView: View {
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 dots
                 Button {
-                    if last { dismiss() } else { withAnimation(.snappy) { page += 1 } }
+                    if last { dismiss() } else { withAnimation(Motion.fly(reduceMotion)) { page += 1 } }
                 } label: {
                     Text(last ? String(localized: "시작하기") : String(localized: "다음"))
                         .font(.body.weight(.semibold))
@@ -126,7 +127,7 @@ struct TutorialView: View {
                 Capsule()
                     .fill(index == page ? Theme.accentInk : Theme.accentInk.opacity(0.25))
                     .frame(width: index == page ? 20 : 8, height: 8)
-                    .animation(.snappy, value: page)
+                    .animation(Motion.quick(reduceMotion), value: page)
             }
         }
         .padding(.vertical, 16)

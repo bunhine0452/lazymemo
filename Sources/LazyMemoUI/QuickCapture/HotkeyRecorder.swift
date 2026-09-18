@@ -117,6 +117,7 @@ private final class RecorderPanel: NSPanel {
 private struct HotkeyRecorderView: View {
     @Bindable var model: HotkeyRecorder.Model
     var onCancel: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: Theme.snug) {
@@ -146,7 +147,7 @@ private struct HotkeyRecorderView: View {
         .frame(width: 320)
         .background(Theme.paper(MemoColor.gray.ink, radius: Theme.panelRadius, dotted: false))
         .overlay(Theme.edge(radius: Theme.panelRadius))
-        .animation(Theme.reveal, value: model.problem)
+        .animation(Motion.quick(reduceMotion), value: model.problem)
         .onExitCommand(perform: onCancel)
     }
 }

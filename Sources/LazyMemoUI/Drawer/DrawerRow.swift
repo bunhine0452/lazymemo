@@ -17,9 +17,25 @@ import SwiftUI
 /// 「저 종이 도로 꺼내기」인데(WWDC17 802 의 80/20) 그것이 세 번이었다.
 /// 펼쳐 보기는 손이 얹혔을 때의 꺾쇠(›)와 Space 로 남긴다 — 호버로 펼치면
 /// 판이 출렁인다는 §16.3 의 규칙 그대로.
-struct DrawerRow: View {
+///
+/// ## 손이 얹힌 것은 이 줄만 안다 (2026-09-18)
+///
+/// 호버는 서랍 **전체**의 `@State` 였다. 그래서 줄 하나에 손이 스칠 때마다
+/// `DrawerView.body` 가 다시 돌고, 스물몇 줄이 통째로 다시 지어졌다 — 줄마다
+/// 본문을 쪼개 둘째 줄을 만들고(`snippet`), 시각을 서식하고, 판형을 다시 셌다.
+/// 게다가 판 전체에 `.animation(…, value: pointed)` 이 걸려 있어 **손이 스치면
+/// 목록 전체가 애니메이션 갈래를 탔다.**
+///
+/// 지금은 줄이 제 손을 스스로 안다. 그리고 이 뷰는 `Equatable` 이라 — 값이
+/// 그대로면 SwiftUI 가 `body` 를 건너뛴다 — 손이 옮겨 가면 **떠난 줄과 닿은 줄
+/// 둘만** 다시 그려진다. 키보드가 짚은 자리(`isPointed`)는 그대로 밖에서 온다:
+/// 짚은 것과 얹힌 것은 같은 표시이지만 정본은 다른 곳에 있다 (§16.10).
+struct DrawerRow: View, Equatable {
     let memo: Memo
-    /// 손이 얹혔거나 키보드가 짚었다 — 같은 표시다 (§14.10).
+    /// 시각 한 조각. **부르는 쪽이 한 번만 짓는다** — 줄 안에서 세 번(줄·펼친
+    /// 것·소리 이름표) 부르면 `Calendar.current` 를 세 번 뜬다.
+    let time: String
+    /// **키보드가 짚었다.** 손이 얹힌 것은 이 뷰가 스스로 안다.
     var isPointed = false
     var isPicked = false
     var isExpanded = false
@@ -33,33 +49,50 @@ struct DrawerRow: View {
     var onDelete: () -> Void = {}
     var onMove: (String?) -> Void = { _ in }
 
+    @State private var isHovered = false
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.rendersStatically) private var rendersStatically
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// 제목을 뺀 나머지. 줄에서는 한 줄만, 펼치면 전부.
-    private var rest: String {
-        let lines = memo.body.split(separator: "\n", omittingEmptySubsequences: false)
-        guard let first = lines.firstIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty })
-        else { return "" }
-        return lines[(first + 1)...]
+    /// 닫힘(함수)은 견줄 수 없다 — 부르는 쪽이 매번 새로 만들지만 하는 일은 같다.
+    /// 값만 견준다 (달력의 `MonthPanel` 과 같은 규칙).
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.memo == rhs.memo && lhs.time == rhs.time && lhs.isPointed == rhs.isPointed
+            && lhs.isPicked == rhs.isPicked && lhs.isExpanded == rhs.isExpanded
+            && lhs.showsFolder == rhs.showsFolder && lhs.folders == rhs.folders
+    }
+
+    /// 손이 얹혔거나 키보드가 짚었다 — 같은 표시다 (§14.10).
+    private var isLit: Bool { isPointed || isHovered }
+
+    /// 제목을 뺀 나머지와 둘째 줄. **한 번에 짓는다** — 앞선 판은 `snippet` 이
+    /// `rest` 를 부르는 계산 속성이라, 한 번 그릴 때마다 본문을 두 번 쪼갰다.
+    private struct Lines {
+        var rest: String
+        var snippet: String
+    }
+
+    private var lines: Lines {
+        let all = memo.body.split(separator: "\n", omittingEmptySubsequences: false)
+        guard let first = all.firstIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty })
+        else { return Lines(rest: "", snippet: "") }
+        let rest = all[(first + 1)...]
             .map(DrawerText.plain)
             .joined(separator: "\n")
             .trimmingCharacters(in: .newlines)
-    }
-
-    /// 둘째 줄 — 본문의 다음 줄들을 한 줄로 이은 것.
-    private var snippet: String {
-        rest.split(separator: "\n")
+        let snippet = rest.split(separator: "\n")
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
             .prefix(3)
             .joined(separator: " · ")
+        return Lines(rest: rest, snippet: snippet)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            line
-            if isExpanded { detail }
+        let text = lines
+        return VStack(alignment: .leading, spacing: 0) {
+            line(text.snippet)
+            if isExpanded { detail(text.rest) }
         }
         .background {
             RoundedRectangle(cornerRadius: Theme.chipRadius + 2, style: .continuous)
@@ -72,13 +105,20 @@ struct DrawerRow: View {
             }
         }
         .contentShape(.rect)
+        // 손이 얹히고 떠나는 것은 **이 줄 안에서** 애니메이션한다. 판 전체에
+        // 걸면 스물몇 줄이 같은 갈래를 함께 탄다.
+        .animation(Motion.quick(reduceMotion), value: isLit)
+        .animation(Motion.quick(reduceMotion), value: isPicked)
+        // `.onHover` 는 키 윈도에서만 산다 (§7.1) — 서랍은 펼치면 앞에 서므로
+        // (`window.rise()`) 여기서는 그것으로 족하다. 닫힌 탭은 `HoverSensor` 가 본다.
+        .onHover { isHovered = $0 }
     }
 
     /// 줄의 바탕. 쉬고 있으면 없고, 손이 오면 종이 색이 옅게 스민다 —
     /// 펼친 줄은 그 색으로 남는다. 고른 줄은 강조색이 옅게 깔린다.
     private var fill: Color {
         if isPicked { return Theme.accentInk.opacity(0.10) }
-        if isExpanded || isPointed {
+        if isExpanded || isLit {
             return Color(nsColor: PaperTint.surface(
                 ink: memo.color.ink, dark: colorScheme == .dark, presence: 1
             ))
@@ -86,7 +126,7 @@ struct DrawerRow: View {
         return .clear
     }
 
-    private var line: some View {
+    private func line(_ snippet: String) -> some View {
         HStack(spacing: Theme.snug) {
             RoundedRectangle(cornerRadius: 2).fill(memo.color.tint)
                 .frame(width: 3, height: 26)
@@ -118,10 +158,10 @@ struct DrawerRow: View {
 
             Spacer(minLength: Theme.tight)
 
-            if isPointed && !isExpanded {
+            if isLit && !isExpanded {
                 controls(compact: true)
             } else if !isExpanded {
-                Text(MemoTimeLabel.text(for: memo))
+                Text(time)
                     .font(Theme.micro)
                     .foregroundStyle(Paper.ink.opacity(0.40))
                     .lineLimit(1)
@@ -142,7 +182,7 @@ struct DrawerRow: View {
     }
 
     /// 펼친 줄 — 본문 전부와 조작. **읽기만 한다** (§16.6). 고치려면 「꺼내기」.
-    private var detail: some View {
+    private func detail(_ rest: String) -> some View {
         VStack(alignment: .leading, spacing: Theme.snug) {
             if rest.isEmpty {
                 Text(L("첫 줄이 전부입니다"))
@@ -158,7 +198,7 @@ struct DrawerRow: View {
             }
 
             HStack(spacing: Theme.tight) {
-                Text(MemoTimeLabel.text(for: memo))
+                Text(time)
                     .font(Theme.micro)
                     .foregroundStyle(Paper.ink.opacity(0.42))
                 if !memo.tags.isEmpty {

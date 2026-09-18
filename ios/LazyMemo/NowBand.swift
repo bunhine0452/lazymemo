@@ -88,6 +88,11 @@ struct NowBand: View {
                     .foregroundStyle(Theme.accentInk)
                 Spacer(minLength: 8)
                 // 내려놓기는 카드 위에 보인다 — 쓸어 넘기는 손짓은 아는 사람만 안다.
+                // 알약은 28pt 그대로 두고 **누르는 자리만** 44 로 넓힌다
+                // (HIG Buttons — "a button needs a hit region of at least 44x44 pt").
+                // 이 단추는 **카드 전체가 단추인 그 안에** 있다 — 과녁이 좁으면
+                // 「봤어요」를 누르려다 메모가 열린다. 늘린 만큼은 카드의 여백을
+                // 먹으므로 보이는 것은 달라지지 않는다.
                 Button { putDown(card) } label: {
                     Text("봤어요")
                         .font(.caption.weight(.medium))
@@ -95,6 +100,8 @@ struct NowBand: View {
                         .padding(.horizontal, 10)
                         .frame(minHeight: 28)
                         .background(Paper.ink.opacity(0.06), in: Capsule())
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("봤어요")
@@ -108,7 +115,12 @@ struct NowBand: View {
                 .multilineTextAlignment(.leading)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
+        // 「봤어요」의 과녁이 28 → 44 로 자란 만큼 위를 덜어 낸다. 넓어진 것은
+        // 누르는 자리이지 카드가 아니다.
+        .padding(.top, 6)
+        .padding(.leading, 14)
+        .padding(.trailing, 14)
+        .padding(.bottom, 14)
         .background(Paper.card, in: RoundedRectangle(cornerRadius: 18))
         .overlay {
             RoundedRectangle(cornerRadius: 18).strokeBorder(Theme.accentInk.opacity(0.35), lineWidth: 1)

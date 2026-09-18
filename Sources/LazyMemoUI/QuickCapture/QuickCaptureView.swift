@@ -63,16 +63,35 @@ struct QuickCaptureView: View {
             bubble
         }
         .frame(width: QuickCaptureController.width)
-        .animation(reduceMotion ? nil : Theme.reveal, value: model.listed.count)
-        .animation(reduceMotion ? nil : Theme.reveal, value: model.selectedID)
-        .animation(reduceMotion ? nil : Theme.reveal, value: model.pointed)
-        .animation(reduceMotion ? nil : Theme.reveal, value: model.scheduleLabel)
-        .animation(reduceMotion ? nil : Theme.reveal, value: model.lastDeleted?.id)
-        .animation(reduceMotion ? nil : Theme.reveal, value: model.isExpanded)
-        .animation(reduceMotion ? nil : Theme.reveal, value: model.pendingQuestion)
-        .animation(reduceMotion ? nil : Theme.reveal, value: model.planner?.step)
-        .animation(reduceMotion ? nil : Theme.reveal, value: model.planner?.notice)
-        .animation(reduceMotion ? nil : Theme.reveal, value: model.assistant?.phase)
+        // **한 줄이다.** 앞선 판은 값마다 `.animation` 을 쌓아 열 겹이었고, 그중
+        // 하나가 «손이 얹힌 줄»(`model.pointed`) 이었다 — 목록 위로 포인터가
+        // 지나가기만 해도 **적고 있는 글 상자를 포함한 말풍선 전체**가 애니메이션
+        // 갈래를 탔다. 손이 얹힌 표시는 그 줄 안에서 한다 (`row`).
+        .animation(Motion.quick(reduceMotion), value: bubbleKey)
+    }
+
+    /// 말풍선이 함께 자라고 줄어드는 것들 — 목록·칩·되물음·비서. 하나로 묶어야
+    /// 수식어가 하나로 남고, 새 값을 더해도 겹이 늘지 않는다.
+    private struct BubbleKey: Equatable {
+        var listed: Int
+        var selected: ULID?
+        var schedule: String?
+        var deleted: ULID?
+        var expanded: Bool
+        var question: String?
+        var step: RoutePlanner.Step?
+        var notice: String?
+        var phase: AssistantModel.Phase?
+    }
+
+    private var bubbleKey: BubbleKey {
+        BubbleKey(
+            listed: model.listed.count, selected: model.selectedID,
+            schedule: model.scheduleLabel, deleted: model.lastDeleted?.id,
+            expanded: model.isExpanded, question: model.pendingQuestion,
+            step: model.planner?.step, notice: model.planner?.notice,
+            phase: model.assistant?.phase
+        )
     }
 
     private var bubble: some View {
@@ -843,16 +862,21 @@ struct QuickCaptureView: View {
         // 두 상태를 **다른 세기로** 그린다. 같은 자국으로 그리면 손이 스친 줄이
         // 골라진 줄처럼 보이고, 그러면 화면이 ⌘⏎ 에 대해 거짓말을 한다.
         .background {
-            if isSelected {
-                RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
-                    .fill(memo.color.tint.opacity(0.20))
-                    .padding(.horizontal, Theme.snug)
-            } else if isPointed {
-                RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
-                    .fill(Paper.ink.opacity(0.05))
-                    .padding(.horizontal, Theme.snug)
-            }
+            RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
+                .fill(rowFill(isSelected: isSelected, isPointed: isPointed, memo: memo))
+                .padding(.horizontal, Theme.snug)
         }
+        // 드러나고 물러나는 것은 **이 줄 안에서** — 말풍선 전체가 아니라.
+        // 도형을 갈아 끼우지 않고 색만 바꾸므로 애니메이션이 이어진다
+        // (앞선 판은 `if/else` 라 자국이 통째로 사라졌다 나타났다).
+        .animation(Motion.quick(reduceMotion), value: isSelected)
+        .animation(Motion.quick(reduceMotion), value: isPointed)
+    }
+
+    private func rowFill(isSelected: Bool, isPointed: Bool, memo: Memo) -> Color {
+        if isSelected { return memo.color.tint.opacity(0.20) }
+        if isPointed { return Paper.ink.opacity(0.05) }
+        return .clear
     }
 
     private func paperDot(_ memo: Memo) -> some View {

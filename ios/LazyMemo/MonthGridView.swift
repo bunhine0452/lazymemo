@@ -46,7 +46,10 @@ struct MonthGridView: View {
     private static let cell: CGFloat = 44
     /// 여섯 주 — 5주·6주를 오가도 아래가 흔들리지 않는 예약.
     private static let gridHeight: CGFloat = cell * 6 + 4 * 5
-    private let weekdays = DateWords.weekdayLetters()
+    /// 요일 일곱 자. **`static` 이다** — 인스턴스 속성으로 두면 부모가 다시
+    /// 그릴 때마다 `Calendar` 를 뜨고 일곱 자를 다시 서식한다. 말은 앱이 도는
+    /// 동안 바뀌지 않는다.
+    private static let weekdays = DateWords.weekdayLetters()
 
     // MARK: 넘김
 
@@ -77,7 +80,8 @@ struct MonthGridView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// 놓은 뒤 자리 잡는 속도. 튕기지 않는다 — 판 셋 너머는 빈 자리라 넘치면 흰 띠가 비친다.
-    private static let settle: Animation = .smooth(duration: 0.3)
+    /// 값은 앱이 함께 쓰는 낱말에서 온다 (`Motion.settle`).
+    private static let settle: Animation = Motion.settle
     /// 손가락이 이 만큼 가야 격자의 손짓이다 — 칸 누르기와 가르는 문턱.
     private static let slack: CGFloat = 12
 
@@ -87,7 +91,7 @@ struct MonthGridView: View {
         VStack(spacing: 8) {
             header
             HStack(spacing: 0) {
-                ForEach(Array(weekdays.enumerated()), id: \.offset) { index, name in
+                ForEach(Array(Self.weekdays.enumerated()), id: \.offset) { index, name in
                     Text(name)
                         .font(.caption)
                         .foregroundStyle(weekdayInk(index))
@@ -109,6 +113,11 @@ struct MonthGridView: View {
             guard Self.ordinal(old) != Self.ordinal(new) else { return }
             slide(from: old, to: new)
         }
+        // 달이 넘어간 순간 손끝에 한 번. 판이 미끄러지는 데 0.3초가 걸리므로
+        // 눈보다 손이 먼저 «넘어갔다» 를 안다 — HIG Feedback 「Feedback helps us
+        // to operate cars confidently」. 튕겨 되돌아온 손짓에는 울리지 않는다:
+        // 정본이 안 바뀌었기 때문이다.
+        .sensoryFeedback(.selection, trigger: Self.ordinal(grid))
     }
 
     /// 세 판 — 앞·이번·다음. 화면 가장자리에서 자른다 (안쪽 여백에서 자르면 들어오는
@@ -175,7 +184,7 @@ struct MonthGridView: View {
             // 다음 틱에 바꿔 끼운다 — 같은 갱신 안에서 갈아 끼우면 옛 달이 한 번도 안 그려져 바뀔 것이 없다.
             Task { @MainActor in
                 guard generation == mine else { return }
-                withAnimation(.easeInOut(duration: 0.18)) { shown = nil }
+                withAnimation(Motion.crossFade) { shown = nil }
                 incoming = nil
                 drag = 0
             }
@@ -232,7 +241,7 @@ struct MonthGridView: View {
         }
         .foregroundStyle(Theme.accentInk)
         .padding(.horizontal, 20)
-        .animation(.easeInOut(duration: 0.18), value: Self.ordinal(grid))
+        .animation(Motion.quick(reduceMotion), value: Self.ordinal(grid))
         .accessibilityElement(children: .contain)
     }
 

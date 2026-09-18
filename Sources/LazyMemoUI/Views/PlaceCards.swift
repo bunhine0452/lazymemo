@@ -18,6 +18,7 @@ struct PlaceCardsView: View {
 
     @State private var page: String?
     @Environment(\.rendersStatically) private var rendersStatically
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         // 화면 밖 렌더는 스크롤 뷰를 그리지 못한다 — 첫 장만 그대로 세운다 (`DrawerView` 와 같은 길).
@@ -52,9 +53,11 @@ struct PlaceCardsView: View {
                         Capsule()
                             .fill(current ? Theme.accentInk : Theme.accentInk.opacity(0.25))
                             .frame(width: current ? 14 : 5, height: 5)
-                            .animation(.snappy, value: page)
                     }
                 }
+                // 점 하나하나에 걸려 있던 것을 **줄 하나로** 모았다 — 같은 뜻의
+                // 움직임이 점 수만큼 있을 이유가 없다 (`Motion`).
+                .animation(Motion.quick(reduceMotion), value: page)
                 .accessibilityHidden(true)
             }
         }
@@ -80,12 +83,16 @@ private struct PlaceCard: View {
                     .foregroundStyle(Paper.ink)
                     .lineLimit(1)
                 Spacer(minLength: Theme.tight)
+                // 알약은 그대로 두고 **누르는 자리만** `Theme.touch` 까지 넓힌다.
+                // 세로 여백 3pt 면 과녁이 19pt 였다 — HIG Accessibility 의 바닥(28pt)
+                // 아래이고, 이 카드에서 누를 수 있는 것은 이것 하나뿐이다.
                 Button { MapRoute.apple.open(spot) } label: {
                     Text(L("가는 길"))
                         .font(Theme.micro.weight(.medium))
                         .padding(.horizontal, Theme.tight)
                         .padding(.vertical, 3)
                         .background(Theme.softAccent, in: Capsule())
+                        .hitTarget(Theme.touch + 4)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Theme.accentInk)

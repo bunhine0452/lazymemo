@@ -19,6 +19,7 @@ struct PenBar: View {
     var onHere: () -> Void = {}
 
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var focused: Bool
     /// 위젯의 「적기」— 앱이 이 주소로 깨어났거나 떠 있는 채 눌렸거나.
     @State private var links = AppLinks.shared
@@ -89,7 +90,41 @@ struct PenBar: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .animation(.snappy, value: pen.planner?.step)
+        // **칩이 서고 물러나는 것도 움직인다.** 앞선 판은 가는 길의 단계에만
+        // 애니메이션이 있어서, 「내일 3시」를 치는 순간 날짜 칩이 **툭** 나타나며
+        // 펜이 한 줄만큼 자랐고 그만큼 목록이 뛰었다 — 적는 중에 가장 자주
+        // 보는 움직임이 가장 거친 움직임이었다.
+        .animation(Motion.quick(reduceMotion), value: penKey)
+    }
+
+    /// 펜의 키가 달라지는 것들. 하나로 묶어 수식어를 하나만 쌓는다.
+    private struct PenKey: Equatable {
+        var question: String?
+        var step: RoutePlanner.Step?
+        var notice: String?
+        var date: String?
+        var place: String?
+        var every: String?
+        var target: String?
+        var trouble: Bool
+        var clearable: Bool
+        var thinking: Bool
+    }
+
+    private var penKey: PenKey {
+        let writing = pen.saying == .writing
+        return PenKey(
+            question: pen.pendingQuestion,
+            step: pen.planner?.step,
+            notice: pen.planner?.notice,
+            date: writing ? pen.dateChip : nil,
+            place: writing ? pen.placeChip : nil,
+            every: writing ? pen.everyChip : nil,
+            target: pen.targetTitle,
+            trouble: hereTrouble != nil && pen.here == nil,
+            clearable: !pen.text.isEmpty,
+            thinking: pen.assistant?.phase == .thinking
+        )
     }
 
     // MARK: 가는 길 되묻기 — 「어디서 출발하시나요?」·「무엇으로 갈까요?」 (`RoutePlanner`, 맥의 상자와 같은 대화)

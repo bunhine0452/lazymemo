@@ -68,6 +68,19 @@ struct CalendarView: View {
     @State private var draft = ""
     @FocusState private var writerFocused: Bool
     @Environment(\.rendersStatically) private var rendersStatically
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// 손이 가리키는 것 셋을 한 값으로 — 창에 손이 왔는가, 어느 줄에 얹혔는가,
+    /// 어느 칸을 겨누는가. 셋 다 같은 속도로 드러나고 물러난다.
+    private struct HoverKey: Equatable {
+        var inWindow: Bool
+        var row: ULID?
+        var target: CalendarDate?
+    }
+
+    private var hoverKey: HoverKey {
+        HoverKey(inWindow: isHovering, row: pointedRow, target: dropTarget)
+    }
 
     var body: some View {
         // 창을 `GeometryReader` 로 받는다. `onGeometryChange` 로 스스로를 재면
@@ -90,10 +103,16 @@ struct CalendarView: View {
         .overlay(Theme.edge())
         .overlay { carriedChip }
         .overlay { HoverSensor { isHovering = $0 } }
-        .animation(Theme.reveal, value: isHovering)
-        .animation(Theme.reveal, value: pointedRow)
-        .animation(Theme.reveal, value: dropTarget)
-        .animation(Theme.settle, value: model.selected)
+        // **움직임의 낱말은 셋뿐이다** (`Motion`). 손이 얹히고 겨누는 것은
+        // `quick`, 자리를 옮겨 앉는 것은 `settle`. 넷을 한 줄로 묶는 이유는
+        // 값마다 수식어를 쌓으면 그 수는 계속 늘고, 늘어난 만큼 이 창의 모든
+        // 것이 그만큼 여러 번 애니메이션 갈래를 탄다는 것이다.
+        //
+        // **끌고 있는 동안에는 겨누는 칸만 애니메이션한다** — `dropTarget` 은
+        // 여기 있지만 격자는 `Equatable` 자식이라(`MonthPanel`) 다시 그려지는
+        // 것이 그 한 칸뿐이다.
+        .animation(Motion.quick(reduceMotion), value: hoverKey)
+        .animation(Motion.settle(reduceMotion), value: model.selected)
         .task { await model.refresh() }
         .onChange(of: model.selected) { closeWriter() }
     }
@@ -251,28 +270,21 @@ struct CalendarView: View {
 
     // MARK: 달 격자 — 조망
 
+    /// 격자는 **`Equatable` 인 자식**이다 (`MonthPanel`). 줄을 끌고 가는 동안
+    /// 이 창의 `body` 는 프레임마다 다시 도는데, 그때 42칸과 이름표 84개를
+    /// 함께 다시 지으면 한 프레임 예산이 서식만으로 넘친다 — 폰 달력이 같은
+    /// 이유로 걸렸다 (2026-09-17). 값이 그대로면 판은 건너뛰고, 프레임마다
+    /// 바뀌는 것은 겨누는 칸 하나뿐이다.
     private func monthGrid(_ plan: CalendarLayout) -> some View {
-        // 마른 정도와 얼룩을 **한 번에 훑어 둔다.** 칸마다 다시 세면 42번을
-        // 42번 반복하게 된다.
-        let ink = monthInk
-
-        return VStack(spacing: 0) {
-            ForEach(Array(model.grid.weeks.enumerated()), id: \.offset) { row, week in
-                HStack(spacing: 0) {
-                    ForEach(Array(week.enumerated()), id: \.element.id) { column, day in
-                        cell(
-                            day, column: column, plan: plan,
-                            presence: ink.presence[row * MonthGridGeometry.columns + column]
-                        )
-                    }
-                }
-            }
-        }
-        // 붐비는 날의 얼룩은 칸이 아니라 **격자 전체에 한 장으로** 그린다
-        // (`InkBleedLayer`). 얼룩이 칸 경계를 조금 넘어가는 것도 여기서 온다.
-        .background {
-            InkBleedLayer(rows: model.grid.weeks.count, stains: ink.stains, week: nil)
-        }
+        MonthPanel(
+            model: model, grid: model.grid, plan: plan,
+            selected: model.selected, today: model.today,
+            dropTarget: dropTarget, isPlacing: holding != nil,
+            inkVersion: model.inkVersion,
+            onSelect: { model.select($0) },
+            onPlace: { day in Task { await model.place(on: day) } }
+        )
+        .equatable()
         // 칸마다 자리를 묻지 않고 격자 하나만 잰다 — 나머지는 산수다
         // (`MonthGridGeometry`). 화면에 뷰 42개를 더 만들지 않기 위한 선택이다.
         .onGeometryChange(for: CGRect.self) { proxy in
@@ -313,111 +325,6 @@ struct CalendarView: View {
                 aimCell = geometry.index(at: point)
             }
         }
-    }
-
-    /// 한 칸. **표시가 셋뿐이고 셋 다 펜 자국이다.**
-    ///
-    /// - 오늘: 손으로 그린 동그라미 (`HandRing`) + 스민 호박색
-    /// - 고른 날: 밑줄 (`HandUnderline`)
-    /// - 놓을 자리: 칸 전체가 눌린다
-    ///
-    /// 놓을 자리만 면으로 말하는 이유는 **손이 이미 움직이는 중**이기 때문이다.
-    /// 작은 고리는 겨냥한 다음에야 보이고, 그때는 이미 늦다. 그리고 칸 전체가
-    /// 곧 착지 판정 범위라 (`MonthGridGeometry`) 보이는 것과 되는 것이 같아진다.
-    private func cell(
-        _ day: MonthGrid.Day, column: Int, plan: CalendarLayout, presence: Double
-    ) -> some View {
-        let isToday = model.isToday(day.date)
-        let isSelected = day.date == model.selected
-        let isTarget = dropTarget == day.date
-
-        return ZStack {
-            if isTarget {
-                RoundedRectangle(cornerRadius: Theme.chipRadius, style: .continuous)
-                    // **잉크 쪽 값이다.** 면을 칠하는 딥 네이비를 13% 로 깔면
-                    // 어두운 종이에서 아무것도 안 보인다 — 끌고 있는 동안
-                    // 가장 중요한 표시가 다크에서만 사라진다.
-                    .fill(Theme.accentInk.opacity(0.15))
-                    .padding(.horizontal, 2.5)
-                    .padding(.vertical, 1.5)
-            }
-
-            if isSelected || isToday {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(isToday ? Theme.accent : Theme.softAccent)
-                    .frame(width: plan.markSize * 1.48, height: plan.markSize * 1.20)
-                    .offset(y: -3)
-            }
-
-            Text("\(day.date.day)")
-                .font(.system(size: plan.numeralSize, weight: isToday || isSelected ? .bold : .medium,
-                              design: .rounded).monospacedDigit())
-                .foregroundStyle(isToday ? Theme.onAccent : numeralColor(column: column, isTarget: isTarget, presence: presence))
-                .offset(y: -3)
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: plan.weekHeight)
-        .contentShape(.rect)
-        .onTapGesture {
-            // 들고 온 것이 있으면 누르기는 **놓기**다. 날짜를 글자로 치는
-            // 대신 자리로 가리키는 것이 이 창의 유일한 방법이어야 한다.
-            if holding != nil {
-                Task { await model.place(on: day.date) }
-            } else {
-                model.select(day.date)
-            }
-        }
-        .help(holding != nil ? L("\(dayText(day.date))에 놓기") : dayHelp(day.date))
-        // 칸은 숫자 하나뿐이라 "몇 월 며칠 · 몇 개" 를 소리로 따로 적는다.
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text(dayHelp(day.date)))
-        .accessibilityHint(Text(holding != nil ? L("여기에 놓기") : L("이 날 펼치기")))
-    }
-
-    /// 달 한 장치의 잉크 — 칸마다 마른 정도와, 붐비는 날의 얼룩.
-    ///
-    /// 격자를 한 번만 훑는다. 두 값이 같은 순회에서 나오므로 얼룩도 지난 날이면
-    /// 함께 마른다 — 표시와 바탕이 따로 늙으면 그 칸만 어색해진다.
-    private struct MonthInk {
-        var presence: [Double]
-        var stains: [InkBleedLayer.Stain]
-        /// 오늘이 든 주. 다른 달을 보고 있으면 `nil` — 그 달에는 「이번 주」가 없다.
-        var week: Int?
-    }
-
-    private var monthInk: MonthInk {
-        // 이 달에 오늘이 없다면 **일부러 찾아온 달**이다. 읽으려는 뜻이 곧
-        // 되살리는 신호이므로 (철학 3) 아무것도 말리지 않는다.
-        let anchor = model.grid.days.firstIndex { $0.date == model.today }
-        var presence: [Double] = []
-        var stains: [InkBleedLayer.Stain] = []
-        presence.reserveCapacity(model.grid.days.count)
-
-        for (index, day) in model.grid.days.enumerated() {
-            let alive: Double
-            if day.isOverflow {
-                alive = 0.24
-            } else if let anchor {
-                alive = InkDrying.presence(daysAgo: anchor - index)
-            } else {
-                alive = 1
-            }
-            presence.append(alive)
-
-            let memos = model.memos(on: day.date)
-            guard !memos.isEmpty else { continue }
-            stains.append(InkBleedLayer.Stain(
-                index: index,
-                inks: memos.prefix(InkBleed.maxInks).map(\.color.ink),
-                count: memos.count,
-                presence: alive
-            ))
-        }
-        return MonthInk(
-            presence: presence,
-            stains: stains,
-            week: anchor.map { $0 / MonthGridGeometry.columns }
-        )
     }
 
     /// 고른 날이 격자에서 앉은 칸. 접힌 자리는 이 칸을 가리킨다 — 목록이 격자의
@@ -995,11 +902,6 @@ struct CalendarView: View {
         DateWords.monthDay(date)
     }
 
-    private func dayHelp(_ date: CalendarDate) -> String {
-        let count = model.memos(on: date).count
-        return count > 0 ? L("\(dayText(date)) — \(count)개") : dayText(date)
-    }
-
     /// `14:30`. 로케일 형식(오후 2:30)은 폭이 들쭉날쭉해 세로로 안 맞는다.
     private func clockLabel(_ memo: Memo) -> String {
         guard let at = memo.at else { return "" }
@@ -1016,20 +918,7 @@ struct CalendarView: View {
         title.count > Self.chipLimit ? String(title.prefix(Self.chipLimit)) + "…" : title
     }
 
-    /// 한국 달력 관행 — 일요일 빨강, 토요일 파랑.
-    private func columnColor(_ column: Int) -> Color {
-        switch column {
-        case 0: Theme.sunday
-        case 6: Theme.saturday
-        default: Paper.ink
-        }
-    }
-
-    /// 숫자의 색. 마른 정도는 이미 `monthInk` 가 세어 두었다.
-    private func numeralColor(column: Int, isTarget: Bool, presence: Double) -> Color {
-        // 손이 향하고 있는 칸은 바래지 않는다. 지난 날이라고 흐린 채로 두면
-        // 지금 놓으려는 그 자리가 가장 안 읽히는 칸이 된다.
-        if isTarget { return Theme.accentInk }
-        return columnColor(column).opacity(0.92 * presence)
-    }
+    /// 한국 달력 관행 — 일요일 빨강, 토요일 파랑. 요일 줄과 격자가 **한 벌을
+    /// 나눠 쓴다** (`MonthPanel.columnColor`) — 두 곳에 적으면 한쪽만 고쳐진다.
+    private func columnColor(_ column: Int) -> Color { MonthPanel.columnColor(column) }
 }

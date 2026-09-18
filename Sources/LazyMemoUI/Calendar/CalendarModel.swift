@@ -30,6 +30,12 @@ final class CalendarModel {
     private(set) var grid: MonthGrid
     /// 날짜별 일정. 격자와 아래 판이 같은 것을 본다.
     private(set) var byDay: [String: [Memo]] = [:]
+    /// 날짜별 일정이 다시 읽힌 횟수 — **격자가 「달라졌나」를 묻는 자리**다.
+    ///
+    /// 격자의 판(`MonthPanel`)은 `Equatable` 이라 값이 그대로면 42칸을 다시
+    /// 만들지 않는다. 그런데 `byDay` 는 사전이라 프레임마다 견주면 그 자체가
+    /// 비싸다 — 숫자 하나로 묻는다. 여기만 늘어나면 판이 한 번 다시 그려진다.
+    private(set) var inkVersion = 0
     /// 시스템 캘린더에서 빌려 온 일정. **아래 판에만 선다.**
     ///
     /// 격자의 번진 잉크(§10.4)에는 넣지 않는다. 그 밀도는 «내가 쌓아 둔 것» 을
@@ -115,6 +121,7 @@ final class CalendarModel {
             grouped[date.description, default: []].append(memo)
         }
         byDay = grouped.mapValues(sortWithinDay)
+        inkVersion &+= 1
 
         // 남의 일정은 우리 것을 다 세운 **뒤에** 얹는다. 캘린더가 느리거나
         // 권한이 없어도 내 메모는 이미 화면에 있다.

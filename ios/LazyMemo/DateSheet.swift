@@ -12,6 +12,7 @@ struct DateSheet: View {
     var onClear: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var grid: MonthGrid
     @State private var custom = false
     @State private var customTime = Date()
@@ -105,6 +106,10 @@ struct DateSheet: View {
         .padding(.horizontal, 20)
         .disabled(day == nil)
         .opacity(day == nil ? 0.4 : 1)
+        // 켜진 칩이 옮겨 가는 것을 보인다 — 누른 자리에서 색이 차고 앞의 것이
+        // 빈다. 도형을 갈아 끼우지 않으므로 이어진다 (`timeChip`).
+        .animation(Motion.quick(reduceMotion), value: schedule)
+        .animation(Motion.quick(reduceMotion), value: custom)
     }
 
     /// 준비된 칩에 없는 시각이 붙어 있다 — 휠을 접어도 「직접…」이 켜져 있어야 한다.
@@ -119,15 +124,27 @@ struct DateSheet: View {
         if custom, schedule.at == nil { set(time: customTime) }
     }
 
-    @ViewBuilder
+    /// 시각 칩 — 켜지면 면이 차고, 꺼지면 테두리만.
+    ///
+    /// **한 단추다.** 앞선 판은 `if on { … } else { … }` 로 스타일이 다른 단추
+    /// 둘을 갈아 끼웠다. SwiftUI 에게 그 둘은 **다른 뷰**라 누를 때마다 단추가
+    /// 사라졌다 새로 생겼고, 그래서 색이 이어지지 않고 툭 바뀌었다.
+    /// 목록의 폴더 칩(`StackView.folderChip`)과 **같은 모양·같은 만듦새**로 둔다 —
+    /// 같은 뜻의 물건을 두 가지로 그리면 두 개로 배운다 (WWDC17 802 Consistency).
+    ///
+    /// 과녁은 44 다. `.bordered` 캡슐은 `.subheadline` 에서 34pt 남짓이라
+    /// HIG 의 기본(44×44) 아래였고, 이 시트에서 가장 자주 누르는 것이 이것이다.
     private func timeChip(_ label: String, on: Bool, action: @escaping () -> Void) -> some View {
-        if on {
-            Button(label, action: action).buttonStyle(.borderedProminent).buttonBorderShape(.capsule).tint(Theme.accent)
-                .font(.subheadline.monospacedDigit())
-        } else {
-            Button(label, action: action).buttonStyle(.bordered).buttonBorderShape(.capsule)
-                .font(.subheadline.monospacedDigit())
+        Button(action: action) {
+            Text(label)
+                .font(.subheadline.monospacedDigit().weight(on ? .semibold : .regular))
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .foregroundStyle(on ? Theme.onAccent : Theme.accentInk)
+                .background(on ? Theme.accent : Theme.accentInk.opacity(0.07), in: Capsule())
         }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     private func set(hour: Int) {
