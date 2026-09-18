@@ -26,7 +26,7 @@ final class PenModel {
             // 글을 고치면 답은 물러나고 검색으로 돌아간다 (맥의 상자와 같은 규칙, quick-capture-assistant D9).
             // **웹의 답은 남는다** — 다음 말이 「메모해」「치과 메모에 추가해줘」처럼 그 답에 대한 것일 수 있다 (`WebFollowUp`).
             let keepsWeb = assistant?.answer?.isWeb == true && assistant?.phase == .done
-            if !keepsWeb, shown != nil || asked != nil || assistant?.answer != nil || assistant?.proposal != nil || assistant?.phase == .thinking || assistant?.offersWeb != nil {
+            if !keepsWeb, shown != nil || asked != nil || assistant?.answer != nil || assistant?.proposal != nil || assistant?.phase == .thinking || assistant?.offersWeb != nil || assistant?.applyError != nil {
                 shown = nil
                 listing = .search
                 asked = nil
@@ -407,6 +407,8 @@ final class PenModel {
     private func finishLeaving(_ memo: Memo) {
         lastLeft = memo.id
         text = ""
+        // 남아 있던 웹의 답은 여기서 물러난다 — 새 메모로 끝났다 (맥의 `commit()` 과 같다).
+        assistant?.reset()
         draft.forget()
         here = nil
         readsDate = true

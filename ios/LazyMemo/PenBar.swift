@@ -347,11 +347,13 @@ struct PenBar: View {
                     .frame(minHeight: 36)
                     .accessibilityLabel("적기")
                     .accessibilityIdentifier("capture")
-                if !pen.text.isEmpty || pen.pendingQuestion != nil || pen.planner?.isActive == true {
+                // 답·결과 줄이 서 있을 때도 ⊗ 가 선다 — 빈 펜에서는 그것을 치울 손짓이 달리 없다 (맥의 esc 한 겹).
+                if !pen.text.isEmpty || pen.pendingQuestion != nil || pen.planner?.isActive == true || pen.assistant?.isStanding == true {
                     Button {
                         // 되묻는 중의 ⊗ 는 「시각 없이」— 이미 남기라 한 글이다 (D12). 가는 길을 묻는 중이면 「됐어」.
                         if let draft = pen.takePendingDraft() { Task { await pen.create(draft) } }
                         pen.planner?.dismiss()
+                        if pen.text.isEmpty { pen.assistant?.reset() }
                         pen.text = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
