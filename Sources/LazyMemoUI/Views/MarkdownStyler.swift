@@ -23,22 +23,31 @@ enum MarkdownStyler {
     private static let hiddenSize: CGFloat = 0.01
 
     /// - Parameter activeLine: 커서가 놓인 줄. 그 줄에서만 기호를 보여준다.
+    /// - Parameter scope: 다시 깔 구간. 주면 **그 줄들만** 다시 꾸민다.
+    ///
+    ///   글 전체를 다시 까는 데는 23k 자에서 0.3초가 든다 — 그 중 0.24초가 스캔이다.
+    ///   키를 누를 때마다 그것을 하면 긴 메모에서는 타자가 통째로 밀린다 (측정:
+    ///   `LongMemoStylingTests`). 마크다운의 구간은 `.route` 를 뺀 전부가 **한 줄
+    ///   안에서 끝나므로**, 고친 줄만 다시 보면 결과가 같다.
     static func apply(
         to storage: NSTextStorage,
         baseFont: NSFont,
         paragraph: NSParagraphStyle?,
-        activeLine: NSRange? = nil
+        activeLine: NSRange? = nil,
+        scope: NSRange? = nil
     ) {
         let text = storage.string
-        let full = NSRange(location: 0, length: (text as NSString).length)
+        let source = text as NSString
+        let full = NSRange(location: 0, length: source.length)
+        let region = region(scope, in: source, full: full)
 
         storage.beginEditing()
         defer { storage.endEditing() }
 
         // 매번 바탕부터 다시 깐다. 지운 마커의 흔적이 남지 않게 하는 가장 확실한 길이다.
-        storage.setAttributes(baseAttributes(baseFont, paragraph), range: full)
+        storage.setAttributes(baseAttributes(baseFont, paragraph), range: region)
 
-        let allSpans = MarkdownScanner.spans(in: text)
+        let allSpans = spans(in: text, region: region, full: full)
         // 가는 길의 절은 카드가 대신 선다 (`RouteCard`). 커서가 그 안에 없으면 통째로 감추고,
         // 그 안의 제목·붙임표에는 꾸밈도 줄머리 표시도 입히지 않는다 — 감춘 줄에 점이 줄지어 서면 안 된다.
         let routeRange = allSpans.first { $0.kind == .route }?.range
@@ -80,6 +89,31 @@ enum MarkdownStyler {
                   let markerRange = markerRange(for: span, kind: marker, spans: spans)
             else { continue }
             place(marker, markerRange: markerRange, in: storage, text: text, paragraph: paragraph)
+        }
+    }
+
+    // MARK: 고친 줄만 다시 깔기
+
+    /// 실제로 다시 깔 구간 — 언제나 **줄 경계까지** 넓힌다.
+    ///
+    /// 반 줄만 받으면 스캐너가 다른 것을 본다 (`## 제목` 의 `# 제목` 은 다른 제목이다).
+    /// 「가는 길」 절은 여러 줄이 한 덩이라 한 줄만 보고는 판단할 수 없으므로, 그 절을
+    /// 가진 메모에서는 통째로 다시 깐다 — 기계가 적는 절이라 드물고, 드문 쪽이 느린 것이 낫다.
+    private static func region(_ scope: NSRange?, in source: NSString, full: NSRange) -> NSRange {
+        guard let scope, scope.location >= 0, NSMaxRange(scope) <= full.length else { return full }
+        guard source.range(of: RouteNote.heading).location == NSNotFound else { return full }
+        return source.lineRange(for: scope)
+    }
+
+    /// 구간 안의 꾸밈 구간들. 좁은 구간이면 **그만큼만 스캔한다** — 여기가 비용의 8할이다.
+    private static func spans(in text: String, region: NSRange, full: NSRange) -> [Span] {
+        guard !NSEqualRanges(region, full) else { return MarkdownScanner.spans(in: text) }
+        let slice = (text as NSString).substring(with: region)
+        return MarkdownScanner.spans(in: slice).map {
+            Span(
+                range: NSRange(location: $0.range.location + region.location, length: $0.range.length),
+                kind: $0.kind
+            )
         }
     }
 

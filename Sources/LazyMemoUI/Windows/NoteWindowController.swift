@@ -21,8 +21,28 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
     private var grewForRoute = false
     /// 기본 종이의 키. 카드가 서면 여기에 더한다.
     static let defaultPaper: CGFloat = 200
+    /// 기본 종이의 폭 (`NoteWindowManager.cascadedFrame`).
+    static let defaultWidth: CGFloat = 260
     /// 가는 길 카드 한 장의 몫 — 머리·큰 줄·띠·탈것 두 줄·하차·꼬리.
     static let routeCardHeight: CGFloat = 280
+
+    // MARK: 글에 맞춰 자라기 (`PaperFit`)
+
+    /// 사람이 손으로 크기를 정한 종이인가. 그렇다면 앱은 **크게 넘칠 때만** 자라고
+    /// 결코 줄이지 않는다 — 접어 둔 것은 그러라고 접은 것이다.
+    private var userSized: Bool
+    /// 언제까지가 **우리가** 크기를 바꾸는 중인가. 그 사이에 오는 `windowDidResize` 는
+    /// 사람의 손이 아니다. 시각으로 두는 이유: 애니메이션의 마지막 알림은 완료 핸들러
+    /// **뒤에** 한 번 더 오기도 해서, 깃발을 그때 내리면 앱이 늘린 것이 「사람이 정한
+    /// 크기」로 둔갑한다 — 그 뒤로 종이는 두 번 다시 글에 맞추지 않는다.
+    private var selfResizeUntil = Date.distantPast
+    private var isResizingSelf: Bool { Date() < selfResizeUntil }
+    /// 치는 동안에는 기다린다 — 키를 누를 때마다 창이 움직이면 글을 쓸 수가 없다.
+    private var fitTask: Task<Void, Never>?
+    /// 지난번에 들은 글 높이. 한 번에 크게 뛰면 붙여넣기다.
+    private var lastTextHeight: CGFloat = 0
+    /// 폭을 넓힌 뒤 한 번은 다시 잰다 — 접힘이 풀린 실제 높이는 다시 깔아 봐야 안다.
+    private var wantsRemeasure = false
 
     /// 지도가 앉은 종이의 키. 기본 종이(200pt)에 카드(~110pt)가 서면 글이 두 줄만 남는다 —
     /// 사진과 달리 지도는 몫을 나눠 줄일 수 없어(작으면 지도가 아니다) 종이가 자란다.
@@ -44,6 +64,9 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
         self.window = DesktopLevelWindow(contentRect: frame)
         self.onFrameChange = onFrameChange
         self.onCloseRequest = onCloseRequest
+        // 앱이 내놓는 크기가 아니면 사람이 정했거나 앱이 이미 글에 맞춰 늘린 것이다 —
+        // 어느 쪽이든 줄이면 안 된다 (`PaperFit.looksAppSized`).
+        self.userSized = !PaperFit.looksAppSized(frame.size, defaults: Self.appSizes)
         super.init()
 
         // 겹쳐 뜨는 조작 버튼도 첫 클릭에 눌려야 한다 (`FirstMouseHostingView`).
@@ -55,6 +78,8 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
         ))
         hosting.rootView.onPlacesAppear = { [weak self] in self?.growForPlaces() }
         hosting.rootView.onRouteAppear = { [weak self] in self?.growForRoute() }
+        // 글이 얼마나 자리를 먹는지 들린다 — 종이가 그에 맞춰 한 번 자란다 (`PaperFit`).
+        hosting.rootView.onTextHeight = { [weak self] height in self?.textHeightChanged(height) }
         // Esc 는 어디서 눌리든 한곳으로 — 본문에서(텍스트 뷰), 손잡이만 잡은 채로(창).
         hosting.rootView.onEscape = { [weak self] in self?.escape() }
         window.onEscape = { [weak self] in self?.escape() }
@@ -119,7 +144,111 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
         if let screen = window.screen?.visibleFrame, frame.minY < screen.minY {
             frame.origin.y = screen.minY
         }
+        // 카드가 늘린 것도 **앱이 정한 크기**다 — 이 사이에 오는 리사이즈 알림을
+        // 사람의 손으로 세면, 종이는 열리자마자 「사람이 정한 크기」가 되어 버린다.
+        selfResizeUntil = Date().addingTimeInterval(1)
         window.setFrame(frame, display: true, animate: true)
+        selfResizeUntil = Date().addingTimeInterval(0.2)
+    }
+
+    // MARK: 글에 맞춰 자라기
+
+    /// 앱이 스스로 내놓는 종이 크기들. 이 중 하나가 아니면 사람의 손이 닿은 것이다.
+    private static var appSizes: [CGSize] {
+        [defaultPaper, paperWithMap, defaultPaper + routeCardHeight, paperWithMap + routeCardHeight]
+            .map { CGSize(width: defaultWidth, height: $0) }
+    }
+
+    /// 글 높이가 바뀌었다 (`MemoTextEditor` 가 재서 알린다).
+    ///
+    /// **키를 누를 때마다 창을 움직이지 않는다.** 한 줄 칠 때마다 종이가 자라면
+    /// 글자가 손끝에서 달아난다 — 손이 멈춘 뒤에 한 번 맞춘다. 다만 한꺼번에
+    /// 크게 뛴 것은 붙여넣기나 다듬기 결과이므로 거의 곧바로 맞춘다.
+    private func textHeightChanged(_ height: CGFloat) {
+        let jump = height - lastTextHeight
+        lastTextHeight = height
+        guard height > 0 else { return }
+        scheduleFit(after: jump > Paper.linePitch * 2 ? .milliseconds(60) : .milliseconds(450))
+    }
+
+    private func scheduleFit(after delay: Duration) {
+        fitTask?.cancel()
+        fitTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled else { return }
+            self?.fitToContent()
+        }
+    }
+
+    /// 지금 글에 맞는 크기로 한 번 자란다. 규칙은 `PaperFit` 에 있다.
+    func fitToContent() {
+        guard !isFlying, window.isVisible, let paper = measurePaper() else { return }
+        let screen = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
+        guard let screen, let target = PaperFit.fit(paper, on: screen) else {
+            wantsRemeasure = false
+            return
+        }
+
+        // 폭이 바뀌면 글이 다시 접힌다 — 그 실제 높이는 다시 깔아 봐야 안다.
+        wantsRemeasure = abs(target.width - paper.frame.width) > 1
+        selfResizeUntil = Date().addingTimeInterval(Self.fitAnimation + 0.25)
+        setFrameAnimated(target) { [weak self] in
+            guard let self else { return }
+            onFrameChange(id, window.frame)
+            // 커서가 보이는 자리에 남아야 한다 — 붙여 넣은 글 끝이 화면 밖이면
+            // 사람은 자기가 무엇을 붙였는지 못 본다.
+            if let textView = window.contentView?.firstTextView {
+                textView.scrollRangeToVisible(textView.selectedRange())
+            }
+            if wantsRemeasure {
+                wantsRemeasure = false
+                scheduleFit(after: .milliseconds(50))
+            }
+        }
+    }
+
+    /// 자라는 데 걸리는 시간. 눈이 따라갈 만큼만 — 길면 그 동안 글을 못 친다.
+    static let fitAnimation: TimeInterval = 0.18
+
+    /// 짧게, 그리고 **「동작 줄이기」를 켠 사람에게는 즉시.**
+    private func setFrameAnimated(_ target: CGRect, completion: @escaping @MainActor () -> Void) {
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            window.setFrame(target, display: true)
+            completion()
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Self.fitAnimation
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            window.animator().setFrame(target, display: true)
+        } completionHandler: {
+            MainActor.assumeIsolated { completion() }
+        }
+    }
+
+    /// 지금 종이의 형편을 잰다. 글 높이는 텍스트 뷰의 배치에서, 카드·사진·꼬리의
+    /// 몫은 **창 높이에서 글 칸을 뺀 나머지**로 — SwiftUI 쪽에 자를 대지 않아도 된다.
+    private func measurePaper() -> PaperFit.Paper? {
+        guard let textView = window.contentView?.firstTextView,
+              let scrollView = textView.enclosingScrollView,
+              let layoutManager = textView.layoutManager,
+              let container = textView.textContainer,
+              scrollView.frame.height > 1
+        else { return nil }
+
+        layoutManager.ensureLayout(for: container)
+        let textHeight = layoutManager.usedRect(for: container).height
+            + textView.textContainerInset.height * 2
+        let chrome = max(0, window.frame.height - scrollView.frame.height)
+
+        return PaperFit.Paper(
+            frame: window.frame,
+            textHeight: textHeight,
+            chrome: chrome,
+            paragraphs: model.text.reduce(1) { $1 == "\n" ? $0 + 1 : $0 },
+            lineHeight: Paper.linePitch,
+            userSized: userSized
+        )
     }
 
     // MARK: 서랍으로
@@ -163,6 +292,7 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
     /// 창을 없애기 전에 반드시 부른다 — 저장 버튼이 없으므로 여기가 마지막 기회다.
     func teardown() async {
         await model.flush()
+        fitTask?.cancel()
         window.cancelSettling()
         window.delegate = nil
         window.orderOut(nil)
@@ -198,6 +328,9 @@ final class NoteWindowController: NSObject, NSWindowDelegate {
 
     func windowDidResize(_ notification: Notification) {
         guard !isFlying else { return }
+        // **손으로 잡아 늘린 순간부터 이 종이는 사람의 것이다.** 그 뒤로 앱은
+        // 줄이지 않고, 크게 넘칠 때만 자란다 (`PaperFit.handSlack`).
+        if !isResizingSelf { userSized = true }
         onFrameChange(id, window.frame)
     }
 }

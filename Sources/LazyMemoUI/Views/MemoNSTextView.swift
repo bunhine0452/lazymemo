@@ -236,9 +236,26 @@ final class MemoNSTextView: NSTextView {
                 range = source.rangeOfComposedCharacterSequence(at: range.location)
             }
         }
-        let widened = MachineLines.deletion(range, in: string)
+        // **그 언저리 줄만 본다.** 참조는 한 줄 안에서 끝나므로 답이 같고, 글 전체를
+        // 스캔하면 2만 자 메모에서 ⌫ 한 번에 0.24초가 든다 (`LongMemoStylingTests`).
+        let window = Self.neighbourhood(of: range, in: source)
+        let local = NSRange(location: range.location - window.location, length: range.length)
+        let found = MachineLines.deletion(local, in: source.substring(with: window))
+        let widened = NSRange(location: found.location + window.location, length: found.length)
         guard widened != range else { return }
         setSelectedRange(widened)
+    }
+
+    /// 이 구간이 놓인 줄과 그 앞뒤 한 줄. 줄 끝에서 친 ⌫ 가 **앞줄**의 사진에 닿기 때문에 앞도 본다.
+    static func neighbourhood(of range: NSRange, in source: NSString) -> NSRange {
+        var window = source.lineRange(for: range)
+        if window.location > 0 {
+            window = NSUnionRange(window, source.lineRange(for: NSRange(location: window.location - 1, length: 0)))
+        }
+        if NSMaxRange(window) < source.length {
+            window = NSUnionRange(window, source.lineRange(for: NSRange(location: NSMaxRange(window), length: 0)))
+        }
+        return window
     }
 
     // MARK: 사진
@@ -397,7 +414,7 @@ final class MemoNSTextView: NSTextView {
     /// 감춰 둔 마커 자리에 진짜 체크상자와 점을 그린다 (`LineMarker`).
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        forEachLineMarker { marker, _, frame in
+        forEachLineMarker(in: charactersDrawn(in: dirtyRect)) { marker, _, frame in
             guard frame.intersects(dirtyRect) else { return }
             marker.draw(
                 at: frame.minX, centerY: frame.midY, lineHeight: frame.height,
@@ -406,16 +423,32 @@ final class MemoNSTextView: NSTextView {
         }
     }
 
+    /// 이번에 그려야 하는 구역에 든 글자 구간. 못 구하면 `nil` — 그때는 전부 본다.
+    private func charactersDrawn(in dirtyRect: NSRect) -> NSRange? {
+        guard let layoutManager, let textContainer else { return nil }
+        var rect = dirtyRect
+        rect.origin.x -= textContainerInset.width
+        rect.origin.y -= textContainerInset.height
+        // 여백 표시는 줄의 위아래에 걸치므로 한 줄씩 넉넉히 넓힌다.
+        rect = rect.insetBy(dx: 0, dy: -baseFont.pointSize * 2)
+        let glyphs = layoutManager.glyphRange(forBoundingRect: rect, in: textContainer)
+        guard glyphs.length > 0 else { return nil }
+        return layoutManager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)
+    }
+
     /// 화면에 그려진 줄머리 표시를 하나씩 짚는다.
     ///
     /// - Parameter body: 표시 종류, 그 표시가 붙은 내용 구간, 여백에서의 자리.
-    func forEachLineMarker(_ body: (LineMarker, NSRange, NSRect) -> Void) {
+    func forEachLineMarker(in scope: NSRange? = nil, _ body: (LineMarker, NSRange, NSRect) -> Void) {
         guard let layoutManager, let textContainer, let storage = textStorage, storage.length > 0
         else { return }
 
         let inset = textContainerInset
         let padding = textContainer.lineFragmentPadding
-        let full = NSRange(location: 0, length: storage.length)
+        var full = NSRange(location: 0, length: storage.length)
+        // 화면에 안 그려지는 줄의 자리를 물어보는 것만으로도 배치가 깔린다 —
+        // 2만 자 메모에서는 그것이 매 그리기마다 도는 비용이 된다.
+        if let scope, scope.location >= 0, NSMaxRange(scope) <= full.length { full = scope }
 
         storage.enumerateAttribute(.lineMarker, in: full) { value, range, _ in
             guard let raw = value as? Int, let marker = LineMarker(rawValue: raw) else { return }

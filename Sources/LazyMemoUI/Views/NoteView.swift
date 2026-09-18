@@ -25,6 +25,8 @@ struct NoteView: View {
     var onPlacesAppear: () -> Void = {}
     /// 가는 길 카드가 섰다 — 같은 이유로 종이가 자란다.
     var onRouteAppear: () -> Void = {}
+    /// 글이 차지한 높이가 바뀌었다 — 종이가 글에 맞춰 자랄 근거다 (`PaperFit`).
+    var onTextHeight: (CGFloat) -> Void = { _ in }
     /// 종이가 얼마나 진한가. 창 전체가 함께 쓰는 값이다 (`PaperAppearance`).
     var appearance: PaperAppearance? = nil
     /// 화면 밖 렌더에서 조작 줄을 펴 보이기 위한 연출값 (설계문서 §14.9).
@@ -183,7 +185,8 @@ struct NoteView: View {
             // Esc 는 손을 떼는 데서 끝나지 않는다 — 종이째 서랍으로 (§7.1 일곱째 규칙).
             onEscape: onEscape,
             placeholder: "…",
-            onEdit: model.edited
+            onEdit: model.edited,
+            onHeightChange: onTextHeight
         )
     }
 

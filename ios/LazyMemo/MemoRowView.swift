@@ -17,6 +17,21 @@ struct MemoRowView: View {
     /// 제목 다음의 글 한 줄. 사진 참조는 글이 아니라 아래 「사진 1장」으로 센다 (`Memo.previewLine`).
     private var secondLine: String? { memo.previewLine }
 
+    /// 긴 글은 이 줄이 이만큼부터 「길다」 — 붙여 넣은 글 한 덩이가 이 언저리다.
+    static let longBody = 300
+
+    /// 미리보기에 내줄 줄 수.
+    ///
+    /// **짧은 줄은 그대로 둔다.** 목록은 훑는 자리라 칸이 다 같은 키일 때 가장 빨리 읽히고,
+    /// 두 줄이면 대개 다 담긴다. 그런데 긴 글을 붙여 넣은 메모는 두 줄로 잘리면 **무슨 메모인지
+    /// 알 수 없다** — 제목 한 줄이 링크거나 날짜뿐인 일이 흔하기 때문이다. 그런 칸만 넉 줄까지
+    /// 편다. 짧은 줄은 `lineLimit` 을 올려도 그만큼 안 자라니 칸의 키는 그대로다.
+    /// 큰 글자에서는 한 줄이 더 넓게 퍼지므로 원래의 셋에서 시작한다.
+    static func previewLines(bodyLength: Int, accessibility: Bool) -> Int {
+        let base = accessibility ? 3 : 2
+        return bodyLength > longBody ? 4 : base
+    }
+
     private var scheduled: Bool { memo.due != nil || memo.at != nil }
 
     private var titleInk: Color {
@@ -34,7 +49,9 @@ struct MemoRowView: View {
                     Text(secondLine)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .lineLimit(typeSize.isAccessibilitySize ? 3 : 2)
+                        .lineLimit(Self.previewLines(
+                            bodyLength: memo.body.count, accessibility: typeSize.isAccessibilitySize
+                        ))
                         .lineSpacing(3)
                 }
                 when

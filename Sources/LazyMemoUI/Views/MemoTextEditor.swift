@@ -132,6 +132,9 @@ struct MemoTextEditor: NSViewRepresentable {
         // 조합 보호 규칙은 MemoTextSync 에 있다 — 테스트가 그쪽을 지킨다.
         if MemoTextSync.apply(text, to: textView) {
             context.coordinator.restyle(textView)
+            // 밖에서 들어온 글(다른 기기의 파일·비서가 쓴 결과)도 높이가 바뀐다.
+            // 배치가 끝난 **다음 턴**에 알린다 — 갱신 도중에 상태를 흔들지 않도록.
+            DispatchQueue.main.async { context.coordinator.reportHeight() }
         }
     }
 
@@ -156,12 +159,18 @@ struct MemoTextEditor: NSViewRepresentable {
         private var isRestyling = false
         private var isMovingCaret = false
         private var activeLine: NSRange?
+        /// 지난번에 본 글 길이. 이번에 **어디가 고쳐졌는지**를 짚는 유일한 근거다.
+        private var lastLength = 0
 
         /// 꾸밈을 다시 입힌다. 빠른 입력은 **사진 참조 감추기만** 한다.
         ///
         /// **조합 중에는 하지 않는다.** 속성을 통째로 다시 까는 동안 조합
         /// 밑줄이 지워져 한글 입력이 어디까지 됐는지 알 수 없게 된다.
-        func restyle(_ textView: NSTextView, focused: Bool? = nil) {
+        ///
+        /// - Parameter scope: 다시 깔 구간. 주면 **그 줄들만** 손댄다 — 긴 메모에서
+        ///   글 전체를 다시 까는 데 0.3초가 들어 타자가 밀린다 (`MarkdownStyler`).
+        ///   커서가 들고 난 두 줄은 언제나 함께 넣는다.
+        func restyle(_ textView: NSTextView, focused: Bool? = nil, scope: NSRange? = nil) {
             guard stylesMarkdown || hidesImageReferences, !textView.hasMarkedText(),
                   let storage = textView.textStorage
             else { return }
@@ -171,19 +180,47 @@ struct MemoTextEditor: NSViewRepresentable {
             // 선택은 글 끝에 놓인 기본값이라, 그것을 커서로 치면 바탕화면의 모든
             // 종이가 마지막 줄만 `- [ ]` 원문을 드러낸 채 서 있다.
             let hasFocus = focused ?? (textView.window?.firstResponder === textView)
+            let leftLine = activeLine
             activeLine = hasFocus ? (textView.string as NSString).lineRange(for: selection) : nil
+            // **구간을 받아 온 호출은 길이를 건드리지 않는다.** 붙여넣기 한 번에
+            // 선택 알림이 먼저, 글 바뀜 알림이 나중에 오는데, 앞의 것이 길이를
+            // 갱신해 버리면 뒤의 것이 「아무것도 안 늘었다」고 읽어 **붙인 줄을
+            // 통째로 안 꾸민다** (사진 참조가 드러났다). 전체 갱신만 다시 맞춘다.
+            if scope == nil { lastLength = (textView.string as NSString).length }
 
             isRestyling = true
             if stylesMarkdown {
-                MarkdownStyler.apply(
-                    to: storage, baseFont: baseFont, paragraph: paragraph, activeLine: activeLine
-                )
+                for region in Self.regions(scope, leaving: leftLine, entering: activeLine) {
+                    MarkdownStyler.apply(
+                        to: storage, baseFont: baseFont, paragraph: paragraph,
+                        activeLine: activeLine, scope: region
+                    )
+                }
             } else {
                 MarkdownStyler.hideImageReferences(to: storage, baseFont: baseFont, paragraph: paragraph)
             }
             textView.setSelectedRange(selection)
             isRestyling = false
             unhideTypingAttributes(textView)
+        }
+
+        /// 이번에 다시 깔 구간들. `nil` 하나면 「글 전체」다.
+        ///
+        /// 커서가 떠난 줄은 기호를 도로 감춰야 하고 온 줄은 드러내야 하므로 둘 다
+        /// 들어간다. **멀리 떨어진 두 줄은 합치지 않는다** — 먼 곳을 클릭했다고
+        /// 그 사이의 만 자를 다시 깔면 좁힌 뜻이 없다.
+        static func regions(_ scope: NSRange?, leaving: NSRange?, entering: NSRange?) -> [NSRange?] {
+            guard let scope else { return [nil] }
+            let sorted = ([scope] + [leaving, entering].compactMap { $0 }).sorted { $0.location < $1.location }
+            var merged: [NSRange] = []
+            for range in sorted {
+                if let last = merged.last, NSMaxRange(last) >= range.location {
+                    merged[merged.count - 1] = NSUnionRange(last, range)
+                } else {
+                    merged.append(range)
+                }
+            }
+            return merged
         }
 
         /// 커서가 다른 줄로 가면 기호를 감추고, 온 줄에서는 되살린다.
@@ -200,7 +237,8 @@ struct MemoTextEditor: NSViewRepresentable {
             unhideTypingAttributes(textView)
             let line = (textView.string as NSString).lineRange(for: textView.selectedRange())
             guard line != activeLine else { return }
-            restyle(textView)
+            // 바뀌는 것은 들고 난 두 줄뿐이다 — 그 둘만 다시 깐다.
+            restyle(textView, scope: line)
         }
 
         /// 커서가 감춘 사진 참조 안에 들어갔으면 그 뒤로. 옮겼으면 `true` — 옮긴 자리에서 이 콜백이 다시 온다.
@@ -209,10 +247,17 @@ struct MemoTextEditor: NSViewRepresentable {
             let selection = textView.selectedRange()
             guard selection.length == 0 else { return false }
             let text = textView.string
-            let photos = MarkdownScanner.spans(in: text).compactMap { span -> MachineLines.Hidden? in
-                guard case .image = span.kind else { return nil }
-                return MachineLines.Hidden(range: span.range, kind: .photo)
-            }
+            // **커서가 놓인 줄만 본다.** 참조는 한 줄 안에서 끝나고 커서를 밀어내는
+            // 것은 커서를 품은 참조뿐이라 답이 같다 — 글 전체를 스캔하면 긴 메모에서
+            // 화살표 한 번에 0.24초가 든다 (`LongMemoStylingTests`).
+            let source = text as NSString
+            let line = source.lineRange(for: selection)
+            let photos = MarkdownScanner.spans(in: source.substring(with: line))
+                .compactMap { span -> MachineLines.Hidden? in
+                    guard case .image = span.kind else { return nil }
+                    let range = NSRange(location: span.range.location + line.location, length: span.range.length)
+                    return MachineLines.Hidden(range: range, kind: .photo)
+                }
             let moved = MachineLines.caret(selection.location, avoiding: photos, in: text)
             guard moved != selection.location else { return false }
             isMovingCaret = true
@@ -265,8 +310,9 @@ struct MemoTextEditor: NSViewRepresentable {
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
             let current = textView.string
+            let edited = editedRange(in: textView)
             text.wrappedValue = current
-            restyle(textView)
+            restyle(textView, scope: edited)
             reportHeight()
 
             // 조합 중인 자모는 아직 확정된 글자가 아니다. 그대로 저장하면
@@ -275,10 +321,25 @@ struct MemoTextEditor: NSViewRepresentable {
             onEdit(current)
         }
 
+        /// 방금 고쳐진 구간. 넣은 글자는 커서 **앞**에 놓이므로 길이 차이만큼 뒤로 물러나면 그 머리다.
+        ///
+        /// 지우기(길이가 줄었을 때)와 되돌리기는 커서 자리 한 점으로 잡는다 — 어느 쪽이든
+        /// `restyle` 이 줄 경계까지 넓히고, 짚지 못한 것이 있으면 다음 전체 갱신이 고친다.
+        private func editedRange(in textView: NSTextView) -> NSRange {
+            let length = (textView.string as NSString).length
+            let inserted = max(0, length - lastLength)
+            lastLength = length
+            let caret = min(max(textView.selectedRange().location, 0), length)
+            let start = max(0, caret - inserted)
+            return NSRange(location: start, length: caret - start)
+        }
+
         /// 포커스가 오가면 커서 줄이 생기거나 없어진다 (`MemoNSTextView.onFocusChange`).
         /// 물러나는 중에는 창이 아직 이 뷰를 첫 응답자로 들고 있어, 값을 받아 쓴다.
         func focusChanged(_ textView: NSTextView, focused: Bool) {
-            restyle(textView, focused: focused)
+            // 바뀌는 것은 커서가 놓인 그 한 줄뿐이다.
+            let line = (textView.string as NSString).lineRange(for: textView.selectedRange())
+            restyle(textView, focused: focused, scope: line)
         }
 
         /// 조합이 끝나거나 포커스를 잃을 때 마지막 상태를 확정한다.
