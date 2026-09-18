@@ -120,6 +120,9 @@ final class AppModel {
     func foreground() async {
         guard case .ready(let session) = phase else { return }
         await session.store.reconcile()
+        // 시간이 지나야 할 수 있는 정리도 여기서 — 폰은 며칠씩 켜진 채 잠들어 있어 켤 때 한 번으로는
+        // 「매주 화요일 분리수거」가 걸어가지 않고 다 체크한 목록이 물러나지 않는다 (맥의 `DayClock` 자리).
+        await session.store.tidy()
         reminders.refresh()
     }
 }
