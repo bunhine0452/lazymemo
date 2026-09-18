@@ -95,6 +95,25 @@ struct MachineLinesTests {
         #expect(MachineLines.removingPhoto("attachments/x.png", from: body) == body)
     }
 
+    @Test("지우기 — 참조에 걸치면 참조 전체, 줄바꿈만이면 줄바꿈만")
+    func deletionWidensToWholeReference() {
+        let body = "명함\n![](attachments/a.png)\n연락처"
+        let reference = (body as NSString).range(of: "![](attachments/a.png)")
+        // 참조 뒤(`)` 앞)에서 ⌫ — `)` 하나가 아니라 참조 전체.
+        let closing = NSRange(location: reference.location + reference.length - 1, length: 1)
+        #expect(MachineLines.deletion(closing, in: body) == reference)
+        // 참조 앞에서 ⌦ — 같다.
+        #expect(MachineLines.deletion(NSRange(location: reference.location, length: 1), in: body) == reference)
+        // 다음 줄 머리에서 ⌫ 는 줄바꿈만 — 사진은 둘째 ⌫ 가 뗀다.
+        let newline = NSRange(location: reference.location + reference.length, length: 1)
+        #expect(MachineLines.deletion(newline, in: body) == newline)
+        // 참조를 반쯤 문 선택은 참조 끝까지.
+        let half = NSRange(location: 0, length: reference.location + 3)
+        #expect(MachineLines.deletion(half, in: body) == NSRange(location: 0, length: reference.location + reference.length))
+        // 사진이 없으면 그대로.
+        #expect(MachineLines.deletion(NSRange(location: 1, length: 1), in: "명함 사진") == NSRange(location: 1, length: 1))
+    }
+
     @Test("아무것도 없으면 아무것도 감추지 않는다")
     func plain() {
         #expect(MachineLines.hidden(in: "우유 사기\n- [ ] 계란").isEmpty)

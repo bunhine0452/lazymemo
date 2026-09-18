@@ -405,6 +405,15 @@ struct NoteView: View {
                     originalURL: model.originalURL(for: attachment),
                     maxHeight: photoCap
                 )
+                // 사진은 사진에서 뗀다 — 본문의 참조는 감춰져 있어 글 칸에는 잡을 것이 없다.
+                // 종이의 메뉴는 그대로 뒤에 붙는다: 사진 위에서도 종이는 종이다.
+                .contextMenu {
+                    Button(role: .destructive) { Task { await model.removePhoto(attachment.path) } } label: {
+                        Label(L("사진 떼기"), systemImage: "photo.badge.minus")
+                    }
+                    Divider()
+                    paperMenu
+                }
             }
         }
         .padding(.horizontal, Theme.loose)

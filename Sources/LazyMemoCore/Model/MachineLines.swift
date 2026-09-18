@@ -3,11 +3,13 @@ import Foundation
 /// 본문에서 **기계가 적은 구간** — 사진 참조(`![](attachments/…)`)와 「## 가는 길」 절, 그리고 링크의 기호(`[`·`](주소)`).
 ///
 /// 파일에는 그대로 있다 (D4 — 정본은 마크다운). 화면에서는 카드가 대신 서므로 글 칸의
-/// 그 글자는 자리만 차지한다. 맥의 편집기는 커서가 든 줄만 되살리는 규칙으로 감추고
-/// (`MarkdownStyler`), 폰의 글 칸은 마크다운을 꾸미지 않아 2026-09-17 까지 날것으로 보였다 —
-/// 사용자: 「경로를 만들면 텍스트가 안 보이게 해 주고, 사진 붙이면 사진만 보이게」.
+/// 그 글자는 자리만 차지한다. 맥의 편집기는 기호를 커서가 든 줄에서만 되살리는 규칙으로 감추되
+/// 사진 참조만은 커서 줄에서도 감춘다 (`MarkdownStyler`, 2026-09-18). 폰의 글 칸은 마크다운을
+/// 꾸미지 않아 2026-09-17 까지 날것으로 보였다 — 사용자: 「경로를 만들면 텍스트가 안 보이게 해
+/// 주고, 사진 붙이면 사진만 보이게」.
 ///
-/// 여기 있는 것은 **어디를 감추고 커서를 어디로 보낼지**뿐이다 — 글자를 바꾸지 않는다.
+/// 여기 있는 것은 **어디를 감추고, 커서를 어디로 보내고, 지우기를 어디까지 넓힐지**뿐이다 —
+/// 글자를 바꾸지 않는다.
 public enum MachineLines {
     public enum Kind: Sendable, Equatable {
         case photo
@@ -84,6 +86,21 @@ public enum MachineLines {
             }
         }
         return location
+    }
+
+    /// 지우려는 구간이 사진 참조에 걸치면 참조 전체로 넓힌다 — 사진은 한 덩이다.
+    ///
+    /// 참조는 감춰져 있으니 ⌫ 를 치는 사람은 빈 자리를 지운다고 안다. 그런데 `)` 하나만 떼면 그것은 더는
+    /// 참조가 아니라 날것의 40자 경로가 되어 드러난다 — docx 의 그림처럼 한 번에 사라져야 한다 (2026-09-18
+    /// 사용자). 참조만 본다(줄바꿈은 두고): 그 줄 뒤에서 친 첫 ⌫ 는 빈 줄을 거두고, 둘째가 사진을 뗀다.
+    /// 파일은 남는다 — 되돌리기로 참조가 돌아오면 사진도 돌아와야 하고, 고아는 정리가 거둔다.
+    public static func deletion(_ range: NSRange, in text: String) -> NSRange {
+        var result = range
+        for span in MarkdownScanner.spans(in: text) {
+            guard case .image = span.kind, NSIntersectionRange(span.range, range).length > 0 else { continue }
+            result = NSUnionRange(result, span.range)
+        }
+        return result
     }
 
     /// 사진 한 장을 뗀 본문 — 참조가 줄을 혼자 차지했으면 그 줄째. 폰의 사진 카드가 「사진 떼기」로 부른다:

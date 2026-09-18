@@ -82,9 +82,7 @@ extension MemoTextArea {
         let storage = NSTextStorage(string: text)
         guard stylesMarkdown else {
             // 빠른 입력 — 사진 경로만 감춘 채로 보여야 미리보기가 거짓말을 안 한다.
-            MarkdownStyler.hideImageReferences(
-                to: storage, baseFont: font, paragraph: paragraph, activeLine: nil
-            )
+            MarkdownStyler.hideImageReferences(to: storage, baseFont: font, paragraph: paragraph)
             return Text(AttributedString(storage))
         }
         MarkdownStyler.apply(to: storage, baseFont: font, paragraph: paragraph, activeLine: nil)

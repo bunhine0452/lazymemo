@@ -1,4 +1,5 @@
 import AppKit
+import LazyMemoCore
 import SwiftUI
 
 /// `NSTextView` 기반 편집기 (설계문서 §8).
@@ -101,6 +102,7 @@ struct MemoTextEditor: NSViewRepresentable {
         textView.movesWindowOnDrag = movesWindow
         textView.blursOnEscape = blursOnEscape
         textView.onEscape = onEscape
+        textView.deletesPhotoReferencesWhole = stylesMarkdown || hidesImageReferences
         textView.string = text
 
         scrollView.documentView = textView
@@ -152,6 +154,7 @@ struct MemoTextEditor: NSViewRepresentable {
         var paragraph: NSParagraphStyle?
 
         private var isRestyling = false
+        private var isMovingCaret = false
         private var activeLine: NSRange?
 
         /// 꾸밈을 다시 입힌다. 빠른 입력은 **사진 참조 감추기만** 한다.
@@ -176,24 +179,53 @@ struct MemoTextEditor: NSViewRepresentable {
                     to: storage, baseFont: baseFont, paragraph: paragraph, activeLine: activeLine
                 )
             } else {
-                MarkdownStyler.hideImageReferences(
-                    to: storage, baseFont: baseFont, paragraph: paragraph, activeLine: activeLine
-                )
+                MarkdownStyler.hideImageReferences(to: storage, baseFont: baseFont, paragraph: paragraph)
             }
             textView.setSelectedRange(selection)
             isRestyling = false
+            unhideTypingAttributes(textView)
         }
 
         /// 커서가 다른 줄로 가면 기호를 감추고, 온 줄에서는 되살린다.
+        ///
+        /// 사진 참조는 커서 줄에서도 감춘 채라(`MarkdownStyler`) 커서를 그 안에 들이지 않는다 —
+        /// 보이지 않는 곳에 친 글자는 잃은 글자다. 폰의 글 칸과 같은 규칙 (`MachineLines.caret`).
         func textViewDidChangeSelection(_ notification: Notification) {
-            guard !isRestyling, stylesMarkdown || hidesImageReferences,
+            guard !isRestyling, !isMovingCaret, stylesMarkdown || hidesImageReferences,
                   let textView = notification.object as? NSTextView,
                   !textView.hasMarkedText()
             else { return }
 
+            if keepCaretOutOfPhotos(textView) { return }
+            unhideTypingAttributes(textView)
             let line = (textView.string as NSString).lineRange(for: textView.selectedRange())
             guard line != activeLine else { return }
             restyle(textView)
+        }
+
+        /// 커서가 감춘 사진 참조 안에 들어갔으면 그 뒤로. 옮겼으면 `true` — 옮긴 자리에서 이 콜백이 다시 온다.
+        /// 선택 구간(길이가 있는 것)은 두 손이 잡은 것이라 건드리지 않는다.
+        private func keepCaretOutOfPhotos(_ textView: NSTextView) -> Bool {
+            let selection = textView.selectedRange()
+            guard selection.length == 0 else { return false }
+            let text = textView.string
+            let photos = MarkdownScanner.spans(in: text).compactMap { span -> MachineLines.Hidden? in
+                guard case .image = span.kind else { return nil }
+                return MachineLines.Hidden(range: span.range, kind: .photo)
+            }
+            let moved = MachineLines.caret(selection.location, avoiding: photos, in: text)
+            guard moved != selection.location else { return false }
+            isMovingCaret = true
+            textView.setSelectedRange(NSRange(location: moved, length: 0))
+            isMovingCaret = false
+            return true
+        }
+
+        /// 감춘 글자(0.01pt) 바로 뒤에 선 커서는 그 글꼴을 물려받는다 — 조합 중의 한글이 보이지 않게 된다
+        /// (조합 중엔 다시 꾸미지 않으므로). 치는 글자는 바탕 글꼴로.
+        private func unhideTypingAttributes(_ textView: NSTextView) {
+            guard let font = textView.typingAttributes[.font] as? NSFont, font.pointSize < 1 else { return }
+            textView.typingAttributes = MarkdownStyler.baseAttributes(baseFont, paragraph)
         }
 
         /// 글이 차지한 높이를 알린다. 같은 값이면 알리지 않는다 —

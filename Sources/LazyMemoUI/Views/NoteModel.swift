@@ -161,6 +161,19 @@ final class NoteModel {
         LinkLabel.markdown(for: url)
     }
 
+    /// 사진 한 장을 뗀다 — 본문의 참조를 지운다. 편집기가 참조를 감추므로(`MarkdownStyler`) 사진 자체가
+    /// 떼는 자리다 (폰의 카드와 같다). 파일은 남는다 — 고아는 정리가 거둔다 (`AttachmentStore.sweep`).
+    ///
+    /// 치던 글이 있으면 먼저 적는다 — 파일의 본문에서 참조를 빼야 화면의 나머지 글을 잃지 않는다.
+    func removePhoto(_ path: String) async {
+        await flush()
+        let body = MachineLines.removingPhoto(path, from: text)
+        guard body != text, let updated = try? await store.update(memo.id, body: body) else { return }
+        memo = updated
+        text = updated.body
+        reloadImages()
+    }
+
     /// 붙여 둔 사진의 원본 파일. 펼쳐 볼 때만 읽는다.
     ///
     /// 화면에 들고 있는 것은 480px 로 줄인 그림이라(§11) 원본 크기로 보려면

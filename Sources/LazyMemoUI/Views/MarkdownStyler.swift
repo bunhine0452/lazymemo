@@ -10,6 +10,12 @@ import LazyMemoCore
 ///
 /// 마커(`**`, `#`, `[]()`)는 지우지 않고 **흐리게 눌러 둔다.** 지우면 커서가
 /// 어디 있는지 알 수 없어지고, 되돌리기도 어긋난다.
+///
+/// 사진 참조(`![](attachments/…)`)만은 **커서 줄에서도 감춘다.** 사진은 글 아래에 실물로 서고
+/// 참조는 기계가 적은 것이라 사람이 고칠 일이 없다 — 커서가 그 줄에 올 때마다 40자 경로가 드러나니
+/// 「사진 붙이면 텍스트가 보인다」가 됐다 (2026-09-18 사용자: 「docx 에 사진 넣으면 텍스트 보이던?」).
+/// 커서를 그 안에 들이지 않고(`MemoTextEditor`), 지우기는 한 덩이로(`MachineLines.deletion`),
+/// 떼기는 사진 자체에서(`NoteView`) — 폰의 글 칸과 같은 규칙이다 (`MachineLines`).
 enum MarkdownStyler {
     private typealias Span = MarkdownScanner.Span
 
@@ -85,13 +91,12 @@ enum MarkdownStyler {
     /// 오히려 고장 난 것처럼 보였다.**
     ///
     /// 붙었다는 것은 조각(`PhotoChip`)이 이미 말한다. 그러니 경로는 감추기만
-    /// 하면 된다. 여기서도 글자는 지우지 않는다 (D4) — 커서를 그 줄로 옮기면
-    /// 도로 보여 고칠 수 있는 것까지 메모 창과 같다.
+    /// 하면 된다. 여기서도 글자는 지우지 않는다 (D4) — 커서가 그 줄에 와도
+    /// 감춘 채인 것까지 메모 창과 같다.
     static func hideImageReferences(
         to storage: NSTextStorage,
         baseFont: NSFont,
-        paragraph: NSParagraphStyle?,
-        activeLine: NSRange? = nil
+        paragraph: NSParagraphStyle?
     ) {
         let text = storage.string
         let full = NSRange(location: 0, length: (text as NSString).length)
@@ -101,7 +106,7 @@ enum MarkdownStyler {
 
         storage.setAttributes(baseAttributes(baseFont, paragraph), range: full)
         for span in MarkdownScanner.spans(in: text) {
-            guard case .image = span.kind, isOffActiveLine(span.range, activeLine) else { continue }
+            guard case .image = span.kind else { continue }
             hide(span.range, in: storage)
         }
     }
@@ -209,10 +214,11 @@ enum MarkdownStyler {
 
     private static func shouldHide(_ span: Span, activeLine: NSRange?) -> Bool {
         switch span.kind {
-        case .syntax, .image, .route: break
-        default: return false
+        // 사진 참조는 커서 줄에서도 — 사람이 고칠 글자가 아니다.
+        case .image: true
+        case .syntax, .route: isOffActiveLine(span.range, activeLine)
+        default: false
         }
-        return isOffActiveLine(span.range, activeLine)
     }
 
     private static func hide(_ range: NSRange, in storage: NSTextStorage) {
@@ -321,12 +327,8 @@ enum MarkdownStyler {
             ], range: range)
 
         case .image:
-            // 실제 그림은 본문 아래에 붙는다. 참조는 글 흐름을 막지 않도록
-            // 작게 눌러 둔다 — 지우지는 않는다. 지우면 커서가 갈 곳을 잃는다.
-            storage.addAttributes([
-                .font: NSFont.monospacedSystemFont(ofSize: baseFont.pointSize * 0.62, weight: .regular),
-                .foregroundColor: Paper.inkNSColor.withAlphaComponent(0.30),
-            ], range: range)
+            // 실제 그림은 본문 아래에 붙는다. 참조는 언제나 감춘다(`shouldHide`) — 꾸밈은 없다.
+            break
 
         case .route:
             // 커서가 들어와 보일 때는 그냥 글이다 — 꾸밈은 그 안의 제목·붙임표가 입는다.

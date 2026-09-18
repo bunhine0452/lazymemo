@@ -485,6 +485,37 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(saved.hasSuffix("---\n명함 사진\n"), "글은 그대로: \(saved)")
     }
 
+    /// 2026-09-18 사용자(맥 화면): 「사진 넣으면 텍스트 안 보이게 하라 했지?」 — 폰도 ⌫ 가 `)` 를 떼면 참조가
+    /// 날것으로 드러나는 길이 있었다. 파일은 끝 줄바꿈 없이 읽히므로 글 끝의 커서는 참조 바로 뒤 — ⌫ 한 번에
+    /// 사진이 통째로 빠지고, 그 뒤 친 글자는 그 줄에 보인다.
+    func testBackspaceRemovesAPhotoWhole() throws {
+        try seed()
+        try seedPhoto()
+        let app = launch()
+        let target = row(in: app, startingWith: "명함 사진")
+        XCTAssertTrue(target.waitForExistence(timeout: 10))
+        target.tap()
+
+        let paper = app.textViews["paper"]
+        XCTAssertTrue(paper.waitForExistence(timeout: 5))
+        let photo = app.descendants(matching: .any)["photo"].firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 10), "사진 카드가 서야 한다")
+
+        // 글 아래 빈 자리를 누르면 커서는 글 끝 — 감춘 참조 줄의 뒤다.
+        paper.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7)).tap()
+        paper.typeText(XCUIKeyboardKey.delete.rawValue)
+        XCTAssertTrue(photo.waitForNonExistence(timeout: 5), "⌫ 한 번에 사진이 통째로 빠진다")
+        paper.typeText("덧")
+        try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/lazymemo-photo-backspace.png"))
+        app.buttons["done-editing"].tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        let file = root.appending(path: "vault/notes/2026/09/\(Self.ulid(day: 14, tail: "B1")).md")
+        let saved = try String(contentsOf: file, encoding: .utf8)
+        XCTAssertFalse(saved.contains("attachments/"), "참조가 통째로 빠져야 한다 — 깨진 조각이 남으면 안 된다: \(saved)")
+        XCTAssertTrue(saved.hasSuffix("---\n명함 사진\n덧\n"), "글은 그대로, 친 글자는 그 줄에: \(saved)")
+    }
+
     // MARK: 알림 설정 — More 메뉴에서 닿고, 켜기 전에 잠금 화면 표시를 읽는다
 
     func testRemindersSheetOpensFromMore() throws {

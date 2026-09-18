@@ -13,6 +13,7 @@ import UIKit
 /// 이름만 남는다 (2026-09-17 사용자). 글자는 그대로다(D4) — 글꼴을 보이지 않을 만큼 줄일 뿐이라
 /// 파일과 커서 위치가 어긋나지 않는다. 감춘 곳에 커서가 들어가면 밖으로 내보낸다 — 안 보이는 데 친
 /// 글자는 잃은 글자다. 링크는 강조색으로만 — 적는 칸이라 눌러서 열지는 않는다.
+/// ⌫ 가 감춘 사진 참조에 닿으면 참조를 한 덩이로 뗀다 — `)` 하나만 떼면 참조가 깨져 경로가 드러난다 (맥과 같다).
 struct PaperTextView: UIViewRepresentable {
     @Binding var text: String
     /// 키보드가 올라와 있는지. 글 칸이 올리고 내리며, 바깥이 `false` 로 놓으면
@@ -117,6 +118,17 @@ struct PaperTextView: UIViewRepresentable {
             isMovingCaret = true
             view.selectedRange = NSRange(location: moved, length: 0)
             isMovingCaret = false
+        }
+
+        /// 지우기가 감춘 사진 참조에 걸치면 참조 전체로 (`MachineLines.deletion`). 넓힌 구간을 잡고 다시 지우게
+        /// 하므로 되돌리기와 `textViewDidChange` 흐름이 그대로다 — 안쪽 호출은 이미 넓힌 구간이라 그냥 지난다.
+        func textView(_ view: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+            guard text.isEmpty, view.markedTextRange == nil else { return true }
+            let widened = MachineLines.deletion(range, in: view.text ?? "")
+            guard widened != range else { return true }
+            view.selectedRange = widened
+            view.deleteBackward()
+            return false
         }
 
         func textViewDidBeginEditing(_ view: UITextView) { parent.editing = true }

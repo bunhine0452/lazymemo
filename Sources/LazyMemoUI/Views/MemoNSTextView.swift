@@ -24,6 +24,9 @@ final class MemoNSTextView: NSTextView {
 
     /// 첫 응답자가 되거나 물러났다 — 커서 줄의 기호를 되살리거나 감출 때다 (`MemoTextEditor`).
     var onFocusChange: ((NSTextView, Bool) -> Void)?
+    /// 사진 참조를 한 덩이로 지울지. 참조를 감추는 편집기(꾸밈 켬·빠른 입력)가 켠다 —
+    /// 보이는 글자라면 사람이 한 글자씩 고칠 수 있어야 한다.
+    var deletesPhotoReferencesWhole = false
     /// 편집 중이 아닐 때 본문 끌기를 창 이동으로 넘길지. 메모 창에서만 켠다.
     var movesWindowOnDrag = false
     /// Esc 로 편집에서 손을 뗄지. 빠른 입력은 Esc 를 자기가 쓰므로 끈다.
@@ -202,6 +205,40 @@ final class MemoNSTextView: NSTextView {
     /// `insertText` 로 넣어야 되돌리기와 조합 상태가 정상으로 이어진다.
     private func insertPasted(_ markdown: String) {
         insertText(markdown, replacementRange: selectedRange())
+    }
+
+    // MARK: 지우기
+
+    /// ⌫·⌦ 가 감춘 사진 참조에 닿으면 참조 전체를 잡고 지운다 (`MachineLines.deletion`).
+    ///
+    /// 감춘 `)` 하나만 떼면 참조가 깨져 40자 경로가 드러난다 — 사진은 한 덩이다. 선택을 넓힌 뒤
+    /// 표준 지우기에 맡기므로 되돌리기가 그대로 이어진다.
+    override func deleteBackward(_ sender: Any?) {
+        widenSelectionToPhoto(backward: true)
+        super.deleteBackward(sender)
+    }
+
+    override func deleteForward(_ sender: Any?) {
+        widenSelectionToPhoto(backward: false)
+        super.deleteForward(sender)
+    }
+
+    private func widenSelectionToPhoto(backward: Bool) {
+        guard deletesPhotoReferencesWhole, !hasMarkedText() else { return }
+        let source = string as NSString
+        var range = selectedRange()
+        if range.length == 0 {
+            if backward {
+                guard range.location > 0 else { return }
+                range = source.rangeOfComposedCharacterSequence(at: range.location - 1)
+            } else {
+                guard range.location < source.length else { return }
+                range = source.rangeOfComposedCharacterSequence(at: range.location)
+            }
+        }
+        let widened = MachineLines.deletion(range, in: string)
+        guard widened != range else { return }
+        setSelectedRange(widened)
     }
 
     // MARK: 사진
