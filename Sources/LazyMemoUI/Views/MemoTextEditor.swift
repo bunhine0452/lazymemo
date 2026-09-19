@@ -20,6 +20,9 @@ struct MemoTextEditor: NSViewRepresentable {
     /// 꾸밈은 끄되 **사진 참조만** 감출지. 빠른 입력이 이것만 켠다 —
     /// 붙인 사진은 조각으로 보이므로 경로 글자는 자리만 차지한다.
     var hidesImageReferences = false
+    /// ⌘F 로 찾기 줄을 세울지. 종이만 켠다 — 긴 메모에서 낱말을 찾는 자리다. 빠른 입력의 한 줄 상자는
+    /// 스스로가 찾는 자리라 찾기 줄이 서면 상자의 높이 셈만 어긋난다.
+    var findable = false
     var onPasteImage: ((Data, String) -> String?)?
     var onPasteLink: ((URL) -> String?)?
     /// 메모 자체를 지우는 길. 오른쪽 버튼 메뉴에 붙는다.
@@ -105,6 +108,9 @@ struct MemoTextEditor: NSViewRepresentable {
         textView.blursOnEscape = blursOnEscape
         textView.onEscape = onEscape
         textView.deletesPhotoReferencesWhole = stylesMarkdown || hidesImageReferences
+        // 찾기 줄은 스크롤 뷰 머리에 선다 — TextEdit 과 같은 자리. 치는 대로 짚는다.
+        textView.usesFindBar = findable
+        textView.isIncrementalSearchingEnabled = findable
         textView.string = text
 
         scrollView.documentView = textView

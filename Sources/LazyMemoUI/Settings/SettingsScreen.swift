@@ -31,6 +31,7 @@ struct SettingsState: Equatable {
 
     var capture: Shortcut
     var paste: Shortcut
+    var peek: Shortcut
     var loginEnabled: Bool
     var loginAvailable: Bool
 
@@ -64,6 +65,7 @@ struct SettingsState: Equatable {
 struct SettingsActions {
     var changeCaptureShortcut: () -> Void = {}
     var changePasteShortcut: () -> Void = {}
+    var changePeekShortcut: () -> Void = {}
     var setLogin: (Bool) -> Void = { _ in }
     var setOpacity: (Double) -> Void = { _ in }
     var setEmbedsLinks: (Bool) -> Void = { _ in }
@@ -161,13 +163,14 @@ struct SettingsView: View {
         Section {
             shortcutRow(L("빠른 입력"), state.capture, action: act.changeCaptureShortcut)
             shortcutRow(L("클립보드 즉시 메모"), state.paste, action: act.changePasteShortcut)
+            shortcutRow(L("종이 보기"), state.peek, action: act.changePeekShortcut)
             Toggle(L("로그인할 때 시작"), isOn: binding(state.loginEnabled, act.setLogin))
                 .disabled(!state.loginAvailable)
         } header: {
             Text(L("입력"))
         } footer: {
             Text(state.loginAvailable
-                 ? L("단축키는 어느 앱에서나 듣습니다. 로그인할 때 시작을 켜 두면 껐다 켜도 메모가 그대로 떠 있습니다")
+                 ? L("단축키는 어느 앱에서나 듣습니다. 종이 보기는 다른 창 뒤에 눕는 종이를 전부 잠깐 앞에 세웁니다. 로그인할 때 시작을 켜 두면 껐다 켜도 메모가 그대로 떠 있습니다")
                  : L("앱 번들로 실행할 때만 로그인 항목을 켤 수 있습니다"))
         }
     }

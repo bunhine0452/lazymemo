@@ -115,6 +115,13 @@ final class MemoNSTextView: NSTextView {
         case Selector(("redo:")):
             guard let undoManager, undoManager.canRedo else { return false }
             undoManager.redo()
+        case Selector(("performFindPanelAction:")):
+            // ⌘F — 찾기 줄. 종이(스크롤 뷰가 있고 `usesFindBar` 를 켠 편집기)에서만 — 빠른 입력의 한
+            // 줄 상자에 찾기 줄이 서면 상자의 높이 셈이 어긋난다. 선택자의 뜻은 보내는 이의 tag 다.
+            guard usesFindBar, enclosingScrollView != nil else { return false }
+            let request = NSMenuItem()
+            request.tag = NSTextFinder.Action.showFindInterface.rawValue
+            performFindPanelAction(request)
         default: return false
         }
         return true
@@ -151,6 +158,7 @@ final class MemoNSTextView: NSTextView {
         case "x" where !shifted && !optioned: return #selector(NSText.cut(_:))
         case "a" where !shifted && !optioned: return #selector(NSText.selectAll(_:))
         case "z" where !optioned: return shifted ? Selector(("redo:")) : Selector(("undo:"))
+        case "f" where !shifted && !optioned: return Selector(("performFindPanelAction:"))
         default: return nil
         }
     }
@@ -205,6 +213,24 @@ final class MemoNSTextView: NSTextView {
     /// `insertText` 로 넣어야 되돌리기와 조합 상태가 정상으로 이어진다.
     private func insertPasted(_ markdown: String) {
         insertText(markdown, replacementRange: selectedRange())
+    }
+
+    // MARK: 목록 줄 — ⏎ 가 머리를 잇는다
+
+    /// `- [ ] 우유` 에서 ⏎ 를 치면 다음 줄에 `- [ ] ` 가 서고, 빈 머리에서 치면 머리가 떨어져 목록에서
+    /// 나온다 (`ListEditing.onReturn`) — 다음 줄에 `- [ ] ` 를 다시 치게 하는 것은 형식을 배우게 하는
+    /// 일이다. `insertText` 로 넣어 되돌리기가 한 걸음으로 이어진다.
+    ///
+    /// **조합 중의 ⏎ 는 입력기의 것이다** — 마지막 글자를 확정하는 키라 손대지 않는다. 빠른 입력이
+    /// ⏎ 를 가로채고 싶으면 `doCommandBy` 에서 먼저 받는다 — 여기까지 온 ⏎ 는 줄바꿈이 맞다.
+    override func insertNewline(_ sender: Any?) {
+        guard !hasMarkedText(),
+              let edit = ListEditing.onReturn(in: string, selection: selectedRange())
+        else {
+            super.insertNewline(sender)
+            return
+        }
+        insertText(edit.replacement, replacementRange: edit.range)
     }
 
     // MARK: 지우기

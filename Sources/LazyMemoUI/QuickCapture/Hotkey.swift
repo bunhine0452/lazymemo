@@ -22,6 +22,12 @@ struct Hotkey: Equatable, Sendable {
         modifiers: UInt32(optionKey | cmdKey)
     )
 
+    /// 종이 보기 ⌥⌘P — 다른 창 뒤에 눕는 종이를 전부 잠깐 앞에 세운다.
+    static let peek = Hotkey(
+        keyCode: UInt32(kVK_ANSI_P),
+        modifiers: UInt32(optionKey | cmdKey)
+    )
+
     /// 지금 여기 ⌥⌘L.
     static let here = Hotkey(
         keyCode: UInt32(kVK_ANSI_L),

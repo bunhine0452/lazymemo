@@ -166,6 +166,10 @@
 "지금은 기본 폴더를 쓰고 있습니다. 그 자리가 돌아오면 다시 그리로 갑니다." = "Using the default folder for now. When that location comes back, it will be used again.";
 "빠른 입력" = "Quick Capture";
 "클립보드 즉시 메모" = "Paste as New Note";
+"종이 보기" = "Peek at Papers";
+"바탕화면의 종이를 전부 잠깐 앞에 세웁니다 — 다시 누르면 내려앉습니다" = "Brings every paper on the desktop to the front for a moment — press again to settle them";
+"%@ 은 종이 보기가 쓰고 있습니다" = "%@ is already used by Peek at Papers";
+"단축키는 어느 앱에서나 듣습니다. 종이 보기는 다른 창 뒤에 눕는 종이를 전부 잠깐 앞에 세웁니다. 로그인할 때 시작을 켜 두면 껐다 켜도 메모가 그대로 떠 있습니다" = "Shortcuts work in any app. Peek at Papers brings every paper lying behind other windows to the front for a moment. Turn on Open at Login so your notes are still there after a restart";
 "복사한 글이나 사진을 창 없이 즉시 메모로 저장합니다" = "Turns whatever you copied — text or a picture — into a note without opening a window";
 "아직 적은 것이 없습니다" = "Nothing written yet";
 "… 외 %lld장 — 빠른 입력에서 찾기·지우기" = "… and %lld more — find or delete them in Quick Capture";

@@ -444,6 +444,31 @@ final class NoteWindowManager {
         controllers[id] != nil
     }
 
+    // MARK: 종이 보기
+
+    /// 바탕화면의 종이를 **전부** 잠깐 앞에 세운다 — 포커스는 뺏지 않는다 (`⌥⌘P`).
+    ///
+    /// 종이는 바탕화면 높이에 눕는 것이 이 앱의 뜻이지만(§7), 하루의 대부분 바탕화면은 브라우저 뒤에
+    /// 있다. 「내가 뭘 적어 뒀더라」의 답이 창을 치우거나 데스크탑을 보이게 하는 손짓 뒤에만 있으면
+    /// 종이는 없는 것과 같다. 한 키로 전부 앞에 서고, 몇 초 뒤 스스로 도로 눕는다 — 그 사이 종이를
+    /// 누르면 그 종이만 손에 남는다(`becomeKey`). 이미 서 있는 동안 다시 누르면 곧바로 내려앉는다.
+    ///
+    /// - Returns: 세운 종이의 수. 한 장도 없으면 0 — 부르는 쪽이 그 사실을 말할 수 있게.
+    @discardableResult
+    func peek(for duration: Duration = .seconds(4)) -> Int {
+        let standing = controllers.values.filter { $0.window.isVisible }
+        // 서 있는 것을 다시 누르면 내려앉는다 — 「봤다」의 손짓.
+        let alreadyUp = standing.contains { $0.window.level == DesktopLevelWindow.focusedLevel && !$0.window.isKeyWindow }
+        for controller in standing {
+            if alreadyUp {
+                controller.window.settle()
+            } else {
+                controller.window.riseBriefly(for: duration)
+            }
+        }
+        return standing.count
+    }
+
     /// 하루가 바뀌었다 (`DayClock`) — 종이마다 나이를 다시 재게 한다.
     ///
     /// 철학 3("오래된 것은 스스로 물러난다")은 하루가 지나야 발화하는데,

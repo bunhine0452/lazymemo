@@ -56,6 +56,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// 클립보드 즉시 메모의 조합과 그 등록 여부. 빠른 입력처럼 설정에서 바꿀 수 있다 (2026-09-17).
     private var pasteHotkey: Hotkey = .paste
     private var pasteHotkeyAvailable = false
+    /// 종이 보기의 조합과 그 등록 여부 (기본 ⌥⌘P) — 바탕화면의 종이를 전부 잠깐 앞에 세운다.
+    private var peekHotkey: Hotkey = .peek
+    private var peekHotkeyAvailable = false
 
     init(
         paths: AppPaths,
@@ -158,9 +161,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         hotkey.register(id: 3, .here) { [weak self] in
             Task { await self?.here.capture() }
         }
+        peekHotkey = storedPeekHotkey()
+        peekHotkeyAvailable = hotkey.register(id: Self.peekHotkeyID, peekHotkey) { [weak self] in
+            self?.peekPapers()
+        }
     }
 
     private static let pasteHotkeyID: UInt32 = 2
+    private static let peekHotkeyID: UInt32 = 4
 
     /// 설정에 남은 조합. 없으면 기본값.
     private func storedHotkey() -> Hotkey {
@@ -174,6 +182,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let saved = settings.current
         guard let keyCode = saved.pasteHotkeyKeyCode, let modifiers = saved.pasteHotkeyModifiers
         else { return .paste }
+        return Hotkey(keyCode: keyCode, modifiers: modifiers)
+    }
+
+    private func storedPeekHotkey() -> Hotkey {
+        let saved = settings.current
+        guard let keyCode = saved.peekHotkeyKeyCode, let modifiers = saved.peekHotkeyModifiers
+        else { return .peek }
         return Hotkey(keyCode: keyCode, modifiers: modifiers)
     }
 
@@ -328,6 +343,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         addMissingVaultLine(to: menu)
         addTroubleLine(to: menu)
         menu.addItem(item(title: L("빈 종이 꺼내기"), action: #selector(newMemo), key: ""))
+        menu.addItem(peekItem())
+        if !peekHotkeyAvailable {
+            menu.addItem(disabled(L("⚠︎ \(peekHotkey.displayName) 을 다른 앱이 쓰고 있습니다")))
+        }
         menu.addItem(.separator())
 
         let calendarItem = item(title: L("달력"), action: #selector(toggleCalendar), key: "")
@@ -412,6 +431,21 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
         entry.toolTip = L("복사한 글이나 사진을 창 없이 즉시 메모로 저장합니다")
         return entry
+    }
+
+    /// 종이 보기 (기본 ⌥⌘P) — 다른 창 뒤에 눕는 종이를 전부 잠깐 앞에 세운다 (`NoteWindowManager.peek`).
+    private func peekItem() -> NSMenuItem {
+        let entry = item(title: L("종이 보기"), action: #selector(peekPapers), key: "")
+        if let (key, modifiers) = peekHotkey.menuKeyEquivalent {
+            entry.keyEquivalent = key
+            entry.keyEquivalentModifierMask = modifiers
+        }
+        entry.toolTip = L("바탕화면의 종이를 전부 잠깐 앞에 세웁니다 — 다시 누르면 내려앉습니다")
+        return entry
+    }
+
+    @objc private func peekPapers() {
+        windows.peek()
     }
 
     /// 종이가 얼마나 비치는가 (§14.5 의 예외).
@@ -655,6 +689,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         return SettingsState(
             capture: .init(name: hotkey.current.displayName, taken: !hotkeyAvailable),
             paste: .init(name: pasteHotkey.displayName, taken: !pasteHotkeyAvailable),
+            peek: .init(name: peekHotkey.displayName, taken: !peekHotkeyAvailable),
             loginEnabled: LoginItem.isEnabled, loginAvailable: LoginItem.isAvailable,
             opacity: appearance.selected?.opacity ?? 1,
             embedsLinks: settings.current.embedsLinks ?? true,
@@ -674,6 +709,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         var actions = SettingsActions()
         actions.changeCaptureShortcut = { [weak self] in self?.changeHotkey() }
         actions.changePasteShortcut = { [weak self] in self?.changePasteHotkey() }
+        actions.changePeekShortcut = { [weak self] in self?.changePeekHotkey() }
         actions.setLogin = { LoginItem.set($0) }
         actions.setOpacity = { [weak self] in self?.appearance.set($0) }
         actions.setEmbedsLinks = { [weak self] on in self?.settings.update { $0.embedsLinks = on } }
@@ -761,6 +797,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             guard let self else { return "" }
             // 두 단축키가 같은 조합이면 한쪽이 조용히 죽는다 — 여기서 막는다.
             guard candidate != self.pasteHotkey else { return L("\(candidate.displayName) 은 클립보드 즉시 메모가 쓰고 있습니다") }
+            guard candidate != self.peekHotkey else { return L("\(candidate.displayName) 은 종이 보기가 쓰고 있습니다") }
             let registered = self.hotkey.register(id: 1, candidate) { [weak self] in
                 self?.capture.toggle()
             }
@@ -787,6 +824,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         recorder.begin(current: pasteHotkey, title: L("클립보드 즉시 메모")) { [weak self] candidate in
             guard let self else { return "" }
             guard candidate != self.hotkey.current else { return L("\(candidate.displayName) 은 빠른 입력이 쓰고 있습니다") }
+            guard candidate != self.peekHotkey else { return L("\(candidate.displayName) 은 종이 보기가 쓰고 있습니다") }
             let registered = self.hotkey.register(id: Self.pasteHotkeyID, candidate) { [weak self] in
                 Task { await self?.clipboardCapture.capture() }
             }
@@ -801,6 +839,31 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             self.settings.update {
                 $0.pasteHotkeyKeyCode = candidate.keyCode
                 $0.pasteHotkeyModifiers = candidate.modifiers
+            }
+            return nil
+        }
+    }
+
+    /// 종이 보기의 조합 — 앞의 둘과 같은 길, 같은 되돌림.
+    @objc private func changePeekHotkey() {
+        recorder.begin(current: peekHotkey, title: L("종이 보기")) { [weak self] candidate in
+            guard let self else { return "" }
+            guard candidate != self.hotkey.current else { return L("\(candidate.displayName) 은 빠른 입력이 쓰고 있습니다") }
+            guard candidate != self.pasteHotkey else { return L("\(candidate.displayName) 은 클립보드 즉시 메모가 쓰고 있습니다") }
+            let registered = self.hotkey.register(id: Self.peekHotkeyID, candidate) { [weak self] in
+                self?.peekPapers()
+            }
+            guard registered else {
+                self.peekHotkeyAvailable = self.hotkey.register(id: Self.peekHotkeyID, self.storedPeekHotkey()) { [weak self] in
+                    self?.peekPapers()
+                }
+                return L("\(candidate.displayName) 은 다른 앱이 쓰고 있습니다")
+            }
+            self.peekHotkey = candidate
+            self.peekHotkeyAvailable = true
+            self.settings.update {
+                $0.peekHotkeyKeyCode = candidate.keyCode
+                $0.peekHotkeyModifiers = candidate.modifiers
             }
             return nil
         }

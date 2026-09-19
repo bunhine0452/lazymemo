@@ -35,7 +35,7 @@ struct RecallTests {
         let finished = memo("- [x] 우유\n- [x] 계란", at: at(15, 9))
         let open = memo("- [x] 우유\n- [ ] 계란", at: at(15, 9))
 
-        #expect(Recall.reservations([deleted, tidied, finished, open], now: now).map(\.title) == ["[x] 우유"])
+        #expect(Recall.reservations([deleted, tidied, finished, open], now: now).map(\.title) == ["우유"], "알림 제목은 체크상자 괄호 없이")
     }
 
     @Test("지난 시각과 날짜만 있는 것은 걸지 않는다 — 아침 알림을 지어내지 않는다")

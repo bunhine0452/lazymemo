@@ -12,6 +12,13 @@ struct MemoTitleTests {
         #expect(memo.photoCount == 1)
     }
 
+    @Test("체크상자 줄의 제목은 괄호 없이 — 「- [ ] 우유」는 「우유」")
+    func checklistTitle() {
+        #expect(Memo(body: "- [ ] 우유\n- [x] 계란").title == "우유")
+        #expect(Memo(body: "- [ ] 우유\n- [x] 계란").previewLine == "계란")
+        #expect(Memo(body: "- [ ]\n두부").title == "두부", "빈 상자 줄은 제목이 못 된다")
+    }
+
     @Test("글 다음의 사진은 둘째 줄에서 건너뛴다")
     func photoAfterText() {
         let memo = Memo(body: "명함 — 김 디자이너\n![](attachments/a.png)\n연락처 물어보기")

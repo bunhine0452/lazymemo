@@ -622,6 +622,74 @@ final class SmokeTests: XCTestCase {
         try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/lazymemo-route-card.png"))
     }
 
+    // MARK: 종이 — 목록 줄의 ⏎ 는 머리를 잇고, 체크상자는 눌러 뒤집는다
+
+    /// `- [ ] 우유` 한 줄짜리 메모. 목록 시험 둘이 같은 씨앗을 쓴다.
+    private static let checklistID = ulid(day: 15, tail: "AG")
+
+    private func seedChecklist() throws {
+        let notes = root.appending(path: "vault/notes/2026/09", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: notes, withIntermediateDirectories: true)
+        let text = "---\nid: \(Self.checklistID)\ncreated: 2026-09-15T10:00:00+09:00\nupdated: 2026-09-15T10:00:00+09:00\ntags: []\ncolor: yellow\npinned: false\n---\n- [ ] 우유\n"
+        try text.write(to: notes.appending(path: Self.checklistID + ".md"), atomically: true, encoding: .utf8)
+    }
+
+    private func checklistFile() throws -> String {
+        try String(contentsOf: root.appending(path: "vault/notes/2026/09/\(Self.checklistID).md"), encoding: .utf8)
+    }
+
+    /// 파일이 `expected` 를 담을 때까지 기다린다 — 자동 저장은 600ms 뒤다.
+    private func waitForFile(containing expected: String, timeout: TimeInterval = 5) throws -> String {
+        let deadline = Date().addingTimeInterval(timeout)
+        var saved = try checklistFile()
+        while !saved.contains(expected), Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+            saved = try checklistFile()
+        }
+        return saved
+    }
+
+    func testReturnContinuesTheChecklist() throws {
+        try seedChecklist()
+        let app = launch()
+        let target = row(in: app, startingWith: "우유")
+        XCTAssertTrue(target.waitForExistence(timeout: 10), "줄이 안 보인다")
+        target.tap()
+
+        let paper = app.textViews["paper"]
+        XCTAssertTrue(paper.waitForExistence(timeout: 5), "종이가 안 열렸다")
+        // 첫 줄의 오른쪽 빈 자리 — 커서가 줄 끝에 선다 (위 여백 24 + 글자 절반).
+        paper.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: paper.frame.width - 24, dy: 34)).tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "키보드가 안 올라왔다")
+        paper.typeText("\n계란")
+
+        let saved = try waitForFile(containing: "계란")
+        XCTAssertTrue(saved.contains("- [ ] 우유\n- [ ] 계란"), "머리가 이어지지 않았다: \(saved)")
+    }
+
+    func testTappingACheckboxTogglesIt() throws {
+        try seedChecklist()
+        let app = launch()
+        let target = row(in: app, startingWith: "우유")
+        XCTAssertTrue(target.waitForExistence(timeout: 10), "줄이 안 보인다")
+        target.tap()
+
+        let paper = app.textViews["paper"]
+        XCTAssertTrue(paper.waitForExistence(timeout: 5), "종이가 안 열렸다")
+        // 키보드는 올라오지 않은 채(열 때 올리지 않는다) 첫 줄의 머리 `- [ ] ` 를 누른다 —
+        // 왼쪽 여백 16 + 글 여백 5 에서 서너 글자 안.
+        paper.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: 38, dy: 34)).tap()
+
+        let saved = try waitForFile(containing: "- [x] 우유")
+        XCTAssertTrue(saved.contains("- [x] 우유"), "상자가 뒤집히지 않았다: \(saved)")
+        XCTAssertEqual(app.keyboards.count, 0, "누르기가 편집을 시작하면 안 된다")
+        // 한 번 더 누르면 도로 빈 상자.
+        paper.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: 38, dy: 34)).tap()
+        let back = try waitForFile(containing: "- [ ] 우유")
+        XCTAssertTrue(back.contains("- [ ] 우유"), "도로 빈 상자가 되지 않았다: \(back)")
+    }
+
     private func launch(tutorialSeen: Bool = true, group: URL? = nil) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["LAZYMEMO_VAULT"] = root.path(percentEncoded: false)

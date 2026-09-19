@@ -15,6 +15,8 @@ struct MemoTextArea: View {
     var stylesMarkdown = false
     /// 꾸밈은 끄되 사진 참조만 감출지 (`MemoTextEditor`).
     var hidesImageReferences = false
+    /// ⌘F 찾기 줄 (`MemoTextEditor.findable`).
+    var findable = false
     var onPasteImage: ((Data, String) -> String?)?
     var onPasteLink: ((URL) -> String?)?
     var onDelete: (() -> Void)?
@@ -46,7 +48,7 @@ struct MemoTextArea: View {
                 MemoTextEditor(
                     text: $text, font: font, insets: insets, linePitch: linePitch,
                     stylesMarkdown: stylesMarkdown, hidesImageReferences: hidesImageReferences,
-                    onPasteImage: onPasteImage, onPasteLink: onPasteLink,
+                    findable: findable, onPasteImage: onPasteImage, onPasteLink: onPasteLink,
                     onDelete: onDelete, movesWindow: movesWindow, blursOnEscape: blursOnEscape,
                     onEscape: onEscape, onEdit: onEdit, onCommand: onCommand,
                     onCommandReturn: onCommandReturn, onHeightChange: onHeightChange,

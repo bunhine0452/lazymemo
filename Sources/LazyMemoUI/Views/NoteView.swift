@@ -175,6 +175,8 @@ struct NoteView: View {
             insets: NSSize(width: Theme.loose, height: Theme.loose),
             linePitch: Paper.linePitch,
             stylesMarkdown: true,
+            // ⌘F — 긴 메모(2만 자까지 자란다)에서 낱말을 찾는 길. 종이에만 있다.
+            findable: true,
             onPasteImage: { data, ext in
                 model.markdown(forPastedImage: data, fileExtension: ext)
             },

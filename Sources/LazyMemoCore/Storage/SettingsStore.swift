@@ -14,6 +14,10 @@ public struct Settings: Codable, Sendable, Equatable {
     public var pasteHotkeyKeyCode: UInt32?
     public var pasteHotkeyModifiers: UInt32?
 
+    /// 종이 보기 단축키 — 바탕화면의 종이를 전부 잠깐 앞에 세운다. `nil` 이면 기본 조합(⌥⌘P).
+    public var peekHotkeyKeyCode: UInt32?
+    public var peekHotkeyModifiers: UInt32?
+
     /// 링크를 붙였을 때 제목과 그림을 가져와 카드로 보일지.
     ///
     /// **이것을 켜면 앱이 네트워크를 쓴다.** 기본 상태에서 네트워크를 쓰지
@@ -128,6 +132,8 @@ public struct Settings: Codable, Sendable, Equatable {
         hotkeyModifiers: UInt32? = nil,
         pasteHotkeyKeyCode: UInt32? = nil,
         pasteHotkeyModifiers: UInt32? = nil,
+        peekHotkeyKeyCode: UInt32? = nil,
+        peekHotkeyModifiers: UInt32? = nil,
         embedsLinks: Bool? = nil,
         paperOpacity: Double? = nil,
         vaultPath: String? = nil,
@@ -149,6 +155,8 @@ public struct Settings: Codable, Sendable, Equatable {
         self.hotkeyModifiers = hotkeyModifiers
         self.pasteHotkeyKeyCode = pasteHotkeyKeyCode
         self.pasteHotkeyModifiers = pasteHotkeyModifiers
+        self.peekHotkeyKeyCode = peekHotkeyKeyCode
+        self.peekHotkeyModifiers = peekHotkeyModifiers
         self.embedsLinks = embedsLinks
         self.paperOpacity = paperOpacity
         self.vaultPath = vaultPath

@@ -200,6 +200,8 @@ public struct Memo: Sendable, Equatable, Identifiable {
                 .replacing(/\[([^\]]*)\]\([^)]*\)/, with: { keepingLinks ? String($0.1) : "" })
                 .replacing(/https?:\/\/\S+/, with: { keepingLinks ? String($0.0) : "" })
                 .trimmingCharacters(in: CharacterSet(charactersIn: "# \t-*>"))
+                // 체크상자의 괄호는 글이 아니다 — 「- [ ] 우유」의 제목은 「우유」다.
+                .replacing(/^\[[ xX]\][ \t]*/, with: "")
             return stripped.isEmpty ? nil : stripped
         }
     }
