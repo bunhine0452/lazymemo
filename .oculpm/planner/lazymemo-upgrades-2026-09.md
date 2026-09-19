@@ -41,7 +41,7 @@ owner: claude-code
 - [ ] iCloud 쓰기 조정 — MemoVault.swift:109 의 oculpm-defer 를 NSFileCoordinator 로 선제 닫기 (스토어 제출 전) {#file-coordinator}
 - [ ] 수천 장 그림 — 500/2000장 fixture 벤치를 verify-performance.sh 에. 24개 상한 질문에 숫자로 답한다 (DESIGN §13) {#scale-bench}
 - [ ] 오늘의 낙서장 + 빠른 입력 @오늘/@어제 필터 — pro-lazy-ux 토의의 [ ] 두 개 {#scratchpad-filters}
-- [ ] 되풀이 낱말 「격주」「평일」 — 요일을 들지 않으므로 Recurrence 의 설계 원칙(주기만 말한다) 안 {#recurrence-words}
+- [x] 되풀이 낱말 「격주」「평일」 — 요일을 들지 않으므로 Recurrence 의 설계 원칙(주기만 말한다) 안 {#recurrence-words}
 - [ ] 충돌 합치기 — 늦은 승·진 것 휴지통 대신 줄 단위 3-way 병합 (ConflictSettlement.swift) {#merge-conflict}
 
 <!-- oculpm:plan-log begin v1 -->
@@ -52,4 +52,5 @@ owner: claude-code
 | 2026-09-16T15:42:25+09:00 | #spotlight | claude-code | ☐→x | .oculpm/journal/20260916/Features_to_add/1541_feature_spotlight-index-mac-ios.md | LazyMemoSpotlight 모듈, 맥·폰 배선, 8 테스트. 실기기 손검증 남음 |
 | 2026-09-16T15:42:33+09:00 | #dup-hint | claude-code | ☐→- | .oculpm/journal/20260916/Features_to_add/1541_feature_spotlight-index-mac-ios.md | 이미 있다 — 빠른 입력이 치는 동안 기존 메모를 걸러 보인다(구 검색→낱말 랭킹 폴백). 조사 때 놓침 |
 | 2026-09-16T16:14:14+09:00 | #notarize | claude-code | ☐→~ | .oculpm/journal/20260916/Features_to_add/1613_feature_release-developer-id-notarize.md | 파이프라인 완성·로컬 서명 검증. 남은 것: 사용자가 시크릿 5개 넣고 태그 → 첫 공증 판 → cask 딱지 떼기·README 문단 삭제 |
+| 2026-09-20T01:44:13+09:00 | #recurrence-words | claude-code | ☐→x | .oculpm/journal/20260920/Features_to_add/0143_feature_recurrence-words-biweekly-weekdays.md | 격주·평일 — 요일 없는 주기 둘, 주말에 적은 평일은 월요일부터. 시험 1077 초록 |
 <!-- oculpm:plan-log end -->

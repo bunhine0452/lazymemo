@@ -86,6 +86,52 @@ struct RecurrenceTests {
         #expect(!Recurrence.yearly.explains(leap, CalendarDate(year: 2029, month: 3, day: 1), calendar: calendar))
     }
 
+    @Test("「격주」는 두 주에 한 번 — 요일은 날짜가 든다")
+    func biweekly() {
+        #expect(Recurrence("격주") == .biweekly)
+        #expect(Recurrence("every other week") == .biweekly)
+        #expect(Recurrence("biweekly")?.label == "격주")
+        #expect(Recurrence.biweekly.next(after: date(2026, 9, 1), calendar: calendar) == date(2026, 9, 15))
+        // 세 주 밀렸으면 다음 회차는 앵커에서 14일 걸음으로 잰 것 — 9/1 → 9/15 → 9/29.
+        #expect(Recurrence.biweekly.walk(date(2026, 9, 1, 8), past: date(2026, 9, 22), calendar: calendar)
+            == date(2026, 9, 29, 8))
+        #expect(!Recurrence.biweekly.clips)
+    }
+
+    @Test("「평일」은 월~금 — 금요일 다음은 월요일이고, 첫 회차는 주말을 건너뛴다")
+    func weekdays() {
+        #expect(Recurrence("평일") == .weekdays)
+        #expect(Recurrence("every weekday") == .weekdays)
+        #expect(Recurrence("weekdays")?.label == "평일")
+        let friday = date(2026, 9, 4, 8)
+        #expect(calendar.component(.weekday, from: friday) == 6)
+        #expect(Recurrence.weekdays.next(after: friday, calendar: calendar) == date(2026, 9, 7, 8))
+        #expect(Recurrence.weekdays.next(after: date(2026, 9, 2, 8), calendar: calendar) == date(2026, 9, 3, 8))
+        // 밀린 만큼 걸어가되 주말에는 서지 않는다 — 수요일 8시에서 토요일 낮까지 밀렸으면 월요일.
+        #expect(Recurrence.weekdays.walk(date(2026, 9, 2, 8), past: date(2026, 9, 5, 12), calendar: calendar)
+            == date(2026, 9, 7, 8))
+        // 토요일에 적은 「평일 아침 8시」의 첫 회차는 월요일. 평일이면 그대로.
+        #expect(Recurrence.weekdays.aligned(date(2026, 9, 5, 8), calendar: calendar) == date(2026, 9, 7, 8))
+        #expect(Recurrence.weekdays.aligned(date(2026, 9, 6, 8), calendar: calendar) == date(2026, 9, 7, 8))
+        #expect(Recurrence.weekdays.aligned(date(2026, 9, 3, 8), calendar: calendar) == date(2026, 9, 3, 8))
+        #expect(Recurrence.weekdays.aligned(CalendarDate(year: 2026, month: 9, day: 5), calendar: calendar)
+            == CalendarDate(year: 2026, month: 9, day: 7))
+        // 다른 주기는 어느 날이든 시작한다.
+        #expect(Recurrence.weekly.aligned(date(2026, 9, 5, 8), calendar: calendar) == date(2026, 9, 5, 8))
+        #expect(!Recurrence.weekdays.clips)
+    }
+
+    @Test("긴 낱말이 짧은 낱말을 가린다 — «every weekday» 는 매주가 아니고 «biweekly» 는 매주가 아니다")
+    func longerWordsWin() {
+        #expect(Recurrence.find(in: "every weekday 8am pills")?.recurrence == .weekdays)
+        #expect(Recurrence.find(in: "biweekly report")?.recurrence == .biweekly)
+        #expect(Recurrence.find(in: "every week on tuesday")?.recurrence == .weekly)
+        #expect(Recurrence.find(in: "격주 화요일 회의")?.phrase == "격주")
+        #expect(Recurrence.find(in: "평일 아침 8시 약")?.phrase == "평일")
+        #expect(Recurrence.find(in: "2주마다 청소")?.recurrence == .biweekly)
+        #expect(Recurrence.find(in: "매주 화요일")?.recurrence == .weekly)
+    }
+
     @Test("날짜로도 걸어간다")
     func walksCalendarDates() {
         let tuesday = CalendarDate(year: 2026, month: 9, day: 1)

@@ -55,7 +55,9 @@
 "내일" = "Tomorrow";
 "어제" = "Yesterday";
 "매일" = "Daily";
+"평일" = "Weekdays";
 "매주" = "Weekly";
+"격주" = "Every other week";
 "매월" = "Monthly";
 "매년" = "Yearly";
 "%lld분 전" = "%lld min ahead";

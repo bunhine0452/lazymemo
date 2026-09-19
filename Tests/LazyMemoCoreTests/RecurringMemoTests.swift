@@ -119,6 +119,14 @@ struct RecurringMemoTests {
         #expect(Tidy.rolled(memo, now: date(2026, 8, 31, 12), calendar: calendar)?.tidied == nil)
     }
 
+    @Test("평일 되풀이는 금요일에서 월요일로 걸어간다")
+    func weekdaysRollOverTheWeekend() {
+        let memo = Memo(at: date(2026, 9, 4, 8), every: .weekdays)   // 금요일 8시
+        let rolled = Tidy.rolled(memo, now: date(2026, 9, 5, 12), calendar: calendar)
+        #expect(rolled?.at == date(2026, 9, 7, 8))
+        #expect(rolled?.anchor == nil, "잘리지 않는 주기는 처음 날을 적지 않는다")
+    }
+
     @Test("날짜가 없으면 걸어갈 자리도 없다")
     func nothingToRollWithoutADate() {
         #expect(Tidy.rolled(Memo(every: .daily, body: "물 마시기"), now: date(2026, 8, 31)) == nil)
@@ -155,6 +163,40 @@ struct RecurrenceParsingTests {
         let result = NaturalDateParser.parse("내일 장보기", now: now)
         #expect(result?.every == nil)
         #expect(result?.due == CalendarDate(year: 2026, month: 8, day: 29))
+    }
+
+    @Test("「격주 화요일 8시」— 두 주에 한 번, 요일은 글이 정한다")
+    func readsBiweekly() {
+        let result = NaturalDateParser.parse("격주 화요일 8시 회의", now: now)
+        #expect(result?.every == .biweekly)
+        #expect(result?.at != nil)
+        #expect(NaturalDateParser.strip(result!.phrases, from: "격주 화요일 8시 회의") == "회의")
+    }
+
+    @Test("「평일 아침 8시 약」을 주말에 적으면 첫 회차는 월요일이다")
+    func weekdaysSkipTheWeekend() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        // 2026-08-29 는 토요일.
+        let saturday = calendar.date(from: DateComponents(year: 2026, month: 8, day: 29, hour: 10))!
+        let result = NaturalDateParser.parse("평일 아침 8시 약", now: saturday, calendar: calendar)
+        #expect(result?.every == .weekdays)
+        #expect(result?.namesDay == false)
+        let landed = result?.at.map { CalendarDate($0, calendar: calendar) }
+        #expect(landed == CalendarDate(year: 2026, month: 8, day: 31))
+        #expect(result?.at.map { calendar.component(.hour, from: $0) } == 8)
+        #expect(NaturalDateParser.strip(result!.phrases, from: "평일 아침 8시 약") == "약")
+
+        // 날짜 없이 주기만 — 오늘이 주말이면 월요일부터.
+        let daily = NaturalDateParser.parse("평일 물 마시기", now: saturday, calendar: calendar)
+        #expect(daily?.due == CalendarDate(year: 2026, month: 8, day: 31))
+        // 평일에 적으면 그날부터.
+        let friday = calendar.date(from: DateComponents(year: 2026, month: 8, day: 28, hour: 10))!
+        #expect(NaturalDateParser.parse("평일 물 마시기", now: friday, calendar: calendar)?.due
+            == CalendarDate(year: 2026, month: 8, day: 28))
+        // 사람이 날을 직접 말했으면 고쳐 쓰지 않는다.
+        let named = NaturalDateParser.parse("평일 토요일 8시 약", now: friday, calendar: calendar)
+        #expect(named?.at.map { calendar.isDateInWeekend($0) } == true)
     }
 
     @Test("문으로 들어온 글도 되풀이를 읽는다")

@@ -99,6 +99,12 @@ public enum NaturalDateParser {
                 ?? Result(due: CalendarDate(now, calendar: calendar), phrases: [], namesDay: false)
             result.every = repeated.recurrence
             result.phrases.append(repeated.phrase)
+            // 날을 우리가 골랐으면 주기가 허락하는 날로 — 「평일 아침 8시 약」을 토요일에 적으면
+            // 첫 회차는 월요일이다. 사람이 날을 직접 말했으면 그대로 둔다 (`Recurrence.aligned`).
+            if !result.namesDay {
+                result.due = result.due.map { repeated.recurrence.aligned($0, calendar: calendar) }
+                result.at = result.at.map { repeated.recurrence.aligned($0, calendar: calendar) }
+            }
             return result
         }
         return once(text, now: now, calendar: calendar)
