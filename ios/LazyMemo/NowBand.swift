@@ -24,6 +24,9 @@ struct NowBand: View {
     let postpone: (Memo) -> Void
     let pin: (Memo) -> Void
     let delete: (Memo) -> Void
+    /// 「완료」 — 끝낼 것이 있는 카드만 (`Memo.isActionable`). 「봤어요」는 이 기기에서 내려놓는 것이고, 완료는
+    /// 파일에 적혀 양 기기가 아는 것이다 (인계서 §4). 둘을 한 단추로 뭉치지 않는다.
+    var markDone: (Memo) -> Void = { _ in }
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -45,6 +48,7 @@ struct NowBand: View {
                 .accessibilityIdentifier("now-card")
                 .accessibilityActions {
                     Button("봤어요") { putDown(card) }
+                    if card.memo.isActionable { Button("완료") { markDone(card.memo) } }
                     if card.memo.isScheduled { Button("하루 미루기") { postpone(card.memo) } }
                     Button(card.memo.pinned ? String(localized: "고정 해제") : String(localized: "고정")) { pin(card.memo) }
                     Button("지우기") { delete(card.memo) }
@@ -56,18 +60,25 @@ struct NowBand: View {
                     Button(role: .destructive) { delete(card.memo) } label: { Label("지우기", systemImage: "trash") }
                 }
                 .swipeActions(edge: .leading) {
-                    // 일정이 있으면 미루기가 앞이다 — 끝까지 밀면 그것 (달력 탭과 같다).
+                    // 끝낼 것이 있으면 완료가 맨 앞 — 끝까지 밀면 그것. 그다음 미루기(일정이 있으면), 고정.
+                    if card.memo.isActionable {
+                        Button { markDone(card.memo) } label: { Label("완료", systemImage: "checkmark.circle") }
+                            .tint(Theme.accent)
+                    }
                     if card.memo.isScheduled {
                         Button { postpone(card.memo) } label: { Label("미루기", systemImage: "arrow.right") }
-                            .tint(Theme.accent)
+                            .tint(card.memo.isActionable ? Theme.highlightInk : Theme.accent)
                     }
                     Button { pin(card.memo) } label: {
                         Label(card.memo.pinned ? String(localized: "고정 해제") : String(localized: "고정"), systemImage: card.memo.pinned ? "pin.slash" : "pin")
                     }
-                    .tint(card.memo.isScheduled ? Theme.highlightInk : Theme.accent)
+                    .tint(card.memo.isScheduled || card.memo.isActionable ? Theme.highlightInk : Theme.accent)
                 }
                 .contextMenu {
-                    Button { putDown(card) } label: { Label("봤어요", systemImage: "checkmark") }
+                    Button { putDown(card) } label: { Label("봤어요", systemImage: "eye") }
+                    if card.memo.isActionable {
+                        Button { markDone(card.memo) } label: { Label("완료", systemImage: "checkmark.circle") }
+                    }
                     if card.memo.isScheduled {
                         Button { postpone(card.memo) } label: { Label("하루 미루기", systemImage: "arrow.right") }
                     }
@@ -87,6 +98,24 @@ struct NowBand: View {
                     .font(.caption.weight(.medium).monospacedDigit())
                     .foregroundStyle(Theme.accentInk)
                 Spacer(minLength: 8)
+                // 끝낼 것이 있는 카드는 「완료」가 곁에 선다 — 「봤어요」와 나란히, 다른 뜻이다.
+                if card.memo.isActionable {
+                    Button { markDone(card.memo) } label: {
+                        Label("완료", systemImage: "checkmark.circle")
+                            .labelStyle(.titleOnly)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(Theme.accentInk)
+                            .padding(.horizontal, 10)
+                            .frame(minHeight: 28)
+                            .background(Theme.accentInk.opacity(0.08), in: Capsule())
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("완료")
+                    .accessibilityHint("끝낸 것으로 적습니다 — 알림과 「지금」에서 빠지고, 되돌릴 수 있어요")
+                    .accessibilityIdentifier("now-done")
+                }
                 // 내려놓기는 카드 위에 보인다 — 쓸어 넘기는 손짓은 아는 사람만 안다.
                 // 알약은 28pt 그대로 두고 **누르는 자리만** 44 로 넓힌다
                 // (HIG Buttons — "a button needs a hit region of at least 44x44 pt").

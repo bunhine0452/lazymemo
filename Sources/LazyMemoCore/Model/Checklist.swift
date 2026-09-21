@@ -46,6 +46,19 @@ public enum Checklist {
         (body as NSString).replacingCharacters(in: edit.range, with: edit.replacement)
     }
 
+    /// 체크한 칸을 전부 빈 칸으로 — 되풀이하는 일이 다음 회차로 걸어갈 때 (`Tidy.rolled`). 칸 밖의 글자는 건드리지 않는다.
+    public static func uncheckingAll(in body: String) -> String {
+        var result = body
+        // 뒤에서부터 바꿔야 앞의 자리가 어긋나지 않는다.
+        for span in MarkdownScanner.spans(in: body).reversed() {
+            guard case .checkbox(true) = span.kind,
+                  let edit = ListEditing.toggleCheckbox(inLineContaining: span.range.location, in: result)
+            else { continue }
+            result = applying(edit, to: result)
+        }
+        return result
+    }
+
     /// 상자 머리(`- [ ] `) 뒤부터 줄 끝까지.
     private static func label(after marker: NSRange, in source: NSString) -> String {
         let line = source.lineRange(for: marker)

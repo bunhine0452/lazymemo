@@ -26,6 +26,8 @@ import SwiftUI
 struct QuickCaptureView: View {
     @Bindable var model: QuickCaptureModel
     var onCommit: () -> Void
+    /// ⌥⌘⏎ / ✦ — 비서에게. 기본 ⌘⏎ 는 적는다 (인계서 묶음 3).
+    var onAsk: () -> Void = {}
     var onCancel: () -> Void
     /// 그 메모가 지금 바탕화면에 나와 있는가. 찬 점과 빈 점을 가른다
     /// (메뉴 목록과 같은 낱말 — §14.10).
@@ -82,6 +84,7 @@ struct QuickCaptureView: View {
         var step: RoutePlanner.Step?
         var notice: String?
         var phase: AssistantModel.Phase?
+        var left: ULID?
     }
 
     private var bubbleKey: BubbleKey {
@@ -90,7 +93,7 @@ struct QuickCaptureView: View {
             schedule: model.scheduleLabel, deleted: model.lastDeleted?.id,
             expanded: model.isExpanded, question: model.pendingQuestion,
             step: model.planner?.step, notice: model.planner?.notice,
-            phase: model.assistant?.phase
+            phase: model.assistant?.phase, left: model.left?.memo.id
         )
     }
 
@@ -102,6 +105,8 @@ struct QuickCaptureView: View {
             if let question = model.pendingQuestion { pendingBlock(question) }
             // 가는 길 — 「어디서 출발하시나요?」·「무엇으로 갈까요?」. 시각의 되물음과 같은 자리, 같은 모양.
             if let planner = model.planner, planner.isActive { routeBlock(planner) }
+            // 방금 남긴 것의 결과 카드 — 권할 것(시각·가는 길)이 있을 때만. 누르면 그때 되묻는다.
+            if let left = model.left { leftBlock(left) }
             input
 
             if model.query.isEmpty, !model.isAsking, model.assistant?.phase ?? .idle == .idle { searchShortcuts }
@@ -121,6 +126,12 @@ struct QuickCaptureView: View {
             if let deleted = model.lastDeleted {
                 Divider().opacity(0.3)
                 undoLine(deleted)
+            }
+
+            // 조용히 지나가면 안 되는 둘 — 적기가 실패했다(글은 그대로 있다), 초안이 기기에 안 남는다.
+            if let trouble = model.saveTrouble { troubleLine(trouble.doing, detail: trouble.detail, retry: nil) }
+            if let trouble = model.draftTrouble {
+                troubleLine(L("초안을 기기에 남기지 못했어요 — 이번 실행 동안만 들고 있어요"), detail: trouble) { model.retryDraft() }
             }
 
             hint
@@ -201,6 +212,7 @@ struct QuickCaptureView: View {
                 placeholder: inputPlaceholder,
                 onCommand: handle(command:in:),
                 onCommandReturn: onCommit,
+                onOptionCommandReturn: onAsk,
                 // 글이 자라면 **그 자리에서** 상자도 자라야 한다.
                 // 여기서는 글 상자 높이만 바꾼다 — 창은 그 결과로 달라진
                 // 배치를 스스로 받아 간다 (`CaptureHostingView`).
@@ -349,6 +361,61 @@ struct QuickCaptureView: View {
         .padding(.horizontal, Theme.loose)
         .padding(.top, Theme.normal)
         .transition(.opacity)
+    }
+
+    // MARK: 결과 카드 — 방금 남긴 것과 권할 것 (인계서 묶음 3 `#nonblocking-followups`)
+
+    /// 「적었어요 · 9월 30일 (수) · 홍대입구」 한 줄과 칩 — 「시각 정하기」「가는 길 찾기」. 상자는 다음 글을 받는다.
+    private func leftBlock(_ left: QuickCaptureModel.Left) -> some View {
+        VStack(alignment: .leading, spacing: Theme.snug) {
+            // 카드에는 × 가 없다 — 상자의 × 와 겹친다. 첫 글자나 esc 가 카드를 치운다.
+            Label(leftSummary(left.memo), systemImage: "checkmark.circle")
+                .font(Theme.micro)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .padding(.trailing, 24)
+            if let hint = left.hint {
+                Text(hint).font(Theme.micro).foregroundStyle(.secondary).lineLimit(3)
+                    .accessibilityIdentifier("first-note-hint")
+            }
+            if left.offersTime || left.offersRoute {
+                HStack(spacing: 6) {
+                    if left.offersTime {
+                        Button(action: model.offerTime) { leftChip(L("시각 정하기")) }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("offer-time")
+                    }
+                    if left.offersRoute {
+                        Button(action: model.offerRoute) { leftChip(L("가는 길 찾기")) }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("offer-route")
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, Theme.loose)
+        .padding(.top, Theme.normal)
+        .transition(.opacity)
+    }
+
+    private func leftChip(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 11, weight: .medium))
+            .padding(.horizontal, 10)
+            .frame(height: 26)
+            .background(Theme.softAccent, in: Capsule())
+    }
+
+    /// 「적었어요 · 9월 30일 (수) · 자리 홍대입구」.
+    private func leftSummary(_ memo: Memo) -> String {
+        var parts = [L("적었어요"), Self.clip(memo.title)]
+        if let at = memo.at {
+            parts.append(at.formatted(.dateTime.month().day().weekday(.abbreviated).hour().minute()))
+        } else if let due = memo.due, let start = due.startOfDay() {
+            parts.append(start.formatted(.dateTime.month().day().weekday(.abbreviated)))
+        }
+        if let place = memo.place { parts.append(L("자리 \(place)")) }
+        return parts.joined(separator: " · ")
     }
 
     // MARK: 비서 — 답·결과·되물음 (설계 D8·D9·D10·D11)
@@ -641,6 +708,27 @@ struct QuickCaptureView: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, Theme.loose)
         .padding(.vertical, Theme.tight)
+    }
+
+    /// 실패 한 줄 — 사람의 말로, 기계의 말은 도움말로. 다시 할 수 있는 것이면 「다시 시도」가 붙는다.
+    private func troubleLine(_ text: String, detail: String, retry: (() -> Void)?) -> some View {
+        HStack(spacing: Theme.snug) {
+            Label(text, systemImage: "exclamationmark.triangle")
+                .font(Theme.micro)
+                .foregroundStyle(.orange)
+                .lineLimit(2)
+                .help(detail)
+            if let retry {
+                Button(L("다시 시도"), action: retry)
+                    .buttonStyle(.plain)
+                    .font(Theme.micro.weight(.medium))
+                    .foregroundStyle(Theme.accentInk)
+            }
+        }
+        .padding(.horizontal, Theme.loose)
+        .padding(.vertical, Theme.tight)
+        .accessibilityIdentifier("capture-trouble")
+        .transition(.opacity)
     }
 
     private func statusLine(_ text: String, symbol: String) -> some View {
@@ -940,6 +1028,26 @@ struct QuickCaptureView: View {
                     style: ThinkingInkStyle(ink: Paper.ink, faded: Paper.fadedInk, accent: Theme.accentInk), size: 11
                 )
             } else if let commandLabel {
+                // 비서에게는 따로 — ✦ / ⌥⌘↵. 기본 단추는 늘 적는다 (인계서 묶음 3).
+                if let askLabel {
+                    Button(action: onAsk) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles")
+                            Text(askLabel)
+                            Text("⌥⌘↵").opacity(0.6)
+                        }
+                        .font(.system(size: 11, weight: .medium))
+                        .lineLimit(1)
+                        .fixedSize()
+                        .foregroundStyle(Theme.accentInk)
+                        .padding(.horizontal, 10)
+                        .frame(height: 30)
+                        .background(Theme.softAccent, in: RoundedRectangle(cornerRadius: 9))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("ask")
+                    .spoken("\(askLabel) — Option Command Return")
+                }
                 Button(action: onCommit) {
                     HStack(spacing: 12) {
                         Text(commandLabel)
@@ -954,7 +1062,7 @@ struct QuickCaptureView: View {
                 .buttonStyle(.plain)
                 .spoken("\(commandLabel) — Command Return")
             } else {
-                Text(L("적으면 메모, 찾으면 검색, 물으면 답"))
+                Text(L("적으면 메모, 찾으면 검색 · 비서에게는 ⌥⌘↵"))
                     .font(.system(size: 11))
             }
         }
@@ -979,6 +1087,17 @@ struct QuickCaptureView: View {
 
     /// 단추에 들어갈 만큼의 제목.
     private static func clip(_ title: String) -> String { title.count > 12 ? String(title.prefix(11)) + "…" : title }
+
+    /// ✦ / ⌥⌘⏎ 가 할 일 — 비서에게. 글이 없거나 비서가 없으면 `nil`.
+    private var askLabel: String? {
+        switch model.askIntent {
+        case .ask: L("묻기")
+        case .web: L("웹 찾기")
+        case .command: L("시키기")
+        case .followUp(let follow): Self.followUpLabel(follow)
+        default: nil
+        }
+    }
 
     /// 지금 ⌘⏎ 가 할 일 — 라벨이 곧 동사다 (설계 D5). 없으면 `nil`.
     private var commandLabel: String? {

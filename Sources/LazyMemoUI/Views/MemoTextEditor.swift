@@ -43,6 +43,8 @@ struct MemoTextEditor: NSViewRepresentable {
     var onCommand: (Selector, NSTextView) -> Bool = { _, _ in false }
     /// ⌘⏎ — 적기 끝.
     var onCommandReturn: (() -> Void)?
+    /// ⌥⌘⏎ — 비서에게 (빠른 입력만).
+    var onOptionCommandReturn: (() -> Void)?
     /// 글이 차지한 높이. 빠른 입력 상자가 줄 수에 맞춰 자라는 근거다.
     var onHeightChange: ((CGFloat) -> Void)?
     /// 보이는 칸 아래에 글이 더 있는가 — 종이가 「더 있다」는 표시를 세우는 근거 (`NoteView`).
@@ -104,6 +106,7 @@ struct MemoTextEditor: NSViewRepresentable {
         textView.onPasteLink = onPasteLink
         textView.onDelete = onDelete
         textView.onCommandReturn = onCommandReturn
+        textView.onOptionCommandReturn = onOptionCommandReturn
         textView.movesWindowOnDrag = movesWindow
         textView.blursOnEscape = blursOnEscape
         textView.onEscape = onEscape
@@ -139,6 +142,7 @@ struct MemoTextEditor: NSViewRepresentable {
         // 닫힘 위에 붙잡힌 값들은 갱신될 때마다 갈아 끼운다.
         (textView as? MemoNSTextView)?.onDelete = onDelete
         (textView as? MemoNSTextView)?.onCommandReturn = onCommandReturn
+        (textView as? MemoNSTextView)?.onOptionCommandReturn = onOptionCommandReturn
         (textView as? MemoNSTextView)?.onEscape = onEscape
         context.coordinator.onHeightChange = onHeightChange
         context.coordinator.onOverflowChange = onOverflowChange

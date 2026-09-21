@@ -143,6 +143,58 @@ enum PreviewRenderer {
             into: directory
         )
 
+        // 적기가 실패했고 초안도 기기에 안 남는다 — 글은 그대로, 까닭이 두 줄 (인계서 묶음 2).
+        // 초안 자리의 부모를 파일로 막아 진짜로 실패시킨다.
+        let blocked = directory.appending(path: "blocked-draft", directoryHint: .notDirectory)
+        try? Data("막힘".utf8).write(to: blocked)
+        let troubled = QuickCaptureModel(
+            store: store, draft: CaptureDraftStore(location: blocked.appending(path: "draft.txt", directoryHint: .notDirectory))
+        )
+        troubled.arrowOffset = QuickCaptureController.width - 70
+        troubled.query = L("내일 견적 보내기")
+        troubled.flushDraft()
+        _ = await troubled.save { throw CocoaError(.fileWriteNoPermission) }
+        log("capture-trouble.save=\(troubled.saveTrouble?.doing ?? "-") draft=\(troubled.draftTrouble != nil)")
+        await render(
+            name: "capture-trouble",
+            size: CGSize(width: QuickCaptureController.width, height: 220),
+            content: QuickCaptureView(model: troubled, onCommit: {}, onCancel: {}),
+            into: directory
+        )
+        try? FileManager.default.removeItem(at: blocked)
+
+        // 물음이 든 글 — ⌘⏎ 는 「메모 남기기」, 비서에게는 ✦ 「메모에게 묻기」가 따로 선다 (인계서 묶음 3).
+        let askable = QuickCaptureModel(store: store)
+        askable.arrowOffset = QuickCaptureController.width - 70
+        askable.assistant = AssistantModel(service: store.service, support: directory.appending(path: "assistant-ask", directoryHint: .isDirectory))
+        askable.query = L("치과 언제였지?")
+        log("capture-ask.intent=\(askable.intent) ask=\(String(describing: askable.askIntent))")
+        await render(
+            name: "capture-ask",
+            size: CGSize(width: QuickCaptureController.width, height: 200),
+            content: QuickCaptureView(model: askable, onCommit: {}, onCancel: {}),
+            into: directory
+        )
+
+        // 방금 남긴 것의 결과 카드 — 날짜만 있는 약속이라 「시각 정하기」를 권하고, 첫 메모라 한 줄을 듣는다.
+        // 상자는 비어 있어 다음 글을 받는다 (인계서 묶음 3).
+        let dated = try? await store.create(
+            body: L("친구랑 밥 먹기로 했어"), due: CalendarDate(year: 2026, month: 9, day: 30), place: L("홍대입구")
+        )
+        let leftModel = QuickCaptureModel(store: store)
+        leftModel.arrowOffset = QuickCaptureController.width - 70
+        if let dated {
+            leftModel.show(left: dated, hint: L("종이가 바탕화면에 섰어요 · 다시 적을 땐 ⌥⌘N · 나머지는 메뉴바 아이콘 → 시작하기 및 사용 안내"))
+        }
+        log("capture-left.offersTime=\(leftModel.left?.offersTime == true) hint=\(leftModel.left?.hint != nil)")
+        await render(
+            name: "capture-left",
+            size: CGSize(width: QuickCaptureController.width, height: 240),
+            content: QuickCaptureView(model: leftModel, onCommit: {}, onCancel: {}),
+            into: directory
+        )
+        if let dated { try? await store.delete(dated.id) }
+
         // 낱말이 기억나지 않을 때 (`MemoFilter`). **무엇으로 걸렀는지가
         // 화면에 없으면** 목록이 짧아진 이유를 알 길이 없다.
         let recalling = QuickCaptureModel(store: store)

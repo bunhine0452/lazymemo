@@ -38,7 +38,9 @@ import Observation
 /// 연 시각의 한 시간 뒤가 아니다.
 @MainActor @Observable
 public final class ReminderCenter {
-    public static let shared = ReminderCenter(queue: SystemReminderQueue.ifBundled(), defaults: .standard)
+    public static let shared = ReminderCenter(
+        queue: SystemReminderQueue.ifBundled(), defaults: .standard, group: AppPaths.sharedContainer()
+    )
 
     /// 사람이 「이 기기에서 알림 받기」를 켰나. 시스템 권한과는 별개의 뜻이다 —
     /// 권한을 거절해도 켜 둔 뜻은 남고, 설정에서 도로 허용하면 그때부터 건다.
@@ -51,6 +53,14 @@ public final class ReminderCenter {
     public private(set) var overflow = 0
     /// 걸지 못한 것이 있다 — 사람의 말로. 삼키지 않는다.
     public private(set) var trouble: String?
+    /// 마지막 대조가 메모마다 낸 결과 — 영수증(`receipt(for:)`)의 재료. 대조가 한 번은 돌아야 채워진다.
+    private var outcomes: [ULID: Outcome] = [:]
+    /// 대조를 한 번이라도 끝냈나. 그 전의 영수증은 「확인 중」이다.
+    private var reconciled = false
+
+    private enum Outcome: Equatable {
+        case scheduled(Date), failed, overflow
+    }
     /// 알림을 눌러 열어 달라는 메모. 화면이 읽고 `nil` 로 되돌린다 — 앱이 꺼진 채
     /// 눌렀을 때 화면이 아직 없어서 여기 담아 둔다.
     public var opened: ULID?
@@ -72,6 +82,9 @@ public final class ReminderCenter {
 
     private let queue: ReminderQueue?
     private let defaults: UserDefaults
+    /// 앱 그룹 폴더 — 「켜짐」의 표를 여기 한 벌 더 적어 앱 밖(공유 시트·인텐트)이 읽게 한다 (`RecallSwitch`).
+    /// 시험은 `nil` 을 준다 — 진짜 그룹 폴더에 표를 남기지 않는다.
+    private let group: URL?
     private var store: MemoStore?
     private var running = false
     private var dirty = false
@@ -80,12 +93,16 @@ public final class ReminderCenter {
     private var pendingActions: [PendingAction] = [] { didSet { persistPending() } }
     private static let key = "recall.notifications.enabled"
     private static let pendingKey = "recall.pending-actions"
-    nonisolated static let prefix = "recall."
+    /// OS 예약의 id 머리 — 앱 밖(공유 시트·인텐트)도 같은 이름을 쓴다 (`Recall.notificationPrefix`).
+    nonisolated static let prefix = Recall.notificationPrefix
 
-    public init(queue: ReminderQueue?, defaults: UserDefaults) {
+    public init(queue: ReminderQueue?, defaults: UserDefaults, group: URL? = nil) {
         self.queue = queue
         self.defaults = defaults
+        self.group = group
         enabled = defaults.bool(forKey: Self.key)
+        // 이 판 전에 켜 둔 사람의 표도 서게 — 켤 때만 적으면 그 사람의 공유 시트는 영영 「앱을 열면」이다.
+        RecallSwitch.write(enabled: enabled, in: group)
         queue?.onTap = { [weak self] raw in
             guard let self, let id = ULID(raw) else { return }
             open(id)
@@ -222,6 +239,7 @@ public final class ReminderCenter {
         }
         enabled = value
         defaults.set(value, forKey: Self.key)
+        RecallSwitch.write(enabled: value, in: group)
         refresh()
     }
 
@@ -282,26 +300,56 @@ public final class ReminderCenter {
 
         var count = 0
         var failed = false
+        var results: [ULID: Outcome] = [:]
+        for item in all.dropFirst(wanted.count) where allowed { results[item.id] = .overflow }
         for item in wanted {
             if dirty { return }
             let request = ReminderRequest(
                 id: Self.prefix + item.id.stringValue,
                 title: item.title,
-                body: item.body ?? L("다시 볼 시간이에요. 눌러서 메모를 펼치세요."),
+                body: item.body ?? Recall.defaultNotificationBody,
                 date: item.date,
                 // 가는 길이 적힌 약속의 알림은 출발 알림이다 — 단추가 다르다.
                 category: item.body == nil ? .recall : .departure
             )
-            if pending.contains(request) { count += 1; continue }
+            if pending.contains(request) { count += 1; results[item.id] = .scheduled(item.date); continue }
             do {
                 try await queue.add(request)
                 count += 1
+                results[item.id] = .scheduled(item.date)
             } catch {
                 failed = true
+                results[item.id] = .failed
             }
         }
         scheduledCount = count
+        outcomes = results
+        reconciled = true
         trouble = failed ? L("일부 알림을 걸지 못했어요. 다시 시도해 주세요.") : nil
+    }
+
+    // MARK: 영수증 — 저장 직후 화면이 적는 「이 기기에서 확인한 사실」
+
+    /// 이 메모의 알림이 **이 기기에서** 어떻게 됐는가. 저장 직후의 화면이 이것을 적는다 — 「예약됨」이라
+    /// 적을 수 있는 것은 OS 큐에 실제로 넣은 뒤뿐이고, 그 전까지는 「확인 중」이다. 다른 기기의 사정은
+    /// 여기서 모른다: 그쪽이 켜 두었으면 그쪽도 울린다는 것은 설정 화면이 적는다.
+    ///
+    /// 대조는 저장소가 바뀐 뒤 비동기로 돈다. 방금 만든 메모의 답을 받으려면 `settle()` 뒤에 부른다 —
+    /// 안 그러면 **앞 메모의 결과를 새 메모에 붙이는** 것이 아니라 그냥 「확인 중」이 온다 (id 로 찾으므로).
+    public func receipt(for memo: Memo, now: Date = Date()) -> ReservationReceipt {
+        guard Recall.eligible(memo) else { return .notWanted }
+        guard let at = memo.surfacesAt else { return memo.due == nil ? .noTime : .dateOnly }
+        guard at > now else { return .passed }
+        guard available else { return .unavailable }
+        guard enabled else { return .off }
+        if authorization == .denied { return .denied }
+        guard reconciled else { return .pending }
+        switch outcomes[memo.id] {
+        case .scheduled(let date): return .scheduled(date)
+        case .failed: return .failed
+        case .overflow: return .overflow
+        case nil: return .pending
+        }
     }
 }
 

@@ -28,6 +28,9 @@ private struct ShareSheet: View {
     /// 떨구는 중. iCloud 컨테이너를 찾는 데 한 박자 걸리는데, 그 사이 한 번 더
     /// 누르면 같은 글이 두 장 된다.
     @State private var leaving = false
+    /// 적은 뒤의 영수증 — 「적었어요 · 이 기기에 알림 예약됨 · …」. **이 기기에서 확인한 사실**만 (`ReservationReceipt`).
+    /// 한 박자 보여 주고 닫는다: 시트가 곧장 사라지면 알림이 걸렸는지 아닌지 알 길이 없다.
+    @State private var receipt: ReservationReceipt?
     @FocusState private var editing: Bool
 
     var body: some View {
@@ -51,6 +54,12 @@ private struct ShareSheet: View {
                 }
                 if let trouble {
                     Text(trouble).font(.footnote).foregroundStyle(.red)
+                }
+                if let receipt {
+                    Label(receiptText(receipt), systemImage: { if case .scheduled = receipt { "bell" } else { "checkmark.circle" } }())
+                        .font(.footnote)
+                        .foregroundStyle(receipt == .failed ? .orange : .secondary)
+                        .accessibilityIdentifier("share-receipt")
                 }
                 Spacer(minLength: 0)
             }
@@ -117,11 +126,23 @@ private struct ShareSheet: View {
                 let memo = try await InboxDrop.drop(inbound, into: paths)
                 // 자리가 있는 약속이면 앱이 「어디서 출발하시나요?」를 묻게 남긴다 — 여기엔 펜이 없다 (`RouteAsk`).
                 if RouteAsk.applies(memo) { await RouteAskDrop.leave(memo) }
+                // 다시 보기 알림은 앱과 같은 이름으로 여기서 건다 — 앱을 열기 전에 시각이 올 수 있다 (`RecallDrop`).
+                let result = await RecallDrop.leave(memo, group: AppPaths.sharedContainer())
+                receipt = result
+                // 한 박자 보여 주고 닫는다. 그냥 글이면 말할 것이 없어 바로 닫는다.
+                if result.line() != nil { try? await Task.sleep(for: .milliseconds(1400)) }
                 context?.completeRequest(returningItems: nil)
             } catch {
                 trouble = String(localized: "적지 못했습니다 — \(String(describing: error))")
             }
         }
+    }
+
+    /// 「적었어요 · 이 기기에 알림 예약됨 · 9월 25일 9:00」 — 인텐트의 대답과 같은 말.
+    private func receiptText(_ receipt: ReservationReceipt) -> String {
+        let head = String(localized: "적었어요")
+        guard let line = receipt.line() else { return head }
+        return head + " · " + line
     }
 }
 
@@ -149,6 +170,43 @@ enum SharedInput {
         let loaded = try? await provider.loadItem(forTypeIdentifier: type.identifier)
         if let data = loaded as? Data, type == .plainText { return String(decoding: data, as: UTF8.self) }
         return loaded
+    }
+}
+
+/// 다시 보기 알림을 시트에서 **그 자리에서** 건다 — `Sources/LazyMemoReminders/RecallDrop.swift` 의 한 벌.
+///
+/// 확장은 그 패키지를 들지 않는다(메모리 한도). 이름·내용은 Core 의 `Recall` 상수를 같이 쓰므로 앱의
+/// 대조가 이것을 자기 것으로 알아보고 두 번 걸지 않는다. 한쪽을 고치면 다른 쪽도 같이.
+enum RecallDrop {
+    static func leave(_ memo: Memo, group: URL?, now: Date = Date()) async -> ReservationReceipt {
+        guard Recall.eligible(memo) else { return .notWanted }
+        guard let at = memo.surfacesAt else { return memo.due == nil ? .noTime : .dateOnly }
+        guard at > now else { return .passed }
+        guard let enabled = RecallSwitch.isEnabled(in: group) else { return .needsApp }
+        guard enabled else { return .off }
+        let center = UNUserNotificationCenter.current()
+        switch await center.notificationSettings().authorizationStatus {
+        case .authorized, .provisional, .ephemeral: break
+        case .denied: return .denied
+        default: return .needsApp
+        }
+        guard let reservation = Recall.reservations([memo], now: now).first else { return .passed }
+        let content = UNMutableNotificationContent()
+        content.title = reservation.title
+        content.body = reservation.body ?? Recall.defaultNotificationBody
+        content.sound = .default
+        content.categoryIdentifier = reservation.body == nil ? Recall.recallCategory : Recall.departureCategory
+        content.userInfo = [Recall.memoKey: memo.id.stringValue, Recall.dateKey: reservation.date.timeIntervalSince1970]
+        let request = UNNotificationRequest(
+            identifier: Recall.notificationID(for: memo.id), content: content,
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: max(1, reservation.date.timeIntervalSince(now)), repeats: false)
+        )
+        do {
+            try await center.add(request)
+            return .scheduled(reservation.date)
+        } catch {
+            return .failed
+        }
     }
 }
 

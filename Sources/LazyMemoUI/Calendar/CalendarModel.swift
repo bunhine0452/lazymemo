@@ -247,6 +247,18 @@ final class CalendarModel {
         }
     }
 
+    /// 끝냈다 / 되돌린다 — 규칙은 `MemoStore` 에 있다 (인계서 §4). 달력의 줄은 그대로 있고 꼬리에 「완료」가 붙는다:
+    /// 끝낸 순간 달력에서 사라지면 사고로 보이고, 사흘 뒤 규칙이 물러나게 한다 (`Tidy`).
+    func toggleDone(_ memo: Memo) async {
+        do {
+            if memo.done == nil { try await store.markDone(memo.id) } else { try await store.markUndone(memo.id) }
+            failure = nil
+            await refresh()
+        } catch {
+            failure = L("완료 적기 실패: \(String(describing: error))")
+        }
+    }
+
     /// 방금 지운 것을 되살린다.
     func restoreDeleted() async {
         guard let memo = lastDeleted else { return }

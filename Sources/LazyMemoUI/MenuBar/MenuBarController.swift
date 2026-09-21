@@ -3,6 +3,7 @@ import LazyMemoAssistantUI
 import LazyMemoCore
 import LazyMemoReminders
 import LazyMemoSpotlight
+import LazyMemoWidgetsCore
 
 /// 메뉴바 상주 아이콘과 그 메뉴.
 ///
@@ -369,8 +370,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(drawerToggle)
         menu.addItem(.separator())
 
+        addSummaryLine(to: menu)
         addMemoList(to: menu)
         addTidiedSection(to: menu)
+        addArchivedSection(to: menu)
         addTrashSection(to: menu)
 
         menu.addItem(.separator())
@@ -452,6 +455,85 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     ///
     /// 단계를 네 칸으로 끊는다 — 슬라이더는 조준해서 끌어야 하는 물건이고,
     /// 메뉴 안에서는 더 그렇다.
+    /// 「놓친 2장 · 오늘 3장 · 나중에 5장」 — 세 장이 전부가 아니라는 것을 **조용히** 말하는 한 줄
+    /// (인계서 묶음 4 `#unfinished-recall`). 푸시는 없다. 놓친 것은 하위 메뉴에서 열고·끝내고·보관하고·미룬다.
+    ///
+    /// `Recall.summary` 가 정한다 — 폰의 「지금」 띠 밑의 요약과 같은 셈이라 두 기기가 같은 수를 말한다.
+    /// 「봤어요」로 내려놓은 등장은 이 기기의 기억(`NowSeen`)이라 여기서만 빠진다 — 그것은 완료가 아니다.
+    private func addSummaryLine(to menu: NSMenu) {
+        let summary = Recall.summary(store.memos, seen: NowSeen.load())
+        guard !summary.isEmpty else { return }
+
+        var parts: [String] = []
+        if !summary.missed.isEmpty { parts.append(L("놓친 \(summary.missed.count)장")) }
+        if !summary.today.isEmpty { parts.append(L("오늘 \(summary.today.count)장")) }
+        if !summary.later.isEmpty { parts.append(L("나중에 \(summary.later.count)장")) }
+        let line = NSMenuItem(title: parts.joined(separator: " · "), action: nil, keyEquivalent: "")
+        line.toolTip = L("놓친 것은 지난 날에 다시 보기로 했거나 시각이 적혀 있었는데 끝내지 않은 것 · 마감이 지난 칸 남은 목록")
+
+        guard !summary.missed.isEmpty else {
+            line.isEnabled = false
+            menu.addItem(line)
+            return
+        }
+        let submenu = NSMenu()
+        let now = Date()
+        for memo in summary.missed.prefix(Self.listedTrashLimit) {
+            submenu.addItem(missedRow(memo, now: now))
+        }
+        if summary.missed.count > Self.listedTrashLimit {
+            submenu.addItem(disabled(L("… 외 \(summary.missed.count - Self.listedTrashLimit)장 — 빠른 입력에서 찾기")))
+        }
+        line.submenu = submenu
+        menu.addItem(line)
+    }
+
+    /// 놓친 것 한 줄 — 제목·언제, 그 아래 네 손: 열기 · 완료 · 보관 · 내일 아침으로.
+    private func missedRow(_ memo: Memo, now: Date) -> NSMenuItem {
+        let when = memo.surface.map { MemoTimeLabel.elapsed($0, now: now) } ?? MemoTimeLabel.text(for: memo, now: now)
+        let parent = NSMenuItem(title: "\(memo.title) · \(when)", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        for (title, action, hint) in [
+            (L("열기"), #selector(openMemo(_:)), L("종이를 앞으로")),
+            (L("완료"), #selector(markDone(_:)), L("끝냈다고 적습니다 — 되돌릴 수 있고, 사흘 뒤 물러납니다")),
+            (L("보관"), #selector(archiveMemo(_:)), L("당장 안 볼 기록으로 — 검색하면 나옵니다")),
+            (L("내일 아침으로"), #selector(postponeToMorning(_:)), L("내일 아침 9시에 다시 봅니다 — 일정은 그대로")),
+        ] {
+            let entry = item(title: title, action: action, key: "")
+            entry.representedObject = memo.id.stringValue
+            entry.toolTip = hint
+            submenu.addItem(entry)
+        }
+        parent.submenu = submenu
+        return parent
+    }
+
+    /// 사람이 넣어 둔 것 (`Memo.archived`) — 완료도 삭제도 아니고, 검색하면 나온다. 하나씩 꺼낸다.
+    private func addArchivedSection(to menu: NSMenu) {
+        let archived = store.archivedMemos
+        guard !archived.isEmpty else { return }
+        menu.addItem(.separator())
+        let parent = NSMenuItem(title: L("보관한 \(archived.count)장"), action: nil, keyEquivalent: "")
+        parent.toolTip = L("당장 안 볼 기록 — 지운 것도 끝낸 것도 아닙니다. 검색하면 나옵니다")
+        parent.submenu = restoreSubmenu(archived, action: #selector(unarchiveMemo(_:)), hint: L("보관에서 꺼내기"))
+        menu.addItem(parent)
+    }
+
+    /// 하나씩 되돌리는 하위 메뉴 — 줄을 누르면 그 한 장만 도로 나온다.
+    private func restoreSubmenu(_ memos: [Memo], action: Selector, hint: String) -> NSMenu {
+        let submenu = NSMenu()
+        for memo in memos.prefix(Self.listedTrashLimit) {
+            let entry = item(title: memo.title, action: action, key: "")
+            entry.representedObject = memo.id.stringValue
+            entry.toolTip = hint
+            submenu.addItem(entry)
+        }
+        if memos.count > Self.listedTrashLimit {
+            submenu.addItem(disabled(L("… 외 \(memos.count - Self.listedTrashLimit)장 — 빠른 입력에서 찾기")))
+        }
+        return submenu
+    }
+
     private func addMemoList(to menu: NSMenu) {
         // 치워 둔 것은 여기 오지 않는다 (`Tidy`). 바로 아래 줄이 몇 장인지
         // 적고 한 번에 도로 꺼낸다 — 안 적으면 그건 삭제로 읽힌다.
@@ -500,15 +582,20 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// 그래서 몇 장인지, 왜 물러났는지, 어떻게 도로 꺼내는지를 **한 자리**에
     /// 적는다.
     ///
-    /// 하나씩 꺼내는 길은 따로 두지 않았다. 빠른 입력에서 찾아 열면 그
-    /// 자리에서 도로 꺼내지므로(`NoteWindowManager.reveal`), 메뉴에 목록을
-    /// 한 벌 더 얹으면 그것이야말로 또 하나의 치울 거리가 된다.
+    /// 하나씩 꺼내는 길은 오랫동안 없었다 — 빠른 입력에서 찾아 열면 그 자리에서 도로 꺼내지므로
+    /// (`NoteWindowManager.reveal`). 그런데 「도로 꺼내기」 한 번은 **전부**를 세우고, 도로 꺼낸 것은
+    /// 규칙이 다시 못 치우므로(`Memo.kept`), 두 장을 보려던 손이 열 장을 영영 세우는 셈이 됐다.
+    /// 그래서 이제 하위 메뉴에서 한 장씩 꺼낸다 (인계서 §4 「개별 복원 경로」). 전부 꺼내는 줄은 그대로 있다.
     private func addTidiedSection(to menu: NSMenu) {
         let tidied = store.tidiedMemos
         guard !tidied.isEmpty else { return }
         menu.addItem(.separator())
 
         menu.addItem(header(L("치워 둔 \(tidied.count)장 — \(Self.tidiedReasons(tidied))")))
+
+        let each = NSMenuItem(title: L("하나씩 꺼내기"), action: nil, keyEquivalent: "")
+        each.submenu = restoreSubmenu(tidied, action: #selector(restoreTidiedOne(_:)), hint: L("이 한 장만 도로 꺼냅니다"))
+        menu.addItem(each)
 
         let restore = item(title: L("도로 꺼내기"), action: #selector(restoreTidied), key: "")
         restore.image = NSImage(
@@ -546,8 +633,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let trash = store.trash
         guard !trash.isEmpty else { return }
         menu.addItem(.separator())
+        addConflictSection(to: menu)
 
-        let justDeleted = trash.first.flatMap { memo -> Memo? in
+        // 다른 기기의 판은 위에서 따로 셌다 — 「방금 지운 것」은 사람이 지운 것이어야 한다.
+        let conflictIDs = Set(store.conflicts.map(\.id))
+        let justDeleted = trash.first { !conflictIDs.contains($0.id) }.flatMap { memo -> Memo? in
             guard let deleted = memo.deleted,
                   Date().timeIntervalSince(deleted) < Self.recentDeletionWindow
             else { return nil }
@@ -564,7 +654,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             menu.addItem(undo)
         }
 
-        let remaining = trash.filter { $0.id != justDeleted?.id }
+        let remaining = trash.filter { $0.id != justDeleted?.id && !conflictIDs.contains($0.id) }
         guard !remaining.isEmpty else { return }
 
         let parent = NSMenuItem(title: L("지운 메모 \(remaining.count)장"), action: nil, keyEquivalent: "")
@@ -579,6 +669,52 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         submenu.addItem(disabled(L("30일 뒤 자동으로 지워집니다")))
         parent.submenu = submenu
         menu.addItem(parent)
+    }
+
+    /// 두 기기가 따로 고쳐 만난 것 — 앱이 늦은 판을 자리에 두고 진 판을 휴지통에 앉혔다
+    /// (`ConflictSettlement`). **그 사실을 사람에게 말하는 자리가 여기다.** 지운 메모 사이에 섞이면
+    /// 사람은 그런 일이 있었는지 모르고, 폰의 오타 하나가 맥의 한 시간을 조용히 이긴 채로 남는다.
+    ///
+    /// 한 장마다 둘 중 하나 — **이 판으로**(자리의 글과 맞바꾼다, 밀려난 글은 여기 남는다) ·
+    /// **둘 다 남기기**(되돌려서 나란히 둔다). 어느 쪽도 글을 없애지 않으니 틀려도 한 번 더 고르면 된다.
+    /// 견줄 글은 도움말(툴팁)에 — 자리의 글과 다른 판의 첫 줄.
+    private func addConflictSection(to menu: NSMenu) {
+        let conflicts = store.conflicts
+        guard !conflicts.isEmpty else { return }
+
+        menu.addItem(header(L("다른 기기의 판 \(conflicts.count)장 — 따로 고친 글이 만났습니다")))
+        for loser in conflicts.prefix(Self.listedTrashLimit) {
+            guard let winner = loser.conflictOf.flatMap(store.memo) else { continue }
+            let parent = NSMenuItem(title: L("「\(winner.title)」의 다른 판"), action: nil, keyEquivalent: "")
+            parent.toolTip = Self.conflictPreview(winner: winner, loser: loser)
+            let submenu = NSMenu()
+            submenu.addItem(disabled(L("지금 자리: \(Self.firstLine(winner))")))
+            submenu.addItem(disabled(L("다른 판: \(Self.firstLine(loser))")))
+            submenu.addItem(.separator())
+            let adopt = item(title: L("이 판으로"), action: #selector(adoptConflict(_:)), key: "")
+            adopt.representedObject = loser.id.stringValue
+            adopt.toolTip = L("자리의 글과 맞바꿉니다 — 밀려난 글은 여기 남아 한 번 더 바꿀 수 있습니다")
+            submenu.addItem(adopt)
+            let both = item(title: L("둘 다 남기기"), action: #selector(restoreMemo(_:)), key: "")
+            both.representedObject = loser.id.stringValue
+            both.toolTip = L("되돌려서 나란히 둡니다 — 나중에 합치거나 하나를 지웁니다")
+            submenu.addItem(both)
+            parent.submenu = submenu
+            menu.addItem(parent)
+        }
+    }
+
+    /// 견줄 두 글 — 자리의 것과 다른 판의 것. 긴 글은 첫 여섯 줄만.
+    nonisolated static func conflictPreview(winner: Memo, loser: Memo) -> String {
+        let head = { (memo: Memo) -> String in
+            memo.body.split(separator: "\n", omittingEmptySubsequences: false).prefix(6).joined(separator: "\n")
+        }
+        return L("지금 자리\n\(head(winner))\n\n다른 판\n\(head(loser))")
+    }
+
+    private nonisolated static func firstLine(_ memo: Memo) -> String {
+        let line = memo.title
+        return line.count > 40 ? String(line.prefix(40)) + "…" : line
     }
 
     /// 폴더 열기. ⌥ 를 누르면 창 레벨 스파이크로 바뀐다.
@@ -919,6 +1055,18 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
     }
 
+    /// 다른 기기의 판을 **이 판으로** — 자리의 메모가 그 글을 받는다. 받은 메모를 앞으로 데려와
+    /// 무엇이 바뀌었는지 보이게 한다.
+    @objc private func adoptConflict(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let id = ULID(raw),
+              let winner = store.trash.first(where: { $0.id == id })?.conflictOf
+        else { return }
+        Task {
+            try? await store.adoptConflict(id)
+            windows.reveal(winner)
+        }
+    }
+
     /// 치워 둔 것을 **한 번에** 도로 꺼낸다 (`{#tidy-visible-undo}`).
     ///
     /// 치울 때 `layout.json` 을 건드리지 않았으므로, 꺼내면 종이는 **원래
@@ -930,6 +1078,51 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// 곧 치우기 전의 그 화면이다.
     @objc private func restoreTidied() {
         Task { await store.untidyAll() }
+    }
+
+    /// 치워 둔 것 **한 장**을 도로 꺼내고 그 종이를 앞으로 — 꺼낸 것이 어디 섰는지 보여야 되돌린 것이다.
+    @objc private func restoreTidiedOne(_ sender: NSMenuItem) {
+        guard let id = Self.memoID(of: sender) else { return }
+        Task {
+            await store.untidy(id)
+            windows.reveal(id)
+        }
+    }
+
+    // MARK: 끝내기·보관·미루기 (인계서 §4 — 규칙은 `MemoStore` 에, 여기는 손잡이뿐)
+
+    @objc private func openMemo(_ sender: NSMenuItem) {
+        guard let id = Self.memoID(of: sender) else { return }
+        windows.reveal(id)
+    }
+
+    @objc private func markDone(_ sender: NSMenuItem) {
+        guard let id = Self.memoID(of: sender) else { return }
+        Task { try? await store.markDone(id) }
+    }
+
+    @objc private func archiveMemo(_ sender: NSMenuItem) {
+        guard let id = Self.memoID(of: sender) else { return }
+        Task { try? await store.archive(id) }
+    }
+
+    /// 보관에서 꺼내 앞으로 — 꺼낸 종이는 원래 자리로 돌아온다 (`layout.json` 은 건드린 적이 없다).
+    @objc private func unarchiveMemo(_ sender: NSMenuItem) {
+        guard let id = Self.memoID(of: sender) else { return }
+        Task {
+            try? await store.unarchive(id)
+            windows.reveal(id)
+        }
+    }
+
+    /// 내일 아침 9시에 다시 — 배너의 단추와 같은 값(`Snooze`). 일정은 그대로, 다시 볼 시각만 옮긴다.
+    @objc private func postponeToMorning(_ sender: NSMenuItem) {
+        guard let id = Self.memoID(of: sender) else { return }
+        Task { _ = try? await store.update(id, surface: .some(Snooze.tomorrowMorning())) }
+    }
+
+    private nonisolated static func memoID(of sender: NSMenuItem) -> ULID? {
+        (sender.representedObject as? String).flatMap(ULID.init)
     }
 
     @objc private func toggleCalendar() { calendar.toggle() }

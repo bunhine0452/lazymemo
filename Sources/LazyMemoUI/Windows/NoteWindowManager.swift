@@ -204,10 +204,10 @@ final class NoteWindowManager {
     /// **시각이 되어 꺼낸 종이가 먼저다.** 상한(24장)에 밀려 잘리면, 지금 이 앱이
     /// 사용자에게 하려는 말이 통째로 사라진다.
     private func plannedVisibleMemos() -> [Memo] {
-        // 치워 둔 것은 규칙이 뭐라 하든 서지 않는다 (`Tidy`). 다만 시각이
+        // 치워 둔 것·보관한 것은 규칙이 뭐라 하든 서지 않는다 (`Tidy`·`Memo.archived`). 다만 시각이
         // 되어 꺼낸 종이는 예외다 — 그것은 앱이 지금 하려는 말이다.
         let wanted = store.memos.filter {
-            ($0.tidied == nil && staysOnDesktop($0)) || surfaced.contains($0.id)
+            (!$0.isPutAway && staysOnDesktop($0)) || surfaced.contains($0.id)
         }
         let risen = wanted.filter { surfaced.contains($0.id) }
         let rest = wanted.filter { !surfaced.contains($0.id) }
@@ -383,6 +383,10 @@ final class NoteWindowManager {
         if memo.tidied != nil {
             Task { await store.untidy(id) }
         }
+        // 보관한 것을 찾아서 연 것도 같은 뜻이다 — 꺼낸다.
+        if memo.archived != nil {
+            Task { try? await store.unarchive(id) }
+        }
         if keepingPlace {
             surfaced.insert(id)
         } else {
@@ -414,6 +418,9 @@ final class NoteWindowManager {
         guard let memo = store.memo(id) else { return }
         if memo.tidied != nil {
             Task { await store.untidy(id) }
+        }
+        if memo.archived != nil {
+            Task { try? await store.unarchive(id) }
         }
         surfaced.remove(id)
         layouts.setHidden(false, for: id)

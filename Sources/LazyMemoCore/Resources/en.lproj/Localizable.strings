@@ -97,3 +97,27 @@
 "서늘한 종이에 남색" = "Navy on cool paper";
 "장미" = "Rose";
 "따뜻한 종이에 장미빛" = "Rose on warm paper";
+
+/* 저장 직후의 알림 영수증 (`ReservationReceipt`) */
+"이 기기에 알림 예약됨 · %@ %@" = "Reminder set on this device · %@ %@";
+"시각이 지나 알림 없음" = "Time has passed — no reminder";
+"날짜만 적혀 알림 없음 — 시각을 적으면 걸려요" = "Date only, no reminder — add a time to schedule one";
+"알림 꺼짐 — 이 기기에서 알림 받기를 켜면 걸려요" = "Reminders off — turn on notifications on this device to schedule";
+"알림 권한 없음 — 시스템 설정에서 허용해야 걸려요" = "No notification permission — allow it in system settings";
+"설치된 앱에서만 알림이 걸려요" = "Reminders are scheduled only in the installed app";
+"알림 한도 밖 — 앞의 것이 지나면 걸려요" = "Beyond the reminder limit — scheduled once earlier ones pass";
+"알림 예약 실패 · 다시 시도" = "Reminder failed · retry";
+"알림 확인 중" = "Checking reminder";
+"알림" = "Reminder";
+"알림 꺼짐" = "Reminders off";
+"알림 대기" = "Reminder waiting";
+"알림 실패" = "Reminder failed";
+"알림은 앱을 열면 걸려요" = "The reminder is scheduled when you open the app";
+"다시 볼 시간이에요. 눌러서 메모를 펼치세요." = "Time to look at this again. Tap to open the note.";
+
+/* 끝내기·보관 (인계서 §4) */
+"완료로 적지 못했습니다" = "Couldn't mark as done";
+"완료를 되돌리지 못했습니다" = "Couldn't undo done";
+"보관하지 못했습니다" = "Couldn't archive";
+"보관에서 꺼내지 못했습니다" = "Couldn't unarchive";
+"다른 판으로 바꾸지 못했습니다" = "Couldn't switch to the other version";

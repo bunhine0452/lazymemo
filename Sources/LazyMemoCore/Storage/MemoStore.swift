@@ -92,11 +92,14 @@ public final class MemoStore {
     /// 바탕화면·메뉴 목록·빠른 입력의 「요즘 메모」가 전부 이것을 본다.
     /// `memos` 를 그대로 두는 이유는 달력과 검색 때문이다 — 지난 일정은
     /// 달력에 그대로 있어야 하고, 치웠다고 못 찾게 되면 그건 삭제다.
-    public var active: [Memo] { memos.filter { $0.tidied == nil } }
+    public var active: [Memo] { memos.filter { !$0.isPutAway } }
 
     /// 스스로 물러난 것. 메뉴가 «치워 둔 N장» 이라고 적는다
     /// (`{#tidy-visible-undo}` — 사라졌다고 오해하면 실패다).
-    public var tidiedMemos: [Memo] { memos.filter { $0.tidied != nil } }
+    public var tidiedMemos: [Memo] { memos.filter { $0.tidied != nil && $0.archived == nil } }
+
+    /// 사람이 넣어 둔 것 (`Memo.archived`). 메뉴가 «보관한 N장» 이라고 적는다 — 검색하면 나온다.
+    public var archivedMemos: [Memo] { memos.filter { $0.archived != nil } }
 
     public func memo(_ id: ULID) -> Memo? {
         memos.first { $0.id == id }
@@ -195,6 +198,26 @@ public final class MemoStore {
         insertOrReplace(restored)
     }
 
+    /// 다른 기기의 판 — 두 기기가 따로 고쳐 만났을 때 자리를 잃고 휴지통에 앉은 글
+    /// (`ConflictSettlement`). 지운 메모와 섞이면 사람은 그런 일이 있었는지조차 모르므로
+    /// 화면이 따로 센다. 자리의 메모가 그 사이 지워졌으면 그냥 지운 메모다.
+    public var conflicts: [Memo] {
+        trash.filter { memo in
+            guard let winner = memo.conflictOf else { return false }
+            return memos.contains { $0.id == winner }
+        }
+    }
+
+    /// 휴지통의 다른 판을 **이 판으로** — 자리의 메모가 그 글을 받고, 밀려난 글이 그 자리에 앉는다.
+    /// 되돌리기(「둘 다 남기기」)와 짝이고, 어느 쪽도 글을 없애지 않는다.
+    public func adoptConflict(_ id: ULID) async throws {
+        let adopted = try await recording(L("다른 판으로 바꾸지 못했습니다")) {
+            try await service.adoptConflict(id)
+        }
+        insertOrReplace(adopted)
+        trash = (try? await service.trashed()) ?? trash
+    }
+
     // MARK: 파일 ↔ 메모리 동기화
 
     /// 기동 시와 외부 변경(MCP·텍스트 에디터) 감지 시 모두 이 경로를 탄다.
@@ -230,6 +253,30 @@ public final class MemoStore {
 
     /// 붙인 지 이만큼 안 된 사진은 고아로 치지 않는다.
     private static let attachmentGrace: TimeInterval = 7 * 24 * 60 * 60
+
+    // MARK: 끝내기·보관 (인계서 §4)
+
+    /// 끝냈다 — 되돌릴 수 있다 (`markUndone`).
+    public func markDone(_ id: ULID) async throws {
+        let memo = try await recording(L("완료로 적지 못했습니다")) { try await service.markDone(id) }
+        insertOrReplace(memo)
+    }
+
+    public func markUndone(_ id: ULID) async throws {
+        let memo = try await recording(L("완료를 되돌리지 못했습니다")) { try await service.markUndone(id) }
+        insertOrReplace(memo)
+    }
+
+    /// 보관 — 당장 안 볼 기록. 되돌릴 수 있다 (`unarchive`).
+    public func archive(_ id: ULID) async throws {
+        let memo = try await recording(L("보관하지 못했습니다")) { try await service.archive(id) }
+        insertOrReplace(memo)
+    }
+
+    public func unarchive(_ id: ULID) async throws {
+        let memo = try await recording(L("보관에서 꺼내지 못했습니다")) { try await service.unarchive(id) }
+        insertOrReplace(memo)
+    }
 
     /// 치워 둔 것을 도로 꺼낸다.
     public func untidy(_ id: ULID) async {

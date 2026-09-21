@@ -52,9 +52,8 @@ public enum GeofenceRule {
     }
 
     static func watchable(_ memo: Memo, now: Date, calendar: Calendar) -> Bool {
-        guard memo.geo != nil, memo.deleted == nil, memo.tidied == nil else { return false }
-        // 다 한 목록은 갈 일이 없다.
-        guard !Tidy.isFinishedChecklist(memo.body) else { return false }
+        // 지운 것·치워 둔 것·다 한 목록은 갈 일이 없다 — 알림과 같은 한 규칙(`Recall.eligible`).
+        guard memo.geo != nil, Recall.eligible(memo) else { return false }
         // 지난 일정도 갈 일이 없다 — 되풀이하는 것은 다음 회차를 가리키므로 남는다.
         if let day = memo.scheduledDate(calendar: calendar),
            let ended = day.adding(days: 1, calendar: calendar).startOfDay(calendar: calendar),

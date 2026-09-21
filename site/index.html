@@ -567,9 +567,10 @@ brew install --cask lazymemo</pre><button class="copy" type="button" data-copy="
     <li id="recall"><h3>Recall</h3><p>Jot it down and decide only when to see it again — “an hour from now”, “9 am tomorrow”,
       or say it: “remind me Friday at 10”. The appointment stays where it is; the meeting is at 3, the recall at 2:30.
       Notification banners hold buttons, so an hour’s snooze never opens the app.</p></li>
-    <li><h3>Old things step back</h3><p>A list you have fully checked steps back three days after you last touched it, a past
-      appointment once the next day ends. Not deleted — the menu says “N tucked away”, and one click brings them all back.
-      Pinned notes are never moved.</p></li>
+    <li><h3>Old things step back</h3><p>A list you have fully checked, or a note you marked done, steps back three days later; a past
+      appointment once the next day ends. Not deleted — the menu says “N tucked away”, and brings them back one by one or all at once.
+      A past date is not “done”: lists with open boxes, notes you brought back, notes you set to revisit later, and pinned notes are never moved,
+      and what you missed stays listed as “N missed”.</p></li>
     <li id="files"><h3>Notes are files</h3><p>Markdown in <code>~/Documents/lazymemo/</code>. Open them in Finder, edit them
       anywhere. Delete lazymemo and the notes remain. Settings → “Sync with iCloud…” moves the folder into
       <strong>LazyMemo</strong> in iCloud Drive, which is where the iPhone looks.</p></li>
@@ -599,7 +600,8 @@ brew install --cask lazymemo</pre><button class="copy" type="button" data-copy="
   <p class="note preview"><strong>This is a preview.</strong> Answering from your notes and taking instructions stay on the device, but <strong>web answers</strong> lean on a keyless public web search (DuckDuckGo) — not an official API, so it can stop working at any time, and the app says so when it does. Nothing goes out until you press “Search the web” or say “on the web …”.</p>
   <div class="pair">
     <div>
-      <p>Ask “when was the dentist?” and the answer comes out of your own notes, with the original line quoted under it.
+      <p>Send “when was the dentist?” with ✦ (⌥⌘↵ on the Mac) and the answer comes out of your own notes, with the original line quoted under it.
+         Plain save keeps the question as a note — saving is always saving.
          When nothing fits, the box offers <strong>“search the web”</strong> — one line of your question goes to DuckDuckGo
          with no key and no account, and then the app reads <strong>the text of the top three pages</strong> and compares them
          before answering. Every claim carries a source you can open.</p>
@@ -654,10 +656,10 @@ brew install --cask lazymemo</pre><button class="copy" type="button" data-copy="
 
 <section id="route" class="phone route">
   <div class="words">
-    <h2>Write the appointment. It asks where you are leaving from.</h2>
+    <h2>Write the appointment. It offers the way there.</h2>
   <p class="note preview"><strong>This is a preview.</strong> Transit directions ask Naver Map’s public web routing without a key — not an official API, so it can stop working at any time, and the app says so when it does. Nothing goes out until you answer the question, and you can turn the question off in Settings.</p>
-    <p>Paste a map link with a time — “Friday 6:30 pm dinner” — and the assistant asks <i>Where are you leaving from?</i>
-       Answer with a station, an address, another map link, or “here”. It finds the routes, offers bus, subway or taxi with
+    <p>Paste a map link with a time — “Friday 6:30 pm dinner” — and once it is saved a “The way there” chip appears; tap it and the assistant asks <i>Where are you leaving from?</i>
+       (until then, the next line you type is a new note). Answer with a station, an address, another map link, or “here”. It finds the routes, offers bus, subway or taxi with
        minutes and fare, and writes the one you pick onto the note: the line and direction, where to board, transfers, the
        fare, and the departure time that gets you there. Ten minutes before you should go, the paper comes forward and the
        banner says what to catch.</p>

@@ -248,3 +248,35 @@
 "회의 전에 물어볼 것" = "Things to ask before the meeting";
 "장보기 — 우유·계란·두부" = "Groceries — milk, eggs, tofu";
 "지난달 회의 메모" = "Last month's meeting notes";
+
+/* 인계서 묶음 3·4 — 남기기는 늘 적고, 비서는 ✦; 완료·보관·놓친 것 */
+"같은 칸에 치면 **찾습니다** — 「ㅊㄱ」처럼 첫소리만 쳐도 「치과」가 나와요. 「치과 언제였지?」처럼 묻고 싶으면 **✦** 를 누르세요 — 메모가 답합니다 (모델을 한 번 받으면, 전부 이 폰 안에서). 남기기는 늘 그대로 적습니다." = "Typing in the same field **searches** — a few letters of \"dentist\" find it. To ask \"when was the dentist?\", tap **✦** — your notes answer (after downloading the model once, entirely on this phone). Save always writes exactly what you typed.";
+"목록 위 「**지금**」에 오늘 다시 볼 것·오늘 일정·고정한 메모가 세 장까지 서요 — 다가오는 시각부터. 본 카드는 「봤어요」로 내려놓고, 끝냈으면 「**완료**」. 그 아래 「놓친 것·오늘·나중에」가 나머지 전부로 가는 길이에요." = "**Now**, above the list, shows up to three cards — today's revisits, today's events, pinned notes — soonest first. \"Seen\" puts a card down; **Done** finishes it. The line below — missed · today · later — leads to everything else.";
+"줄을 **오른쪽**으로 밀면 완료·미루기·고정 — 끝낼 것이 있는 줄은 **완료**가 먼저예요. **왼쪽**으로 밀면 보관, 끝까지 밀면 지우기." = "Swipe a row **right** for done, postpone, pin — **Done** comes first when there's something to finish. Swipe **left** to archive, all the way to delete.";
+"놓친 %lld" = "Missed %lld";
+"오늘 %lld" = "Today %lld";
+"나중에 %lld" = "Later %lld";
+"놓친 것" = "Missed";
+"놓친 것이 없어요" = "Nothing missed";
+"보관한 것이 없어요" = "Nothing archived";
+"보관 %lld장" = "Archived %lld";
+"완료" = "Done";
+"완료 되돌리기" = "Undo done";
+"되돌리기" = "Undo";
+"보관" = "Archive";
+"보관에서 꺼내기" = "Unarchive";
+"꺼내기" = "Bring back";
+"내일 아침" = "Tomorrow morning";
+"내일 아침 9시에 다시" = "Again tomorrow at 9";
+"전체" = "Everything";
+"적었어요 · %@" = "Saved · %@";
+"다시 찾을 땐 같은 칸에 치세요 · 줄을 밀면 고정·지우기 · 나머지는 더 보기 → 사용법" = "To find it again, type in the same field · swipe rows to pin or delete · the rest is under More → How to use";
+"초안을 기기에 남기지 못했어요 — 이번 실행 동안만 들고 있어요" = "Couldn't keep the draft on this device — it's held only while the app runs";
+"다시 시도" = "Retry";
+"메모에게 묻기" = "Ask your notes";
+"웹에서 찾기" = "Search the web";
+"시키기" = "Tell";
+"적었어요" = "Saved";
+"약속 시간이 언제인가요?" = "What time is the appointment?";
+"시각 정하기" = "Set a time";
+"가는 길" = "The way there";

@@ -87,13 +87,43 @@ public struct Memo: Sendable, Equatable, Identifiable {
     /// 바탕화면으로 되살아난다 — 복원이 아니라 사고다.
     public var tidied: Date?
 
+    /// 사람이 치워 둔 것을 **도로 꺼낸 때** (`MemoService.untidy`). 채워져 있으면 규칙이
+    /// 다시 치우지 않는다 — 사람의 뜻이 규칙을 이긴다 (인계서 §4 「복원」).
+    ///
+    /// 없던 시절에는 꺼낸 다음 정리가 도로 치웠다: 지난 일정은 `updated` 를 보지 않으므로
+    /// 꺼낸 그 날 저녁에 없어졌고, 사람 눈에 그것은 고장이었다. 이것도 `tidied` 처럼
+    /// 파일에 적는다 — 다른 기기의 정리도 같은 답을 내야 한다. 때(`due`·`at`·`surface`)를
+    /// 옮기면 지운다: 그것은 새 회차이고, 그 날이 지나면 규칙이 다시 센다.
+    public var kept: Date?
+
+    /// 두 기기가 따로 고쳐 만난 충돌에서 **진 판본**이면, 자리를 지킨 메모의 id (`ConflictSettlement`).
+    ///
+    /// 진 판본은 새 id 로 휴지통에 앉는데, 이 표시가 없으면 「지운 메모」와 구별되지 않는다 —
+    /// 사람은 자기가 지운 적 없는 글이 휴지통에 왜 있는지 모르고, 그 문장이 어느 메모에서
+    /// 떨어져 나왔는지도 모른다. 휴지통에서 되돌리면(둘 다 남기기) 지운다 — 그때부터 제 메모다.
+    public var conflictOf: ULID?
+
+    /// **사람이 끝냈다고 한 때** (인계서 §4 「완료」). 파일에 적혀 동기화되고, 되돌릴 수 있다.
+    ///
+    /// 날짜가 지난 것도, 다 체크한 목록도 완료가 아니다 — 완료는 사람의 뜻뿐이다. 끝난 일은 알림·「지금」에서
+    /// 빠지고(`Recall.eligible`), 사흘 뒤 스스로 물러난다(`Tidy` — 방금 끝낸 것이 눈앞에서 없어지면 사고로 보인다).
+    /// 되풀이하는 일은 **이 회차**만 끝난 것이다 — 다음 회차로 걸어가면 지워진다 (`Tidy.rolled`).
+    /// 때(`due`·`at`·`surface`)를 옮기면 지운다 — 새 회차다.
+    public var done: Date?
+
+    /// **당장 안 볼 기록으로 넣어 둔 때** (인계서 §4 「보관」). 완료도 삭제도 아니다.
+    ///
+    /// 목록·바탕화면·알림·「지금」에서 빠지고, 검색과 원문은 그대로다 — 「읽을 자료를 저장하고 다시 볼 때를 정한다.
+    /// 읽은 뒤 보관하거나 다시 미룬다」의 그 보관. `tidied` 와 달리 규칙이 아니라 사람이 넣는다.
+    public var archived: Date?
+
     /// 앱이 모르는 frontmatter 필드. 읽은 그대로 되쓴다.
     public var preserved: [Frontmatter.Entry]
 
     /// 앱이 해석하는 키 — 나머지는 전부 `preserved` 로 간다.
     public static let knownKeys: Set<String> = [
         "id", "created", "updated", "due", "at", "every", "anchor", "surface", "place", "geo",
-        "tags", "color", "pinned", "folder", "deleted", "tidied",
+        "tags", "color", "pinned", "folder", "deleted", "tidied", "kept", "conflict", "done", "archived",
     ]
 
     public init(
@@ -114,6 +144,10 @@ public struct Memo: Sendable, Equatable, Identifiable {
         folder: String? = nil,
         deleted: Date? = nil,
         tidied: Date? = nil,
+        kept: Date? = nil,
+        conflictOf: ULID? = nil,
+        done: Date? = nil,
+        archived: Date? = nil,
         preserved: [Frontmatter.Entry] = []
     ) {
         self.id = id
@@ -135,7 +169,23 @@ public struct Memo: Sendable, Equatable, Identifiable {
         self.folder = MemoFolders.normalized(folder)
         self.deleted = deleted
         self.tidied = tidied
+        self.kept = kept
+        self.conflictOf = conflictOf
+        self.done = done
+        self.archived = archived
         self.preserved = preserved
+    }
+
+    /// 화면에서 물러나 있는가 — 규칙이 치웠거나(`tidied`) 사람이 넣어 두었거나(`archived`). 둘 다 지운 것이 아니다.
+    public var isPutAway: Bool { tidied != nil || archived != nil }
+
+    /// 아직 할 일이 남았는가 — 칸이 남은 목록이거나, 다시 보기로 한 것이거나, 시각이 적힌 것. 끝냈으면 아니다.
+    /// 「완료」 단추를 어디에 둘지는 이것이 정한다 — 그냥 글에 끝낼 것은 없다 (인계서 묶음 4).
+    public var isActionable: Bool {
+        guard done == nil else { return false }
+        let boxes = MarkdownScanner.checkboxes(in: body)
+        if !boxes.isEmpty { return boxes.contains(false) }
+        return surface != nil || at != nil || due != nil
     }
 
     /// 캘린더에 나타나는가 (설계문서 §10). **장소는 여기에 끼지 않는다.**

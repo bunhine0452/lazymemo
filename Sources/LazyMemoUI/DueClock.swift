@@ -20,6 +20,9 @@ import Observation
 /// 있는 것을 쓴다 — **종이가 바탕화면으로 나온다.** 재질도 같고 배울 것도 없다.
 /// 시스템 알림은 사용자가 이 기기에서 「알림 받기」를 켰을 때만 **더해진다**
 /// (`ReminderCenter`) — 같은 `surfacesAt` 을 보므로 종이와 배너가 같은 순간에 온다.
+/// **누구를 꺼내는가도 같다** (`Recall.eligible`): 지운 것·치워 둔 것·다 체크한 목록은
+/// 배너가 안 울리듯 종이도 안 나온다. 두 규칙이 갈라지면 맥에서는 나오고 폰에서는
+/// 안 울리는 메모가 생긴다.
 ///
 /// ## 잠깐 떠올랐다 사라지지 않는다
 ///
@@ -97,7 +100,7 @@ final class DueClock {
         let today = CalendarDate(moment, calendar: calendar)
         let passed = store.memos
             .filter { memo in
-                guard let at = memo.surfacesAt, at <= moment else { return false }
+                guard Recall.eligible(memo), let at = memo.surfacesAt, at <= moment else { return false }
                 return CalendarDate(at, calendar: calendar) == today
             }
             .sorted { ($0.surfacesAt ?? .distantPast) > ($1.surfacesAt ?? .distantPast) }
@@ -130,7 +133,7 @@ final class DueClock {
         let moment = now()
         let due = store.memos
             .filter { memo in
-                guard let at = memo.surfacesAt, !isAnnounced(memo) else { return false }
+                guard Recall.eligible(memo), let at = memo.surfacesAt, !isAnnounced(memo) else { return false }
                 return at <= moment
             }
             .sorted { ($0.surfacesAt ?? .distantPast) < ($1.surfacesAt ?? .distantPast) }
@@ -146,7 +149,7 @@ final class DueClock {
     private func upcoming(after moment: Date) -> Memo? {
         store.memos
             .filter { memo in
-                guard let at = memo.surfacesAt, !isAnnounced(memo) else { return false }
+                guard Recall.eligible(memo), let at = memo.surfacesAt, !isAnnounced(memo) else { return false }
                 return at > moment
             }
             .min { ($0.surfacesAt ?? .distantFuture) < ($1.surfacesAt ?? .distantFuture) }

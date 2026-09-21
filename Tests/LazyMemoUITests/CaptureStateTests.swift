@@ -99,9 +99,10 @@ struct CaptureStateTests {
         #expect(!model.canDismissAssistantResult)
         #expect(!model.dismissAssistantResult())
 
-        // 되묻는 중의 esc 는 「시각 없이 남기기」다 — 여기서 가로채면 이미 «적어라» 한 글이 사라진다.
-        model.query = "9월 30일에 친구랑 밥 먹기로 했어"
-        _ = model.commit()
+        // 되묻는 중(결과 카드의 「시각 정하기」)의 esc 는 되물음을 접는 것이다 — 여기서 가로채지 않는다.
+        let dated = try await store.create(body: "친구랑 밥 먹기로 했어", due: CalendarDate(year: 2026, month: 9, day: 30))
+        model.show(left: dated)
+        model.offerTime()
         #expect(model.pendingQuestion != nil)
         #expect(!model.dismissAssistantResult())
     }

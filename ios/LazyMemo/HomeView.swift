@@ -35,7 +35,6 @@ struct HomeView: View {
     init(session: AppModel.Session) {
         self.session = session
         let pen = PenModel(store: session.store, draft: session.draft)
-        pen.holdsLaunchFocus = !Tutorial.seen
         _pen = State(initialValue: pen)
         _folders = State(initialValue: FolderModel(store: session.store, settings: session.settings))
     }
@@ -45,6 +44,11 @@ struct HomeView: View {
     /// 비서의 「끝났다」 신호가 버려진 펜으로 가서 답이 목록에 서지 않았다 (2026-09-16 시뮬레이터에서 봤다).
     private func attachAssistant() {
         pen.assistant = session.assistant
+        // 남긴 직후의 알림 영수증 — 대조가 끝난 뒤 **이 기기에서 확인한 사실**만 (`ReservationReceipt`).
+        pen.receiptFor = { [reminders] memo in
+            await reminders.settle()
+            return reminders.receipt(for: memo)
+        }
         // 배너의 「지도 열기」 — 앱이 앞으로 온 뒤 종이의 카드와 같은 길로 지도 앱을 연다.
         // 화면이 서기 전에 눌렀으면 센터가 담아 두었다가 이 손이 서는 순간 연다.
         reminders.onOpenMap = { [store = session.store] id in
@@ -62,7 +66,8 @@ struct HomeView: View {
         pen.planner = planner
     }
 
-    /// 앱 밖에서 적힌 약속 메모의 가는 길을 묻는다 — 가장 나중 것 하나. 이미 묻고 있으면 그대로 둔다.
+    /// 앱 밖에서 적힌 약속 메모의 가는 길을 **권한다** — 가장 나중 것 하나. 묻지 않는다: 결과 줄의 「가는 길」을 누르면
+    /// 그때 묻는다 (인계서 묶음 3). 이미 묻고 있으면 그대로 둔다.
     /// 파일은 공유 시트가 떨군 것이라 저장소가 아직 모를 수 있다 — 한 번 대조한 뒤 찾는다.
     private func askRoute(for ids: [ULID]) {
         guard !ids.isEmpty else { return }
@@ -77,7 +82,7 @@ struct HomeView: View {
             showsTutorial = false
             notified = nil
             tab = .memos
-            if planner.begin(memo) { pen.requestFocus() }
+            pen.offerRoute(for: memo)
         }
     }
 
@@ -139,14 +144,10 @@ struct HomeView: View {
         }
         // 남기면 손끝에 한 번 — 글 칸이 비는 것 말고도 「됐다」는 신호가 있어야 한다.
         .sensoryFeedback(.success, trigger: pen.lastLeft) { _, new in new != nil }
-        .onAppear {
-            attachAssistant()
-            if !Tutorial.seen { showsTutorial = true }
-        }
-        .sheet(isPresented: $showsTutorial, onDismiss: {
-            Tutorial.markSeen()
-            pen.releaseLaunchFocus()
-        }) {
+        // 첫 실행에 안내를 띄우지 않는다 — 펜이 바로 서고, 첫 메모 뒤에 필요한 조작 하나만 듣는다 (`PenModel.finishLeaving`,
+        // 인계서 묶음 3 `#first-real-note`). 다섯 장 안내는 더 보기 → 「사용법」에 그대로 있다 (`StackView`).
+        .onAppear { attachAssistant() }
+        .sheet(isPresented: $showsTutorial, onDismiss: { pen.releaseLaunchFocus() }) {
             TutorialView()
         }
         .onChange(of: tab) { _, tab in

@@ -77,6 +77,10 @@ public enum MemoFile {
             folder: frontmatter.string("folder"),
             deleted: frontmatter.string("deleted").flatMap(Timestamp.date(from:)),
             tidied: frontmatter.string("tidied").flatMap(Timestamp.date(from:)),
+            kept: frontmatter.string("kept").flatMap(Timestamp.date(from:)),
+            conflictOf: frontmatter.string("conflict").flatMap(ULID.init),
+            done: frontmatter.string("done").flatMap(Timestamp.date(from:)),
+            archived: frontmatter.string("archived").flatMap(Timestamp.date(from:)),
             preserved: frontmatter.excluding(known)
         )
     }
@@ -126,6 +130,18 @@ public enum MemoFile {
         }
         if let tidied = memo.tidied {
             lines.append(Frontmatter.line(key: "tidied", scalar: Timestamp.string(from: tidied, timeZone: timeZone)))
+        }
+        if let kept = memo.kept {
+            lines.append(Frontmatter.line(key: "kept", scalar: Timestamp.string(from: kept, timeZone: timeZone)))
+        }
+        if let conflictOf = memo.conflictOf {
+            lines.append(Frontmatter.line(key: "conflict", scalar: conflictOf.stringValue))
+        }
+        if let done = memo.done {
+            lines.append(Frontmatter.line(key: "done", scalar: Timestamp.string(from: done, timeZone: timeZone)))
+        }
+        if let archived = memo.archived {
+            lines.append(Frontmatter.line(key: "archived", scalar: Timestamp.string(from: archived, timeZone: timeZone)))
         }
 
         // 모르는 필드는 원문 그대로. 이해하지 못한 것을 다시 쓰려 하지 않는다.

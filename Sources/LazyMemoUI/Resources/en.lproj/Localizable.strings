@@ -348,7 +348,6 @@
 "12시야" = "12 o’clock";
 "열린 메모 · %@" = "Open memo · %@";
 "열린 메모 놓기" = "Release the open memo";
-"자리 %@" = "at %@";
 "12시" = "12:00";
 "점심" = "Lunch";
 "저녁 7시" = "7 pm";
@@ -372,7 +371,6 @@
 "「%@」에 적용" = "Apply to “%@”";
 "「%@」에게" = "To “%@”";
 "시키기" = "Do it";
-"메모에게 묻기" = "Ask memos";
 "답하기" = "Answer";
 "Spotlight 에서 찾기" = "Find in Spotlight";
 
@@ -424,7 +422,6 @@
 "폴더" = "Folder";
 "옮기기…" = "Move…";
 "동기화 중" = "Syncing";
-"iCloud 로 동기화…" = "Sync with iCloud…";
 "아이폰의 lazymemo 와 같은 폴더를 봅니다 — 어느 쪽에서 적어도 양쪽에 있습니다" = "Same folder as lazymemo on your iPhone — write on either, it's on both";
 "iCloud Drive 의 LazyMemo 폴더로 옮기면 아이폰과 같은 자리를 봅니다. 이미 거기 메모가 있으면 합칩니다" = "Moving to the LazyMemo folder in iCloud Drive shares the same place with your iPhone. Notes already there are merged";
 "자리" = "Places";
@@ -502,3 +499,57 @@
 
 /* 빠른 입력 — 답을 든 채 바깥을 눌렀을 때 (2026-09-21) */
 "여기 남아 있어요 · 상자를 누르거나 단축키로 돌아오기 · × 닫기" = "Still here · click the box or press the shortcut to come back · × closes";
+
+/* 빠른 입력의 실패 줄 (`QuickCaptureView.troubleLine`) */
+"초안을 기기에 남기지 못했어요 — 이번 실행 동안만 들고 있어요" = "Couldn't keep the draft on this device — it's held only while the app runs";
+"다시 시도" = "Retry";
+
+/* 빠른 입력 — 기본은 적기, 비서는 ⌥⌘↵ (인계서 묶음 3) */
+"적으면 메모, 찾으면 검색 · 비서에게는 ⌥⌘↵" = "Write a memo or search · ⌥⌘↵ asks the assistant";
+"적었어요" = "Saved";
+"시각 정하기" = "Set a time";
+"가는 길 찾기" = "Find the way";
+"종이가 바탕화면에 섰어요 · 다시 적을 땐 %@ · 나머지는 메뉴바 아이콘 → 시작하기 및 사용 안내" = "Your note is on the desktop · press %@ to write again · the rest is under the menu bar icon → Getting started";
+"묻기" = "Ask";
+"웹 찾기" = "Web";
+
+/* 끝내기·보관·놓친 것 — 메뉴·달력·종이 (인계서 묶음 4) */
+"놓친 %lld장" = "%lld missed";
+"오늘 %lld장" = "%lld today";
+"나중에 %lld장" = "%lld later";
+"놓친 것은 지난 날에 다시 보기로 했거나 시각이 적혀 있었는데 끝내지 않은 것 · 마감이 지난 칸 남은 목록" = "Missed: revisits and timed notes from past days you didn't finish · lists with open boxes past their due date";
+"… 외 %lld장 — 빠른 입력에서 찾기" = "… and %lld more — find them in quick capture";
+"종이를 앞으로" = "Bring the note forward";
+"완료" = "Done";
+"끝냈다고 적습니다 — 되돌릴 수 있고, 사흘 뒤 물러납니다" = "Marks it done — undoable, and it retreats after three days";
+"보관" = "Archive";
+"당장 안 볼 기록으로 — 검색하면 나옵니다" = "Set aside for now — search still finds it";
+"내일 아침으로" = "Tomorrow morning";
+"내일 아침 9시에 다시 봅니다 — 일정은 그대로" = "Revisit tomorrow at 9 — the event stays";
+"보관한 %lld장" = "%lld archived";
+"당장 안 볼 기록 — 지운 것도 끝낸 것도 아닙니다. 검색하면 나옵니다" = "Set aside for now — neither deleted nor done. Search still finds them";
+"보관에서 꺼내기" = "Unarchive";
+"하나씩 꺼내기" = "Bring back one";
+"이 한 장만 도로 꺼냅니다" = "Brings back just this one";
+"되돌리기 — 완료를 취소합니다" = "Undo — clears done";
+"완료 — 끝냈다고 적습니다. 알림에서 빠지고 사흘 뒤 물러납니다" = "Done — marks it finished. No more reminders, and it retreats after three days";
+"완료 적기 실패: %@" = "Couldn't mark done: %@";
+"끝냈다고 적은 종이 — 사흘 뒤 스스로 물러납니다. 우클릭 → 되돌리기" = "Marked done — it retreats after three days. Right-click → Undo";
+"어느 앱에서든 단축키 한 번으로 빠른 입력이 뜹니다. 치면 기존 메모가 걸러지고, ⌘↵ 로 남깁니다 — 물음표가 있어도 그대로 적혀요. 비서에게 물으려면 ⌥⌘↵." = "One shortcut opens Quick Capture from any app. Typing filters your existing notes; ⌘↵ adds the new one — even with a question mark. ⌥⌘↵ asks the assistant.";
+
+/* 다른 기기의 판 — 메뉴 (묶음 5, 영어 표가 빠져 있어 여기서 채움) */
+"다른 기기의 판 %lld장 — 따로 고친 글이 만났습니다" = "%lld versions from another device — edits made separately met";
+"「%@」의 다른 판" = "Another version of “%@”";
+"지금 자리: %@" = "In place: %@";
+"다른 판: %@" = "Other version: %@";
+"이 판으로" = "Use this version";
+"자리의 글과 맞바꿉니다 — 밀려난 글은 여기 남아 한 번 더 바꿀 수 있습니다" = "Swaps it with the text in place — the displaced text stays here so you can swap again";
+"둘 다 남기기" = "Keep both";
+"되돌려서 나란히 둡니다 — 나중에 합치거나 하나를 지웁니다" = "Restores it alongside — merge or delete one later";
+"지금 자리\n%@\n\n다른 판\n%@" = "In place\n%@\n\nOther version\n%@";
+"메모를 저장하지 못했습니다" = "Couldn't save the note";
+"약속 시간이 언제인가요?" = "What time is the appointment?";
+"내일 견적 보내기" = "Send the quote tomorrow";
+"치과 언제였지?" = "When was the dentist?";
+"친구랑 밥 먹기로 했어" = "Dinner with a friend";
+"홍대입구" = "Hongdae";

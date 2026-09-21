@@ -27,6 +27,7 @@ struct MemoTextArea: View {
     var onEdit: (String) -> Void = { _ in }
     var onCommand: (Selector, NSTextView) -> Bool = { _, _ in false }
     var onCommandReturn: (() -> Void)?
+    var onOptionCommandReturn: (() -> Void)?
     var onHeightChange: ((CGFloat) -> Void)?
     var onOverflowChange: ((Bool) -> Void)?
 
@@ -51,8 +52,8 @@ struct MemoTextArea: View {
                     findable: findable, onPasteImage: onPasteImage, onPasteLink: onPasteLink,
                     onDelete: onDelete, movesWindow: movesWindow, blursOnEscape: blursOnEscape,
                     onEscape: onEscape, onEdit: onEdit, onCommand: onCommand,
-                    onCommandReturn: onCommandReturn, onHeightChange: onHeightChange,
-                    onOverflowChange: onOverflowChange
+                    onCommandReturn: onCommandReturn, onOptionCommandReturn: onOptionCommandReturn,
+                    onHeightChange: onHeightChange, onOverflowChange: onOverflowChange
                 )
             }
 

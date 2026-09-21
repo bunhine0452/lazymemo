@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// 빠른 입력이 **들고 있던 글** — 앱을 껐다 켜도 남는다.
 ///
@@ -14,13 +15,23 @@ import Foundation
 ///
 /// 타자마다 디스크를 두들기지 않는다. 잠깐 미뤘다 쓰고, 상자가 닫히거나
 /// 앱이 끝날 때는 기다리지 않고 바로 쓴다 (`flush`).
-@MainActor
+///
+/// **못 적으면 말한다** (`trouble`). 초안은 메모가 아니지만 「껐다 켜도 남는다」는
+/// 약속은 이 파일이 지키는 것이라, 파일이 안 써지는 동안 그 약속은 거짓이다.
+/// 조용히 삼키면 사람은 앱을 껐다 켠 뒤에야 안다 — 그때는 글이 없다.
+/// 그래서 실패를 들고 있다가 화면이 「이번 실행 동안만 들고 있어요」라 적게 하고,
+/// 다음 타자나 `retry` 에 다시 적어 본다.
+@MainActor @Observable
 public final class CaptureDraftStore {
     private let location: URL
-    private var pending: Task<Void, Never>?
+    @ObservationIgnored private var pending: Task<Void, Never>?
     /// 마지막으로 파일에 적은 것. 같은 글을 두 번 쓰지 않는다.
-    private var written: String
-    private var latest: String
+    @ObservationIgnored private var written: String
+    @ObservationIgnored private var latest: String
+
+    /// 초안을 파일에 못 적었다 — 기계의 말. 화면은 사람의 말로 바꿔 적고 이것은 도움말로만 보인다.
+    /// 다음 쓰기가 성공하면 `nil` 로 돌아간다.
+    public private(set) var trouble: String?
 
     /// 한 글자 더 치는 시간보다 길게, 잊을 만큼 길지는 않게.
     private let debounce: Duration = .milliseconds(400)
@@ -68,10 +79,18 @@ public final class CaptureDraftStore {
                 try Data(latest.utf8).write(to: location, options: .atomic)
             }
             written = latest
+            trouble = nil
         } catch {
             // 초안을 못 적는 것은 메모를 잃는 것이 아니다. 상자는 여전히
-            // 이번 실행 동안은 들고 있다.
+            // 이번 실행 동안은 들고 있다 — 다만 그 사실을 사람에게 말한다.
+            trouble = "\(error)"
         }
+    }
+
+    /// 못 적었던 것을 다시 적어 본다 — 화면의 「다시 시도」.
+    public func retry() {
+        guard trouble != nil else { return }
+        flush()
     }
 
     private static func read(from location: URL) -> String {

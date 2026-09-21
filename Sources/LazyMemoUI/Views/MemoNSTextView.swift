@@ -21,6 +21,8 @@ final class MemoNSTextView: NSTextView {
     var onDelete: (() -> Void)?
     /// ⌘⏎ — "적기 끝". Return 은 다음 줄로 가므로 확정은 이 키가 맡는다.
     var onCommandReturn: (() -> Void)?
+    /// ⌥⌘⏎ — 비서에게. 빠른 입력만 준다 (`QuickCaptureView`). 없으면 ⌥⌘⏎ 도 ⌘⏎ 다.
+    var onOptionCommandReturn: (() -> Void)?
 
     /// 첫 응답자가 되거나 물러났다 — 커서 줄의 기호를 되살리거나 감출 때다 (`MemoTextEditor`).
     var onFocusChange: ((NSTextView, Bool) -> Void)?
@@ -79,11 +81,15 @@ final class MemoNSTextView: NSTextView {
     ///
     /// 표준 편집 단축키도 여기서 직접 받는다 — 까닭은 `editingActions` 에 있다.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if let onCommandReturn,
-           event.modifierFlags.contains(.command),
-           event.charactersIgnoringModifiers == "\r" {
-            onCommandReturn()
-            return true
+        if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "\r" {
+            if event.modifierFlags.contains(.option), let onOptionCommandReturn {
+                onOptionCommandReturn()
+                return true
+            }
+            if let onCommandReturn {
+                onCommandReturn()
+                return true
+            }
         }
         if isEditing, let action = Self.editingAction(for: event), perform(action) {
             return true

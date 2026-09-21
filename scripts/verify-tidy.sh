@@ -49,6 +49,19 @@ note 01K3ZQBBBBBBBBBBBBBBBBBBBB "$OLD" "due: $LONG_AGO
 note 01K3ZQCCCCCCCCCCCCCCCCCCCC "$NOW" "" "이사 준비
 - [x] 계약
 - [ ] 박스"
+# ④ 마감이 지난 미완료 목록 — 날짜 경과는 완료가 아니다 (인계서 R02). 그대로 있어야 한다.
+note 01K3ZQDDDDDDDDDDDDDDDDDDDD "$OLD" "due: $LONG_AGO
+" "서류 제출
+- [ ] 등본 떼기"
+# ⑤ 지난 약속에 앞으로 올 다시 보기 — 그날까지 살아 있어야 한다 (R01).
+SOON="$(date -u -v+3d +%Y-%m-%dT09:00:00Z)"
+note 01K3ZQEEEEEEEEEEEEEEEEEEEE "$OLD" "at: ${LONG_AGO}T15:00:00Z
+surface: $SOON
+" "견적 보내기"
+# ⑥ 사람이 도로 꺼낸 지난 일정 — 규칙이 다시 치우지 않는다 (R03).
+note 01K3ZQFFFFFFFFFFFFFFFFFFFF "$NOW" "due: $LONG_AGO
+kept: $NOW
+" "도로 꺼낸 약속"
 
 OUT="$(LAZYMEMO_VAULT="$VAULT" LAZYMEMO_MENU=1 "$BIN" 2>&1 || true)"
 
@@ -74,8 +87,14 @@ case "$OUT" in
     *"이사 준비"*) ;;
     *) echo "✗ 아직 칸이 남은 목록까지 물러났습니다 — 그것은 아직 할 일입니다"; exit 1 ;;
 esac
+for kept in "서류 제출" "견적 보내기" "도로 꺼낸 약속"; do
+    case "$OUT" in
+        *"$kept"*) ;;
+        *) echo "✗ «$kept» 이 물러났습니다 — 미완료 목록·앞으로 올 다시 보기·도로 꺼낸 것은 규칙이 이기지 못합니다"; exit 1 ;;
+    esac
+done
 case "$OUT" in
-    *"메모 1장"*) ;;
+    *"메모 4장"*) ;;
     *) echo "✗ 목록 수가 치운 것을 빼고 세어지지 않았습니다"; exit 1 ;;
 esac
 

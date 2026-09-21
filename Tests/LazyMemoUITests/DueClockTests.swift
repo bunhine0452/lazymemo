@@ -201,6 +201,33 @@ struct DueClockTests {
         #expect(risen == [daily.id, daily.id])
     }
 
+    @Test("치워 둔 것·다 체크한 목록은 시각이 와도 꺼내지 않는다 — 배너가 안 울리는 것은 종이도 안 나온다")
+    func skipsWhatTheBannerSkips() async throws {
+        let (store, paths) = try makeStore()
+        defer { cleanUp(paths) }
+        let calendar = seoul()
+        _ = try await store.create(body: "- [x] 우유\n- [x] 계란", at: at(calendar, hour: 15))
+        let open = try await store.create(body: "- [ ] 우유", at: at(calendar, hour: 15))
+        // 다른 기기가 치워 둔 것 — 파일에 `tidied:` 가 적혀 온다.
+        let tidiedAway = try await store.create(body: "치운 약속", at: at(calendar, hour: 15))
+        var onDisk = try await MemoVault(paths: paths).load(tidiedAway.id)
+        onDisk.tidied = at(calendar, hour: 1)
+        _ = try await MemoVault(paths: paths).save(onDisk)
+        await store.reconcile()
+
+        var now = at(calendar, hour: 14)
+        var risen: [ULID] = []
+        let clock = DueClock(store: store, now: { now }, calendar: calendar)
+        clock.onDue = { risen.append($0) }
+        clock.start()
+
+        now = at(calendar, hour: 15)
+        clock.fire()
+
+        #expect(risen == [open.id])
+        #expect(Recall.reservations(store.memos, now: at(calendar, hour: 14)).map(\.id) == [open.id])
+    }
+
     @Test("같은 날 다시 볼 시각을 미루면 새 시각에 다시 꺼낸다 — 배너와 종이가 같은 답")
     func postponedSameDayRingsAgain() async throws {
         let (store, paths) = try makeStore()

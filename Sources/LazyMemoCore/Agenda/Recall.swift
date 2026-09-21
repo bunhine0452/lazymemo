@@ -19,12 +19,27 @@ public enum Recall {
     /// 「지금」 띠에 올리는 수. 셋을 넘으면 띠가 아니라 또 하나의 목록이다.
     public static let nowLimit = 3
 
-    /// 지운 것·치워 둔 것·다 체크한 목록은 다시 펼치지 않는다.
+    // MARK: OS 예약의 이름과 내용 — 앱·공유 시트·인텐트가 **같은 자리**를 찾는다
+
+    /// OS 예약의 id 머리 — `recall.<ulid>`. 「어디서 출발하시나요?」(`RouteAsk.notificationPrefix`)와 갈린다.
+    /// 앱 밖(공유 시트)이 같은 이름으로 걸어 두면 앱의 대조가 그것을 **자기 것**으로 알아보고 두 번 걸지 않는다.
+    public static let notificationPrefix = "recall."
+    public static func notificationID(for id: ULID) -> String { notificationPrefix + id.stringValue }
+    /// 알림 `userInfo` 의 열쇠 — 메모 id 와 걸려 있던 시각(초). 누를 때 어느 메모를 열지, 「봤어요」의 이름표가 무엇인지.
+    public static let memoKey = "memo"
+    public static let dateKey = "date"
+    /// 알림 종류의 이름 — 단추 묶음이 다르다 (`ReminderCategory` 의 rawValue 와 같아야 한다).
+    public static let recallCategory = "recall"
+    public static let departureCategory = "departure"
+    /// 다시 보기 알림의 둘째 줄 — 길이 적히지 않았을 때.
+    public static var defaultNotificationBody: String { L("다시 볼 시간이에요. 눌러서 메모를 펼치세요.") }
+
+    /// 지운 것·치워 둔 것·보관한 것·끝낸 것·다 체크한 목록은 다시 펼치지 않는다.
     ///
     /// 체크리스트를 다 지운 사람은 그 일을 끝낸 것이다 — 끝난 일의 알림은 방해다.
-    /// 일반 글의 완료 여부는 추측하지 않는다.
+    /// 일반 글의 완료 여부는 추측하지 않는다 — 사람이 「완료」라 했을 때만이다 (`Memo.done`).
     public static func eligible(_ memo: Memo) -> Bool {
-        memo.deleted == nil && memo.tidied == nil && !Tidy.isFinishedChecklist(memo.body)
+        memo.deleted == nil && !memo.isPutAway && memo.done == nil && !Tidy.isFinishedChecklist(memo.body)
     }
 
     /// OS 에 걸 예약 하나. `id` 는 메모의 것이라 수정·미루기·삭제가 같은 자리를 찾는다.
@@ -160,6 +175,68 @@ public enum Recall {
         }
         .prefix(max(0, limit))
         .map { $0 }
+    }
+
+    // MARK: 놓친 것·오늘·나중에 — 세 장이 전부가 아니다 (인계서 묶음 4 `#unfinished-recall`)
+
+    /// 「지금」의 세 장 곁에 서는 요약 — 놓친 것·오늘·나중에의 수와 그 목록. 세 장이 전부라고 오해하지 않게 하고,
+    /// 놓친 미처리는 날이 바뀌어도 여기서 찾는다. 푸시는 없다 — 화면의 조용한 요약이다.
+    public struct Summary: Sendable, Equatable {
+        /// 지난 날에 다시 보기로 했거나 시각이 적혀 있었는데 끝내지도 보지도 않은 것, 그리고 마감이 지난 칸 남은 목록.
+        /// 방금 지난 것이 먼저.
+        public let missed: [Memo]
+        /// 오늘 오를 것 전부 — 「지금」이 세 장으로 줄이기 전의 수.
+        public let today: [Memo]
+        /// 앞으로 올 것 — 내일부터.
+        public let later: [Memo]
+
+        public init(missed: [Memo], today: [Memo], later: [Memo]) {
+            self.missed = missed
+            self.today = today
+            self.later = later
+        }
+
+        public var isEmpty: Bool { missed.isEmpty && today.isEmpty && later.isEmpty }
+    }
+
+    public static func summary(
+        _ memos: [Memo], now: Date = Date(), calendar: Calendar = .current, seen: [ULID: Date] = [:]
+    ) -> Summary {
+        let today = CalendarDate(now, calendar: calendar)
+        let dayStart = calendar.startOfDay(for: now)
+        let todays = nowCards(memos, now: now, calendar: calendar, limit: Int.max, seen: seen).map(\.memo)
+        var missed: [(Memo, Date)] = []
+        var later: [Memo] = []
+        for memo in memos where eligible(memo) {
+            if let stamp = missedStamp(memo, dayStart: dayStart, today: today, calendar: calendar) {
+                if seen[memo.id] != stamp { missed.append((memo, stamp)) }
+                continue
+            }
+            let revisit = memo.surface.map { CalendarDate($0, calendar: calendar) }
+            let event = memo.scheduledDate(calendar: calendar)
+            if let day = [revisit, event].compactMap({ $0 }).max(), day > today { later.append(memo) }
+        }
+        return Summary(
+            missed: missed.sorted { $0.1 == $1.1 ? $0.0.id < $1.0.id : $0.1 > $1.1 }.map(\.0),
+            today: todays,
+            later: later.sorted { ($0.surfacesAt ?? $0.due?.startOfDay(calendar: calendar) ?? .distantFuture)
+                < ($1.surfacesAt ?? $1.due?.startOfDay(calendar: calendar) ?? .distantFuture) }
+        )
+    }
+
+    /// 이 메모가 놓친 것이면 그 등장의 이름표 (`Card.stamp` 와 같은 값 — 「봤어요」가 이것을 적는다). 아니면 `nil`.
+    ///
+    /// 놓친 것은 둘이다: 지난 날의 다시 볼 시각·일정 시각(그날 안 봤고 안 끝냈다), 그리고 마감이 지난 칸 남은 목록.
+    /// 미래에 다시 보기로 한 지난 일정은 놓친 것이 아니다 — 그날 다시 오른다.
+    private static func missedStamp(_ memo: Memo, dayStart: Date, today: CalendarDate, calendar: Calendar) -> Date? {
+        if let surface = memo.surface {
+            return surface < dayStart ? surface : nil
+        }
+        if let at = memo.at { return at < dayStart ? at : nil }
+        if let due = memo.due, due < today, MarkdownScanner.checkboxes(in: memo.body).contains(false) {
+            return due.startOfDay(calendar: calendar)
+        }
+        return nil
     }
 
     /// 0 다가오는 것 · 1 지나간 것 · 2 시각이 없는 것.

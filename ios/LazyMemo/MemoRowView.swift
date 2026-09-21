@@ -35,7 +35,7 @@ struct MemoRowView: View {
     private var scheduled: Bool { memo.due != nil || memo.at != nil }
 
     private var titleInk: Color {
-        if retired { return .secondary }
+        if retired || memo.archived != nil { return .secondary }
         if contrast == .increased { return Paper.ink }
         return MemoAge.of(memo, now: now) <= .recent ? Paper.ink : .secondary
     }
@@ -83,7 +83,14 @@ struct MemoRowView: View {
             if memo.pinned {
                 Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Theme.accentInk)
             }
-            Text(memo.title).font(.body.weight(.semibold)).foregroundStyle(titleInk).lineLimit(2)
+            // 끝낸 것은 그렇게 보인다 — 사흘 동안 남아 있는 까닭이 「끝냈다」임을 줄이 말해야 한다 (인계서 §4).
+            if memo.done != nil {
+                Image(systemName: "checkmark.circle.fill").font(.caption2).foregroundStyle(Theme.accentInk)
+                    .accessibilityHidden(true)
+            }
+            Text(memo.title).font(.body.weight(.semibold)).foregroundStyle(memo.done == nil ? titleInk : .secondary)
+                .strikethrough(memo.done != nil, color: .secondary)
+                .lineLimit(2)
         }
     }
 
@@ -109,13 +116,15 @@ struct MemoRowView: View {
     /// 사라지는 것이 그 날로부터 세니까.
     private var timeText: String {
         if retired, let deleted = memo.deleted { return String(localized: "\(MemoTimeLabel.elapsed(deleted, now: now)) 지움") }
+        // 보관한 것은 「언제 넣어 두었나」— 지운 것과 같은 자리, 다른 낱말 (인계서 §4).
+        if let archived = memo.archived { return String(localized: "\(MemoTimeLabel.elapsed(archived, now: now)) 보관") }
         return MemoTimeLabel.text(for: memo, now: now)
     }
 
     private var timeLabel: some View {
-        Label(timeText, systemImage: retired ? "trash" : scheduled ? "calendar" : "clock")
+        Label(timeText, systemImage: retired && memo.deleted != nil ? "trash" : memo.archived != nil ? "archivebox" : scheduled ? "calendar" : "clock")
             .monospacedDigit()
-            .foregroundStyle(scheduled && !retired ? Theme.highlightInk : .secondary)
+            .foregroundStyle(scheduled && !retired && memo.archived == nil ? Theme.highlightInk : .secondary)
     }
 
     @ViewBuilder
@@ -131,6 +140,7 @@ struct MemoRowView: View {
     private var spoken: String {
         var parts = [memo.title, timeText, memo.color.label]
         if memo.pinned { parts.append(String(localized: "고정됨")) }
+        if memo.done != nil { parts.append(String(localized: "완료")) }
         if let place = memo.place { parts.append(place) }
         if memo.photoCount > 0 { parts.append(String(localized: "사진 \(memo.photoCount)장")) }
         return parts.joined(separator: ", ")

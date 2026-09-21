@@ -20,8 +20,9 @@ import UserNotifications
     var onAskRoute: ((String) -> Void)?
     var onAction: ((ReminderAction, String, Date) -> Void)?
     private let center = UNUserNotificationCenter.current()
-    private nonisolated static let memoKey = "memo"
-    private nonisolated static let dateKey = "date"
+    /// `userInfo` 의 열쇠 — 앱 밖(공유 시트)이 거는 것과 같은 이름 (`Recall`).
+    private nonisolated static let memoKey = Recall.memoKey
+    private nonisolated static let dateKey = Recall.dateKey
 
     override init() {
         super.init()

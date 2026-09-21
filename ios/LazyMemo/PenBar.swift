@@ -3,6 +3,7 @@ import LazyMemoAssistant
 import LazyMemoAssistantUI
 import LazyMemoCore
 import LazyMemoPlaces
+import LazyMemoReminders
 import SwiftUI
 
 /// 유리 위의 펜 (MOBILE_DESIGN §3).
@@ -85,7 +86,10 @@ struct PenBar: View {
             if let question = pen.pendingQuestion { pendingBlock(question) }
             else if let planner = pen.planner, planner.isActive { routeBlock(planner) }
             else if let notice = pen.planner?.notice { noticeRow(notice) }
+            else if let left = pen.left { leftRow(left) }
             else { chips }
+            // 초안이 기기에 안 남는다 — 칩과 상관없이 한 줄. 조용히 삼키면 껐다 켠 뒤에야 안다.
+            if let trouble = pen.draftTrouble { draftTroubleRow(trouble) }
             penRow
         }
         .padding(.horizontal, 12)
@@ -109,6 +113,10 @@ struct PenBar: View {
         var trouble: Bool
         var clearable: Bool
         var thinking: Bool
+        var left: ULID?
+        var receipt: ReservationReceipt?
+        var draftTrouble: Bool
+        var ask: String?
     }
 
     private var penKey: PenKey {
@@ -123,7 +131,11 @@ struct PenBar: View {
             target: pen.targetTitle,
             trouble: hereTrouble != nil && pen.here == nil,
             clearable: !pen.text.isEmpty,
-            thinking: pen.assistant?.phase == .thinking
+            thinking: pen.assistant?.phase == .thinking,
+            left: pen.left?.memo.id,
+            receipt: pen.left?.receipt,
+            draftTrouble: pen.draftTrouble != nil,
+            ask: pen.askLabel
         )
     }
 
@@ -185,6 +197,83 @@ struct PenBar: View {
         .padding(.vertical, 6)
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18))
         .accessibilityIdentifier("route-notice")
+    }
+
+    /// 방금 남긴 것의 결과 줄 — 알림 영수증 「이 기기에 알림 예약됨 · 9월 25일 9:00」과 권할 것 「시각 정하기」「가는 길」.
+    /// 가는 길의 한 줄과 같은 자리, 같은 모양 (`PenModel.Left`). 펜은 다음 글을 받는다 — 되묻지 않는다.
+    private func leftRow(_ left: PenModel.Left) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                if let receipt = left.receipt, let line = receipt.line() {
+                    Image(systemName: { if case .scheduled = receipt { "bell" } else { "bell.slash" } }())
+                    Text(line).lineLimit(2)
+                        .foregroundStyle(receipt == .failed ? .orange : .secondary)
+                        .accessibilityIdentifier("reminder-receipt")
+                } else {
+                    Image(systemName: "checkmark.circle")
+                    Text(String(localized: "적었어요 · \(left.memo.title)")).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Button { pen.dismissLeft() } label: {
+                    Image(systemName: "xmark").font(.caption2.weight(.semibold)).frame(width: 32, height: 32)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("닫기")
+            }
+            if let hint = left.hint {
+                Text(hint).lineLimit(3).accessibilityIdentifier("first-note-hint")
+            }
+            if left.offersTime || left.offersRoute {
+                HStack(spacing: 8) {
+                    if left.offersTime {
+                        Button { pen.offerTime() } label: { leftChip(String(localized: "시각 정하기")) }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("offer-time")
+                    }
+                    if left.offersRoute {
+                        Button { pen.offerRoute() } label: { leftChip(String(localized: "가는 길")) }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("offer-route")
+                    }
+                }
+            }
+        }
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18))
+        // 묶음에 이름표를 달지 않는다 — 달면 안의 칩·글이 전부 그 이름표를 물려받아 「offer-route」가 사라진다.
+    }
+
+    private func leftChip(_ title: String) -> some View {
+        Text(title)
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(Theme.accentInk)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 32)
+            .background(Theme.accentInk.opacity(0.08), in: Capsule())
+            .frame(minHeight: 44)
+    }
+
+    /// 초안이 기기에 안 남는다 — 사람의 말 한 줄과 「다시 시도」. 기계의 말은 도움말로만.
+    private func draftTroubleRow(_ detail: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.triangle")
+            Text("초안을 기기에 남기지 못했어요 — 이번 실행 동안만 들고 있어요").lineLimit(2)
+            Spacer(minLength: 0)
+            Button("다시 시도") { pen.retryDraft() }
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(Theme.accentInk)
+                .frame(minHeight: 32)
+        }
+        .font(.footnote)
+        .foregroundStyle(.orange)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18))
+        .help(detail)
+        .accessibilityIdentifier("draft-trouble")
     }
 
     // MARK: 되묻기 — 한 가지만 묻고 펜은 답을 기다린다 (quick-capture-assistant D6)
@@ -385,6 +474,18 @@ struct PenBar: View {
                 .buttonStyle(.glass)
                 .accessibilityIdentifier("thinking")
             } else {
+                // 비서에게는 ✦ 로만 — 「남기기」는 늘 적는다 (인계서 묶음 3). 글이 있고 비서가 있을 때만 선다.
+                if let askLabel = pen.askLabel {
+                    Button { pen.ask() } label: {
+                        Image(systemName: "sparkles")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(width: 36, height: 36)
+                    }
+                    .buttonStyle(.glass)
+                    .tint(Theme.accentInk)
+                    .accessibilityLabel(askLabel)
+                    .accessibilityIdentifier("ask")
+                }
                 Button(action: { Task { await pen.leave() } }) {
                     Text(pen.leaveLabel)
                         .font(.subheadline.weight(.semibold))

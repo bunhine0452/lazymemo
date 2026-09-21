@@ -3,6 +3,7 @@ import LazyMemoAssistant
 import LazyMemoAssistantUI
 import LazyMemoCore
 import LazyMemoPlaces
+import LazyMemoReminders
 import Observation
 
 /// 펜 — 화면 바닥의 적는 칸. 적기와 찾기를 겸한다 (MOBILE_DESIGN §3).
@@ -21,6 +22,8 @@ final class PenModel {
             guard text != oldValue else { return }
             draft.remember(text)
             reschedule()
+            // 다음 글자가 오면 방금 남긴 것의 결과 줄은 물러난다 — 새 글이 새 메모다.
+            if !text.isEmpty { left = nil }
             // 글을 다 지우면 끈 칩도 잊는다 — 다음 글의 날짜가 말없이 안 읽히면 안 된다.
             if text.isEmpty { readsDate = true; readsPlace = true; readsEvery = true }
             // 글을 고치면 답은 물러나고 검색으로 돌아간다 (맥의 상자와 같은 규칙, quick-capture-assistant D9).
@@ -63,8 +66,9 @@ final class PenModel {
             requestFocus()
         }
     }
-    /// 되물음 뒤에 기다리는 새 메모 — 「약속 시간이 언제인가요?」의 답을 이것에 잇는다.
-    private(set) var pending: (question: String, draft: FieldPatch)?
+    /// 되물음 뒤에 기다리는 초안 — 「약속 시간이 언제인가요?」의 답을 이것에 잇는다. `memo` 가 있으면 **이미 적힌
+    /// 그 메모**의 시각을 정하는 것이다 (결과 줄의 「시각 정하기」) — 새 메모를 만들지 않는다.
+    private(set) var pending: (question: String, draft: FieldPatch, memo: ULID?)?
     var pendingQuestion: String? { pending?.question }
     /// 초안 한 줄 — 「친구랑 밥 먹기로 했어 · 9월 30일 (수) · @홍대입구」.
     var pendingSummary: String? {
@@ -113,10 +117,10 @@ final class PenModel {
             shown = nil; listing = .search
             if let receipt = assistant.receipt {
                 Task { await refresh() }
-                // 비서가 만든 약속 메모도 같은 되물음을 받는다 — 「메모 만들어」로 적었든 서술로 적었든.
+                // 비서가 만든 약속 메모도 같은 결과 줄을 받는다 — 묻지 않고 권한다.
                 if receipt.kind == .createMemo, receipt.id != routedReceipt {
                     routedReceipt = receipt.id
-                    planner?.begin(receipt.after)
+                    offerRoute(for: receipt.after)
                 }
             }
         }
@@ -168,9 +172,11 @@ final class PenModel {
     }
 
     /// 답을 기다리던 초안을 놓는다 — ⊗ 를 눌렀을 때 「시각 없이」와 같다 (D12).
+    /// 이미 적힌 메모의 시각을 묻던 중이면 적을 것이 없다 — 그 메모는 날짜만 든 채 그대로다.
     func takePendingDraft() -> FieldPatch? {
         defer { pending = nil }
-        return pending?.draft
+        guard let pending, pending.memo == nil else { return nil }
+        return pending.draft
     }
 
     /// 달력 탭이 미리 물린 날. 적은 글에 날짜가 있으면 그쪽이 이긴다 (`QuickSchedule`).
@@ -217,6 +223,70 @@ final class PenModel {
 
     /// 방금 남긴 메모 — 목록이 그리로 간다.
     private(set) var lastLeft: ULID?
+
+    /// 방금 남긴 메모의 **결과 줄** (인계서 묶음 3 `#nonblocking-followups`) — 알림 영수증과 권할 것.
+    ///
+    /// 영수증은 「이 기기에 알림 예약됨 · 9월 25일 9:00」(`ReservationReceipt`) — **이 기기에서 확인한 사실**만.
+    /// 저장·초안·알림을 한 「됐다」로 뭉치지 않는다: 손끝의 진동은 저장이고, 이 줄은 알림이다.
+    ///
+    /// 앞선 판은 약속을 남기면 펜이 「어디서 출발하시나요?」「약속 시간이 언제인가요?」를 세우고 **다음에 치는 글을
+    /// 그 답으로 먹었다.** 이제 저장은 끝났고 펜은 다음 글을 받는다 — 길찾기·시각은 이 줄의 **선택** 행동이고,
+    /// 누르면 그때 되물음이 선다. 다음 글자에 물러난다.
+    struct Left: Equatable {
+        let memo: Memo
+        var receipt: ReservationReceipt?
+        /// 날짜만 있는 약속 — 시각을 정할 수 있다.
+        let offersTime: Bool
+        /// 자리가 있는 앞으로 올 약속 — 가는 길을 물을 수 있다.
+        let offersRoute: Bool
+        /// 첫 메모 뒤의 한 줄 — 필요한 조작 하나만 (`#first-real-note`). 그 뒤로는 없다.
+        var hint: String?
+        /// 보일 것이 있는가 — 영수증 한 줄이나 권할 것.
+        var isWorthShowing: Bool { receipt?.line() != nil || offersTime || offersRoute || hint != nil }
+    }
+    private(set) var left: Left?
+    /// 영수증을 짓는 손 — `HomeView` 가 `ReminderCenter` 로 잇는다. 없으면(시험) 영수증이 없다.
+    var receiptFor: ((Memo) async -> ReservationReceipt)?
+    func dismissLeft() { left = nil }
+
+    private func makeLeft(_ memo: Memo, receipt: ReservationReceipt? = nil) -> Left {
+        Left(
+            memo: memo, receipt: receipt,
+            offersTime: memo.due != nil && memo.at == nil,
+            offersRoute: planner != nil && RoutePlanner.applies(memo)
+        )
+    }
+
+    /// 결과 줄의 「시각 정하기」 — 그 메모의 시각을 묻는 되물음이 선다. 사람이 직접 연 되물음이라 다음 글은 그 답이다.
+    func offerTime() {
+        guard let left, left.offersTime, let due = left.memo.due else { return }
+        pending = (
+            String(localized: "약속 시간이 언제인가요?"),
+            FieldPatch(body: left.memo.body, due: .set(due), place: left.memo.place, geo: left.memo.geo),
+            left.memo.id
+        )
+        self.left = nil
+        requestFocus()
+    }
+
+    /// 결과 줄의 「가는 길」 — 「어디서 출발하시나요?」가 선다.
+    func offerRoute() {
+        guard let left, left.offersRoute else { return }
+        self.left = nil
+        if planner?.begin(left.memo) == true { requestFocus() }
+    }
+
+    /// 밖에서 온 약속 메모(공유 시트·인텐트·비서)의 가는 길 — **묻지 않고 권한다.** 결과 줄이 서고 펜은 비어 있다.
+    func offerRoute(for memo: Memo) {
+        guard planner?.isActive != true, pending == nil, text.isEmpty else { return }
+        let card = makeLeft(memo)
+        guard card.offersRoute else { return }
+        left = card
+    }
+
+    /// 초안을 기기에 못 남기고 있다 — 「껐다 켜도 남는다」가 지금은 거짓이라 펜이 적는다 (`CaptureDraftStore.trouble`).
+    var draftTrouble: String? { draft.trouble }
+    func retryDraft() { draft.retry() }
     struct Here: Equatable {
         var place: String
         var geo: Coordinate?
@@ -267,11 +337,9 @@ final class PenModel {
     var leaveLabel: String {
         if pending != nil || planner?.isWaiting == true { return String(localized: "답하기") }
         switch saying {
-        case .asking: return String(localized: "메모에게 묻기")
-        case .searching: return String(localized: "웹에서 찾기")
         case .telling: return String(localized: "시키기")
         case .following(let follow): return Self.followUpLabel(follow)
-        case .writing: break
+        case .writing, .asking, .searching: break
         }
         let note = reading
         let dated = note.due != nil || note.at != nil || (readsDate && presetDay != nil)
@@ -279,7 +347,10 @@ final class PenModel {
     }
 
     /// 지금 글이 누구에게 가는가 — 단추의 동사, 칩의 유무, 빈 목록의 한 줄이 이것으로 갈린다.
-    /// 「이거」를 들고 있으면 묻는 말이 아닌 것은 전부 그 메모에게 시키는 말이다 — 동사가 없어도 (「금요일 10시」).
+    ///
+    /// **기본은 적기다** (인계서 묶음 3 `#capture-always-saves`). 앞선 판은 물음표면 비서, 「알림」「폴더」가 들어
+    /// 있으면 시키는 말로 가렸고, 그러면 「왜 고객이 이탈할까?」가 메모가 되지 않았다. 이제 비서에게는 ✦ (`ask`)로만.
+    /// 사람이 이미 비서와 이야기 중인 것만 예외 — 「이거」를 들고 왔거나(그 메모에게 시키는 말), 웹의 답 뒤의 「메모해」.
     enum Saying: Equatable {
         case writing, asking, searching, telling
         /// 웹의 답에 대한 다음 손짓 — 「메모해」「정리해줘」「치과 메모에 추가해줘」 (`WebFollowUp`).
@@ -290,11 +361,29 @@ final class PenModel {
         guard assistant != nil, !trimmed.isEmpty, pending == nil, planner?.isActive != true else { return .writing }
         // 웹의 답이 서 있을 때의 「메모해」는 그 답을 어떻게 할지 말한 것이다.
         if let follow = webFollowUp(trimmed) { return .following(follow) }
-        // 「웹에서 …」·「… 검색해줘」는 메모를 거치지 않고 바로 웹 — 「알려줘」가 시키는 동사라도 이것이 먼저.
-        if AssistantIntent.wantsWeb(trimmed) { return .searching }
-        if AssistantIntent.isQuestion(trimmed) { return .asking }
-        if target != nil || AssistantIntent.hasCommandVerb(trimmed) { return .telling }
+        if target != nil { return .telling }
         return .writing
+    }
+
+    /// ✦ 가 할 일 — 비서에게. 글이 없거나 비서가 없거나 되묻는 중이면 `nil` (단추가 없다).
+    var askSaying: Saying? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard assistant != nil, !trimmed.isEmpty, pending == nil, planner?.isActive != true else { return nil }
+        if let follow = webFollowUp(trimmed) { return .following(follow) }
+        if AssistantIntent.wantsWeb(trimmed) { return .searching }
+        if target != nil || AssistantIntent.hasCommandVerb(trimmed) { return .telling }
+        return .asking
+    }
+
+    /// ✦ 단추의 말.
+    var askLabel: String? {
+        switch askSaying {
+        case .asking: String(localized: "메모에게 묻기")
+        case .searching: String(localized: "웹에서 찾기")
+        case .telling: String(localized: "시키기")
+        case .following(let follow): Self.followUpLabel(follow)
+        case .writing, nil: nil
+        }
     }
 
     /// 칩 하나 — 날짜. 끈 뒤에도 글이 그대로면 칩도 그대로다 (꺼진 모양으로).
@@ -330,10 +419,18 @@ final class PenModel {
             return nil
         }
 
-        // 되물음의 답 — 「12시야」. 답이 아니면 초안을 놓고 새 말로 본다.
+        // 되물음의 답 — 「12시야」. 사람이 결과 줄에서 직접 연 되물음이다. 답이 아니면 초안을 놓고 새 말로 본다.
         if let pending {
             if let done = AssistantIntent.complete(draft: pending.draft, reply: trimmed) {
                 self.pending = nil
+                if let id = pending.memo {
+                    // 이미 적힌 메모의 시각 — 답이 「시각 없이」면 그대로 둔다.
+                    guard case .set(let at) = done.patch.at else { text = ""; draft.forget(); return nil }
+                    let memo = try? await store.update(id, at: .some(at))
+                    text = ""; draft.forget()
+                    if let memo { left = makeLeft(memo); refreshReceipt(for: memo) }
+                    return memo
+                }
                 return await create(done.patch)
             }
             self.pending = nil
@@ -341,39 +438,21 @@ final class PenModel {
 
         if let assistant {
             // 웹의 답 뒤의 「메모해」「정리해줘」「치과 메모에 추가해줘」— 그 답을 남기거나 붙인다 (`WebFollowUp`).
+            // 사람이 이미 비서와 이야기 중인 것이라 「남기기」가 그 대화를 잇는다.
             if let follow = webFollowUp(trimmed) {
                 text = ""; draft.forget()
                 assistant.followUp(follow)
                 return nil
             }
-            // 웹에서 찾기 — 검색은 앱이, 읽기는 모델이. 목록은 그대로다.
-            if AssistantIntent.wantsWeb(trimmed) {
-                handOff(trimmed, web: true)
-                assistant.askWeb(trimmed)
-                return nil
-            }
-            // 물음 — 메모가 답한다. 목록은 근거로 줄어든다 (D9). 「이거」가 있으면 그 메모부터 읽는다.
-            if AssistantIntent.isQuestion(trimmed) {
-                handOff(trimmed)
-                assistant.ask(trimmed, selected: target)
-                return nil
-            }
-            // 시키는 말 — 대상은 편집 화면에서 들고 온 「이거」, 없으면 비서가 되묻고 목록이 후보가 된다 (D10).
-            if target != nil || AssistantIntent.hasCommandVerb(trimmed) {
+            // 「이거」를 들고 왔으면 그 메모에게 시키는 말이다 — 편집 화면의 ✦ 로 직접 연 대화.
+            if target != nil {
                 handOff(trimmed)
                 assistant.command(trimmed, selected: target)
                 return nil
             }
-            // 약속인데 시각이 없다 — 한 가지만 묻고 펜은 답을 기다린다 (D6).
-            if readsDate, let composed = AssistantIntent.compose(trimmed), composed.kind == .ask, var draftPatch = composed.draft {
-                let note = reading
-                if draftPatch.place == nil { draftPatch.place = note.place; draftPatch.geo = here?.geo ?? note.geo }
-                pending = (composed.question ?? String(localized: "약속 시간이 언제인가요?"), draftPatch)
-                text = ""; draft.forget()
-                return nil
-            }
         }
 
+        // **묻지 않는다.** 약속인데 시각이 없어도 날짜만으로 적는다 — 시각은 결과 줄의 「시각 정하기」.
         let note = reading
         var schedule = Schedule(due: note.due, at: note.at)
         var body = note.body
@@ -392,6 +471,29 @@ final class PenModel {
         return memo
     }
 
+    /// ✦ — 비서에게. 물음이면 메모가 답하고, 시키는 말이면 시키고, 「웹에서 …」면 웹. 기본 「남기기」가 적기로
+    /// 돌아간 뒤로 비서는 이 길로만 (`askSaying`).
+    func ask() {
+        guard let assistant, let saying = askSaying else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch saying {
+        case .following(let follow):
+            text = ""; draft.forget()
+            assistant.followUp(follow)
+        case .searching:
+            handOff(trimmed, web: true)
+            assistant.askWeb(trimmed)
+        case .asking:
+            handOff(trimmed)
+            assistant.ask(trimmed, selected: target)
+        case .telling:
+            handOff(trimmed)
+            assistant.command(trimmed, selected: target)
+        case .writing:
+            break
+        }
+    }
+
     /// 비서의 초안으로 적는다 — 되물음이 끝났을 때, 또는 ⊗·시각 없이.
     @discardableResult
     func create(_ patch: FieldPatch) async -> Memo? {
@@ -407,6 +509,15 @@ final class PenModel {
     private func finishLeaving(_ memo: Memo) {
         lastLeft = memo.id
         text = ""
+        // 결과 줄 — 권할 것이 있으면 바로 서고, 영수증은 대조가 끝난 뒤 붙는다. 그냥 글이면 조용하다.
+        var card = makeLeft(memo)
+        // 첫 메모 뒤에는 필요한 조작 하나만 — 다섯 장 안내 대신 (`Tutorial`, 인계서 묶음 3).
+        if !Tutorial.seen {
+            Tutorial.markSeen()
+            card.hint = String(localized: "다시 찾을 땐 같은 칸에 치세요 · 줄을 밀면 고정·지우기 · 나머지는 더 보기 → 사용법")
+        }
+        left = card.isWorthShowing ? card : nil
+        refreshReceipt(for: memo)
         // 남아 있던 웹의 답은 여기서 물러난다 — 새 메모로 끝났다 (맥의 `commit()` 과 같다).
         assistant?.reset()
         draft.forget()
@@ -415,8 +526,20 @@ final class PenModel {
         readsPlace = true
         readsEvery = true
         prompt = CapturePrompt.next(after: prompt)
-        // 앞으로 올 약속에 자리가 있으면 펜이 「어디서 출발하시나요?」를 세운다. 아니면 아무 일도 없다.
-        planner?.begin(memo)
+        // 가는 길은 묻지 않는다 — 결과 줄의 「가는 길」을 누르면 그때 (`offerRoute`).
+    }
+
+    /// 이 기기의 알림 영수증을 결과 줄에 붙인다 — 대조를 기다렸다가, 그 사이 다른 메모를 남기지 않았을 때만.
+    private func refreshReceipt(for memo: Memo) {
+        guard let receiptFor else { return }
+        Task { [weak self] in
+            let result = await receiptFor(memo)
+            guard let self, lastLeft == memo.id, text.isEmpty else { return }
+            var card = left ?? makeLeft(memo)
+            guard card.memo.id == memo.id else { return }
+            card.receipt = result
+            left = card.isWorthShowing ? card : nil
+        }
     }
 
     /// 뒤로 물러날 때 적던 글을 파일에 내린다.

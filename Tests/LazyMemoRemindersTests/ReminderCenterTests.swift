@@ -441,6 +441,112 @@ struct ReminderCenterTests {
         #expect(opened == memo.id)
     }
 
+    // MARK: 영수증 — 저장 직후 화면이 적는 「이 기기에서 확인한 사실」
+
+    @Test("영수증은 이 기기에서 확인한 사실만 말한다 — 예약됨·시각 없음·꺼짐·거절·실패·한도 밖")
+    func receiptTellsOnlyWhatThisDeviceConfirmed() async throws {
+        let (center, queue, store, paths) = try make()
+        defer { cleanUp(paths) }
+        let timed = try await store.create(body: "견적 보내기", at: soon(30))
+        let dateOnly = try await store.create(body: "날짜만", due: CalendarDate(Date().addingTimeInterval(86_400)))
+        let plain = try await store.create(body: "그냥 글")
+        let passed = try await store.create(body: "지난 것", at: soon(-30))
+        let finished = try await store.create(body: "- [x] 우유", at: soon(40))
+
+        // 대조가 돌기 전에는 「확인 중」이다 — 앞 메모의 결과를 새 메모에 붙이지 않는다.
+        #expect(center.receipt(for: timed) == .pending)
+        center.start(store: store)
+        await center.settle()
+
+        #expect(center.receipt(for: timed) == .scheduled(timed.at!))
+        #expect(center.receipt(for: timed).line() != nil)
+        #expect(center.receipt(for: dateOnly) == .dateOnly)
+        #expect(center.receipt(for: dateOnly).line() != nil, "날짜만 있으면 알림이 없다는 것을 말해 준다")
+        #expect(center.receipt(for: dateOnly).mark == nil)
+        #expect(center.receipt(for: plain) == .noTime)
+        #expect(center.receipt(for: plain).line() == nil, "그냥 글에는 알림 이야기를 꺼내지 않는다")
+        #expect(center.receipt(for: passed) == .passed)
+        #expect(center.receipt(for: finished) == .notWanted)
+
+        // 새로 적은 메모 — 대조가 다시 돌기 전까지는 「확인 중」, 돈 뒤에 「예약됨」.
+        let fresh = try await store.create(body: "새 약속", at: soon(60))
+        let before = center.receipt(for: fresh)
+        #expect(before == .pending || before == .scheduled(fresh.at!))
+        await center.settle()
+        #expect(center.receipt(for: fresh) == .scheduled(fresh.at!))
+
+        // OS 가 받지 않았다.
+        let broken = try await store.create(body: "안 걸리는 것", at: soon(90))
+        queue.failing = ["recall." + broken.id.stringValue]
+        center.refresh()
+        await center.settle()
+        #expect(center.receipt(for: broken) == .failed)
+        #expect(center.receipt(for: fresh) == .scheduled(fresh.at!), "하나가 실패해도 나머지는 그대로 예약됨")
+
+        // 꺼져 있으면 꺼짐 — 예약이 있었어도.
+        await center.setEnabled(false)
+        await center.settle()
+        #expect(center.receipt(for: fresh) == .off)
+    }
+
+    @Test("권한이 거절돼 있으면 영수증은 「권한 없음」이고, 한도 밖은 「대기」다")
+    func receiptDeniedAndOverflow() async throws {
+        let (center, queue, store, paths) = try make(status: .denied)
+        defer { cleanUp(paths) }
+        let memo = try await store.create(body: "회의", at: soon(30))
+        center.start(store: store)
+        await center.settle()
+        #expect(center.receipt(for: memo) == .denied)
+
+        queue.status = .allowed
+        var last: Memo?
+        for minute in 1...(Recall.reservationLimit + 1) {
+            last = try await store.create(body: "약속 \(minute)", at: soon(Double(minute + 60)))
+        }
+        center.refresh()
+        await center.settle()
+        #expect(center.receipt(for: memo) == .scheduled(memo.at!))
+        #expect(center.receipt(for: last!) == .overflow)
+        #expect(center.receipt(for: last!).mark == "알림 대기")
+    }
+
+    @Test("설치된 앱 밖에서는 「설치된 앱에서만」이다")
+    func receiptWithoutQueue() async throws {
+        let (store, paths) = try makeStore()
+        defer { cleanUp(paths) }
+        let center = ReminderCenter(queue: nil, defaults: defaults(for: paths))
+        let memo = try await store.create(body: "회의", at: soon(30))
+        center.start(store: store)
+        await center.settle()
+        #expect(center.receipt(for: memo) == .unavailable)
+    }
+
+    @Test("앱 밖이 거는 알림과 이름·종류가 같다 — 공유 시트가 건 것을 대조가 자기 것으로 알아본다")
+    func externalWritersShareTheNames() {
+        #expect(ReminderCenter.prefix == Recall.notificationPrefix)
+        #expect(ReminderCategory.recall.rawValue == Recall.recallCategory)
+        #expect(ReminderCategory.departure.rawValue == Recall.departureCategory)
+    }
+
+    @Test("켜고 끄면 앱 그룹의 표가 따라간다 — 공유 시트가 읽는 것")
+    func togglingWritesTheGroupMarker() async throws {
+        let (store, paths) = try makeStore()
+        defer { cleanUp(paths) }
+        let group = paths.vault.deletingLastPathComponent().appending(path: "group", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: group, withIntermediateDirectories: true)
+        let queue = FakeQueue()
+        queue.status = .allowed
+        let center = ReminderCenter(queue: queue, defaults: defaults(for: paths), group: group)
+        center.start(store: store)
+        #expect(RecallSwitch.isEnabled(in: group) == false)
+
+        await center.setEnabled(true)
+        #expect(RecallSwitch.isEnabled(in: group) == true)
+        await center.setEnabled(false)
+        #expect(RecallSwitch.isEnabled(in: group) == false)
+        #expect(RecallSwitch.isEnabled(in: nil) == nil, "폴더를 모르면 꺼짐이 아니라 모름이다")
+    }
+
     @Test("미루기의 시각 — 배너와 창이 같은 값을 쓴다")
     func snoozePresets() {
         let now = Date(timeIntervalSince1970: 1_800_000_000)

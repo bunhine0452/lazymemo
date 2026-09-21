@@ -80,6 +80,53 @@ struct CaptureDraftTests {
         #expect(after.pool.first?.body == "치과 예약")
     }
 
+    @Test("적기가 실패하면 글은 상자에 그대로 있고 그 까닭이 적힌다 — 고쳐 적기 시작하면 걷힌다")
+    func failedSaveKeepsTheText() async throws {
+        let paths = try makePaths()
+        let store = try MemoStore(paths: paths)
+        let model = QuickCaptureModel(store: store, draft: CaptureDraftStore(location: paths.captureDraft))
+        model.query = "내일 견적 보내기"
+
+        // 정본 자리를 파일로 막아 다음 쓰기가 반드시 실패하게 한다.
+        try FileManager.default.removeItem(at: paths.notes)
+        try Data("막힘".utf8).write(to: paths.notes)
+        let memo = await model.save { try await store.create(body: model.query) }
+
+        #expect(memo == nil)
+        #expect(model.saveTrouble != nil)
+        #expect(model.query == "내일 견적 보내기", "실패했는데 글이 없으면 「적었는데 없다」다")
+
+        model.query = "내일 견적 보내기!"
+        #expect(model.saveTrouble == nil, "새 글이 새 시도다")
+
+        // 자리가 고쳐졌다 — 같은 손짓이 이번엔 적는다.
+        try FileManager.default.removeItem(at: paths.notes)
+        try paths.createDirectories()
+        let saved = await model.save { try await store.create(body: model.query) }
+        #expect(saved != nil)
+        #expect(model.saveTrouble == nil)
+    }
+
+    @Test("초안이 기기에 안 남으면 상자가 말하고, 「다시 시도」가 적는다")
+    func draftTroubleSurfaces() throws {
+        let paths = try makePaths()
+        let store = try MemoStore(paths: paths)
+        // 초안 자리의 부모를 파일로 막는다.
+        let blocked = paths.support.appending(path: "blocked", directoryHint: .notDirectory)
+        try Data("막힘".utf8).write(to: blocked)
+        let draft = CaptureDraftStore(location: blocked.appending(path: "capture-draft.txt", directoryHint: .notDirectory))
+        let model = QuickCaptureModel(store: store, draft: draft)
+
+        model.query = "세 줄 적던 것"
+        model.flushDraft()
+        #expect(model.draftTrouble != nil)
+        #expect(model.query == "세 줄 적던 것", "이번 실행 동안은 들고 있다")
+
+        try FileManager.default.removeItem(at: blocked)
+        model.retryDraft()
+        #expect(model.draftTrouble == nil)
+    }
+
     @Test("첫소리로도 찾는다 — 「ㅈㅂㄱ」가 「장보기」를")
     func findsByInitials() async throws {
         let store = try MemoStore(paths: try makePaths())

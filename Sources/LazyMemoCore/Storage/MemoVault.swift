@@ -165,8 +165,29 @@ public actor MemoVault {
 
         var memo = try read(at: source, id: id)
         memo.deleted = nil
+        // 충돌의 진 판을 되돌리는 것은 「둘 다 남기기」다 — 그때부터 제 메모라 다른 판 표시를 뗀다.
+        memo.conflictOf = nil
         let result = try save(memo)
         try fileManager.removeItem(at: source)
+        return result
+    }
+
+    /// 충돌의 진 판을 **이 판으로** — 자리의 메모가 휴지통의 글을 받고, 밀려난 글은 그 휴지통
+    /// 자리에 앉는다 (`ConflictSettlement.swapped`). 파일은 둘 다 그대로 있고 글만 자리를 바꾸므로
+    /// 한 번 더 하면 원래대로다. 자리의 메모가 없으면(지웠다) 되돌리기와 같다.
+    @discardableResult
+    public func adoptConflict(_ id: ULID, now: Date = Date()) throws -> SaveResult {
+        let source = trashURL(for: id)
+        guard fileManager.fileExists(atPath: source.path(percentEncoded: false)) else {
+            throw Failure.notInTrash(id)
+        }
+        let loser = try read(at: source, id: id)
+        guard let winnerID = loser.conflictOf, let location = try locate(winnerID) else { return try restore(id) }
+        let winner = try read(at: location, id: winnerID)
+
+        let outcome = ConflictSettlement.swapped(winner: winner, loser: loser, now: now)
+        let result = try save(outcome.keep, at: location)
+        for pushed in outcome.retired { try retire(pushed) }
         return result
     }
 

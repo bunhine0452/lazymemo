@@ -56,4 +56,29 @@ struct CaptureDraftStoreTests {
     func startsEmpty() {
         #expect(CaptureDraftStore(location: location()).restored == "")
     }
+
+    @Test("못 적으면 말한다 — 글은 들고 있고, 자리가 고쳐지면 다시 시도가 적는다")
+    func reportsWriteFailureAndRetries() throws {
+        // 부모 자리에 **파일**을 놓아 폴더를 만들 수 없게 한다 — 권한 거절·꽉 찬 디스크와 같은 꼴.
+        let root = URL(filePath: NSTemporaryDirectory(), directoryHint: .isDirectory)
+            .appending(path: "lazymemo-draft-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let blocker = root.appending(path: "support", directoryHint: .notDirectory)
+        try Data("막힘".utf8).write(to: blocker)
+        let file = blocker.appending(path: "capture-draft.txt", directoryHint: .notDirectory)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let store = CaptureDraftStore(location: file)
+        store.remember("내일 견적 보내기")
+        store.flush()
+
+        #expect(store.trouble != nil, "조용히 삼키면 껐다 켠 뒤에야 안다")
+        #expect(store.restored == "내일 견적 보내기", "이번 실행 동안은 들고 있다")
+
+        // 자리가 고쳐졌다 — 다시 시도가 적고, 실패는 걷힌다.
+        try FileManager.default.removeItem(at: blocker)
+        store.retry()
+        #expect(store.trouble == nil)
+        #expect(CaptureDraftStore(location: file).restored == "내일 견적 보내기")
+    }
 }

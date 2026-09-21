@@ -35,14 +35,18 @@ struct WriteMemoIntent: AppIntent {
         }
         let paths = try await IntentVault.paths()
         let memo = try await InboxDrop.drop(inbound, into: paths)
+        let group = AppPaths.sharedContainer()
         // 자리가 있는 약속이면 앱이 「어디서 출발하시나요?」를 묻게 남긴다 — 공유 시트와 같다.
-        if RouteAsk.applies(memo) { await RouteAskDrop.leave(memo, group: AppPaths.sharedContainer()) }
+        if RouteAsk.applies(memo) { await RouteAskDrop.leave(memo, group: group) }
+        // 다시 보기 알림은 앱과 같은 이름으로 지금 건다 — 앱을 열기 전에 시각이 올 수 있다 (`RecallDrop`).
+        let receipt = await RecallDrop.leave(memo, group: group)
         WidgetRefresher.reloadNow()
-        return .result(dialog: IntentDialog("\(Self.reply(for: memo))"))
+        return .result(dialog: IntentDialog("\(Self.reply(for: memo, receipt: receipt))"))
     }
 
-    /// 「적었어요 · 9월 22일 15:00 · 달력으로」 — 공유 시트의 칩과 같은 말. 날짜를 읽었으면 그렇다고 한다.
-    static func reply(for memo: Memo) -> String {
+    /// 「적었어요 · 9월 22일 15:00 · 달력으로 · 이 기기에 알림 예약됨 …」 — 공유 시트의 칩·영수증과 같은 말.
+    /// 날짜를 읽었으면 그렇다고 하고, 알림은 **이 기기에서 확인한 사실**만 (`ReservationReceipt`).
+    static func reply(for memo: Memo, receipt: ReservationReceipt? = nil) -> String {
         var parts = [String(localized: "적었어요")]
         if let at = memo.at {
             let clock = Calendar.current.dateComponents([.hour, .minute], from: at)
@@ -52,6 +56,7 @@ struct WriteMemoIntent: AppIntent {
             parts.append(String(localized: "\(DateWords.monthDay(due)) · 달력으로"))
         }
         if let place = memo.place { parts.append("@" + place) }
+        if let line = receipt?.line() { parts.append(line) }
         return parts.joined(separator: " · ")
     }
 }

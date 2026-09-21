@@ -86,10 +86,12 @@ final class QuickCaptureController {
         self.panel = QuickCapturePanel(contentRect: NSRect(origin: .zero, size: initialSize))
 
         var commit: () -> Void = {}
+        var ask: () -> Void = {}
         var cancel: () -> Void = {}
         self.hosting = CaptureHostingView(rootView: QuickCaptureView(
             model: model,
             onCommit: { commit() },
+            onAsk: { ask() },
             onCancel: { cancel() },
             // 목록의 점이 찬 점인지 빈 점인지는 창을 들고 있는 쪽만 안다.
             isOnDesktop: { [weak windows] id in windows?.isVisible(id) ?? false }
@@ -99,6 +101,7 @@ final class QuickCaptureController {
 
         panel.contentView = hosting
         commit = { [weak self] in self?.commit() }
+        ask = { [weak self] in self?.ask() }
         cancel = { [weak self] in self?.close() }
         // 길을 다 적었다 — 상자는 닫히고 달력이 그 날을 보인다 (적은 것이 곧 나온다, §8).
         model.planner?.onWritten = { [weak self] memo, _ in
@@ -528,6 +531,8 @@ final class QuickCaptureController {
     ///   허공으로 간다. 메모를 열어 보여줄 때만 예외다.
     func close(returningFocus: Bool = true) {
         model.target = nil
+        // 결과 카드는 닫히면 끝이다 — 권한 것을 안 누른 것도 답이다.
+        model.dismissLeft()
         // 가는 길을 묻던 중에 닫으면 「됐어」와 같다 — 메모는 이미 적혔다.
         model.planner?.dismiss()
         model.planner?.acknowledge()
@@ -614,57 +619,54 @@ final class QuickCaptureController {
         show()
     }
 
-    /// 밖에서 들어온 약속 메모 — 상자를 열고 「어디서 출발하시나요?」를 세운다 (`InboundDoor.onRouteAsk`).
+    /// 밖에서 들어온 약속 메모 — 상자를 열고 **결과 카드로 권한다** (`InboundDoor.onRouteAsk`). 묻지 않는다:
+    /// 「어디서 출발하시나요?」가 상자를 차지하면 다음에 치는 글이 그 답이 된다. 카드의 「가는 길 찾기」를 누르면 그때 묻는다.
     /// 상자가 다른 되물음 중이면 끼어들지 않는다.
     func askRoute(_ memo: Memo) {
         guard let planner = model.planner, !planner.isActive, model.pendingQuestion == nil else { return }
         show()
-        planner.begin(memo)
+        model.offerRoute(for: memo)
     }
 
     /// ⌘⏎ — 적기 끝.
     private func commit() {
         switch model.commit() {
         case .create(let draft):
-            // 적고 하던 일로 돌아간다. 메모 창은 바탕화면 높이에 있어서
-            // 여기서 활성화하면 **보이지 않는 창으로 키보드가 넘어가고**
-            // 이어서 친 글자가 사라진다.
-            model.assistant?.reset()   // 남아 있던 웹의 답은 여기서 물러난다 — 새 메모로 끝났다.
-            model.clear()
-            close()
+            // **적힌 뒤에** 비우고 닫는다. 앞선 판은 먼저 비우고 닫은 뒤 적었는데, 그러면 저장이
+            // 실패한 순간 글은 이미 없다 — 「적었는데 없다」가 되고, 저장 버튼 없는 앱에서 그것은
+            // 한 번으로 끝이다. 실패하면 상자는 열린 채 글을 들고 그 까닭을 적는다 (`saveTrouble`).
+            // 적는 것은 한 박자라 사람은 차이를 못 느낀다.
             Task {
-                guard let memo = try? await store.create(
-                    body: draft.text, due: draft.due, at: draft.at
-                ) else { return }
-                announce(memo)
+                guard let memo = await model.save({
+                    try await store.create(body: draft.text, due: draft.due, at: draft.at)
+                }) else { return }
+                left(memo)
             }
 
         case .compose(let patch):
             // 같은 길 — 다만 비서의 파서가 자리·좌표까지 읽어 왔다.
-            // 앞으로 올 약속에 자리가 있으면 상자는 열린 채 「어디서 출발하시나요?」를 세운다 (`RoutePlanner`).
-            let asksRoute = model.planner != nil
-                && RoutePlanner.applies(body: patch.body ?? "", at: patch.at.value, place: patch.place, geo: patch.geo)
-            model.assistant?.reset()
-            model.clear()
-            if !asksRoute { close() }
             Task {
-                guard let memo = try? await store.create(
-                    body: patch.body ?? "", due: patch.due.value, at: patch.at.value,
-                    place: patch.place, geo: patch.geo
-                ) else { return }
-                if asksRoute, model.planner?.begin(memo) == true { return }
-                if asksRoute { close() }
+                guard let memo = await model.save({
+                    try await store.create(
+                        body: patch.body ?? "", due: patch.due.value, at: patch.at.value,
+                        place: patch.place, geo: patch.geo
+                    )
+                }) else { return }
+                left(memo)
+            }
+
+        case .setTime(let id, let at):
+            // 결과 카드의 「시각 정하기」에 온 답 — 그 메모에 적는다. 새 메모가 아니다.
+            Task {
+                guard let memo = await model.save({ try await store.update(id, at: .some(at)) }) else { return }
+                model.clear()
+                close()
                 announce(memo)
             }
 
         case .routeReply(let text):
             model.query = ""
             model.planner?.reply(text)
-
-        case .askTime:
-            // 상자는 열린 채, 글만 비운다 — 다음에 치는 것은 답이다.
-            // (`model.pending` 이 질문과 초안을 들고 있다.)
-            model.query = ""
 
         case .ask(let text):
             model.query = ""
@@ -696,6 +698,37 @@ final class QuickCaptureController {
             // 길을 찾는 중의 빈 ⌘⏎ 는 기다리라는 뜻으로 둔다 — 닫으면 찾던 것을 버린다.
             if model.planner?.isBusy == true { return }
             close()
+        }
+    }
+
+    /// 적기가 끝났다 — 상자를 비우고, 권할 것(시각·가는 길)이 있으면 결과 카드를 세운 채 다음 글을 받고, 없으면 닫는다.
+    ///
+    /// 적고 하던 일로 돌아간다. 메모 창은 바탕화면 높이에 있어서 여기서 활성화하면 **보이지 않는 창으로
+    /// 키보드가 넘어가고** 이어서 친 글자가 사라진다. 카드가 선 상자도 다음 글을 받는다 — 되묻지 않는다.
+    private func left(_ memo: Memo) {
+        model.assistant?.reset()   // 남아 있던 웹의 답은 여기서 물러난다 — 새 메모로 끝났다.
+        model.clear()
+        if !model.show(left: memo, hint: FirstNote.takeHint()) { close() }
+        announce(memo)
+    }
+
+    /// ⌥⌘⏎ / ✦ — 비서에게. 기본 ⌘⏎ 가 적기로 돌아간 뒤로 비서는 이 길로만 (`QuickCaptureModel.commitAsk`).
+    private func ask() {
+        switch model.commitAsk() {
+        case .ask(let text):
+            model.query = ""
+            model.assistant?.ask(text)
+        case .searchWeb(let text):
+            model.query = ""
+            model.assistant?.askWeb(text)
+        case .command(let text, let target):
+            model.query = ""
+            model.assistant?.command(text, selected: target)
+        case .followUp(let follow):
+            model.query = ""
+            model.assistant?.followUp(follow)
+        default:
+            break
         }
     }
 
@@ -748,4 +781,27 @@ final class CaptureHostingView: NSHostingView<QuickCaptureView> {
         onContentHeightChange(height)
         isReporting = false
     }
+}
+
+/// 첫 메모 뒤의 한 줄 — 다섯 장 안내 대신 **실제 자기 메모**부터 (인계서 묶음 3 `#first-real-note`).
+///
+/// 처음 켠 사람은 안내서를 읽는 대신 상자에 한 줄 적고, 적힌 뒤에 필요한 조작 하나만 듣는다: 다시 부르는
+/// 단축키. 나머지는 메뉴의 「시작하기 및 사용 안내…」에 그대로 있다. 한 번 보이면 다시 없다 — 이 기기의 일이다.
+enum FirstNote {
+    private static let key = "capture.first-note-hinted"
+
+    /// 아직 안 보였으면 한 줄을 주고 보였다고 적는다. 검증 주행(`LAZYMEMO_*` 환경)에서는 없다 — 첫 실행 창을 안 띄우는
+    /// 것과 같은 규칙(`AppDelegate`)이고, 임시 Vault 로 도는 스크립트가 개발 기계의 표를 먹어 버리지 않게.
+    static func takeHint(
+        defaults: UserDefaults = .standard, shortcut: String = "⌥⌘N",
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> String? {
+        guard !environment.keys.contains(where: { $0.hasPrefix("LAZYMEMO_") }) else { return nil }
+        guard !defaults.bool(forKey: key) else { return nil }
+        defaults.set(true, forKey: key)
+        return L("종이가 바탕화면에 섰어요 · 다시 적을 땐 \(shortcut) · 나머지는 메뉴바 아이콘 → 시작하기 및 사용 안내")
+    }
+
+    /// 시험·검증용 — 다시 보이게.
+    static func reset(defaults: UserDefaults = .standard) { defaults.removeObject(forKey: key) }
 }

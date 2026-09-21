@@ -86,7 +86,8 @@ public struct Evidence: Sendable, Equatable, Identifiable {
         surface = memo.surface
         folder = memo.folder
         if memo.deleted != nil { state = .trashed }
-        else if memo.tidied != nil || Tidy.isFinishedChecklist(memo.body) { state = .done }
+        // 끝낸 것·보관한 것도 비서에게는 「끝난 것」이다 — 물러난 까닭은 달라도 지금 할 일이 아니다 (인계서 §4).
+        else if memo.isPutAway || memo.done != nil || Tidy.isFinishedChecklist(memo.body) { state = .done }
         else { state = .active }
         url = nil
         title = nil

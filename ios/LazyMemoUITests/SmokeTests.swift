@@ -252,27 +252,33 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(chip.exists, "자리가 칩으로 물려야 한다 — 시뮬레이터에 위치가 없으면 「위치를 못 잡았습니다」가 뜬다")
     }
 
-    // MARK: 첫 실행 — 안내가 뜨고, 닫히면 그제야 펜이 올라온다
+    // MARK: 첫 실행 — 안내 대신 펜이 바로 서고, 첫 메모 뒤에 필요한 조작 하나만 듣는다 (인계서 묶음 3)
 
-    func testFirstLaunchShowsTutorialThenThePen() throws {
+    func testFirstLaunchStartsWithThePenAndHintsOnce() throws {
         let app = launch(tutorialSeen: false)
-        XCTAssertTrue(app.buttons["tutorial-next"].waitForExistence(timeout: 10), "첫 실행에 안내가 떠야 한다")
-        XCTAssertEqual(app.keyboards.count, 0, "안내 위로 키보드가 오르면 안 된다")
+        XCTAssertFalse(app.buttons["tutorial-next"].waitForExistence(timeout: 3), "첫 실행에 안내가 뜨면 안 된다 — 바로 적는다")
+        let capture = app.descendants(matching: .any)["capture"]
+        XCTAssertTrue(capture.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "처음부터 펜이 올라와 있어야 한다")
 
-        for _ in 0..<4 { app.buttons["tutorial-next"].tap() }   // 다섯 장 — 넷을 넘기면 마지막
-        let done = app.buttons["tutorial-done"]
-        XCTAssertTrue(done.waitForExistence(timeout: 3), "마지막 장은 「시작하기」여야 한다")
-        done.tap()
+        capture.typeText("우유 사기")
+        app.buttons["leave"].tap()
+        XCTAssertTrue(row(in: app, startingWith: "우유 사기").waitForExistence(timeout: 5), "첫 메모가 목록에 서야 한다")
+        let hint = app.descendants(matching: .any)["first-note-hint"]
+        XCTAssertTrue(hint.waitForExistence(timeout: 3), "첫 메모 뒤에 한 줄이 서야 한다")
+        try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/lazymemo-first-note.png"))
 
-        XCTAssertFalse(app.buttons["tutorial-done"].waitForExistence(timeout: 1), "닫혀야 한다")
-        let keyboard = app.keyboards.firstMatch
-        XCTAssertTrue(keyboard.waitForExistence(timeout: 5), "안내가 닫히면 펜이 올라와야 한다")
+        // 두 번째 메모에는 없다.
+        capture.typeText("계란도")
+        app.buttons["leave"].tap()
+        XCTAssertTrue(row(in: app, startingWith: "계란도").waitForExistence(timeout: 5))
+        XCTAssertFalse(hint.waitForExistence(timeout: 1), "한 줄은 한 번뿐이다")
 
-        // More 메뉴에서 다시 볼 수 있다.
+        // More 메뉴에서 다섯 장 안내를 볼 수 있다.
         dismissKeyboard(app)
         app.buttons["more"].tap()
         app.buttons["tutorial-button"].tap()
-        XCTAssertTrue(app.buttons["tutorial-skip"].waitForExistence(timeout: 3), "「사용법」으로 다시 열려야 한다")
+        XCTAssertTrue(app.buttons["tutorial-skip"].waitForExistence(timeout: 3), "「사용법」으로 열려야 한다")
         app.buttons["tutorial-skip"].tap()
     }
 
@@ -402,6 +408,61 @@ final class SmokeTests: XCTestCase {
     }
 
     /// 맥이 붙인 그대로 — `attachments/<ulid>.png` 와 본문의 `![](…)`.
+    // MARK: 완료·보관·놓친 것 — 「지금」 세 장이 전부가 아니고, 끝내기는 파일에 적히며, 보관은 목록에서만 빠진다 (인계서 묶음 4)
+
+    func testMissedSummaryDoneAndArchive() throws {
+        // 어제 다시 보기로 한 글 하나 — 안 봤고 안 끝냈으니 「놓친 것」이다.
+        let notes = root.appending(path: "vault/notes/2026/09", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: notes, withIntermediateDirectories: true)
+        let clock = Date.ISO8601FormatStyle(timeZone: .current)
+        let yesterday9 = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Calendar.current.date(byAdding: .day, value: -1, to: Date())!)!
+        let missedID = Self.ulid(day: 12, tail: "M1")
+        try "---\nid: \(missedID)\ncreated: 2026-09-12T10:00:00+09:00\nupdated: 2026-09-12T10:00:00+09:00\nsurface: \(yesterday9.formatted(clock))\ntags: []\ncolor: yellow\npinned: false\n---\n읽을 글 — 게으른 사람의 메모\n"
+            .write(to: notes.appending(path: missedID + ".md"), atomically: true, encoding: .utf8)
+        let plainID = Self.ulid(day: 13, tail: "P1")
+        try "---\nid: \(plainID)\ncreated: 2026-09-13T10:00:00+09:00\nupdated: 2026-09-13T10:00:00+09:00\ntags: []\ncolor: yellow\npinned: false\n---\n비밀번호 힌트\n"
+            .write(to: notes.appending(path: plainID + ".md"), atomically: true, encoding: .utf8)
+
+        let app = launch()
+        let summary = app.descendants(matching: .any)["recall-summary"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 10), "놓친 것이 있으면 요약 줄이 서야 한다")
+        XCTAssertTrue(summary.label.contains("놓친 1"), "요약: \(summary.label)")
+        dismissKeyboard(app)
+
+        // 전체로 — 놓친 것 아래 그 글이 있고, 길게 눌러 「완료」.
+        summary.tap()
+        let missedRow = app.descendants(matching: .any)["unfinished-missed"].firstMatch
+        XCTAssertTrue(missedRow.waitForExistence(timeout: 5), "전체에 놓친 것이 서야 한다")
+        missedRow.press(forDuration: 1.0)
+        let done = app.buttons["완료"]
+        XCTAssertTrue(done.waitForExistence(timeout: 3), "놓친 것에는 「완료」가 있어야 한다")
+        done.tap()
+        app.buttons["닫기"].firstMatch.tap()
+
+        // 파일에 적혔고, 요약에서 빠졌고, 줄은 완료로 남아 있다 (사흘 뒤 물러난다).
+        let text = try String(contentsOf: notes.appending(path: missedID + ".md"), encoding: .utf8)
+        XCTAssertTrue(text.contains("\ndone: "), "완료가 파일에 없다: \(text)")
+        XCTAssertFalse(summary.waitForExistence(timeout: 2), "놓친 것이 없어지면 요약도 없다")
+        XCTAssertTrue(row(in: app, startingWith: "읽을 글").waitForExistence(timeout: 3), "끝낸 줄은 바로 사라지지 않는다")
+
+        // 그냥 글에는 「완료」가 없고 「보관」은 있다 — 보관하면 목록에서 빠지고 더 보기에 「보관 1장」.
+        let plain = row(in: app, startingWith: "비밀번호 힌트")
+        XCTAssertTrue(plain.waitForExistence(timeout: 3))
+        plain.press(forDuration: 1.0)
+        XCTAssertTrue(app.buttons["보관"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["완료"].exists, "그냥 글에 완료 단추는 없다")
+        app.buttons["보관"].tap()
+        XCTAssertFalse(plain.waitForExistence(timeout: 2), "보관한 것은 목록에서 빠진다")
+        app.buttons["more"].tap()
+        let archived = app.buttons["archived-button"]
+        XCTAssertTrue(archived.waitForExistence(timeout: 3), "더 보기에 보관이 서야 한다")
+        archived.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["archived-row"].firstMatch.waitForExistence(timeout: 5), "보관 목록에 그 글이 있어야 한다")
+        try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/lazymemo-archived.png"))
+        let plainText = try String(contentsOf: notes.appending(path: plainID + ".md"), encoding: .utf8)
+        XCTAssertTrue(plainText.contains("\narchived: "), "보관이 파일에 없다: \(plainText)")
+    }
+
     private func seedPhoto() throws {
         let attachments = root.appending(path: "vault/attachments", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: attachments, withIntermediateDirectories: true)
@@ -533,9 +594,10 @@ final class SmokeTests: XCTestCase {
         XCTAssertEqual(toggle.value as? String, "0", "첫 실행에는 꺼져 있어야 한다")
     }
 
-    // MARK: 가는 길 — 지도 링크가 든 약속을 남기면 펜이 「어디서 출발하시나요?」를 세운다
+    // MARK: 가는 길 — 지도 링크가 든 약속을 남기면 펜이 「가는 길」을 **권하고**, 누르면 「어디서 출발하시나요?」를 세운다
+    // (인계서 묶음 3 — 저장 뒤의 되물음은 선택 행동이다. 다음에 치는 글은 새 메모다.)
 
-    func testAppointmentWithMapLinkAsksWhereToLeaveFrom() throws {
+    func testAppointmentWithMapLinkOffersTheWay() throws {
         let app = launch()
         let capture = app.descendants(matching: .any)["capture"]
         XCTAssertTrue(capture.waitForExistence(timeout: 10))
@@ -545,8 +607,16 @@ final class SmokeTests: XCTestCase {
         XCTAssertEqual(leave.label, "달력에 남기기")
         leave.tap()
 
+        // 묻지 않는다 — 결과 줄이 「가는 길」을 권할 뿐이고, 단추는 다음 메모를 위해 「메모 남기기」로 돌아와 있다.
+        let offer = app.descendants(matching: .any)["offer-route"]
+        XCTAssertTrue(offer.waitForExistence(timeout: 5), "약속을 남기면 결과 줄이 가는 길을 권해야 한다")
+        try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/lazymemo-route-offer.png"))
+        XCTAssertFalse(app.staticTexts["어디서 출발하시나요?"].exists, "누르기 전에는 묻지 않는다")
+        XCTAssertEqual(leave.label, "메모 남기기", "펜은 다음 글을 받는다")
+        offer.tap()
+
         let question = app.descendants(matching: .any)["route-question"]
-        XCTAssertTrue(question.waitForExistence(timeout: 5), "약속을 남기면 출발지를 물어야 한다")
+        XCTAssertTrue(question.waitForExistence(timeout: 5), "「가는 길」을 누르면 출발지를 물어야 한다")
         XCTAssertTrue(app.staticTexts["어디서 출발하시나요?"].exists)
         XCTAssertEqual(leave.label, "답하기", "답을 기다리는 동안 단추는 「답하기」")
         try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/lazymemo-route-question.png"))
@@ -561,9 +631,9 @@ final class SmokeTests: XCTestCase {
         XCTAssertFalse(text.contains("## 가는 길"), "됐어 뒤에 길이 적히면 안 된다")
     }
 
-    // MARK: 공유 시트가 남긴 질문 — 앱을 열면 펜이 「어디서 출발하시나요?」를 세운다
+    // MARK: 공유 시트가 남긴 질문 — 앱을 열면 펜이 「가는 길」을 권하고, 누르면 「어디서 출발하시나요?」를 세운다
 
-    func testShareLeftQuestionIsAskedOnLaunch() throws {
+    func testShareLeftQuestionIsOfferedOnLaunch() throws {
         try seed()
         // 공유 시트가 떨군 약속 메모(자리 있음, 앞으로 올 시각)와 앱 그룹의 표.
         let notes = root.appending(path: "vault/notes/2026/09", directoryHint: .isDirectory)
@@ -579,11 +649,15 @@ final class SmokeTests: XCTestCase {
         try "[\"\(id)\"]".write(to: group.appending(path: "route-ask.json"), atomically: true, encoding: .utf8)
 
         let app = launch(group: group)
-        let question = app.descendants(matching: .any)["route-question"]
-        if !question.waitForExistence(timeout: 10) {
+        let offer = app.descendants(matching: .any)["offer-route"]
+        if !offer.waitForExistence(timeout: 10) {
             try? app.screenshot().pngRepresentation.write(to: URL(filePath: "/tmp/lazymemo-route-ask-fail.png"))
-            XCTFail("앱을 열면 펜이 출발지를 물어야 한다")
+            XCTFail("앱을 열면 펜이 가는 길을 권해야 한다")
         }
+        XCTAssertFalse(app.staticTexts["어디서 출발하시나요?"].exists, "누르기 전에는 묻지 않는다")
+        offer.tap()
+        let question = app.descendants(matching: .any)["route-question"]
+        XCTAssertTrue(question.waitForExistence(timeout: 5), "「가는 길」을 누르면 출발지를 물어야 한다")
         XCTAssertTrue(app.staticTexts["어디서 출발하시나요?"].exists)
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "광주종합버스터미널")).firstMatch.exists, "어느 약속인지 한 줄이 있어야 한다")
         XCTAssertFalse(FileManager.default.fileExists(atPath: group.appending(path: "route-ask.json").path(percentEncoded: false)), "거둔 표는 비워야 한다")
@@ -598,6 +672,8 @@ final class SmokeTests: XCTestCase {
         capture.tap()
         capture.typeText("https://naver.me/GFB1MHiW 다음주 금요일 오후 6시반에 밥약속")
         app.buttons["leave"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["offer-route"].waitForExistence(timeout: 5))
+        app.descendants(matching: .any)["offer-route"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["route-question"].waitForExistence(timeout: 5))
 
         capture.typeText("석촌고분역")
@@ -688,6 +764,52 @@ final class SmokeTests: XCTestCase {
         paper.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: 38, dy: 34)).tap()
         let back = try waitForFile(containing: "- [ ] 우유")
         XCTAssertTrue(back.contains("- [ ] 우유"), "도로 빈 상자가 되지 않았다: \(back)")
+    }
+
+
+    // MARK: 달력 — 넘겨도 한 물건이다
+
+    /// 달 넘김의 세 길(손짓·화살표·「오늘」)과 넘긴 뒤의 칸 누름. 이 자리는 두 번 걸렸다(9/17 판마다
+    /// 서식, 9/22 정본이 바뀌는 프레임의 뜀) — 판의 정체성을 옮기는 구조라 넘긴 뒤 칸이 손에 안
+    /// 잡히는 것이 가장 쉬운 회귀다. 옆 판의 「15일」은 숨겨도 XCUITest 는 세므로 첫 짝의 hittable 로 본다.
+    func testCalendarSwipeTurnsTheMonth() throws {
+        try seed()
+        let app = launch()
+        XCTAssertTrue(app.descendants(matching: .any)["capture"].waitForExistence(timeout: 10))
+        dismissKeyboard(app)
+        let calendarTab = app.tabBars.buttons["달력"]
+        XCTAssertTrue(calendarTab.waitForExistence(timeout: 3))
+        calendarTab.tap()
+        XCTAssertTrue(app.staticTexts["9월"].waitForExistence(timeout: 5))
+        func flick(_ dir: CGFloat) {
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5 - 0.35 * dir, dy: 0.30))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5 + 0.35 * dir, dy: 0.30))
+            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .fast, thenHoldForDuration: 0.0)
+        }
+        func fifteen() -> XCUIElement { app.buttons.matching(NSPredicate(format: "label BEGINSWITH '15일'")).firstMatch }
+        // 왼쪽 튕김 → 다음 달, 칸은 손에 잡힌다
+        flick(-1)
+        XCTAssertTrue(app.staticTexts["10월"].waitForExistence(timeout: 3), "왼쪽 튕김이 10월로 안 갔다")
+        sleep(1)
+        XCTAssertTrue(fifteen().isHittable, "넘긴 뒤 「15일」의 첫 짝이 화면 밖이다 \(fifteen().frame)")
+        // 오른쪽 두 번 → 지난달
+        flick(1); sleep(1); flick(1)
+        XCTAssertTrue(app.staticTexts["8월"].waitForExistence(timeout: 3), "오른쪽 두 번이 8월로 안 갔다")
+        sleep(1)
+        // 오늘 → 9월, 화살표 → 10월
+        app.buttons["오늘"].tap()
+        XCTAssertTrue(app.staticTexts["9월"].waitForExistence(timeout: 3), "오늘이 9월로 안 갔다")
+        sleep(1)
+        app.buttons["다음달"].tap()
+        XCTAssertTrue(app.staticTexts["10월"].waitForExistence(timeout: 3), "화살표가 10월로 안 갔다")
+        sleep(1)
+        // 넘긴 뒤 칸 누르기 → 목록 머리가 그 날
+        fifteen().tap()
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH '10월 15일'")).firstMatch.waitForExistence(timeout: 3), "넘긴 뒤 칸이 안 눌린다")
+        // 이웃 달 칸(10월 첫 줄의 9월 27일) → 9월로 돌아오며 그 날이 골라진다
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH '27일'")).firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["9월"].waitForExistence(timeout: 3), "이웃 달 칸이 9월로 안 갔다")
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH '9월 27일'")).firstMatch.waitForExistence(timeout: 3), "고른 날이 목록 머리에 없다")
     }
 
     private func launch(tutorialSeen: Bool = true, group: URL? = nil) -> XCUIApplication {

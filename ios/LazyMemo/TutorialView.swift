@@ -1,11 +1,11 @@
 import SwiftUI
 
-/// 첫 실행의 안내 — 다섯 장, 한 장에 한 손짓.
+/// 사용 안내 — 다섯 장, 한 장에 한 손짓.
 ///
-/// 설정 화면이 없는 앱이라 사용법을 둘 곳이 이것뿐이다. 첫 실행에 한 번 뜨고,
-/// 그 뒤로는 More 메뉴의 「사용법」으로만 돌아온다. 안내가 떠 있는 동안은 펜이
-/// 키보드를 올리지 않는다 (`PenModel.holdsLaunchFocus`) — 시트 위로 키보드가
-/// 오르면 안내를 읽을 수 없다. 닫히면 그때 펜이 올라온다.
+/// 설정 화면이 없는 앱이라 사용법을 둘 곳이 이것뿐이다. **첫 실행에 띄우지 않는다** (인계서 묶음 3
+/// `#first-real-note`) — 처음 켠 사람은 펜에 한 줄 적고, 적힌 뒤에 필요한 조작 하나만 듣는다
+/// (`PenModel.finishLeaving`). 이 다섯 장은 More 메뉴의 「사용법」으로 온다. 안내가 떠 있는 동안은 펜이
+/// 키보드를 올리지 않는다 (`PenModel.holdsLaunchFocus`) — 시트 위로 키보드가 오르면 안내를 읽을 수 없다.
 ///
 /// 장마다 **그림이 먼저다** — 앱의 진짜 부품을 작게 그린 것(`TutorialArt`)이라 안내를 닫았을 때
 /// 눈이 이미 아는 것을 만난다. 글은 읽는 사람이 손을 움직일 수 있게 「밀기·길게 누르기·
@@ -23,14 +23,14 @@ struct TutorialView: View {
             lines: [
                 String(localized: "한 줄을 적고 **남기기**. 저장 단추도 제목도 없어요 — 적던 글은 앱을 닫아도 남습니다."),
                 String(localized: "「내일 3시 치과 @강남역」이라고 적으면 날짜·시각·장소가 **칩**으로 먼저 보이고, 단추는 「달력에 남기기」가 됩니다. 칩을 누르면 그 해석만 끕니다."),
-                String(localized: "같은 칸에 치면 **찾습니다** — 「ㅊㄱ」처럼 첫소리만 쳐도 「치과」가 나와요. 「치과 언제였지?」처럼 물으면 메모가 답합니다 — 모델을 한 번 받으면, 전부 이 폰 안에서."),
+                String(localized: "같은 칸에 치면 **찾습니다** — 「ㅊㄱ」처럼 첫소리만 쳐도 「치과」가 나와요. 「치과 언제였지?」처럼 묻고 싶으면 **✦** 를 누르세요 — 메모가 답합니다 (모델을 한 번 받으면, 전부 이 폰 안에서). 남기기는 늘 그대로 적습니다."),
             ]
         ),
         Page(
             art: .now,
             title: String(localized: "「지금」이 오늘을 챙겨요"),
             lines: [
-                String(localized: "목록 위 「**지금**」에 오늘 다시 볼 것·오늘 일정·고정한 메모가 세 장까지 서요 — 다가오는 시각부터. 본 카드는 「봤어요」로 내려놓습니다."),
+                String(localized: "목록 위 「**지금**」에 오늘 다시 볼 것·오늘 일정·고정한 메모가 세 장까지 서요 — 다가오는 시각부터. 본 카드는 「봤어요」로 내려놓고, 끝냈으면 「**완료**」. 그 아래 「놓친 것·오늘·나중에」가 나머지 전부로 가는 길이에요."),
                 String(localized: "편집 화면의 **종 단추**로 「한 시간 뒤」「내일 아침 9시」를 정하면 그때 다시 오릅니다. 일정은 그대로예요."),
                 String(localized: "알림은 **더 보기 → 알림**에서 켤 때만, 이 기기에서만 울립니다. 켜지 않아도 「지금」이 알려 줘요."),
             ]
@@ -39,7 +39,7 @@ struct TutorialView: View {
             art: .gestures,
             title: String(localized: "밀고, 길게 누르고, 흔들기"),
             lines: [
-                String(localized: "줄을 **오른쪽**으로 밀면 고정 — 일정이 있는 줄은 **하루 미루기**가 먼저예요. **왼쪽**으로 끝까지 밀면 지우기."),
+                String(localized: "줄을 **오른쪽**으로 밀면 완료·미루기·고정 — 끝낼 것이 있는 줄은 **완료**가 먼저예요. **왼쪽**으로 밀면 보관, 끝까지 밀면 지우기."),
                 String(localized: "길게 누르면 폴더에 넣기·달력에 놓기. 지운 것은 **휴지통**에 30일 남고, 폰을 흔들면 방금 한 일을 되돌립니다."),
             ]
         ),
@@ -147,10 +147,15 @@ struct TutorialView: View {
     }
 }
 
-/// 「봤다」는 이 기기의 일이다 — iCloud 설정에 두면 맥이 폰의 안내를 끈다.
+/// 「첫 메모의 한 줄을 봤다」는 이 기기의 일이다 — iCloud 설정에 두면 맥이 폰의 것을 끈다.
 /// 시험은 실행 인자 `-tutorialSeen YES/NO` 로 정한다 (`UserDefaults` 의 인자 도메인).
 enum Tutorial {
     private static let key = "tutorialSeen"
-    static var seen: Bool { UserDefaults.standard.bool(forKey: key) }
-    static func markSeen() { UserDefaults.standard.set(true, forKey: key) }
+    /// 이번 실행에서 적은 것 — 실행 인자(`-tutorialSeen NO`)가 저장된 값을 덮는 시험에서도 두 번째 메모엔 없어야 한다.
+    @MainActor private static var markedThisRun = false
+    @MainActor static var seen: Bool { markedThisRun || UserDefaults.standard.bool(forKey: key) }
+    @MainActor static func markSeen() {
+        markedThisRun = true
+        UserDefaults.standard.set(true, forKey: key)
+    }
 }

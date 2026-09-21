@@ -21,6 +21,9 @@ import Observation
 final class QuickCaptureModel {
     var query: String = "" {
         didSet {
+            // 고쳐 적기 시작했으면 지난 실패의 줄은 걷는다 — 새 글이 새 시도다. 방금 남긴 것의 결과 카드도 물러난다.
+            if query != oldValue { saveTrouble = nil }
+            if !query.isEmpty { left = nil }
             // 날짜 인식은 로컬 문자열 처리라 즉시 한다. 타자마다 칩이 따라와야
             // 사용자가 "아, 얘가 읽고 있구나" 를 알 수 있다.
             schedule = NaturalDateParser.parse(query)
@@ -165,10 +168,10 @@ final class QuickCaptureModel {
         } else if let receipt = assistant.receipt {
             // 바꾼 메모가 목록에 있다 — 새 값으로 다시 그린다.
             Task { await refreshListing() }
-            // 비서가 만든 약속 메모도 같은 되물음을 받는다 — 「메모 만들어」로 적었든 서술로 적었든.
+            // 비서가 만든 약속 메모도 같은 결과 카드를 받는다 — 묻지 않고 권한다.
             if receipt.kind == .createMemo, receipt.id != routedReceipt {
                 routedReceipt = receipt.id
-                planner?.begin(receipt.after)
+                offerRoute(for: receipt.after)
             }
         }
     }
@@ -205,8 +208,66 @@ final class QuickCaptureModel {
     var isAsking: Bool { pending != nil || planner?.isActive == true }
     /// 「이 메모에게 시키기…」로 열렸을 때 — 그 메모가 「이거」다. 닫으면 놓는다.
     var target: ULID?
-    /// 되물음 뒤에 기다리는 새 메모 — 「약속 시간이 언제인가요?」의 답을 이것에 잇는다.
-    private(set) var pending: (question: String, draft: FieldPatch)?
+    /// 되물음 뒤에 기다리는 초안 — 「약속 시간이 언제인가요?」의 답을 이것에 잇는다. `memo` 가 있으면 **이미 적힌
+    /// 그 메모**의 시각을 정하는 것이다 (결과 카드의 「시각 정하기」) — 새 메모를 만들지 않는다.
+    private(set) var pending: (question: String, draft: FieldPatch, memo: ULID?)?
+
+    /// 방금 남긴 메모의 **결과 카드** (인계서 묶음 3 `#nonblocking-followups`).
+    ///
+    /// 앞선 판은 약속을 적으면 상자가 「어디서 출발하시나요?」「약속 시간이 언제인가요?」를 세우고 **다음에 치는
+    /// 글을 그 답으로 먹었다.** 「우유 사기」를 이어 적으면 출발지가 됐다. 이제 저장은 끝났고 상자는 다음 글을
+    /// 받는다 — 길찾기·시각은 이 카드의 **선택** 행동이고, 누르면 그때 되물음이 선다. 첫 글자에 물러난다.
+    struct Left: Equatable {
+        let memo: Memo
+        /// 날짜만 있는 약속 — 시각을 정할 수 있다.
+        let offersTime: Bool
+        /// 자리가 있는 앞으로 올 약속 — 가는 길을 물을 수 있다.
+        let offersRoute: Bool
+        /// 첫 메모 뒤의 한 줄 — 필요한 조작 하나만 (`#first-real-note`). 그 뒤로는 없다.
+        var hint: String?
+        var offersAnything: Bool { offersTime || offersRoute || hint != nil }
+    }
+    private(set) var left: Left?
+
+    /// 방금 남긴 메모를 결과 카드로 세운다. 권할 것이 없으면 세우지 않는다 (상자는 닫힌다).
+    /// - Returns: 카드가 섰는가.
+    @discardableResult
+    func show(left memo: Memo, hint: String? = nil) -> Bool {
+        let card = Left(
+            memo: memo,
+            offersTime: memo.due != nil && memo.at == nil,
+            offersRoute: planner != nil && RoutePlanner.applies(memo),
+            hint: hint
+        )
+        left = card.offersAnything ? card : nil
+        return left != nil
+    }
+
+    /// 결과 카드의 「시각 정하기」 — 그 메모의 시각을 묻는 되물음이 선다. 사람이 직접 연 되물음이라 다음 글은 그 답이다.
+    func offerTime() {
+        guard let left, left.offersTime, let due = left.memo.due else { return }
+        pending = (
+            L("약속 시간이 언제인가요?"),
+            FieldPatch(body: left.memo.body, due: .set(due), place: left.memo.place, geo: left.memo.geo),
+            left.memo.id
+        )
+        self.left = nil
+    }
+
+    /// 결과 카드의 「가는 길 찾기」 — 「어디서 출발하시나요?」가 선다.
+    func offerRoute() {
+        guard let left, left.offersRoute else { return }
+        self.left = nil
+        planner?.begin(left.memo)
+    }
+
+    func dismissLeft() { left = nil }
+
+    /// 밖에서 온 약속 메모(공유 시트·인텐트·비서)의 가는 길 — **묻지 않고 권한다.** 카드가 서고 상자는 비어 있다.
+    func offerRoute(for memo: Memo) {
+        guard planner?.isActive != true, pending == nil else { return }
+        show(left: memo)
+    }
 
     /// 답을 기다리는 동안 상자 안에 서는 질문. 없으면 nil.
     var pendingQuestion: String? { pending?.question }
@@ -237,9 +298,11 @@ final class QuickCaptureModel {
     }
 
     /// esc 로 닫을 때 — 초안을 시각 없이 그대로 적는다 (설계 D12: 이미 ⌘⏎ 로 «적어라» 했다).
+    /// 이미 적힌 메모의 시각을 묻던 중이면 적을 것이 없다 — 그 메모는 날짜만 든 채 그대로다.
     func takePendingDraft() -> FieldPatch? {
         defer { pending = nil }
-        return pending?.draft
+        guard let pending, pending.memo == nil else { return nil }
+        return pending.draft
     }
 
     /// 되묻기의 선택지 — 글자를 안 쳐도 되게 (Entering data «offer choices»). 마지막은 시각 없이.
@@ -278,10 +341,19 @@ final class QuickCaptureModel {
         if text.isEmpty, assistant?.offersWeb != nil { return .web }
         guard !text.isEmpty else { return .nothing }
         if let follow = webFollowUp(text) { return .followUp(follow) }
-        if AssistantIntent.wantsWeb(text) { return .web }
-        if AssistantIntent.hasCommandVerb(text) { return .command }
-        if target == nil, AssistantIntent.isQuestion(text) { return .ask }
+        if target != nil { return .command }
+        // 물음표·「알림」·「폴더」가 들어 있어도 **적는 말이다** — 비서에게는 ⌥⌘⏎ / ✦ 로만 (`askIntent`).
         return schedule == nil ? .memo : .calendar
+    }
+
+    /// ⌥⌘⏎ / ✦ 가 할 일 — 비서에게. 글이 없으면 `nil` (누를 것이 없다).
+    var askIntent: Intent? {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard assistant != nil, !isAsking, !text.isEmpty else { return nil }
+        if let follow = webFollowUp(text) { return .followUp(follow) }
+        if AssistantIntent.wantsWeb(text) { return .web }
+        if target != nil || AssistantIntent.hasCommandVerb(text) { return .command }
+        return .ask
     }
 
     /// 웹의 답이 서 있을 때의 「메모해」— 그 답을 어떻게 할지 말한 것이다. 답이 없으면 평소의 말이다.
@@ -334,6 +406,29 @@ final class QuickCaptureModel {
 
     /// 기다릴 수 없을 때(상자를 닫을 때, 앱이 끝날 때) 초안을 즉시 적는다.
     func flushDraft() { draft?.flush() }
+
+    /// 초안을 기기에 못 남기고 있다 — 「껐다 켜도 남는다」가 지금은 거짓이라는 뜻이라 상자가 적는다.
+    /// 기계의 말은 도움말로만 (`CaptureDraftStore.trouble`).
+    var draftTrouble: String? { draft?.trouble }
+    /// 초안을 다시 적어 본다 — 상자의 「다시 시도」.
+    func retryDraft() { draft?.retry() }
+
+    /// 방금 적기가 실패했다 — 글은 그대로 상자에 있고, 이 줄이 그 까닭을 적는다. 다음 확정이나 글 고침에 걷힌다.
+    private(set) var saveTrouble: MemoStore.Trouble?
+
+    /// 적기 하나를 저장소에 맡기고 결과를 들고 온다. **실패하면 글을 지우지 않는다** — 상자는 열린 채
+    /// 그 글을 들고 있고, 사람은 다시 ⌘⏎ 를 누르거나 고쳐 적는다. 실패를 조용히 삼키면 「적었는데
+    /// 없다」가 되고, 그 한 번이 저장 버튼 없는 앱의 신뢰를 끝낸다.
+    func save(_ work: () async throws -> Memo) async -> Memo? {
+        do {
+            let memo = try await work()
+            saveTrouble = nil
+            return memo
+        } catch {
+            saveTrouble = store.trouble ?? MemoStore.Trouble(doing: L("메모를 저장하지 못했습니다"), detail: "\(error)")
+            return nil
+        }
+    }
 
     /// 적은 것을 지우고 처음으로 되돌린다. **확정한 뒤에만 부른다.**
     func clear() {
@@ -627,8 +722,8 @@ final class QuickCaptureModel {
         case create(Draft)
         /// 비서의 파서가 읽은 새 메모 — 날짜·시각·자리·좌표까지.
         case compose(FieldPatch)
-        /// 약속인데 시각이 없다. 상자는 닫히지 않고 이 질문을 세운 채 답을 기다린다.
-        case askTime(String)
+        /// 결과 카드의 「시각 정하기」에 온 답 — 이미 적힌 그 메모의 시각.
+        case setTime(ULID, Date)
         /// 물음 — 비서가 메모에서 찾아 답한다.
         case ask(String)
         /// 웹에서 찾기 — 「웹에서 …」라 했거나, 메모에서 못 찾은 물음을 빈 상자의 ⌘↵ 로 다시.
@@ -644,12 +739,18 @@ final class QuickCaptureModel {
         case nothing
     }
 
-    /// ⌘⏎ 가 할 일. **모드가 없다** — 글이 무엇인지를 앱이 가린다:
-    /// 되물음의 답 → 고른 줄 열기(시키는 말이면 그 줄에 적용) → 시키는 말 → 물음 → 날짜·자리 든 서술 → 그냥 글.
+    /// ⌘⏎ 가 할 일 — **기본은 적기다** (인계서 묶음 3 `#capture-always-saves`).
+    ///
+    /// 앞선 판은 글이 무엇인지를 앱이 가렸다: 물음표가 있으면 비서에게, 「알림」「폴더」가 들어 있으면 시키는 말로.
+    /// 그러면 「왜 고객이 이탈할까?」「알림 문구 아이디어」「폴더 구조 초안」이 메모가 되지 않았다 — 적으려던 사람이
+    /// 답이나 되물음을 받았고, 모델이 없는 기계에서는 아무것도 남지 않았다. 이제 ⌘⏎ 는 적는다. 비서에게는
+    /// ⌥⌘⏎ / ✦ 로 **직접** 보낸다 (`commitAsk`). 사람이 이미 비서와 이야기 중인 것만 예외다 — 「이 메모에게」로
+    /// 연 상자, 웹의 답 뒤의 「메모해」, 못 찾은 뒤의 빈 ⌘⏎, 결과 카드에서 직접 연 되물음(시각·가는 길).
+    /// 고른 줄(↑↓)은 명시적이라 그대로 연다 — 고르지 않은 결과가 저장을 가로채지 않는다.
     func commit() -> Commit {
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // 가는 길을 묻는 중 — 무슨 말이든 그 답이다 (「됐어」는 물러나는 답).
+        // 가는 길을 묻는 중 — 사람이 결과 카드에서 직접 연 되물음이라 무슨 말이든 그 답이다 (「됐어」는 물러나는 답).
         if let planner {
             planner.acknowledge()
             if planner.isWaiting { return text.isEmpty ? .nothing : .routeReply(text) }
@@ -659,6 +760,11 @@ final class QuickCaptureModel {
         if let pending {
             if !text.isEmpty, let done = AssistantIntent.complete(draft: pending.draft, reply: text) {
                 self.pending = nil
+                if let id = pending.memo {
+                    // 이미 적힌 메모의 시각 — 답이 「시각 없이」면 그대로 둔다.
+                    if case .set(let at) = done.patch.at { return .setTime(id, at) }
+                    return .nothing
+                }
                 return .compose(done.patch)
             }
             // 답이 아니면 새 말이다. 초안은 놓는다 — 사람이 딴 얘기를 시작했다.
@@ -675,18 +781,31 @@ final class QuickCaptureModel {
         if text.isEmpty, let question = assistant?.offersWeb { return .searchWeb(question) }
         guard !text.isEmpty else { return .nothing }
         if let follow = webFollowUp(text) { return .followUp(follow) }
+        if let target { return .command(text, target: target) }
+        return save(text)
+    }
+
+    /// ⌥⌘⏎ / ✦ — 비서에게. 물음이면 메모가 답하고, 시키는 말이면 시키고, 「웹에서 …」면 웹.
+    /// 고른 줄이 있으면 그 줄에게. 비서가 없으면 아무 일도 없다.
+    func commitAsk() -> Commit {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard assistant != nil, !isAsking else { return .nothing }
+        if text.isEmpty { return assistant?.offersWeb.map { .searchWeb($0) } ?? .nothing }
+        if let follow = webFollowUp(text) { return .followUp(follow) }
         if AssistantIntent.wantsWeb(text) { return .searchWeb(text) }
-        if AssistantIntent.hasCommandVerb(text) { return .command(text, target: target) }
-        if target == nil, AssistantIntent.isQuestion(text) { return .ask(text) }
+        let picked = selection.flatMap { listed[safe: $0]?.id }
+        if let who = target ?? picked { return .command(text, target: who) }
+        if AssistantIntent.hasCommandVerb(text) { return .command(text, target: nil) }
+        return .ask(text)
+    }
+
+    /// 글을 그대로 적는 갈래 — 날짜·시각·자리·좌표는 읽되 **묻지 않는다.** 약속인데 시각이 없으면 날짜만으로
+    /// 적고, 결과 카드가 「시각 정하기」를 든다. 모델 없이 도는 길이다.
+    private func save(_ text: String) -> Commit {
         if let composed = AssistantIntent.compose(text) {
-            if composed.kind == .ask, let draft = composed.draft {
-                let question = composed.question ?? L("약속 시간이 언제인가요?")
-                pending = (question, draft)
-                return .askTime(question)
-            }
+            if composed.kind == .ask, let draft = composed.draft { return .compose(draft) }
             return .compose(composed.patch)
         }
-
         guard let schedule else {
             return .create(Draft(text: text, due: nil, at: nil))
         }

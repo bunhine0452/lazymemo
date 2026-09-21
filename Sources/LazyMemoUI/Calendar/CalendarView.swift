@@ -1,4 +1,5 @@
 import LazyMemoCore
+import LazyMemoReminders
 import SwiftUI
 
 /// 달력과 선택한 날의 일정을 함께 보여 준다.
@@ -524,6 +525,26 @@ struct CalendarView: View {
                     .truncationMode(.tail)
                     .layoutPriority(-1)
             }
+            // 끝낸 것은 그렇다고 적는다 — 줄은 남는다 (끝낸 순간 사라지면 사고). 사흘 뒤 규칙이 물러나게 한다.
+            if memo.done != nil {
+                Text("· " + L("완료"))
+                    .font(Theme.micro)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .layoutPriority(-1)
+                    .accessibilityIdentifier("done-mark")
+            }
+            // 알림의 영수증 — 시각이 적힌 것에만, **이 기기에서 확인한 사실**만 (`ReservationReceipt`).
+            // 적은 직후 달력이 잠깐 앞으로 나오는 그 순간 이 꼬리가 「이 Mac 에 걸렸다/안 걸렸다」를 말한다.
+            if let receipt = reminderReceipt(memo), let mark = receipt.mark {
+                Text("· " + mark)
+                    .font(Theme.micro)
+                    .foregroundStyle(receipt == .failed ? .orange : .secondary)
+                    .lineLimit(1)
+                    .layoutPriority(-1)
+                    .help(receipt.line() ?? mark)
+                    .accessibilityIdentifier("reminder-mark")
+            }
 
             Spacer(minLength: Theme.tight)
         }
@@ -573,6 +594,8 @@ struct CalendarView: View {
         // (하루 미루는 것과 달력에서 내려보내는 것). 종이의 캡슐과 달리
         // 이쪽은 폭 예산이 없으므로 넉넉히 벌린다.
         HStack(spacing: NoteControlLayout.spacing) {
+            // 끝낼 것이 있는 줄에만 「완료」— 그냥 글에 완료 단추는 없다 (`Memo.isActionable`). 끝낸 줄은 「되돌리기」.
+            if memo.isActionable || memo.done != nil { doneButton(memo) }
             postponeButton(memo)
             if memo.hasPlace { directionsButton(memo) }
             detachButton(memo)
@@ -608,6 +631,26 @@ struct CalendarView: View {
         .foregroundStyle(.secondary)
         // 누르기 **전에** 어디로 가는지 말해 준다.
         .spoken(model.postponeTarget(memo).map { L("미루기 — \(dayText($0))로 미룹니다") } ?? L("미루기 — 하루 미룹니다"))
+    }
+
+    /// 끝내기 — **사람의 뜻**을 적는 단추다 (인계서 §4). 날짜가 지났다고, 다 체크했다고 앱이 대신 끝내지 않는다.
+    /// 끝낸 줄에서는 「되돌리기」로 바뀐다 — 잘못 누른 것을 되돌리는 길이 같은 자리에 있어야 한다.
+    ///
+    /// **낱말이 아니라 표 하나다** — 이 줄에서 낱말을 쓸 수 있는 것은 둘(미루기·종이로)까지고, 셋째부터는
+    /// 그림이어야 한다 (`directionsButton` 과 같은 규칙). 낱말로 두었더니 캡슐이 넘쳐 「···」로 잘렸다.
+    private func doneButton(_ memo: Memo) -> some View {
+        let finished = memo.done != nil
+        return Button {
+            Task { await model.toggleDone(memo) }
+        } label: {
+            Image(systemName: finished ? "arrow.uturn.backward" : "checkmark")
+                .font(.system(size: 11.5, weight: .semibold))
+                .hitTarget()
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(finished ? .secondary : Theme.accentInk)
+        .accessibilityIdentifier(finished ? "undo-done" : "done")
+        .spoken(finished ? L("되돌리기 — 완료를 취소합니다") : L("완료 — 끝냈다고 적습니다. 알림에서 빠지고 사흘 뒤 물러납니다"))
     }
 
     /// 길찾기 — 장소가 적힌 줄에만 나타난다.
@@ -906,6 +949,13 @@ struct CalendarView: View {
     private func clockLabel(_ memo: Memo) -> String {
         guard let at = memo.at else { return "" }
         return clockLabel(at)
+    }
+
+    /// 이 줄의 알림 영수증. 시각이 없거나 번들 밖(렌더·시험)이면 `nil` — 알림 이야기를 꺼내지 않는다.
+    private func reminderReceipt(_ memo: Memo) -> ReservationReceipt? {
+        guard staged == nil, memo.surfacesAt != nil else { return nil }
+        let receipt = ReminderCenter.shared.receipt(for: memo)
+        return receipt == .unavailable ? nil : receipt
     }
 
     private func clockLabel(_ moment: Date) -> String {

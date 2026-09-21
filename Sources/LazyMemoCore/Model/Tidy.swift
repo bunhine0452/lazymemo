@@ -47,31 +47,59 @@ public enum Tidy {
 
     /// 이 메모가 지금 물러나야 하는가. 아니면 `nil`.
     ///
-    /// 손대지 않는 것 셋:
+    /// 손대지 않는 것 넷:
     /// - **고정한 것** — 사람이 "계속 보겠다" 고 정한 것을 규칙이 이길 수 없다.
+    /// - **도로 꺼낸 것**(`kept`) — 치운 것을 사람이 꺼냈으면 그 손이 규칙보다 앞선다.
+    ///   안 그러면 꺼낸 그 날 저녁에 도로 없어지고, 사람 눈에 그것은 고장이다.
     /// - **이미 치운 것** — 두 번 치울 것이 없다.
     /// - **휴지통에 있는 것** — 그쪽은 D6 이 맡는다.
+    ///
+    /// **날짜가 지났다고 끝난 것이 아니다** (인계서 §4). 칸이 남은 목록은 마감이 지나도
+    /// 아직 할 일이고, 미래에 다시 보기로 한 것은 그때까지 살아 있어야 한다 — 지난 일정이라
+    /// 치워 버리면 그 다시 보기의 알림은 걸리지 않고, 「적었는데 없어졌다」가 된다.
     public static func reason(
         for memo: Memo, now: Date = Date(), calendar: Calendar = .current
     ) -> Reason? {
-        guard memo.tidied == nil, memo.deleted == nil, !memo.pinned else { return nil }
+        guard memo.tidied == nil, memo.deleted == nil, memo.archived == nil, !memo.pinned, memo.kept == nil else { return nil }
         // **되풀이하는 일은 지나가지 않는다.** 지난 회차라서 물러나야 할 것처럼
         // 보이지만, 그 자리는 물러남이 아니라 다음 회차로 걸어감이다 (`rolled`).
         // 여기서 치우면 분리수거는 딱 한 번 하고 영영 사라진다.
         guard memo.every == nil else { return nil }
 
-        // 시간이 유일한 구조다 (§14.2) — 날짜가 있으면 그것부터 본다.
-        if let day = memo.scheduledDate(calendar: calendar),
+        // **사람이 끝냈다고 한 것**은 그때부터 사흘 뒤에 물러난다 — 다 체크한 목록과 같은 셈. 끝낸 순간 없어지면 사고다.
+        if let done = memo.done {
+            return now.timeIntervalSince(done) >= finishedGrace ? .finished : nil
+        }
+
+        // **목록은 칸이 말한다** — 마감이 지났어도. 칸이 남았으면 아직 할 일이고(날짜 경과는
+        // 완료가 아니다), 다 체크했으면 마지막으로 손댄 지 사흘 뒤에 물러난다. 지난 마감으로
+        // 먼저 재면 밀린 목록의 마지막 칸을 체크한 그 밤에 사라진다 — 성취가 아니라 사고다.
+        let boxes = MarkdownScanner.checkboxes(in: memo.body)
+        if !boxes.isEmpty {
+            guard boxes.allSatisfy({ $0 }), now.timeIntervalSince(memo.updated) >= finishedGrace else { return nil }
+            return .finished
+        }
+
+        // 칸이 없는 글은 날짜가 말한다 (§14.2 — 시간이 유일한 구조). 다시 볼 날이 따로
+        // 있으면 **둘 중 늦은 날**이 지나야 지난 것이다: 미래에 다시 보기로 했으면 그날까지
+        // 살아 있고, 다시 본 뒤에는 그 날을 기준으로 물러난다.
+        if let day = lastDay(of: memo, calendar: calendar),
            let dayEnded = day.adding(days: 1, calendar: calendar).startOfDay(calendar: calendar),
            now.timeIntervalSince(dayEnded) >= pastGrace {
             return .past
         }
 
-        if isFinishedChecklist(memo.body), now.timeIntervalSince(memo.updated) >= finishedGrace {
-            return .finished
-        }
-
         return nil
+    }
+
+    /// 일정의 마지막 날 — 일정 날과 다시 볼 날 중 늦은 쪽. 일정이 없으면 `nil`.
+    ///
+    /// 다시 볼 시각만 있고 일정이 없는 메모는 그냥 메모다 — 다시 본 뒤에도 날짜 없는 글이고,
+    /// 날짜 없는 글은 사람이 지울 때까지 남는다. 그래서 다시 볼 날은 일정을 **늘릴 뿐** 만들지 않는다.
+    private static func lastDay(of memo: Memo, calendar: Calendar) -> CalendarDate? {
+        guard let scheduled = memo.scheduledDate(calendar: calendar) else { return nil }
+        guard let surface = memo.surface else { return scheduled }
+        return max(scheduled, CalendarDate(surface, calendar: calendar))
     }
 
     /// 되풀이하는 일정이 지났으면 **다음 회차로 걸어간 메모**를, 아니면 `nil`.
@@ -120,8 +148,12 @@ public enum Tidy {
             return nil
         }
 
-        // 걸어간 것은 다시 산 것이다 — 치워 뒀더라도 도로 나온다.
+        // 걸어간 것은 다시 산 것이다 — 치워 뒀더라도 도로 나온다. **이번 회차의 완료는 이번 회차까지다**:
+        // 끝냈다는 표시와 체크한 칸을 비운다. 안 그러면 「매주 분리수거」를 한 번 끝낸 사람의 다음 회차에
+        // 알림이 영영 없다 (인계서 R06).
         moved.tidied = nil
+        moved.done = nil
+        moved.body = Checklist.uncheckingAll(in: memo.body)
         return moved
     }
 

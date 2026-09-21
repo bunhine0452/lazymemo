@@ -334,6 +334,18 @@ final class NoteModel {
         memo = (try? await store.update(memo.id, pinned: !memo.pinned)) ?? memo
     }
 
+    /// 끝냈다 / 되돌린다 — 규칙은 `MemoStore` 에 (인계서 §4). 종이는 그대로 서 있고 꼬리에 「완료」가 붙는다.
+    func toggleDone() async {
+        if memo.done == nil { try? await store.markDone(memo.id) } else { try? await store.markUndone(memo.id) }
+        memo = store.memo(memo.id) ?? memo
+    }
+
+    /// 보관 — 당장 안 볼 기록. 종이는 창 관리자가 거둔다 (`NoteWindowManager.plannedVisibleMemos`).
+    func archive() async {
+        try? await store.archive(memo.id)
+        memo = store.memo(memo.id) ?? memo
+    }
+
     /// 서랍의 폴더 이름들. 창 관리자가 넣어 준다 (`NoteWindowManager.folderNames`).
     var folderNames: () -> [String] = { [] }
 

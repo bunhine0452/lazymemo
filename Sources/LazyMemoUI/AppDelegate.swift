@@ -211,8 +211,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             menuBar.restoreDrawer()
 
             let environment = ProcessInfo.processInfo.environment
+            // 처음 켠 사람은 안내서를 읽는 대신 **바로 적는다** — 상자가 뜨고, 첫 메모 뒤에 필요한 조작 하나만 듣는다
+            // (`FirstNote`, 인계서 묶음 3). 다섯 단계 안내는 메뉴의 「시작하기 및 사용 안내…」로 남는다.
             if firstLaunch && !environment.keys.contains(where: { $0.hasPrefix("LAZYMEMO_") }) {
-                menuBar.showWelcome()
+                menuBar.showCapture()
             }
             if let demo {
                 // 같은 무대에서 영상 대신 정지 장면을 찍을 수도 있다 (`scripts/store-shots.sh`).

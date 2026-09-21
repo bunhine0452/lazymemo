@@ -21,8 +21,8 @@ import LazyMemoCore
 ///   서랍에도 두면 같은 메모가 두 자리에 있게 되고, 그러면 사람은 어느 쪽이
 ///   진짜인지 매번 판단해야 한다.
 /// - **밀어 두었다** — 사람이 ×를 눌렀거나(`layout.json` 의 `hidden`), 규칙이
-///   물러나게 했거나(`Memo.tidied`). 둘은 까닭이 다르지만 **지금 종이가 눈앞에
-///   없다**는 사실은 같고, 사람이 찾을 때 묻는 것도 그 하나다.
+///   물러나게 했거나(`Memo.tidied`), 사람이 보관했거나(`Memo.archived`). 셋은 까닭이
+///   다르지만 **지금 종이가 눈앞에 없다**는 사실은 같고, 사람이 찾을 때 묻는 것도 그 하나다.
 /// - **지워지지 않았다** — 휴지통은 D6 이 맡는다.
 ///
 /// 뷰 밖의 순수 함수인 이유는 `MonthGridGeometry` 와 같다. 이 규칙이 한 칸
@@ -37,7 +37,7 @@ enum DrawerContents {
     static func holds(_ memo: Memo, putAway: Bool) -> Bool {
         guard memo.deleted == nil else { return false }
         guard !memo.isScheduled else { return false }
-        return putAway || memo.tidied != nil
+        return putAway || memo.isPutAway
     }
 
     /// 서랍에 들어 있는 것만 골라 낸다. **차례는 건드리지 않는다** — 들어온

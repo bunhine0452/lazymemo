@@ -317,6 +317,15 @@ struct NoteView: View {
             Button { openAssistant(model.memo.id) } label: { Label(L("이 메모에게 시키기…"), systemImage: "sparkles") }
         }
         Divider()
+        // 끝낼 것이 있는 종이에만 「완료」— 그냥 글에 완료는 없다 (`Memo.isActionable`). 끝낸 종이는 「되돌리기」.
+        // 「보관」은 어느 종이나 — 당장 안 볼 기록. 둘 다 사람의 뜻이라 파일에 적혀 다른 기기도 같은 것을 본다 (인계서 §4).
+        if model.memo.done != nil {
+            Button { Task { await model.toggleDone() } } label: { Label(L("되돌리기"), systemImage: "arrow.uturn.backward") }
+        } else if model.memo.isActionable {
+            Button { Task { await model.toggleDone() } } label: { Label(L("완료"), systemImage: "checkmark") }
+        }
+        Button { Task { await model.archive() } } label: { Label(L("보관"), systemImage: "archivebox") }
+        Divider()
         if model.canTidy {
             Button(L("다듬기")) { Task { await model.tidyWithClaude() } }
         }
@@ -654,6 +663,7 @@ struct NoteView: View {
     private var footer: some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: Theme.tight) {
+                doneMark
                 scheduleMark
                 surfaceMark
                 placeMark
@@ -664,6 +674,7 @@ struct NoteView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: Theme.tight) {
+                    doneMark
                     scheduleMark
                     surfaceMark
                     tagMark
@@ -679,6 +690,20 @@ struct NoteView: View {
             .padding(.bottom, NoteControlLayout.footerTwoLineInset)
         }
         .padding(.horizontal, NoteControlLayout.footerInset)
+    }
+
+    /// 끝낸 종이의 표 — 사람이 그렇다고 했을 때만 (`Memo.done`). 우클릭의 「되돌리기」로 푼다.
+    @ViewBuilder private var doneMark: some View {
+        if model.memo.done != nil {
+            Label {
+                Text(L("완료")).font(Theme.micro).lineLimit(1)
+            } icon: {
+                Image(systemName: "checkmark").font(.system(size: 9))
+            }
+            .foregroundStyle(Paper.fadedInk)
+            .help(L("끝냈다고 적은 종이 — 사흘 뒤 스스로 물러납니다. 우클릭 → 되돌리기"))
+            .accessibilityIdentifier("done-mark")
+        }
     }
 
     /// 날짜는 **적힌 것이자 누를 수 있는 것**이다. 이 메모가 달력의 어느 칸에

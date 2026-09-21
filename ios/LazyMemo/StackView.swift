@@ -28,6 +28,9 @@ struct StackView: View {
     @State private var showsReminders = false
     @State private var showsRoutes = false
     @State private var showsTheme = false
+    /// 놓친 것·오늘·나중에의 전체 (`UnfinishedSheet`) 와 보관한 것 (`ArchivedSheet`).
+    @State private var showsUnfinished = false
+    @State private var showsArchived = false
     @State private var reminders = ReminderCenter.shared
     /// 「지금」 띠의 시계. 분이 바뀌면 다시 재고, 자정을 넘기면 「오늘」이 바뀐다.
     @State private var clock = Date()
@@ -79,7 +82,14 @@ struct StackView: View {
                 if let assistant, pen.pendingQuestion == nil { assistantBlock(assistant, listed: rows.count) }
 
                 if !cards.isEmpty {
-                    NowBand(cards: cards, now: clock, open: open, putDown: putDown, postpone: postpone, pin: pin, delete: delete)
+                    NowBand(cards: cards, now: clock, open: open, putDown: putDown, postpone: postpone, pin: pin, delete: delete, markDone: markDone)
+                }
+                // 세 장이 전부가 아니다 — 놓친 것·오늘·나중에의 수와 전체로 가는 길 (인계서 묶음 4). 찾는 중·폴더 안에서는 없다.
+                if !searching, folders.selected == nil, let summary = recallSummary(cards: cards) {
+                    RecallSummaryRow(summary: summary) { showsUnfinished = true }
+                        .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 6, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                 }
 
                 // 조용히 지나가면 안 되는 실패 — 저장이 안 되고 있으면 여기 선다.
@@ -150,26 +160,42 @@ struct StackView: View {
                     .listRowSeparator(.hidden)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) { delete(memo) } label: { Label("지우기", systemImage: "trash") }
+                        // 보관 — 당장 안 볼 기록. 지우기와 한 방향이되 끝까지 밀어도 이것은 아니다.
+                        Button { archive(memo) } label: { Label("보관", systemImage: "archivebox") }.tint(.secondary)
                     }
                     .swipeActions(edge: .leading) {
+                        // 끝낼 것이 있으면 완료가 맨 앞 (인계서 §4 — 항목의 용도에 맞는 주 행동). 끝냈으면 되돌리기.
+                        if memo.isActionable {
+                            Button { markDone(memo) } label: { Label("완료", systemImage: "checkmark.circle") }
+                                .tint(Theme.accent)
+                        } else if memo.done != nil {
+                            Button { markUndone(memo) } label: { Label("되돌리기", systemImage: "arrow.uturn.backward") }
+                                .tint(Theme.accent)
+                        }
                         // 일정이 있으면 미루기가 앞이다 — 같은 메모가 달력 탭에서는 밀기 한 번인데 여기서는
                         // 편집 → 달력 → 시트였다 (2026-09-17 편의성 감사 §2.1). 낱말도 방향도 달력 탭과 같다.
                         if memo.isScheduled {
                             Button { postpone(memo) } label: { Label("미루기", systemImage: "arrow.right") }
-                                .tint(Theme.accent)
+                                .tint(memo.isActionable ? Theme.highlightInk : Theme.accent)
                         }
                         Button { pin(memo) } label: {
                             Label(memo.pinned ? String(localized: "고정 해제") : String(localized: "고정"), systemImage: memo.pinned ? "pin.slash" : "pin")
                         }
-                        .tint(memo.isScheduled ? Theme.highlightInk : Theme.accent)
+                        .tint(memo.isScheduled || memo.isActionable ? Theme.highlightInk : Theme.accent)
                     }
                     .contextMenu {
+                        if memo.isActionable {
+                            Button { markDone(memo) } label: { Label("완료", systemImage: "checkmark.circle") }
+                        } else if memo.done != nil {
+                            Button { markUndone(memo) } label: { Label("완료 되돌리기", systemImage: "arrow.uturn.backward") }
+                        }
                         Button { pin(memo) } label: {
                             Label(memo.pinned ? String(localized: "고정 해제") : String(localized: "고정"), systemImage: memo.pinned ? "pin.slash" : "pin")
                         }
                         if memo.isScheduled {
                             Button { postpone(memo) } label: { Label("하루 미루기", systemImage: "arrow.right") }
                         }
+                        Button { archive(memo) } label: { Label("보관", systemImage: "archivebox") }
                         if !folders.names.isEmpty || memo.folder != nil {
                             Menu {
                                 ForEach(folders.names, id: \.self) { name in Button(name) { move(memo, to: name) } }
@@ -183,9 +209,12 @@ struct StackView: View {
                         MemoRowView(memo: memo).padding(16).frame(width: 340).background(Paper.surface)
                     }
                     .accessibilityActions {
+                        if memo.isActionable { Button("완료") { markDone(memo) } }
+                        else if memo.done != nil { Button("완료 되돌리기") { markUndone(memo) } }
                         Button(memo.pinned ? String(localized: "고정 해제") : String(localized: "고정")) { pin(memo) }
                         if memo.isScheduled { Button("하루 미루기") { postpone(memo) } }
                         Button("달력에 놓기") { dating = memo.id }
+                        Button("보관") { archive(memo) }
                         Button("지우기") { delete(memo) }
                     }
                 }
@@ -243,6 +272,17 @@ struct StackView: View {
             }
         }
         .sheet(isPresented: $showsTutorial) { TutorialView() }
+        .sheet(isPresented: $showsUnfinished) {
+            UnfinishedSheet(
+                store: store, now: clock, seen: seen, open: open, markDone: markDone, archive: archive,
+                postponeToMorning: postponeToMorning
+            )
+            .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showsArchived) {
+            ArchivedSheet(store: store, now: clock, open: open, unarchive: unarchive)
+                .presentationDetents([.medium, .large])
+        }
         .sheet(isPresented: $showsReminders) {
             NavigationStack {
                 ScrollView { ReminderSettingsView().padding(20) }
@@ -333,6 +373,12 @@ struct StackView: View {
                     Button { Task { await store.untidyAll() } } label: {
                         Label("치워 둔 \(store.tidiedMemos.count)장 도로 꺼내기", systemImage: "tray.and.arrow.up")
                     }
+                }
+                if !store.archivedMemos.isEmpty {
+                    Button { showsArchived = true } label: {
+                        Label("보관 \(store.archivedMemos.count)장", systemImage: "archivebox")
+                    }
+                    .accessibilityIdentifier("archived-button")
                 }
                 if !session.usingCloud, let settings = URL(string: UIApplication.openSettingsURLString) {
                     Button { openURL(settings) } label: { Label("iCloud 설정 열기", systemImage: "icloud") }
@@ -653,10 +699,66 @@ struct StackView: View {
 
     // MARK: 손짓
 
-    /// 치워 둔 것이었으면 여는 순간 도로 나온다 (맥과 같다).
+    /// 「지금」 세 장 곁의 요약 — 놓친 것이 있거나, 오늘이 세 장 너머로 더 있거나, 나중에가 있을 때만. 셋 다 비면 없다.
+    private func recallSummary(cards: [Recall.Card]) -> Recall.Summary? {
+        let summary = Recall.summary(store.memos, now: clock, seen: seen)
+        guard !summary.missed.isEmpty || summary.today.count > cards.count || !summary.later.isEmpty else { return nil }
+        return summary
+    }
+
+    /// 치워 둔 것이었으면 여는 순간 도로 나온다 (맥과 같다). 보관한 것은 열어 보는 것만으로는 꺼내지 않는다.
     private func open(_ memo: Memo) {
-        if memo.tidied != nil { Task { await store.untidy(memo.id) } }
+        if memo.tidied != nil, memo.archived == nil { Task { await store.untidy(memo.id) } }
         opened = memo.id
+    }
+
+    // MARK: 끝내기·보관 (인계서 §4 — 파일에 적혀 양 기기가 알고, 되돌릴 수 있다)
+
+    private func markDone(_ memo: Memo) {
+        Task {
+            try? await store.markDone(memo.id)
+            await pen.refresh()
+            Undo.register(String(localized: "완료"), on: undoManager, reveal: reveal, id: memo.id) {
+                try? await store.markUndone(memo.id)
+                await pen.refresh()
+            }
+        }
+    }
+
+    private func markUndone(_ memo: Memo) {
+        Task {
+            try? await store.markUndone(memo.id)
+            await pen.refresh()
+        }
+    }
+
+    private func archive(_ memo: Memo) {
+        Task {
+            try? await store.archive(memo.id)
+            await pen.refresh()
+            Undo.register(String(localized: "보관"), on: undoManager, reveal: reveal, id: memo.id) {
+                try? await store.unarchive(memo.id)
+                await pen.refresh()
+            }
+        }
+    }
+
+    private func unarchive(_ memo: Memo) {
+        Task {
+            try? await store.unarchive(memo.id)
+            await pen.refresh()
+        }
+    }
+
+    /// 「내일 아침 9시에 다시」 — 다시 볼 시각만 옮긴다, 일정은 그대로 (배너의 단추와 같은 값 `Snooze`).
+    private func postponeToMorning(_ memo: Memo) {
+        let before = memo.surface
+        Task {
+            _ = try? await store.update(memo.id, surface: .some(Snooze.tomorrowMorning(now: clock)))
+            Undo.register(String(localized: "내일 아침"), on: undoManager, reveal: reveal, id: memo.id) {
+                _ = try? await store.update(memo.id, surface: .some(before))
+            }
+        }
     }
 
     private func delete(_ memo: Memo) {

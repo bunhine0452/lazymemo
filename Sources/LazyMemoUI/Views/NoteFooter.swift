@@ -8,7 +8,7 @@ import LazyMemoCore
 enum NoteFooter {
     /// 이 메모에 아래 줄이 서는가.
     static func isVisible(for memo: Memo) -> Bool {
-        memo.isScheduled || memo.surface != nil || memo.hasPlace || !memo.tags.isEmpty
+        memo.isScheduled || memo.surface != nil || memo.hasPlace || !memo.tags.isEmpty || memo.done != nil
     }
 
     /// 잉크에 적히는 장소 이름. 좌표만 있으면 좌표를 적는다 — 빈 잉크는 없다.
