@@ -77,7 +77,10 @@ public struct Memo: Sendable, Equatable, Identifiable {
 
     /// trash 에 있는 동안에만 채워진다 (D6). 보존 기간 계산의 근거이며,
     /// 인덱스가 아니라 파일에 두는 이유는 인덱스를 지워도 살아남아야 하기 때문이다.
-    public var deleted: Date?
+    public var deleted: Date? {
+        get { marks.deleted }
+        set { marks = marks.with { $0.deleted = newValue } }
+    }
 
     /// 스스로 물러난 때 (`Tidy`). 채워져 있으면 바탕화면과 목록에서 빠진다 —
     /// **지운 것이 아니다.** 파일에도, 검색에도, 달력에도 그대로 있다.
@@ -85,7 +88,10 @@ public struct Memo: Sendable, Equatable, Identifiable {
     /// `layout.json` 이 아니라 파일에 두는 이유는 `deleted` 와 같다. 파생물에
     /// 두면 Application Support 를 지우는 것만으로 몇 달치 끝난 메모가 한꺼번에
     /// 바탕화면으로 되살아난다 — 복원이 아니라 사고다.
-    public var tidied: Date?
+    public var tidied: Date? {
+        get { marks.tidied }
+        set { marks = marks.with { $0.tidied = newValue } }
+    }
 
     /// 사람이 치워 둔 것을 **도로 꺼낸 때** (`MemoService.untidy`). 채워져 있으면 규칙이
     /// 다시 치우지 않는다 — 사람의 뜻이 규칙을 이긴다 (인계서 §4 「복원」).
@@ -94,14 +100,20 @@ public struct Memo: Sendable, Equatable, Identifiable {
     /// 꺼낸 그 날 저녁에 없어졌고, 사람 눈에 그것은 고장이었다. 이것도 `tidied` 처럼
     /// 파일에 적는다 — 다른 기기의 정리도 같은 답을 내야 한다. 때(`due`·`at`·`surface`)를
     /// 옮기면 지운다: 그것은 새 회차이고, 그 날이 지나면 규칙이 다시 센다.
-    public var kept: Date?
+    public var kept: Date? {
+        get { marks.kept }
+        set { marks = marks.with { $0.kept = newValue } }
+    }
 
     /// 두 기기가 따로 고쳐 만난 충돌에서 **진 판본**이면, 자리를 지킨 메모의 id (`ConflictSettlement`).
     ///
     /// 진 판본은 새 id 로 휴지통에 앉는데, 이 표시가 없으면 「지운 메모」와 구별되지 않는다 —
     /// 사람은 자기가 지운 적 없는 글이 휴지통에 왜 있는지 모르고, 그 문장이 어느 메모에서
     /// 떨어져 나왔는지도 모른다. 휴지통에서 되돌리면(둘 다 남기기) 지운다 — 그때부터 제 메모다.
-    public var conflictOf: ULID?
+    public var conflictOf: ULID? {
+        get { marks.conflictOf }
+        set { marks = marks.with { $0.conflictOf = newValue } }
+    }
 
     /// **사람이 끝냈다고 한 때** (인계서 §4 「완료」). 파일에 적혀 동기화되고, 되돌릴 수 있다.
     ///
@@ -109,13 +121,69 @@ public struct Memo: Sendable, Equatable, Identifiable {
     /// 빠지고(`Recall.eligible`), 사흘 뒤 스스로 물러난다(`Tidy` — 방금 끝낸 것이 눈앞에서 없어지면 사고로 보인다).
     /// 되풀이하는 일은 **이 회차**만 끝난 것이다 — 다음 회차로 걸어가면 지워진다 (`Tidy.rolled`).
     /// 때(`due`·`at`·`surface`)를 옮기면 지운다 — 새 회차다.
-    public var done: Date?
+    public var done: Date? {
+        get { marks.done }
+        set { marks = marks.with { $0.done = newValue } }
+    }
 
     /// **당장 안 볼 기록으로 넣어 둔 때** (인계서 §4 「보관」). 완료도 삭제도 아니다.
     ///
     /// 목록·바탕화면·알림·「지금」에서 빠지고, 검색과 원문은 그대로다 — 「읽을 자료를 저장하고 다시 볼 때를 정한다.
     /// 읽은 뒤 보관하거나 다시 미룬다」의 그 보관. `tidied` 와 달리 규칙이 아니라 사람이 넣는다.
-    public var archived: Date?
+    public var archived: Date? {
+        get { marks.archived }
+        set { marks = marks.with { $0.archived = newValue } }
+    }
+
+    /// 드물게 찍히는 표시 여섯 — 지움·치움·꺼냄·다른 판·완료·보관 — 을 **한 상자에** 둔다.
+    ///
+    /// 값이 여섯 개 늘자 `Memo` 가 256바이트를 넘었고, 그 순간 Swift 6.3.3(CI 의 Xcode 26.6)이 이 구조체를
+    /// 비동기 프레임에서 잘못 풀어 「freed pointer was not the last allocation」으로 죽었다 — 0.9.4 소스에
+    /// 이 필드들만 얹어 재현했다 (2026-09-22). 6.4 는 멀쩡하다. 상자는 불변 참조라 복사는 포인터 하나이고,
+    /// 바꿀 때 새 상자를 만든다 — 값 의미는 그대로다 (`==` 도 내용으로 잰다).
+    private var marks: Marks
+
+    /// `deleted`·`tidied`·`kept`·`conflictOf`·`done`·`archived` 의 상자. 바깥에서는 그 이름들로만 보인다.
+    final class Marks: Sendable, Equatable {
+        let deleted: Date?
+        let tidied: Date?
+        let kept: Date?
+        let conflictOf: ULID?
+        let done: Date?
+        let archived: Date?
+
+        /// 아무것도 안 찍힌 상자 — 새 메모 대부분이 이것을 나눠 든다.
+        static let none = Marks(deleted: nil, tidied: nil, kept: nil, conflictOf: nil, done: nil, archived: nil)
+
+        init(deleted: Date?, tidied: Date?, kept: Date?, conflictOf: ULID?, done: Date?, archived: Date?) {
+            self.deleted = deleted
+            self.tidied = tidied
+            self.kept = kept
+            self.conflictOf = conflictOf
+            self.done = done
+            self.archived = archived
+        }
+
+        /// 한 칸 바꾼 새 상자.
+        struct Draft {
+            var deleted: Date?, tidied: Date?, kept: Date?, conflictOf: ULID?, done: Date?, archived: Date?
+        }
+
+        func with(_ change: (inout Draft) -> Void) -> Marks {
+            var draft = Draft(deleted: deleted, tidied: tidied, kept: kept, conflictOf: conflictOf, done: done, archived: archived)
+            change(&draft)
+            let made = Marks(
+                deleted: draft.deleted, tidied: draft.tidied, kept: draft.kept,
+                conflictOf: draft.conflictOf, done: draft.done, archived: draft.archived
+            )
+            return made == Marks.none ? Marks.none : made
+        }
+
+        static func == (lhs: Marks, rhs: Marks) -> Bool {
+            lhs === rhs || (lhs.deleted == rhs.deleted && lhs.tidied == rhs.tidied && lhs.kept == rhs.kept
+                && lhs.conflictOf == rhs.conflictOf && lhs.done == rhs.done && lhs.archived == rhs.archived)
+        }
+    }
 
     /// 앱이 모르는 frontmatter 필드. 읽은 그대로 되쓴다.
     public var preserved: [Frontmatter.Entry]
@@ -167,13 +235,9 @@ public struct Memo: Sendable, Equatable, Identifiable {
         self.pinned = pinned
         self.body = body
         self.folder = MemoFolders.normalized(folder)
-        self.deleted = deleted
-        self.tidied = tidied
-        self.kept = kept
-        self.conflictOf = conflictOf
-        self.done = done
-        self.archived = archived
         self.preserved = preserved
+        let marks = Marks(deleted: deleted, tidied: tidied, kept: kept, conflictOf: conflictOf, done: done, archived: archived)
+        self.marks = marks == Marks.none ? Marks.none : marks
     }
 
     /// 화면에서 물러나 있는가 — 규칙이 치웠거나(`tidied`) 사람이 넣어 두었거나(`archived`). 둘 다 지운 것이 아니다.
