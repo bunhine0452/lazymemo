@@ -23,7 +23,7 @@ owner: claude-code
 
 ## 제품이 받는 용량 — 결정이 필요한 것 {#product}
 - [x] build-app.sh 가 libCLiteRTLM_mac.dylib(136MB fat) 을 번들에 넣지 않는다 — 실행 파일은 @rpath/@loader_path 로 찾으므로 GitHub 판은 켜지지 않을 것. 넣을지(arm64 thin 68MB)·GitHub 판에서 로컬 비서를 뺄지 결정 {#bundle-dylib}
-- [ ] site/media GIF 5.6MB(phone 3.8·demo 1.8) — 팔레트 재압축, mp4 우선 재생 확인 {#site-media}
+- [x] site/media GIF 5.6MB(phone 3.8·demo 1.8) — 팔레트 재압축, mp4 우선 재생 확인 {#site-media}
 
 <!-- oculpm:plan-log begin v1 -->
 | 시각 | 항목 | 에이전트 | 변화 | 일지 | 메모 |
@@ -37,4 +37,5 @@ owner: claude-code
 | 2026-09-16T14:58:01+09:00 | #docs-footprint | claude-code | ☐→x | .oculpm/journal/20260916/Chores/1457_chore_footprint-diet-7gb-to-80mb.md | README 「개발」절 표 + clean.sh 두 모드 |
 | 2026-09-16T14:58:12+09:00 | #bundle-dylib | claude-code | ☐→! | .oculpm/journal/20260916/Chores/1457_chore_footprint-diet-7gb-to-80mb.md | 사용자 결정 대기 — otool 로 @rpath 링크 확인. v0.4.0 은 LiteRT 이전이라 무사, 다음 GitHub 판부터 문제 |
 | 2026-09-16T16:14:04+09:00 | #bundle-dylib | claude-code | !→x | .oculpm/journal/20260916/Bugs/1613_bug_bundle-litert-engine-dylib.md | 넣기로 결정 — arm64 thin 65MB, 번들 70MB·zip 23MB. 앱 실행 손검증은 사용자 몫 |
+| 2026-09-21T19:10:54+09:00 | #site-media | claude-code | ☐→x |  | GIF 셋 9.2→6.6MB, mp4 우선 확인, 녹화 스크립트 설정 반영 |
 <!-- oculpm:plan-log end -->

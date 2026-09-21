@@ -66,7 +66,7 @@ ffmpeg -v error -y -ss 2.6 -i "$RAW" -t "$LENGTH" \
 
 echo "▸ gif"
 ffmpeg -v error -y -i "$OUT/demo.mp4" \
-    -vf "fps=12,scale=880:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=160:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" \
+    -vf "fps=10,scale=880:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" \
     "$OUT/demo.gif"
 
 echo "▸ poster"

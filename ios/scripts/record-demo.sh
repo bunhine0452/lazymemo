@@ -99,7 +99,7 @@ ffmpeg -v error -y -ss "$START" -i "$RAW" -t "$LENGTH" \
 echo "▸ gif"
 # 4MB 안에 — 긴 영상은 프레임을 성기게, 폭을 좁게 (AGENTS 용량 규칙 7).
 ffmpeg -v error -y -i "$OUT/$NAME.mp4" \
-    -vf "fps=8,scale=300:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" \
+    -vf "fps=8,scale=300:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" \
     "$OUT/$NAME.gif"
 echo "▸ poster"
 ffmpeg -v error -y -ss 1.0 -i "$OUT/$NAME.mp4" -frames:v 1 -q:v 3 "$OUT/$NAME-poster.jpg"
