@@ -2,9 +2,9 @@
 oculpm_plan: v1
 id: lazymemo-polish-2026-09-18
 title: "다듬기 2026-09-18 — 웹 답을 잘 정리한 메모로, 큰 메모에 맞는 종이, 부드러운 모션, 위젯 재설계, 테마"
-status: active
+status: done
 created: 2026-09-18
-updated: 2026-09-18
+updated: 2026-09-21
 owner: claude-code
 ---
 

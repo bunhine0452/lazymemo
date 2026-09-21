@@ -2,9 +2,9 @@
 oculpm_plan: v1
 id: lazymemo-footprint
 title: "프로젝트 용량 다이어트 — 7.1GB 중 파생물 6.9GB 를 걷고, 다시 자라지 않게"
-status: active
+status: done
 created: 2026-09-16
-updated: 2026-09-16
+updated: 2026-09-21
 owner: claude-code
 ---
 

@@ -47,4 +47,5 @@ owner: codex
 | 2026-09-22T02:47:49+09:00 | #unfinished-recall | claude-code | ☐→x | .oculpm/journal/20260922/Features_to_add/0247_feature_memo-state-done-archived-missed.md | 폰 놓친 것·완료·보관(스모크 27) + 맥 메뉴·달력·종이(verify-state, 1,142 시험); 양 기기 동기화 반영 장면은 recall-device |
 | 2026-09-22T02:50:32+09:00 | #release-regressions | claude-code | ☐→~ | .oculpm/journal/20260922/Chores/0250_chore_handoff-release-regressions-pass.md | 맥 1,142·폰 스모크 27·확장/위젯 빌드·검증 스크립트·문구 맞춤 완료; 남은 것: 큰 글자·VoiceOver·Reduce Motion·폰 다크·실기기(recall-device) |
 | 2026-09-22T02:50:38+09:00 | #evidence-next-scope | claude-code | ☐→! | .oculpm/journal/20260922/Chores/0250_chore_handoff-release-regressions-pass.md | 관찰 과제·기록 양식만 준비(docs/research/usage-observation-2026-09-22.md); 신규 5명 관찰 결과 없이는 OCR/AI 확장 판단 불가 |
+| 2026-09-22T04:54:25+09:00 | #release-regressions | claude-code | ~→~ | .oculpm/journal/20260922/Chores/0454_chore_release-0-10-0-product-redesign.md | 0.10.0 배포됨(GitHub 판+TestFlight 두 판) — CI 러너(Swift 6.3.3)의 Memo 256B 초과 추락을 Marks 상자로 고침; 남은 것은 큰 글자·VoiceOver·실기기 |
 <!-- oculpm:plan-log end -->
