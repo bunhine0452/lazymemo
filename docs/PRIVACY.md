@@ -27,6 +27,7 @@
 | 새 판 확인 (맥) | 주소 하나 (판 번호도 안 보낸다) | GitHub | 기본 켜짐 · 끌 수 있다 |
 | 다시 보기 알림 (맥·폰) | **아무것도 안 나간다** — 기기 안의 로컬 알림 | — | 설정에서 「이 기기에서 알림 받기」를 **직접 켤 때만** (기본 꺼짐, 기기별). 잠금 화면에 **메모 제목**이 보인다 |
 | Spotlight 에서 찾기 (맥·폰) | **아무것도 안 나간다** — 기기 안의 시스템 검색 색인 | — | 기본 켜짐, 기기별. 이 기기의 검색에 **메모 제목과 글**이 보인다. 맥은 설정에서 끌 수 있고, 끄면 올려 둔 것을 전부 내린다 |
+| Siri 로 적기 (폰) | **말한 글 한 줄** — 애플의 Siri 가 받아 적는 동안 | 애플 (Siri 의 설정을 따른다) | Siri 에게 **말할 때만**. 단축어·액션 버튼에 글을 직접 넣으면 아무것도 나가지 않는다. 메모 파일은 나가지 않는다 |
 
 **우리에게 오는 것은 없다.** 분석 도구도, 추적기도, 광고 식별자도, 크래시 리포터도 없다. 소개 페이지도 바깥 요청이 하나도 없다.
 
@@ -85,6 +86,7 @@ By default lazymemo connects to nothing. The table below is the complete list of
 | Update check (Mac) | one URL (not even the version) | GitHub | on by default; can be turned off |
 | Revisit reminders (Mac · iPhone) | **nothing** — local notifications built on the device | — | only if you turn on "Notifications on this device" in Settings (off by default, per device). The memo title appears on the lock screen |
 | Find in Spotlight (Mac · iPhone) | **nothing** — the device's own search index | — | on by default, per device. Memo titles and text appear in this device's search. On Mac it can be turned off in Settings, which removes everything that was indexed |
+| Writing with Siri (iPhone) | **the one line you said** — while Apple's Siri transcribes it | Apple (follows your Siri settings) | only when you **speak to Siri**. Typing the text into a shortcut or the Action button sends nothing. Memo files never leave |
 
 **Nothing comes to us.** No analytics, no trackers, no advertising identifiers, no crash reporter. The website makes no external requests either.
 

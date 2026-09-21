@@ -194,3 +194,19 @@
 "종이 결" = "Paper Grain";
 "기본으로" = "Reset";
 "고른 색이 글을 가릴 만큼 흐리면 읽히는 데까지 되끌어 올려 씁니다. 테마는 메모 폴더의 설정에 적힙니다 — 기기 밖의 다른 곳으로는 나가지 않습니다" = "If a color you pick would hide the text, it's pulled back until it reads. Your theme is written into the settings in your notes folder — it goes nowhere else";
+
+/* Siri·단축어·액션 버튼의 인텐트 (AppIntents.swift) */
+"lazymemo 에 적기" = "Write in lazymemo";
+"한 줄을 메모로 남깁니다. 「내일 3시 치과」의 날짜와 「@강남역」의 자리는 앱이 읽습니다." = "Leaves one line as a note. Dates like \"tomorrow 3pm dentist\" and places like \"@Gangnam\" are read by the app.";
+"글" = "Text";
+"무엇을 적을까요?" = "What should I write down?";
+"%@ 적기" = "Write %@";
+"적었어요" = "Written";
+"%@ %@ · 달력으로" = "%1$@ %2$@ · on the calendar";
+"%@ · 달력으로" = "%@ · on the calendar";
+"오늘 뭐 있어" = "What's on today";
+"「지금」의 카드를 읽어 줍니다 — 오늘 다시 볼 것·오늘 일정·고정한 메모." = "Reads the Now cards — today's revisits, today's events and pinned notes.";
+"지금 펼칠 것이 없어요." = "Nothing to show right now.";
+"펜 올리기" = "Bring up the pen";
+"앱을 열고 바로 적을 수 있게 펜에 키보드를 올립니다." = "Opens the app with the keyboard on the pen, ready to write.";
+"펜" = "Pen";

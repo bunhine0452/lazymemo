@@ -1,10 +1,8 @@
+import AppIntents
 import LazyMemoCore
 import LazyMemoWidgetsCore
 import SwiftUI
 import WidgetKit
-#if os(iOS)
-import AppIntents
-#endif
 
 /// 「지금」의 얼굴들.
 ///
@@ -79,7 +77,7 @@ struct NowView: View {
         .widgetURL(entry.cards.isEmpty ? WidgetLink.write : nil)
     }
 
-    /// 세 장과 「다음」 — 오늘 뒤에 올 일정 넉 줄까지.
+    /// 세 장과 「다음」 — 오늘 뒤에 올 일정 넉 줄까지. 체크리스트 카드는 그 밑에 안 한 칸을 단다.
     private var large: some View {
         VStack(alignment: .leading, spacing: WidgetMetrics.headGap) {
             head
@@ -87,7 +85,20 @@ struct NowView: View {
                 EmptyFace(line: Text("펼칠 것이 없어요")).padding(.vertical, 6)
             } else {
                 VStack(alignment: .leading, spacing: WidgetMetrics.rowGap) {
-                    ForEach(entry.cards) { card in row(card, titleLines: 2, roomy: true) }
+                    ForEach(entry.cards) { card in
+                        VStack(alignment: .leading, spacing: 0) {
+                            row(card, titleLines: 2, roomy: true)
+                            ForEach(entry.checks.filter { $0.memo == card.id }) { item in
+                                CheckRow(item: item, ink: theme.papery ? theme.ink(for: card.memo.color) : theme.accentInk)
+                                    .padding(.leading, WidgetMetrics.inkBar + 8)
+                                    // 줄의 정체는 글이다 — 체크된 줄이 빠지며 아래 줄이 올라올 때 시스템이 자리로
+                                    // 짝을 지으면 「계란」 줄이 체크된 채 잠깐 보인다. id 를 못 박아 자리가 아니라
+                                    // 글로 짝짓게 하고, 빠지는 줄은 그 자리에서 사라진다.
+                                    .id(item.id)
+                                    .transition(.opacity)
+                            }
+                        }
+                    }
                 }
             }
             if !entry.upcoming.isEmpty {
@@ -222,3 +233,55 @@ struct SeenButton: View {
     }
 }
 #endif
+
+/// 카드 밑의 체크상자 한 칸 — 위젯 안에서 끝나는 단추 (`CheckIntent`).
+///
+/// `Toggle` 이라 누른 순간 칸이 채워지고, 시간표가 다시 그려지면 그 줄이 목록에서 빠진다 —
+/// 「끝난 것은 물러난다」의 위젯판. 과녁은 줄 전체(28pt 높이·전폭)다: 16pt 네모만 맞히게 하면
+/// 엄지가 세 번에 한 번 빗나간다. 잠금 화면 가족에는 두지 않는다.
+struct CheckRow: View {
+    let item: WidgetChecklist.Item
+    let ink: Color
+
+    @Environment(\.widgetTheme) private var theme
+
+    var body: some View {
+        Toggle(isOn: false, intent: CheckIntent(item: item)) {
+            Text(item.text)
+                .font(.caption)
+                .foregroundStyle(theme.ink)
+                .lineLimit(1)
+                .privacySensitive()
+        }
+        .toggleStyle(WidgetCheckStyle(ink: ink))
+        .accessibilityLabel(Text("체크할 것: \(item.text)"))
+        .accessibilityHint(Text("이 칸을 체크합니다 — 메모 파일에 적힙니다"))
+    }
+}
+
+/// 종이의 체크상자와 같은 네모 — 비면 테두리, 채우면 강조 잉크의 체크.
+struct WidgetCheckStyle: ToggleStyle {
+    let ink: Color
+
+    @Environment(\.widgetTheme) private var theme
+
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 8) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .strokeBorder(configuration.isOn ? ink : theme.secondary, lineWidth: 1.2)
+                    .frame(width: 16, height: 16)
+                if configuration.isOn {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(ink)
+                        .widgetAccentable()
+                }
+            }
+            configuration.label
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+}

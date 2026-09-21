@@ -90,6 +90,7 @@ section { padding: 86px 0 0; }
 @media (max-width: 640px) { section { padding-top: 64px; } h2 { font-size: 26px; } }
 .lead { font-size: 19px; color: var(--ink-soft); max-width: 33em; }
 .note { font-size: 14px; color: var(--ink-faint); line-height: 1.8; max-width: 44em; margin: 0; }
+.note.preview { margin: 0 0 22px; }
 .note strong { color: var(--ink-soft); font-weight: 600; }
 .new { display: inline-block; font-size: 12px; font-weight: 700; color: var(--accent-ink); background: var(--wash); border-radius: 999px; padding: 3px 11px; margin: 0 0 12px; }
 
@@ -297,9 +298,9 @@ footer .links { margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 8px 20p
   </a>
   <nav>
     <a href="#themes">Papers</a>
-    <a href="#assistant">Assistant</a>
     <a href="#widgets">Widgets</a>
     <a href="#phone">iPhone</a>
+    <a href="#assistant">Assistant</a>
     <a href="#route">Routes</a>
     <a href="#privacy">Privacy</a>
     <a href="#install">Get it</a>
@@ -452,64 +453,6 @@ brew install --cask lazymemo</pre><button class="copy" type="button" data-copy="
     high-contrast variants) are measured by test, at eight places where ink sits on paper.</p>
 </section>
 
-<section id="assistant"><span id="scenes"></span>
-  <p class="new">New in 0.9.0</p>
-  <h2>Ask it. If your notes don’t know, it reads the web and writes it down.</h2>
-  <div class="pair">
-    <div>
-      <p>Ask “when was the dentist?” and the answer comes out of your own notes, with the original line quoted under it.
-         When nothing fits, the box offers <strong>“search the web”</strong> — one line of your question goes to DuckDuckGo
-         with no key and no account, and then the app reads <strong>the text of the top three pages</strong> and compares them
-         before answering. Every claim carries a source you can open.</p>
-      <p>Then it asks what to do with it: keep a note, <strong>tidy it into a note</strong>, or append to a note you already have.
-         A tidied memo has a fixed shape — title, the answer in a sentence or two, the key points, a table when there are
-         several numbers, and the sources. The app holds the shape and the model only fills the middle, so a small model
-         cannot invent a heading or a URL. If the model falls over, the app fills the same shape from the excerpts.</p>
-      <p class="note"><strong>Your notes never leave.</strong> Only the question line goes out. Answering from your notes and
-         telling a note what to do run on this device, on a model you download once when you ask for it (Gemma 4 E2B, 2.6 GB).
-         On the GitHub Mac edition, if the <code>claude</code> command is on your computer, three jobs — the web answer, tidying,
-         and the ✧ polish — can borrow it instead. There is still no API key anywhere.</p>
-    </div>
-    <div class="sheet digest">
-      <h4>What is the exchange rate for the dollar?</h4>
-      <p class="ans">About ₩1,386. Three sources give the same mid-market rate for this afternoon.</p>
-      <p class="hd">Key points</p>
-      <ul>
-        <li>Mid-market rate ₩1,386.20, quoted 15:00 on Sep 18</li>
-        <li>Up ₩4.30 on yesterday’s close</li>
-      </ul>
-      <p class="hd">Detail</p>
-      <table>
-        <tr><td>You buy at</td><td>1,410.40</td></tr>
-        <tr><td>You sell at</td><td>1,362.00</td></tr>
-        <tr><td>Wire, sending</td><td>1,399.60</td></tr>
-      </table>
-      <p class="hd">Sources</p>
-      <ul class="srcs">
-        <li>Naver Finance — exchange rates <span>finance.naver.com</span></li>
-        <li>Korea Exim Bank — daily rate <span>koreaexim.go.kr</span></li>
-      </ul>
-      <p class="foot">Found on the web · DuckDuckGo · Sep 18, 2026</p>
-    </div>
-  </div>
-  <div class="two" style="margin-top:34px">
-    <figure>
-      <div class="shot"><img src="img/capture-answer.png" width="1968" height="764" loading="lazy"
-           alt="The quick-input box showing a one-sentence answer with the quoted source line under it, and the list below reduced to the single dentist note that the answer came from. Light mode on the left, dark mode on the right."></div>
-      <figcaption><b>The answer, and what it came from.</b> One sentence, the original line quoted, and the list
-        shrinks to the notes it used. Sources the model made up are thrown away before you see them; if nothing fits,
-        it says so rather than guessing.</figcaption>
-    </figure>
-    <figure>
-      <div class="shot"><img src="img/capture-applied.png" width="1968" height="944" loading="lazy"
-           alt="A result line reading that the dentist note will be shown again on Friday at 10:00, with an Undo button, above the list of recent notes."></div>
-      <figcaption><b>Telling it something is one line and an undo.</b> “Remind me Friday at 10” needs no model at all —
-        the app’s own parser reads it. No confirmation dialog: a result line and Undo, in the same place as the undo
-        after a delete. Only the trash asks twice.</figcaption>
-    </figure>
-  </div>
-</section>
-
 <section id="paper">
   <p class="new">New in 0.9.0</p>
   <h2>Paste something long and the paper grows to fit.</h2>
@@ -563,7 +506,8 @@ brew install --cask lazymemo</pre><button class="copy" type="button" data-copy="
      <strong>Write</strong> opens the pen.</p>
   <p class="note">A 3 pt capsule of colour at the start of a row is how a widget says which note this is — colour shows in
     the edge and the ink, never by flooding the card. <strong>“Seen” works on the home screen</strong> without opening the
-    app, and takes the card down here and in the app at once. All four come in lock-screen families as well, they follow the
+    app, and takes the card down here and in the app at once. The large Now hangs the unchecked items of a checklist under its
+    card, and <strong>a tap checks them right there</strong> — written into the file, so the paper on the Mac shows the same tick. All four come in lock-screen families as well, they follow the
     paper you chose, and they read the same Markdown files the app does — no index, no server. Widgets ship in the App Store
     editions; the GitHub build is a SwiftPM bundle and cannot carry an extension.</p>
 </section>
@@ -580,7 +524,8 @@ brew install --cask lazymemo</pre><button class="copy" type="button" data-copy="
     <h2>The same notes, on your phone.</h2>
     <p>The iPhone app reads the same Markdown files through iCloud — no account of ours, no sync to set up.
        Jot it down, decide when to see it again, and the phone brings it back. Asking and telling work there too,
-       and anything that needs no model works without one.</p>
+       and anything that needs no model works without one. Siri and the Action button have a door too —
+       say <strong>“Write in lazymemo”</strong> and it becomes a note without opening the app; “What’s on today” reads Now aloud.</p>
     <ol class="steps">
       <li><b>Write</b> The app reads the date; one tap puts it on the calendar.</li>
       <li><b>Get there</b> A map link and a time, two answers, and the route card sits on the note.</li>
@@ -590,33 +535,6 @@ brew install --cask lazymemo</pre><button class="copy" type="button" data-copy="
     <p class="note" style="margin-top:16px">Recorded in the iOS simulator with the app moving its own hands.
       <span class="soon-only">The iPhone app is in App Store review.</span>
       <span class="live-only">The iPhone app is on the <a href="https://apps.apple.com/app/id6811815255?platform=iphone">App Store</a>.</span></p>
-  </div>
-</section>
-
-<section id="route" class="phone route">
-  <div class="words">
-    <h2>Write the appointment. It asks where you are leaving from.</h2>
-    <p>Paste a map link with a time — “Friday 6:30 pm dinner” — and the assistant asks <i>Where are you leaving from?</i>
-       Answer with a station, an address, another map link, or “here”. It finds the routes, offers bus, subway or taxi with
-       minutes and fare, and writes the one you pick onto the note: the line and direction, where to board, transfers, the
-       fare, and the departure time that gets you there. Ten minutes before you should go, the paper comes forward and the
-       banner says what to catch.</p>
-    <ol class="steps">
-      <li><b>Write</b> A map link and a time in one line. The place resolves on its own.</li>
-      <li><b>Where from</b> “Gangnam station” — or an address, or “here”.</li>
-      <li><b>Pick</b> Bus · subway · taxi, with minutes and fare. Transfers are called out.</li>
-      <li><b>Leave</b> The route card sits on the note; the banner says when to go.</li>
-    </ol>
-    <p class="note" style="margin-top:16px">Transit comes from Naver Map’s own web directions with no key; the taxi figure is
-      an Apple Maps estimate. Nothing connects until you answer the question — say “skip” and nothing leaves at all, and the
-      note’s text is never sent either way.</p>
-  </div>
-  <div class="frame">
-    <video autoplay muted loop playsinline poster="media/route-poster.jpg" width="590" height="1282"
-           aria-label="lazymemo on iPhone: an appointment with a map link is typed, the assistant asks where you are leaving from, offers bus, subway and taxi, writes the subway route into the note as a card, and later a banner says when to leave.">
-      <source src="media/route.mp4" type="video/mp4">
-      <img src="media/route.gif" alt="lazymemo on iPhone planning the way to an appointment" width="360" height="780">
-    </video>
   </div>
 </section>
 
@@ -673,6 +591,93 @@ brew install --cask lazymemo</pre><button class="copy" type="button" data-copy="
     <tr><td><kbd>esc</kbd></td><td>Close. <strong>The box remembers what you were writing</strong>, across restarts and releases.</td></tr>
     <tr><td><kbd>⌘,</kbd></td><td>Settings — input, paper, where notes live, position, sharing and notifications, in one window.</td></tr>
   </table>
+</section>
+
+<section id="assistant"><span id="scenes"></span>
+  <p class="new">New in 0.9.0</p>
+  <h2>Ask it. If your notes don’t know, it reads the web and writes it down.</h2>
+  <p class="note preview"><strong>This is a preview.</strong> Answering from your notes and taking instructions stay on the device, but <strong>web answers</strong> lean on a keyless public web search (DuckDuckGo) — not an official API, so it can stop working at any time, and the app says so when it does. Nothing goes out until you press “Search the web” or say “on the web …”.</p>
+  <div class="pair">
+    <div>
+      <p>Ask “when was the dentist?” and the answer comes out of your own notes, with the original line quoted under it.
+         When nothing fits, the box offers <strong>“search the web”</strong> — one line of your question goes to DuckDuckGo
+         with no key and no account, and then the app reads <strong>the text of the top three pages</strong> and compares them
+         before answering. Every claim carries a source you can open.</p>
+      <p>Then it asks what to do with it: keep a note, <strong>tidy it into a note</strong>, or append to a note you already have.
+         A tidied memo has a fixed shape — title, the answer in a sentence or two, the key points, a table when there are
+         several numbers, and the sources. The app holds the shape and the model only fills the middle, so a small model
+         cannot invent a heading or a URL. If the model falls over, the app fills the same shape from the excerpts.</p>
+      <p class="note"><strong>Your notes never leave.</strong> Only the question line goes out. Answering from your notes and
+         telling a note what to do run on this device, on a model you download once when you ask for it (Gemma 4 E2B, 2.6 GB).
+         On the GitHub Mac edition, if the <code>claude</code> command is on your computer, three jobs — the web answer, tidying,
+         and the ✧ polish — can borrow it instead. There is still no API key anywhere.</p>
+    </div>
+    <div class="sheet digest">
+      <h4>What is the exchange rate for the dollar?</h4>
+      <p class="ans">About ₩1,386. Three sources give the same mid-market rate for this afternoon.</p>
+      <p class="hd">Key points</p>
+      <ul>
+        <li>Mid-market rate ₩1,386.20, quoted 15:00 on Sep 18</li>
+        <li>Up ₩4.30 on yesterday’s close</li>
+      </ul>
+      <p class="hd">Detail</p>
+      <table>
+        <tr><td>You buy at</td><td>1,410.40</td></tr>
+        <tr><td>You sell at</td><td>1,362.00</td></tr>
+        <tr><td>Wire, sending</td><td>1,399.60</td></tr>
+      </table>
+      <p class="hd">Sources</p>
+      <ul class="srcs">
+        <li>Naver Finance — exchange rates <span>finance.naver.com</span></li>
+        <li>Korea Exim Bank — daily rate <span>koreaexim.go.kr</span></li>
+      </ul>
+      <p class="foot">Found on the web · DuckDuckGo · Sep 18, 2026</p>
+    </div>
+  </div>
+  <div class="two" style="margin-top:34px">
+    <figure>
+      <div class="shot"><img src="img/capture-answer.png" width="1968" height="764" loading="lazy"
+           alt="The quick-input box showing a one-sentence answer with the quoted source line under it, and the list below reduced to the single dentist note that the answer came from. Light mode on the left, dark mode on the right."></div>
+      <figcaption><b>The answer, and what it came from.</b> One sentence, the original line quoted, and the list
+        shrinks to the notes it used. Sources the model made up are thrown away before you see them; if nothing fits,
+        it says so rather than guessing.</figcaption>
+    </figure>
+    <figure>
+      <div class="shot"><img src="img/capture-applied.png" width="1968" height="944" loading="lazy"
+           alt="A result line reading that the dentist note will be shown again on Friday at 10:00, with an Undo button, above the list of recent notes."></div>
+      <figcaption><b>Telling it something is one line and an undo.</b> “Remind me Friday at 10” needs no model at all —
+        the app’s own parser reads it. No confirmation dialog: a result line and Undo, in the same place as the undo
+        after a delete. Only the trash asks twice.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="route" class="phone route">
+  <div class="words">
+    <h2>Write the appointment. It asks where you are leaving from.</h2>
+  <p class="note preview"><strong>This is a preview.</strong> Transit directions ask Naver Map’s public web routing without a key — not an official API, so it can stop working at any time, and the app says so when it does. Nothing goes out until you answer the question, and you can turn the question off in Settings.</p>
+    <p>Paste a map link with a time — “Friday 6:30 pm dinner” — and the assistant asks <i>Where are you leaving from?</i>
+       Answer with a station, an address, another map link, or “here”. It finds the routes, offers bus, subway or taxi with
+       minutes and fare, and writes the one you pick onto the note: the line and direction, where to board, transfers, the
+       fare, and the departure time that gets you there. Ten minutes before you should go, the paper comes forward and the
+       banner says what to catch.</p>
+    <ol class="steps">
+      <li><b>Write</b> A map link and a time in one line. The place resolves on its own.</li>
+      <li><b>Where from</b> “Gangnam station” — or an address, or “here”.</li>
+      <li><b>Pick</b> Bus · subway · taxi, with minutes and fare. Transfers are called out.</li>
+      <li><b>Leave</b> The route card sits on the note; the banner says when to go.</li>
+    </ol>
+    <p class="note" style="margin-top:16px">Transit comes from Naver Map’s own web directions with no key; the taxi figure is
+      an Apple Maps estimate. Nothing connects until you answer the question — say “skip” and nothing leaves at all, and the
+      note’s text is never sent either way.</p>
+  </div>
+  <div class="frame">
+    <video autoplay muted loop playsinline poster="media/route-poster.jpg" width="590" height="1282"
+           aria-label="lazymemo on iPhone: an appointment with a map link is typed, the assistant asks where you are leaving from, offers bus, subway and taxi, writes the subway route into the note as a card, and later a banner says when to leave.">
+      <source src="media/route.mp4" type="video/mp4">
+      <img src="media/route.gif" alt="lazymemo on iPhone planning the way to an appointment" width="360" height="780">
+    </video>
+  </div>
 </section>
 
 <section id="privacy">

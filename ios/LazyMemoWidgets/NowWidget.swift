@@ -34,15 +34,20 @@ struct NowEntry: TimelineEntry, Sendable {
     let cards: [Recall.Card]
     /// 큰 위젯의 아래 절 — 오늘 뒤에 올 일정.
     let upcoming: [WidgetAgenda.Upcoming]
+    /// 큰 위젯의 카드 밑 — 아직 안 한 체크상자, 누르면 그 자리에서 체크된다 (`CheckIntent`).
+    let checks: [WidgetChecklist.Item]
 
     static func make(_ memos: [Memo], at date: Date, seen: [ULID: Date]) -> NowEntry {
-        NowEntry(
+        let cards = WidgetAgenda.nowCards(memos, now: date, seen: seen)
+        // 큰 위젯의 자리는 줄 넷이다 — 카드 세 장과 「다음」 머리를 빼고 남는 자리에 줄을
+        // 30pt 씩 놓으면 그만큼이 들어간다. 더 부르면 잘린 줄이 생기고, 잘린 줄은 안 보이는
+        // 것보다 나쁘다. 체크상자 한 칸이 그 줄 하나를 쓴다 — 오늘 할 칸이 내일 뒤의 일정보다 앞이다.
+        let checks = WidgetChecklist.openItems(of: cards, limit: 3)
+        return NowEntry(
             date: date,
-            cards: WidgetAgenda.nowCards(memos, now: date, seen: seen),
-            // 큰 위젯의 아래 절. 넉이다 — 카드 세 장과 「다음」 머리를 빼고 남는 자리에 줄을
-            // 30pt 씩 놓으면 그만큼이 들어간다. 더 부르면 잘린 줄이 생기고, 잘린 줄은
-            // 안 보이는 것보다 나쁘다.
-            upcoming: WidgetAgenda.upcoming(memos, now: date, limit: 4)
+            cards: cards,
+            upcoming: WidgetAgenda.upcoming(memos, now: date, limit: 4 - checks.count),
+            checks: checks
         )
     }
 
@@ -52,7 +57,7 @@ struct NowEntry: TimelineEntry, Sendable {
 
     /// 빈 위젯의 견본 — 빈 상태를 눈으로 보려면 이것이 필요하다.
     static func empty(at date: Date = Date()) -> NowEntry {
-        NowEntry(date: date, cards: [], upcoming: [])
+        NowEntry(date: date, cards: [], upcoming: [], checks: [])
     }
 }
 

@@ -1,0 +1,8 @@
+/* Siri phrases — Korean source phrases are the keys (AppIntents.swift). ${applicationName} is the app's name. */
+"${applicationName}에 적기" = "Write in ${applicationName}";
+"${applicationName}에 메모" = "Add a note to ${applicationName}";
+"${applicationName}에 적어 줘" = "Jot this down in ${applicationName}";
+"${applicationName} 오늘 뭐 있어" = "What's on today in ${applicationName}";
+"${applicationName}에서 오늘 뭐 있는지" = "Show today in ${applicationName}";
+"${applicationName} 펜" = "${applicationName} pen";
+"${applicationName} 펜 열어 줘" = "Open the ${applicationName} pen";

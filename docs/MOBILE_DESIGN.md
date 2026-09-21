@@ -393,6 +393,16 @@ TabView                             (tabBarMinimizeBehavior: .onScrollDown)
 - 「남기기」 → 파일 하나가 떨어지고 시트가 닫힌다. 확인 알림은 없다 — 닫히는 것이 확인이다 ("reserve this type of confirmation for activities that are sufficiently important").
 - 로컬 폴백은 App Group (구현됨, 커밋 `455d237`).
 
+### Siri·단축어·액션 버튼 — 인텐트 (2026-09-21)
+
+앱을 열지 않는 정식 문 (`ios/LazyMemo/AppIntents.swift`, App Intents). 지금까지는 iCloud 폴더에 `.md` 를 떨구는 단축어 우회로뿐이었다 — 그 길은 앱 없는 사람의 것으로 남는다.
+
+- **「lazymemo 에 적기」** — 배경 인텐트. 글이 없으면 시스템이 「무엇을 적을까요?」 하고 묻는다. 공유 시트와 같은 문(`InboundNote` → `InboxDrop`)이라 날짜·자리를 펜과 똑같이 읽고, 답은 공유 시트의 칩과 같은 말(「적었어요 · 9월 22일 15:00 · 달력으로」). 파일 한 장만 떨구고 나온다 — 위젯은 지금 다시 그리고(`WidgetRefresher.reloadNow`), 인덱스는 앱이 앞으로 나올 때 대조한다(`AppModel.foreground`). 자리가 있는 약속이면 「어디서 출발하시나요?」 알림과 표를 남긴다(`RouteAskDrop`, 공유 시트와 같다).
+- **「오늘 뭐 있어」** — 배경 인텐트. 「지금」의 카드(`Recall.nowCards`, 「봤어요」 반영)를 이유와 제목으로 읽어 준다.
+- **「펜」** — 전경 인텐트. 앱을 열고 펜에 키보드(`AppLinks.requestWrite`). 말보다 손으로 적고 싶을 때의 액션 버튼.
+- 말은 `AppShortcutsProvider` 에 한국어로 적고 `en.lproj/AppShortcuts.strings` 가 영어를 든다. 권한은 없다 — App Shortcuts 는 Siri 권한을 묻지 않는다. 프라이버시 표에 「Siri 로 적기」 한 줄: 말한 글은 애플의 Siri 가 받아 적는 동안 애플의 설정을 따른다.
+- 맥에는 없다 — GitHub 판(SwiftPM 번들)은 App Intents 메타데이터를 못 뽑는다(편의성 감사 §3.1). 맥 스토어 판의 Spotlight 액션은 다음 판.
+
 ## 9. 지금 여기
 
 펜 왼쪽 끝의 **시스템 위치 단추**. "Consider using the location button to give people a lightweight way to share their location for specific app features… Attach their location to a message or post" (→ 노트 §4 Privacy).

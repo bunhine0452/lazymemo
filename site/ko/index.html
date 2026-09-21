@@ -89,6 +89,7 @@ section { padding: 86px 0 0; }
 @media (max-width: 640px) { section { padding-top: 64px; } h2 { font-size: 25px; } }
 .lead { font-size: 19px; color: var(--ink-soft); max-width: 31em; }
 .note { font-size: 14px; color: var(--ink-faint); line-height: 1.85; max-width: 42em; margin: 0; }
+.note.preview { margin: 0 0 22px; }
 .note strong { color: var(--ink-soft); font-weight: 600; }
 .new { display: inline-block; font-size: 12px; font-weight: 700; color: var(--accent-ink); background: var(--wash); border-radius: 999px; padding: 3px 11px; margin: 0 0 12px; }
 
@@ -296,9 +297,9 @@ footer .links { margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 8px 20p
   </a>
   <nav>
     <a href="#themes">종이</a>
-    <a href="#assistant">비서</a>
     <a href="#widgets">위젯</a>
     <a href="#phone">아이폰</a>
+    <a href="#assistant">비서</a>
     <a href="#route">가는 길</a>
     <a href="#privacy">프라이버시</a>
     <a href="#install">받기</a>
@@ -450,63 +451,6 @@ brew install --cask lazymemo</pre><button class="copy" type="button" data-copy="
     바닥 위인지는 눈이 아니라 시험이 잽니다.</p>
 </section>
 
-<section id="assistant"><span id="scenes"></span>
-  <p class="new">0.9.0 에 새로</p>
-  <h2>물어보세요. 메모에 없으면 웹을 읽어 정리해 남깁니다.</h2>
-  <div class="pair">
-    <div>
-      <p>「치과 언제였지?」라고 물으면 답은 당신의 메모에서 나오고, 그 밑에 근거가 된 원문 줄이 그대로 붙습니다.
-         메모에 없으면 상자가 <strong>「웹에서 찾기」</strong>를 권합니다 — DuckDuckGo 에 키도 계정도 없이 물은 말
-         한 줄만 나가고, 이어서 앱이 <strong>앞의 세 쪽 본문을 읽어</strong> 서로 견준 뒤에 답합니다. 문장마다
-         누르면 열리는 출처가 붙습니다.</p>
-      <p>그리고 묻습니다 — 메모로 남길지, <strong>정리해서 남길지</strong>, 이미 있는 메모에 붙일지.
-         정리한 메모에는 자리가 정해져 있습니다: 제목 · 답 한두 문장 · 「핵심」 · 값이 여럿이면 「세부」 표 · 「출처」.
-         <strong>틀은 앱이 들고 모델은 가운데만 씁니다</strong> — 그래야 작은 모델이 제목을 두 번 적거나 주소를
-         지어내지 않습니다. 모델이 넘어져도 앱이 발췌로 같은 자리를 채웁니다.</p>
-      <p class="note"><strong>메모는 나가지 않습니다.</strong> 나가는 것은 물은 말 한 줄뿐입니다. 메모에서 답 찾기와
-         시키기는 언제나 이 기기 안에서, 한 번 받아 둔 모델(Gemma 4 E2B, 2.6GB)이 합니다. GitHub 맥 판에서
-         <code>claude</code> 명령이 이 컴퓨터에 있으면 셋 — 웹의 답 · 다듬기 · 정리 — 만 그것을 빌립니다.
-         키는 여전히 어디에도 없습니다.</p>
-    </div>
-    <div class="sheet digest">
-      <h4>달러 환율 얼마야?</h4>
-      <p class="ans">1,386원 근처입니다. 세 곳이 오늘 오후 같은 매매기준율을 말합니다.</p>
-      <p class="hd">핵심</p>
-      <ul>
-        <li>매매기준율 1,386.20원 — 9월 18일 15:00 기준</li>
-        <li>어제 종가보다 4.30원 올랐습니다</li>
-      </ul>
-      <p class="hd">세부</p>
-      <table>
-        <tr><td>살 때</td><td>1,410.40</td></tr>
-        <tr><td>팔 때</td><td>1,362.00</td></tr>
-        <tr><td>보낼 때</td><td>1,399.60</td></tr>
-      </table>
-      <p class="hd">출처</p>
-      <ul class="srcs">
-        <li>네이버 금융 — 환율 <span>finance.naver.com</span></li>
-        <li>한국수출입은행 — 오늘의 환율 <span>koreaexim.go.kr</span></li>
-      </ul>
-      <p class="foot">어디서 찾음 · DuckDuckGo · 2026년 9월 18일</p>
-    </div>
-  </div>
-  <div class="two" style="margin-top:34px">
-    <figure>
-      <div class="shot"><img src="../img/capture-answer.png" width="1968" height="764" loading="lazy"
-           alt="빠른 입력 상자에 한 문장짜리 답이 서고 그 아래에 근거가 된 원문 줄이 인용돼 있으며, 목록은 답이 나온 치과 메모 하나로 줄어 있습니다. 왼쪽이 라이트, 오른쪽이 다크입니다."></div>
-      <figcaption><b>답과, 그 답이 어디서 나왔는지.</b> 한 문장, 그 밑에 인용된 원문, 그리고 쓴 메모만 남는 목록.
-        모델이 지어낸 출처는 보이기 전에 버려지고, 맞는 것이 없으면 짐작하지 않고 없다고 말합니다.</figcaption>
-    </figure>
-    <figure>
-      <div class="shot"><img src="../img/capture-applied.png" width="1968" height="944" loading="lazy"
-           alt="치과 메모를 금요일 10시에 다시 보여 준다는 결과 한 줄과 되돌리기 단추가 최근 메모 목록 위에 서 있습니다."></div>
-      <figcaption><b>시키는 것은 한 줄과 되돌리기입니다.</b> 「금요일 10시에 다시 알려줘」는 모델이 필요 없습니다 —
-        앱의 파서가 읽습니다. 확인 창은 없고, 지우고 난 뒤의 되돌리기와 같은 자리에 결과 한 줄이 섭니다.
-        한 번 더 묻는 것은 휴지통뿐입니다.</figcaption>
-    </figure>
-  </div>
-</section>
-
 <section id="paper">
   <p class="new">0.9.0 에 새로</p>
   <h2>긴 글을 붙여 넣으면 종이가 글에 맞춰 자랍니다.</h2>
@@ -559,7 +503,8 @@ brew install --cask lazymemo</pre><button class="copy" type="button" data-copy="
      오늘은 동그라미 · 일정 있는 날은 점. <strong>「적기」</strong>는 누르면 펜이 올라옵니다.</p>
   <p class="note">줄머리의 3pt 색 획 하나가 「이게 어느 메모인지」를 말합니다 — 색은 가장자리와 잉크로만 드러나고
     카드를 통째로 물들이지 않습니다 (설계문서 §14.4). <strong>「봤어요」는 홈 화면에서 그대로 눌립니다</strong> —
-    앱을 열지 않고 카드가 내려가고, 앱에서도 함께 내려갑니다. 넷 다 잠금 화면 가족이 있고, 고른 종이를 따라가며,
+    앱을 열지 않고 카드가 내려가고, 앱에서도 함께 내려갑니다. 큰 「지금」은 체크리스트 카드 밑에 아직 안 한 칸을 달고,
+    <strong>누르면 그 자리에서 체크됩니다</strong> — 파일에 적혀 맥의 종이에서도 체크돼 있습니다. 넷 다 잠금 화면 가족이 있고, 고른 종이를 따라가며,
     앱과 같은 마크다운 파일을 읽습니다 — 인덱스도 서버도 없습니다. 위젯은 App Store 판에 있습니다.
     GitHub 판은 SwiftPM 이 조립한 번들이라 확장을 품지 못합니다.</p>
 </section>
@@ -576,7 +521,8 @@ brew install --cask lazymemo</pre><button class="copy" type="button" data-copy="
     <h2>같은 메모를, 폰에서도.</h2>
     <p>아이폰 앱은 iCloud 를 통해 <strong>같은 마크다운 파일</strong>을 읽습니다. 우리 계정도, 설정할 동기화도
        없습니다. 대충 적어 두고 다시 볼 시각만 정하면 폰이 그때 꺼내 옵니다. 묻기와 시키기도 폰에 있고,
-       모델이 필요 없는 부탁은 폰에서도 모델 없이 됩니다.</p>
+       모델이 필요 없는 부탁은 폰에서도 모델 없이 됩니다. Siri 와 액션 버튼에도 문이 있습니다 —
+       <strong>「lazymemo 에 적기」</strong>라고 말하면 앱을 열지 않고 메모가 되고, 「오늘 뭐 있어」는 「지금」을 읽어 줍니다.</p>
     <ol class="steps">
       <li><b>적기</b> 앱이 날짜를 읽고, 한 번 누르면 달력에 올라갑니다.</li>
       <li><b>가는 길</b> 지도 링크와 시각, 두 번의 답이면 경로 카드가 메모에 섭니다.</li>
@@ -586,32 +532,6 @@ brew install --cask lazymemo</pre><button class="copy" type="button" data-copy="
     <p class="note" style="margin-top:16px">시뮬레이터에서 앱이 스스로 움직인 것을 기록했습니다.
       <span class="soon-only">아이폰 앱은 App Store 심사 중입니다.</span>
       <span class="live-only">아이폰 앱은 <a href="https://apps.apple.com/app/id6811815255?platform=iphone">App Store</a> 에 있습니다.</span></p>
-  </div>
-</section>
-
-<section id="route" class="phone route">
-  <div class="words">
-    <h2>약속을 적으면, 어디서 출발하는지 묻습니다.</h2>
-    <p>지도 링크와 시각을 한 줄에 붙여 두면 — 「금요일 저녁 6시반 밥약속」 — 비서가 <i>「어디서 출발하시나요?」</i>
-       하고 묻습니다. 역 이름이든, 주소든, 다른 지도 링크든, 「지금 여기」든 답하면 길을 찾아
-       버스 · 지하철 · 택시를 분과 요금과 함께 내밉니다. 고른 길은 메모 끝에 적힙니다 — 노선과 방면, 타는 곳,
-       환승, 요금, 그리고 늦지 않게 나가는 출발 시각. 출발 10분 전에 종이가 나오고 배너가 무엇을 탈지 말합니다.</p>
-    <ol class="steps">
-      <li><b>적기</b> 지도 링크와 시각을 한 줄에. 자리는 알아서 풀립니다.</li>
-      <li><b>출발지</b> 「강남역」 — 주소도, 「지금 여기」도 됩니다.</li>
-      <li><b>고르기</b> 버스 · 지하철 · 택시, 분과 요금. 갈아타는 길은 그렇다고 말합니다.</li>
-      <li><b>출발</b> 경로 카드가 메모에 서고, 배너가 나갈 시각을 말합니다.</li>
-    </ol>
-    <p class="note" style="margin-top:16px">대중교통은 네이버 지도 웹의 길찾기가 키 없이 답하고, 택시는 애플 지도의
-      어림입니다. 되물음에 답하기 전까지는 아무 데도 접속하지 않습니다 — 「됐어」면 아무것도 나가지 않고,
-      어느 쪽이든 메모 본문은 나가지 않습니다.</p>
-  </div>
-  <div class="frame">
-    <video autoplay muted loop playsinline poster="../media/route-poster.jpg" width="590" height="1282"
-           aria-label="아이폰의 lazymemo: 지도 링크가 붙은 약속을 적자 비서가 어디서 출발하는지 묻고, 버스·지하철·택시를 내밀고, 고른 지하철 경로를 카드로 메모에 적고, 나중에 배너가 나갈 시각을 말한다.">
-      <source src="../media/route.mp4" type="video/mp4">
-      <img src="../media/route.gif" alt="아이폰의 lazymemo 가 약속 가는 길을 찾는 모습" width="360" height="780">
-    </video>
   </div>
 </section>
 
@@ -668,6 +588,91 @@ brew install --cask lazymemo</pre><button class="copy" type="button" data-copy="
     <tr><td><kbd>esc</kbd></td><td>닫기. <strong>적던 글은 상자가 기억합니다</strong> — 앱을 껐다 켜도, 판을 갈아도 남습니다.</td></tr>
     <tr><td><kbd>⌘,</kbd></td><td>설정 — 입력 · 종이 · 메모가 있는 곳 · 자리 · 함께 보기 · 알림이 한 창에 있습니다.</td></tr>
   </table>
+</section>
+
+<section id="assistant"><span id="scenes"></span>
+  <p class="new">0.9.0 에 새로</p>
+  <h2>물어보세요. 메모에 없으면 웹을 읽어 정리해 남깁니다.</h2>
+  <p class="note preview"><strong>미리보기입니다.</strong> 메모에서 답 찾기와 시키기는 이 기기 안에서 끝나지만, <strong>웹의 답</strong>은 키 없는 공개 웹 검색(DuckDuckGo)에 기댑니다 — 공식 API 가 아니라 언제든 끊길 수 있고, 끊기면 앱이 그렇다고 말합니다. 「웹에서 찾기」를 누르거나 「웹에서 …」라고 말할 때만 나가고, 그 전에는 아무 데도 접속하지 않습니다.</p>
+  <div class="pair">
+    <div>
+      <p>「치과 언제였지?」라고 물으면 답은 당신의 메모에서 나오고, 그 밑에 근거가 된 원문 줄이 그대로 붙습니다.
+         메모에 없으면 상자가 <strong>「웹에서 찾기」</strong>를 권합니다 — DuckDuckGo 에 키도 계정도 없이 물은 말
+         한 줄만 나가고, 이어서 앱이 <strong>앞의 세 쪽 본문을 읽어</strong> 서로 견준 뒤에 답합니다. 문장마다
+         누르면 열리는 출처가 붙습니다.</p>
+      <p>그리고 묻습니다 — 메모로 남길지, <strong>정리해서 남길지</strong>, 이미 있는 메모에 붙일지.
+         정리한 메모에는 자리가 정해져 있습니다: 제목 · 답 한두 문장 · 「핵심」 · 값이 여럿이면 「세부」 표 · 「출처」.
+         <strong>틀은 앱이 들고 모델은 가운데만 씁니다</strong> — 그래야 작은 모델이 제목을 두 번 적거나 주소를
+         지어내지 않습니다. 모델이 넘어져도 앱이 발췌로 같은 자리를 채웁니다.</p>
+      <p class="note"><strong>메모는 나가지 않습니다.</strong> 나가는 것은 물은 말 한 줄뿐입니다. 메모에서 답 찾기와
+         시키기는 언제나 이 기기 안에서, 한 번 받아 둔 모델(Gemma 4 E2B, 2.6GB)이 합니다. GitHub 맥 판에서
+         <code>claude</code> 명령이 이 컴퓨터에 있으면 셋 — 웹의 답 · 다듬기 · 정리 — 만 그것을 빌립니다.
+         키는 여전히 어디에도 없습니다.</p>
+    </div>
+    <div class="sheet digest">
+      <h4>달러 환율 얼마야?</h4>
+      <p class="ans">1,386원 근처입니다. 세 곳이 오늘 오후 같은 매매기준율을 말합니다.</p>
+      <p class="hd">핵심</p>
+      <ul>
+        <li>매매기준율 1,386.20원 — 9월 18일 15:00 기준</li>
+        <li>어제 종가보다 4.30원 올랐습니다</li>
+      </ul>
+      <p class="hd">세부</p>
+      <table>
+        <tr><td>살 때</td><td>1,410.40</td></tr>
+        <tr><td>팔 때</td><td>1,362.00</td></tr>
+        <tr><td>보낼 때</td><td>1,399.60</td></tr>
+      </table>
+      <p class="hd">출처</p>
+      <ul class="srcs">
+        <li>네이버 금융 — 환율 <span>finance.naver.com</span></li>
+        <li>한국수출입은행 — 오늘의 환율 <span>koreaexim.go.kr</span></li>
+      </ul>
+      <p class="foot">어디서 찾음 · DuckDuckGo · 2026년 9월 18일</p>
+    </div>
+  </div>
+  <div class="two" style="margin-top:34px">
+    <figure>
+      <div class="shot"><img src="../img/capture-answer.png" width="1968" height="764" loading="lazy"
+           alt="빠른 입력 상자에 한 문장짜리 답이 서고 그 아래에 근거가 된 원문 줄이 인용돼 있으며, 목록은 답이 나온 치과 메모 하나로 줄어 있습니다. 왼쪽이 라이트, 오른쪽이 다크입니다."></div>
+      <figcaption><b>답과, 그 답이 어디서 나왔는지.</b> 한 문장, 그 밑에 인용된 원문, 그리고 쓴 메모만 남는 목록.
+        모델이 지어낸 출처는 보이기 전에 버려지고, 맞는 것이 없으면 짐작하지 않고 없다고 말합니다.</figcaption>
+    </figure>
+    <figure>
+      <div class="shot"><img src="../img/capture-applied.png" width="1968" height="944" loading="lazy"
+           alt="치과 메모를 금요일 10시에 다시 보여 준다는 결과 한 줄과 되돌리기 단추가 최근 메모 목록 위에 서 있습니다."></div>
+      <figcaption><b>시키는 것은 한 줄과 되돌리기입니다.</b> 「금요일 10시에 다시 알려줘」는 모델이 필요 없습니다 —
+        앱의 파서가 읽습니다. 확인 창은 없고, 지우고 난 뒤의 되돌리기와 같은 자리에 결과 한 줄이 섭니다.
+        한 번 더 묻는 것은 휴지통뿐입니다.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="route" class="phone route">
+  <div class="words">
+    <h2>약속을 적으면, 어디서 출발하는지 묻습니다.</h2>
+  <p class="note preview"><strong>미리보기입니다.</strong> 대중교통 길찾기는 네이버 지도 웹의 공개 길찾기에 키 없이 묻습니다 — 공식 API 가 아니라 언제든 끊길 수 있고, 끊기면 앱이 그렇다고 말합니다. 되물음에 답할 때만 나가고, 설정에서 묻지 않게 끌 수 있습니다.</p>
+    <p>지도 링크와 시각을 한 줄에 붙여 두면 — 「금요일 저녁 6시반 밥약속」 — 비서가 <i>「어디서 출발하시나요?」</i>
+       하고 묻습니다. 역 이름이든, 주소든, 다른 지도 링크든, 「지금 여기」든 답하면 길을 찾아
+       버스 · 지하철 · 택시를 분과 요금과 함께 내밉니다. 고른 길은 메모 끝에 적힙니다 — 노선과 방면, 타는 곳,
+       환승, 요금, 그리고 늦지 않게 나가는 출발 시각. 출발 10분 전에 종이가 나오고 배너가 무엇을 탈지 말합니다.</p>
+    <ol class="steps">
+      <li><b>적기</b> 지도 링크와 시각을 한 줄에. 자리는 알아서 풀립니다.</li>
+      <li><b>출발지</b> 「강남역」 — 주소도, 「지금 여기」도 됩니다.</li>
+      <li><b>고르기</b> 버스 · 지하철 · 택시, 분과 요금. 갈아타는 길은 그렇다고 말합니다.</li>
+      <li><b>출발</b> 경로 카드가 메모에 서고, 배너가 나갈 시각을 말합니다.</li>
+    </ol>
+    <p class="note" style="margin-top:16px">대중교통은 네이버 지도 웹의 길찾기가 키 없이 답하고, 택시는 애플 지도의
+      어림입니다. 되물음에 답하기 전까지는 아무 데도 접속하지 않습니다 — 「됐어」면 아무것도 나가지 않고,
+      어느 쪽이든 메모 본문은 나가지 않습니다.</p>
+  </div>
+  <div class="frame">
+    <video autoplay muted loop playsinline poster="../media/route-poster.jpg" width="590" height="1282"
+           aria-label="아이폰의 lazymemo: 지도 링크가 붙은 약속을 적자 비서가 어디서 출발하는지 묻고, 버스·지하철·택시를 내밀고, 고른 지하철 경로를 카드로 메모에 적고, 나중에 배너가 나갈 시각을 말한다.">
+      <source src="../media/route.mp4" type="video/mp4">
+      <img src="../media/route.gif" alt="아이폰의 lazymemo 가 약속 가는 길을 찾는 모습" width="360" height="780">
+    </video>
+  </div>
 </section>
 
 <section id="privacy">

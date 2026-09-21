@@ -90,7 +90,7 @@
 한 문장: **펜을 올리는 문 하나.** 얼굴은 앱 아이콘의 두 글줄(`BrandMark`). 단추를 그려 넣지 않는다 — 과녁 안에 작은 과녁을 파는 꼴이다.
 > "When people interact with your widget in areas that aren't buttons or toggles, the interaction launches your app." (HIG)
 
-## 4. 조작 — 「봤어요」 하나만 넣었다
+## 4. 조작 — 「봤어요」와 체크상자, 둘뿐
 
 카드 오른쪽의 체크 하나가 그 자리에서 카드를 내려놓는다 (`SeenIntent` → `NowSeen.putDown`, App Group defaults).
 > "Offer interactivity while remaining glanceable and uncluttered. Multiple interaction targets… might make sense for your content, but avoid creating app-like layouts in your widgets." (HIG) ·
@@ -105,7 +105,10 @@
 
 **맥에는 없다.** 맥 위젯에는 App Group entitlement 가 없어(`ios/Config/LazyMemoWidgets-macOS.entitlements`) `NowSeen` 이 확장 제 집의 defaults 로 떨어진다 — 눌러도 앱의 띠는 그대로다. 아무 일도 안 하는 단추를 두느니 두지 않는다.
 
-**「하루 미루기」는 넣지 않았다.** 그것은 `at`·`due` 를 고쳐 **파일에 되쓰는** 일이다. 위젯 확장은 파일만 읽고(`WidgetVault`), 첨부·되풀이(`Tidy.rolled`)·인덱스·되돌리기의 규칙은 앱이 든다. 맥에서 메모 폴더를 옮겨 둔 사람의 열쇠(`VaultBookmark`)도 앱만 쥐고 있다. 확장이 반쪽 규칙으로 파일을 고치기 시작하면 두 화면이 다른 메모를 갖게 된다.
+**체크상자는 파일에 적는다 (2026-09-21).** 큰 「지금」의 체크리스트 카드 밑에 아직 안 한 칸이 셋까지 서고(`CheckRow` → `CheckIntent` → `WidgetChecklist.check`), 누르면 그 자리에서 체크된다 — 편의성 감사 §3.4 의 셈(앱을 열어 종이를 찾으면 셋, 여기서는 하나). 「봤어요」와 달리 파일에 적는 이유는 그 사실이 이 기기의 기억이 아니라 메모의 것이라서다 — 맥의 종이도 같은 칸이 체크돼야 한다. 확장이 파일을 고치는 **유일한** 자리이므로 규칙을 좁게 잡았다: 바꾸는 것은 괄호 안 **한 글자**와 `updated` 뿐(편집기의 `toggleCheckbox` 와 같다), 줄은 자리가 아니라 글로 찾아 그 사이 다른 기기가 메모를 고쳤어도 엉뚱한 줄을 뒤집지 않으며(`Checklist.toggle`), 읽은 본문의 hash 로 쓰기를 걸어 그 사이 파일이 바뀌었으면 손대지 않는다. 첨부·되풀이·인덱스·「다 체크한 목록은 물러난다」(`Tidy`)는 그대로 앱이 든다 — 앱은 앞으로 나올 때 파일을 대조한다(`reconcile`). 칸 하나가 「다음」 줄 하나를 쓴다 — 오늘 할 칸이 내일 뒤의 일정보다 앞이다. 과녁은 줄 전체(28pt·전폭)다: 16pt 네모만 맞히게 하면 엄지가 세 번에 한 번 빗나간다. `Toggle` 이라 누른 순간 칸이 채워지고, 시간표가 다시 그려지면 그 줄이 목록에서 빠진다. 중간·작은·잠금 화면 가족에는 없다 — 줄 높이가 없다.
+> "Note that only Button and Toggle using AppIntent are supported in interactive widgets." (WWDC23 10028)
+
+**「하루 미루기」는 여전히 넣지 않았다.** 그것은 `at`·`due` 를 고쳐 되풀이(`Tidy.rolled`)·알림 예약·달력이 함께 움직여야 하는 일이라 한 글자 바꾸기와 다르다. 맥에서 메모 폴더를 옮겨 둔 사람의 열쇠(`VaultBookmark`)도 앱만 쥐고 있다. 확장이 반쪽 규칙으로 파일을 고치기 시작하면 두 화면이 다른 메모를 갖게 된다 — 체크상자가 선을 그은 자리다.
 
 ## 5. 렌더 모드 — 색은 `WidgetTheme` 한 곳에서 나온다
 

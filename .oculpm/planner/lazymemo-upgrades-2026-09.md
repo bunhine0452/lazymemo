@@ -24,7 +24,7 @@ owner: claude-code
 - [ ] 집중 모드 필터 — SetFocusFilterIntent 로 「업무」집중이면 그 폴더 종이만 바탕화면에. 폴더는 자리가 아니라 칸이라는 서랍 철학 유지 {#focus-filter}
 
 ## 폰에서도 「앨을 열지 않는다」 {#phone-no-open}
-- [ ] App Intents — 「lazymemo 에 적기」·「오늘 뭐 있어」를 인텐트로. Siri·단축어·액션 버튼(iPhone 15 Pro)·맥 Spotlight. 같은 Inbound 파서를 지나는 정식 문 — iCloud 폴더에 .md 떨구는 우회로를 대체 {#app-intents}
+- [~] App Intents — 「lazymemo 에 적기」·「오늘 뭐 있어」를 인텐트로. Siri·단축어·액션 버튼(iPhone 15 Pro)·맥 Spotlight. 같은 Inbound 파서를 지나는 정식 문 — iCloud 폴더에 .md 떨구는 우회로를 대체 {#app-intents}
 - [ ] 잠금 화면 컨트롤(ControlWidget 「적기」→펜) + 홈 위젯(「지금」 세 장 읽기 전용, Recall.swift 선정 그대로). RECALL_PLAN 「다음 실험」을 실행으로 {#lock-widget}
 
 ## 사진과 소리가 글이 된다 {#photo-text}
@@ -53,4 +53,5 @@ owner: claude-code
 | 2026-09-16T15:42:33+09:00 | #dup-hint | claude-code | ☐→- | .oculpm/journal/20260916/Features_to_add/1541_feature_spotlight-index-mac-ios.md | 이미 있다 — 빠른 입력이 치는 동안 기존 메모를 걸러 보인다(구 검색→낱말 랭킹 폴백). 조사 때 놓침 |
 | 2026-09-16T16:14:14+09:00 | #notarize | claude-code | ☐→~ | .oculpm/journal/20260916/Features_to_add/1613_feature_release-developer-id-notarize.md | 파이프라인 완성·로컬 서명 검증. 남은 것: 사용자가 시크릿 5개 넣고 태그 → 첫 공증 판 → cask 딱지 떼기·README 문단 삭제 |
 | 2026-09-20T01:44:13+09:00 | #recurrence-words | claude-code | ☐→x | .oculpm/journal/20260920/Features_to_add/0143_feature_recurrence-words-biweekly-weekdays.md | 격주·평일 — 요일 없는 주기 둘, 주말에 적은 평일은 월요일부터. 시험 1077 초록 |
+| 2026-09-21T18:47:46+09:00 | #app-intents | claude-code | ☐→~ | .oculpm/journal/20260921/Features_to_add/1847_feature_phone-app-intents-write-today-pen.md | 폰 셋(적기·오늘·펜) 완료, 실기기 Siri 손검증과 맥 Spotlight 액션 남음 |
 <!-- oculpm:plan-log end -->

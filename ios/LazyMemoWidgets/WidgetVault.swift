@@ -11,7 +11,8 @@ import WidgetKit
 /// iCloud 컨테이너, 없으면 App Group(폰). 맥에서 메모 폴더를 다른 곳으로 옮겨 둔 사람의
 /// 메모는 위젯이 못 본다 — 그 폴더의 열쇠(`VaultBookmark`)는 앱만 쥐고 있다.
 enum WidgetVault {
-    static func memos() async -> [Memo] {
+    /// 메모가 있는 자리 — 읽기(`memos`)와 체크상자의 쓰기(`CheckIntent`)가 같은 자리를 본다.
+    static func paths() async -> AppPaths {
         // 컨테이너 찾기는 첫 호출에 iCloud 데몬과 이야기하는 막히는 호출이다.
         let container = await Task.detached(priority: .userInitiated) { AppPaths.ubiquityContainer() }.value
         // App Group 은 폰의 것이다 — 맥 위젯에는 그 entitlement 가 없다.
@@ -20,8 +21,11 @@ enum WidgetVault {
         #else
         let shared: URL? = nil
         #endif
-        let paths = AppPaths.resolveCloud(container: container, shared: shared).paths
-        let vault = MemoVault(paths: paths)
+        return AppPaths.resolveCloud(container: container, shared: shared).paths
+    }
+
+    static func memos() async -> [Memo] {
+        let vault = MemoVault(paths: await paths())
         return ((try? await vault.loadAll()) ?? []).map(\.memo)
     }
 }

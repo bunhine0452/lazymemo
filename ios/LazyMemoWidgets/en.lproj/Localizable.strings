@@ -34,6 +34,13 @@
 "메모" = "Note";
 "이름표" = "Stamp";
 
+/* 체크상자 — 카드 밑의 안 한 칸, 누르면 파일에 적힌다 (CheckIntent) */
+"체크" = "Check";
+"「지금」의 체크리스트 한 칸을 체크합니다." = "Checks one item of a checklist in Now.";
+"항목" = "Item";
+"체크할 것: %@" = "To do: %@";
+"이 칸을 체크합니다 — 메모 파일에 적힙니다" = "Checks this item — written into the note file";
+
 /* 다음 약속 */
 "약속이 없어요" = "No appointments";
 "%@ 출발" = "Leave at %@";

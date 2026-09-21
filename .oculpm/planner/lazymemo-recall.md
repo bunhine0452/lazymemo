@@ -34,4 +34,5 @@ owner: codex
 | 2026-09-15T01:08:35+09:00 | #recall-validation | claude-code | ☐→~ | .oculpm/journal/20260915/Features_to_add/0108_feature_recall-notifications-first-release.md | swift test 765 · iOS 빌드+UI 시험 2 · l10n 0 빠짐 · 문서 — 맥 번들 실행과 LazyMemo-macOS Xcode 빌드는 미확인(사용자 중단) |
 | 2026-09-15T02:17:44+09:00 | #recall-validation | claude-code | ~→x | .oculpm/journal/20260915/Chores/0217_chore_testflight-upload-recall-photos.md | 맥 App Store 타깃 아카이브로 양 플랫폼 빌드 확인 · 폰 스모크 15 · 두 판 TestFlight 업로드 |
 | 2026-09-16T23:19:45+09:00 | #recall-capture | claude-code | ☐→~ | .oculpm/journal/20260916/Features_to_add/2319_feature_widgetkit-now-next-write.md | 위젯(지금·다음 약속·적기)·잠금 화면 입력 위젯 구현, 워크트리 브랜치 — 전환 연출·실기기 검증 남음 |
+| 2026-09-21T19:01:58+09:00 | #recall-capture | claude-code | ~→~ | .oculpm/journal/20260921/Features_to_add/1901_feature_widget-checkbox-writes-file.md | 위젯 입력 첫 걸음 — 큰 「지금」의 체크상자가 파일에 적는다(시뮬레이터 실기 확인) |
 <!-- oculpm:plan-log end -->
