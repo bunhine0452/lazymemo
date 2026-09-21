@@ -186,6 +186,19 @@ final class QuickCaptureModel {
 
     /// 이 기기의 비서. 없으면(시험·렌더) 상자는 적기와 찾기만 한다.
     var assistant: AssistantModel?
+
+    /// **상자가 잃을 것을 들고 있는가** — 답을 기다리는 중, 답·결과·권유가 서 있는 중, 되묻는 중(시각·가는 길).
+    ///
+    /// 바깥 클릭이 상자를 치우는 것은 「들고 있는 것이 없을 때」만이다 (`QuickCaptureController.outsideClicked`).
+    /// 「달러 환율 얼마야?」를 묻고 답을 기다리다 브라우저를 한 번 누르면 상자가 사라지고 답도 함께 버려졌다
+    /// (2026-09-21 사용자) — 적던 글은 상자가 기억하지만 답과 되물음은 기억할 길이 없어, 잃는 쪽은 사람이었다.
+    var holdsWork: Bool {
+        assistant?.isBusy == true || assistant?.isStanding == true || isAsking || planner?.isBusy == true
+    }
+
+    /// 바깥을 눌러 손을 다른 앱에 준 채 상자만 남긴 상태 — 힌트 줄이 「여기 남아 있어요」라고 말한다.
+    /// 상자를 누르거나 단축키로 돌아오면 풀린다.
+    var parked = false
     /// 약속 메모의 가는 길 — 「어디서 출발하시나요?」부터 메모에 적기까지 (`RoutePlanner`). 없으면(시험·렌더) 묻지 않는다.
     var planner: RoutePlanner?
     /// 되물음이 서 있는가 — 시각이든 가는 길이든. 그동안 목록·근거는 물러난다.

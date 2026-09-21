@@ -134,4 +134,18 @@ struct CaptureStateTests {
         // 닫아도 적던 글은 상자가 기억한다 (§8) — 물러나는 것은 비서의 화면뿐이다.
         #expect(controller.draftForTesting == "다이어트 하는 법")
     }
+
+    @Test("답이 서 있거나 읽는 중이면 상자는 「들고 있다」 — 바깥 클릭이 치우지 않는 조건")
+    func holdsWorkWhileAnswerStands() async throws {
+        let paths = try makePaths("holds")
+        let store = try MemoStore(paths: paths)
+        let assistant = makeAssistant(store, support: paths.support)
+        let model = QuickCaptureModel(store: store)
+        model.assistant = assistant
+        #expect(!model.holdsWork)
+        stageWebAnswer(assistant)
+        #expect(model.holdsWork)
+        #expect(model.dismissAssistantResult())
+        #expect(!model.holdsWork)
+    }
 }

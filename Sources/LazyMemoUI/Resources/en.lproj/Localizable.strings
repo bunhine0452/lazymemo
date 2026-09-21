@@ -499,3 +499,6 @@
 "지금 여기 — 이 자리를 한 번 재어 메모에 붙여요 (누를 때만 위치를 묻습니다)" = "Here — reads your location once and attaches it (asks for location only when pressed)";
 "메뉴바 아이콘 클릭 → 빠른 입력 · 오른쪽 클릭 → 달력 · 서랍 · 종이 보기 · 설정" = "Click the menu bar icon → Quick Capture · right-click → Calendar · Drawer · Peek papers · Settings";
 "메모는 마크다운 파일이에요 — 가입 없이 바로 시작하세요. 아이폰과 같이 보려면 설정 → 「iCloud 로 동기화…」, 단축키도 거기서 바꿔요." = "Notes are Markdown files — start right away, no sign-up. To share them with your iPhone, Settings → \"Sync to iCloud…\"; shortcuts change there too.";
+
+/* 빠른 입력 — 답을 든 채 바깥을 눌렀을 때 (2026-09-21) */
+"여기 남아 있어요 · 상자를 누르거나 단축키로 돌아오기 · × 닫기" = "Still here · click the box or press the shortcut to come back · × closes";

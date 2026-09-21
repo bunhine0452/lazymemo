@@ -40,4 +40,14 @@ struct CaptureDismissTests {
             insidePanel: false, at: NSPoint(x: icon.midX, y: icon.midY), anchor: icon
         ))
     }
+
+    @Test("답을 기다리거나 들고 있으면 바깥을 눌러도 치우지 않는다 — 다른 앱이든 우리 창이든")
+    func keepsWhileHoldingWork() {
+        #expect(!QuickCaptureController.dismissesCapture(
+            insidePanel: false, at: NSPoint(x: 420, y: 300), anchor: icon, holding: true
+        ))
+        #expect(!QuickCaptureController.dismissesCapture(
+            insidePanel: false, at: NSPoint(x: 420, y: 300), anchor: nil, holding: true
+        ))
+    }
 }

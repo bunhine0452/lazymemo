@@ -1,4 +1,5 @@
 import AppKit
+import LazyMemoAssistant
 import LazyMemoAssistantUI
 import LazyMemoCore
 import LazyMemoPlaces
@@ -175,14 +176,31 @@ final class QuickCaptureController {
     }
 
     func toggle() {
-        CaptureTrace.log("toggle isOpen=\(isOpen) visible=\(panel.isVisible) 활성Space=\(panel.isOnActiveSpace) 앱활성=\(NSApp.isActive)")
-        isOpen ? close() : show()
+        CaptureTrace.log("toggle isOpen=\(isOpen) visible=\(panel.isVisible) 활성Space=\(panel.isOnActiveSpace) 앱활성=\(NSApp.isActive) 비켜섬=\(isParked)")
+        if !isOpen { show(); return }
+        // 답을 든 채 비켜 서 있는 상자에 단축키·아이콘은 「돌아오기」다 — 닫는 것이 아니라. 닫으려면 그 안에서 esc·×.
+        isParked ? refocus() : close()
+    }
+
+    /// 바깥 클릭에 손을 내주고 서 있는 중인가 — 마지막 손짓이 「들고 있는 상자의 바깥을 누른 것」이었다.
+    /// 상자를 누르거나 `refocus` 로 돌아오면 풀린다. 키 윈도 여부는 보지 않는다 — 활성화는 비동기라
+    /// 그 값은 순간마다 다르고, 사람이 한 일(바깥 클릭)만이 믿을 수 있는 기준이다.
+    private var isParked: Bool { isOpen && model.parked }
+
+    /// 비켜 서 있던 상자로 돌아온다 — 답은 그대로, 커서는 글 칸에.
+    private func refocus() {
+        model.parked = false
+        NSApp.activate()
+        panel.makeKeyAndOrderFront(nil)
+        focusEditor()
+        CaptureTrace.log("refocus key=\(panel.isKeyWindow) 앱활성=\(NSApp.isActive)")
     }
 
     func show() {
         let started = ContinuousClock.now
 
         model.prepareForShow()
+        model.parked = false
         resize()
 
         // 상주 앱(.accessory)은 스스로 활성화해야 키 입력을 받는다.
@@ -213,20 +231,14 @@ final class QuickCaptureController {
 
         // 다른 앱 — 바탕화면, 브라우저, 무엇이든.
         let elsewhere = NSEvent.addGlobalMonitorForEvents(matching: clicks, handler: { [weak self] event in
-            MainActor.assumeIsolated {
-                guard let self, self.dismisses(event) else { return }
-                self.close(returningFocus: false)
-            }
+            MainActor.assumeIsolated { self?.outsideClicked(event) }
         })
 
         // 우리 앱의 다른 창 — 메모 창, 달력, 설정.
         // 이벤트는 그대로 흘려보낸다. 상자를 치우는 것과 메모에 커서를 놓는
         // 것은 한 번의 클릭으로 같이 일어나야 한다.
         let ours = NSEvent.addLocalMonitorForEvents(matching: clicks, handler: { [weak self] event -> NSEvent? in
-            MainActor.assumeIsolated {
-                guard let self, self.dismisses(event) else { return }
-                self.close(returningFocus: false)
-            }
+            MainActor.assumeIsolated { self?.outsideClicked(event) }
             return event
         })
 
@@ -259,14 +271,23 @@ final class QuickCaptureController {
         return editor.performKeyEquivalent(with: event)
     }
 
-    /// 이 클릭이 상자를 치워야 하는 클릭인가.
-    private func dismisses(_ event: NSEvent) -> Bool {
-        guard isOpen else { return false }
-        return Self.dismissesCapture(
-            insidePanel: event.window === panel,
-            at: Self.screenPoint(of: event),
-            anchor: anchorProvider()
-        )
+    /// 클릭 한 번 — 상자 안이면 「돌아왔다」, 바깥이면 들고 있는 것이 없을 때만 치우고 있으면 **비켜 선다.**
+    ///
+    /// 비켜 선다는 것은: 상자는 그 자리에 그대로(떠 있는 창이라 다른 앱 위에 남는다), 손은 누른 곳으로 간다.
+    /// 「달러 환율 얼마야?」를 묻고 브라우저를 눌렀다고 답을 버리면, 사람은 답을 받으려고 상자만 바라보고 있어야
+    /// 한다 — 게으른 사람은 그러지 않는다. 답은 오면 거기 서 있고, 단축키나 상자 클릭으로 돌아온다.
+    private func outsideClicked(_ event: NSEvent) {
+        guard isOpen else { return }
+        let inside = event.window === panel
+        if inside { model.parked = false; return }
+        guard Self.dismissesCapture(insidePanel: false, at: Self.screenPoint(of: event), anchor: anchorProvider()) else { return }
+        if model.holdsWork {
+            guard !model.parked else { return }
+            model.parked = true
+            CaptureTrace.log("바깥 클릭 — 들고 있어 비켜 섬 busy=\(model.assistant?.isBusy ?? false) standing=\(model.assistant?.isStanding ?? false) asking=\(model.isAsking)")
+            return
+        }
+        close(returningFocus: false)
     }
 
     /// 클릭한 자리를 화면 좌표로. 다른 앱으로 간 클릭은 창이 없으므로
@@ -283,8 +304,10 @@ final class QuickCaptureController {
     ///   - point: 클릭한 화면 좌표.
     ///   - anchor: 메뉴바 아이콘 자리. 아이콘은 **스스로 토글한다** — 여기서
     ///     먼저 닫아 버리면 이어지는 클릭이 도로 열어 깜빡이기만 한다.
-    static func dismissesCapture(insidePanel: Bool, at point: NSPoint, anchor: NSRect?) -> Bool {
-        if insidePanel { return false }
+    ///   - holding: 상자가 잃을 것을 들고 있는가 (`QuickCaptureModel.holdsWork`). 들고 있으면
+    ///     바깥 클릭은 치우지 않는다 — 비켜 설 뿐이다 (`outsideClicked`).
+    static func dismissesCapture(insidePanel: Bool, at point: NSPoint, anchor: NSRect?, holding: Bool = false) -> Bool {
+        if insidePanel || holding { return false }
         if let anchor, anchor.contains(point) { return false }
         return true
     }
@@ -321,7 +344,25 @@ final class QuickCaptureController {
         let afterOutside = isOpen
         close()
 
-        return "감시=\(watching) 열림=\(opened) 안쪽클릭뒤열림=\(afterInside) 바깥클릭뒤열림=\(afterOutside)"
+        // 답을 든 채라면 바깥 클릭은 치우지 않고 비켜 선다 (2026-09-21).
+        var holdingLine = "비서없음"
+        if let assistant = model.assistant {
+            show()
+            let hit = Evidence(hit: WebHit(title: "환율", url: URL(string: "https://www.example.org/fx")!, snippet: "1,386원"))
+            let answer = AssistantAnswer(found: true, text: "1,386원 근처입니다", evidence: [hit.memoID], quotes: ["1,386원"],
+                                         sources: [WebSource(id: hit.memoID, title: "환율", url: hit.url!)])
+            assistant.stageForPreview(answer: answer, results: [hit], question: "달러 환율 얼마야?")
+            await postClick(toWindow: standIn.windowNumber)
+            let keptOpen = isOpen
+            let parked = model.parked
+            // 돌아오기 — 단축키의 길. 답은 그대로.
+            toggle()
+            let backAndStanding = isOpen && !model.parked && assistant.isStanding
+            close()
+            holdingLine = "답들고바깥클릭뒤열림=\(keptOpen) 비켜섬=\(parked) 단축키로돌아옴=\(backAndStanding)"
+        }
+
+        return "감시=\(watching) 열림=\(opened) 안쪽클릭뒤열림=\(afterInside) 바깥클릭뒤열림=\(afterOutside) \(holdingLine)"
     }
 
     /// ⌘⌫ 가 **고른 줄까지** 닿는지 (`verify-capture-delete.sh`).

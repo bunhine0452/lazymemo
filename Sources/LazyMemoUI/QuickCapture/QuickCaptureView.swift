@@ -964,6 +964,8 @@ struct QuickCaptureView: View {
     }
 
     private var hintText: String {
+        // 바깥을 눌러 손을 다른 앱에 준 채 답을 기다리거나 들고 있다 — 사라지지 않았다고, 돌아오는 길을 말한다.
+        if model.parked { return L("여기 남아 있어요 · 상자를 누르거나 단축키로 돌아오기 · × 닫기") }
         if model.assistant?.phase == .thinking { return L("esc 그만") }
         if model.planner?.isActive == true { return L("↵ 답하기 · esc 길은 그만") }
         if model.pendingQuestion != nil { return L("↵ 줄바꿈 · esc 시각 없이 남기기") }
