@@ -2,9 +2,9 @@
 oculpm_discussion: v1
 id: lazymemo-pro-lazy-ux
 title: "게으른 사용자를 위한 lazymemo 프로덕트 설계 및 프로페셔널 UI/아이콘 전략"
-status: open
+status: resolved
 created: 2026-08-29
-updated: 2026-08-29
+updated: 2026-09-21
 owner: antigravity
 ---
 

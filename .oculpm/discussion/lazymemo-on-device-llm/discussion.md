@@ -2,9 +2,9 @@
 oculpm_discussion: v1
 id: lazymemo-on-device-llm
 title: "폰에 상주하는 LLM — 어떤 모델·엔진으로, 얼마나 빠르게"
-status: open
+status: resolved
 created: 2026-09-14
-updated: 2026-09-14
+updated: 2026-09-21
 owner: claude-code
 ---
 
