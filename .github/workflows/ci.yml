@@ -62,11 +62,19 @@ jobs:
       # .build 는 소스가 바뀌면 부분만 다시 짓는다. 러너 이미지가 같으면 경로가 같아
       # 증분이 살고, 키가 어긋나면 그냥 전체 빌드다 — 틀린 결과가 나오는 길은 없다.
       - name: 빌드 캐시
+        id: build-cache
         uses: actions/cache@v4
         with:
           path: .build
           key: build-${{ runner.os }}-${{ hashFiles('Package.swift', 'Sources/**/*.swift', 'Tests/**/*.swift') }}
           restore-keys: build-${{ runner.os }}-
+
+      # 소스가 바뀌었는데 옛 빌드 위에 증분으로 얹으면 낡은 오브젝트가 새 구조체 배치와 섞여 시험 프로세스가
+      # 이유 없이 죽는다 (2026-09-22 — `Memo` 필드가 늘자 signal 10). 정확히 같은 소스가 아니면 산출물만 비운다:
+      # `clean` 은 내려받은 xcframework(artifacts)·checkouts 는 남긴다.
+      - name: 옛 빌드 위에 얹지 않는다
+        if: steps.build-cache.outputs.cache-hit != 'true'
+        run: swift package clean
 
       - name: 시험
         run: ./scripts/test.sh
