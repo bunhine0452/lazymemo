@@ -259,7 +259,7 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(app.buttons["tutorial-next"].waitForExistence(timeout: 10), "첫 실행에 안내가 떠야 한다")
         XCTAssertEqual(app.keyboards.count, 0, "안내 위로 키보드가 오르면 안 된다")
 
-        for _ in 0..<3 { app.buttons["tutorial-next"].tap() }
+        for _ in 0..<4 { app.buttons["tutorial-next"].tap() }   // 다섯 장 — 넷을 넘기면 마지막
         let done = app.buttons["tutorial-done"]
         XCTAssertTrue(done.waitForExistence(timeout: 3), "마지막 장은 「시작하기」여야 한다")
         done.tap()

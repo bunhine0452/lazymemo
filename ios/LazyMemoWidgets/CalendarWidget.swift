@@ -5,8 +5,8 @@ import WidgetKit
 
 /// 「달력」 — 이번 달 격자를 홈 화면에 (`WidgetAgenda.monthMarks`).
 ///
-/// 폰·맥의 달력과 같은 낱말이다: 오늘은 **손으로 그린 동그라미**(`HandRing`, 설계문서 §10.3),
-/// 일정이 있는 날은 숫자 밑의 점(셋까지), 일요일 빨강·토요일 파랑, 앞뒤 달에서 넘어온 칸은 옅다.
+/// 폰의 달력과 같은 낱말이다: 오늘은 숫자를 두른 **정확한 원**(테두리 — 숫자가 종이에 남는다),
+/// 일정이 있는 날은 숫자 밑의 점(셋까지, **메모의 색**), 일요일 빨강·토요일 파랑, 앞뒤 달에서 넘어온 칸은 옅다.
 /// 작은 것은 오늘 한 칸, 중간은 오늘 칸 옆에 격자, 큰 것은 격자와 그 아래 「오늘부터」 몇 줄.
 /// 자정마다 오늘이 옮겨 간다 (`WidgetAgenda.dayChanges`). 얼굴은 `CalendarFaces.swift`.
 struct CalendarWidget: Widget {
@@ -23,7 +23,8 @@ struct CalendarWidget: Widget {
 struct CalendarEntry: TimelineEntry, Sendable {
     let date: Date
     let grid: MonthGrid
-    let marks: [CalendarDate: Int]
+    /// 날짜별 점 — 메모의 색, 그 날의 차례로 (`WidgetAgenda.monthInks`).
+    let marks: [CalendarDate: [MemoColor]]
     /// 큰 위젯의 아래 절 — 오늘부터의 일정.
     let agenda: [WidgetAgenda.Upcoming]
 
@@ -34,7 +35,7 @@ struct CalendarEntry: TimelineEntry, Sendable {
         return CalendarEntry(
             date: date,
             grid: grid,
-            marks: WidgetAgenda.monthMarks(memos, in: grid),
+            marks: WidgetAgenda.monthInks(memos, in: grid),
             agenda: WidgetAgenda.upcoming(memos, now: date, limit: 4, includingToday: true)
         )
     }

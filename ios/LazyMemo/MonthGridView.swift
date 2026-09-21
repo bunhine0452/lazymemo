@@ -34,8 +34,8 @@ import SwiftUI
 struct MonthGridView: View {
     let grid: MonthGrid
     let selected: CalendarDate?
-    /// 날짜별 일정 수 — 잉크의 세기.
-    var marks: [CalendarDate: Int] = [:]
+    /// 날짜별 점 — 메모의 색, 그 날의 차례로. 점 하나가 메모 하나다 (`WidgetAgenda.monthInks`).
+    var marks: [CalendarDate: [MemoColor]] = [:]
     var today: CalendarDate = CalendarDate(Date())
     var onPick: (CalendarDate) -> Void
     var onStep: (Int) -> Void
@@ -267,7 +267,7 @@ private struct MonthStrip: View, Equatable {
     let destination: MonthGrid
     let incoming: Int?
     let selected: CalendarDate?
-    let marks: [CalendarDate: Int]
+    let marks: [CalendarDate: [MemoColor]]
     let today: CalendarDate
     let width: CGFloat
     let onPick: (CalendarDate) -> Void
@@ -319,10 +319,15 @@ private struct MonthStrip: View, Equatable {
 private struct MonthPanel: View, Equatable {
     let month: MonthGrid
     let selected: CalendarDate?
-    let marks: [CalendarDate: Int]
+    let marks: [CalendarDate: [MemoColor]]
     let today: CalendarDate
     let onPick: (CalendarDate) -> Void
     let onDrop: ((CalendarDate, [String]) -> Bool)?
+
+    /// 고른 날의 원이 칸에서 칸으로 **미끄러지는** 자리 — 판 하나에 하나. 뚝 옮겨 앉으면 눈이
+    /// 새 칸을 다시 찾아야 하고, 미끄러지면 손이 간 곳을 눈이 따라간다 ("Touch and content
+    /// should stay together", WWDC18 803). 움직임을 줄인 사람에게는 짧은 페이드 (`Motion.settle(true)`).
+    @Namespace private var space
 
     private static let cell: CGFloat = 44
     /// 소리 이름표의 서식 — 「14일 월요일」 · 「14 Monday」 (`DateWords.dayWeekday` 와 같은 말).
@@ -363,25 +368,36 @@ private struct MonthPanel: View, Equatable {
     private func cellButton(_ day: MonthGrid.Day) -> some View {
         let isToday = day.date == today
         let isSelected = day.date == selected
-        let count = marks[day.date] ?? 0
+        let inks = marks[day.date] ?? []
+        let count = inks.count
         return Button { onPick(day.date) } label: {
             ZStack {
+                // 오늘은 채운 원(포레스트 위에 크림 숫자), 고른 날은 옅은 원 — 둘이 같은 칸이면 오늘이 이긴다.
+                // 고른 날의 원은 칸 사이를 미끄러진다 (`space`).
                 if isToday {
                     Circle().fill(Theme.accent).frame(width: 34, height: 34)
                 } else if isSelected {
-                    Circle().fill(Theme.accentInk.opacity(0.16)).frame(width: 34, height: 34)
+                    Circle().fill(Theme.accentInk.opacity(0.16))
+                        .frame(width: 34, height: 34)
+                        .matchedGeometryEffect(id: "picked", in: space)
                 }
                 Text(String(day.date.day))
                     .font(.body.monospacedDigit().weight(isToday || isSelected ? .semibold : .regular))
                     .foregroundStyle(isToday ? Theme.onAccent : Paper.ink)
                     .opacity(day.isOverflow ? 0.4 : 1)
                 if count > 0 {
-                    HStack(spacing: 2) {
-                        ForEach(0..<min(count, 3), id: \.self) { _ in
-                            Circle().fill(isToday ? Theme.onAccent : Theme.highlightInk).frame(width: 4, height: 4)
+                    // 점 하나가 메모 하나, 색은 그 메모의 것 — 아래 목록의 색 점과 같은 말이라 칸을 누르기
+                    // 전에 「무엇이 있는지」가 읽힌다. 셋을 넘으면 셋 — 수를 세게 하지 않는다 (§10.4).
+                    // 오늘의 포레스트 원 위에서는 크림 한 색으로 — 색 점이 초록 위에 서면 탁해진다.
+                    HStack(spacing: 3) {
+                        ForEach(Array(inks.prefix(3).enumerated()), id: \.offset) { _, color in
+                            Circle()
+                                .fill(isToday ? Theme.onAccent : color.ink)
+                                .frame(width: 6, height: 6)
                         }
                     }
-                    .offset(y: 13)
+                    .offset(y: 14)
+                    .opacity(day.isOverflow ? 0.5 : 1)
                 }
             }
             .frame(maxWidth: .infinity, minHeight: Self.cell)

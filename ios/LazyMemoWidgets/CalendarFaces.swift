@@ -71,7 +71,7 @@ private struct TodayBlock: View {
 
     @Environment(\.widgetTheme) private var theme
 
-    private var count: Int { entry.marks[entry.today] ?? 0 }
+    private var count: Int { entry.marks[entry.today]?.count ?? 0 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: big ? 4 : 2) {
@@ -142,13 +142,17 @@ private struct MonthGridFace: View {
 
     private func cell(_ day: MonthGrid.Day) -> some View {
         let isToday = day.date == entry.today
-        let count = entry.marks[day.date] ?? 0
+        let inks = entry.marks[day.date] ?? []
+        let count = inks.count
         let ring: CGFloat = compact ? 21 : 30
         return ZStack {
             if isToday {
-                // 채운 원이 아니라 펜 자국 — 숫자가 종이에 그대로 남는다. 색은 `accent`(면의 색)가
-                // 아니라 `accentInk`(작은 획의 색)다 — 숯색 종이 위에서 포레스트 획은 거의 안 보인다.
-                HandRing(color: theme.accentInk, line: compact ? 1.4 : 1.7)
+                // 채운 원이 아니라 테두리 — 숫자가 종이에 그대로 남는다. **정확한 원이다** (2026-09-21,
+                // 사용자 결정 — 손으로 그린 동그라미는 위젯 크기에서 찌그러진 타원으로 읽혔다). 색은
+                // `accent`(면의 색)가 아니라 `accentInk`(작은 획의 색)다 — 숯색 종이 위에서 포레스트
+                // 획은 거의 안 보인다. `strokeBorder` 라 원이 칸 밖으로 번지지 않는다.
+                Circle()
+                    .strokeBorder(theme.accentInk, lineWidth: compact ? 1.4 : 1.6)
                     .frame(width: ring, height: ring)
                     .widgetAccentable()
             }
@@ -157,10 +161,12 @@ private struct MonthGridFace: View {
                 .foregroundStyle(isToday ? theme.accentInk : theme.ink)
                 .opacity(day.isOverflow ? 0.35 : 1)
             if count > 0 {
+                // 점 하나가 메모 하나 — 색은 그 메모의 것이다 (폰 달력·그 날의 목록과 같은 낱말).
+                // 색을 걷어 가는 렌더에서는 계층색 하나로 물러난다.
                 HStack(spacing: compact ? 1.5 : 2) {
-                    ForEach(0..<min(count, 3), id: \.self) { _ in
+                    ForEach(Array(inks.prefix(3).enumerated()), id: \.offset) { _, color in
                         Circle()
-                            .fill(theme.highlightInk)
+                            .fill(theme.papery ? theme.ink(for: color) : theme.highlightInk)
                             .frame(width: compact ? 3 : 4, height: compact ? 3 : 4)
                     }
                 }

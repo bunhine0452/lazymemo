@@ -22,7 +22,7 @@ enum PreviewRenderer {
         log("표본 생성")
         let samples = await makeSamples(store: store)
         log("표본 완료")
-        for step in 0..<4 {
+        for step in 0..<WelcomeView.stepCount {
             await render(name: step == 0 ? "welcome" : "tutorial-\(step + 1)",
                          size: CGSize(width: 660, height: 610),
                          content: WelcomeView(initialStep: step), into: directory)

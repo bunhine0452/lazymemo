@@ -463,3 +463,39 @@
 /* 빠른 입력 — 답·결과가 서 있을 때의 esc (QuickCaptureView.hintText) */
 "↵ 줄바꿈 · esc 결과 치우기" = "↵ new line · esc clear the result";
 "↑↓ 고르기 · esc 결과 치우기" = "↑↓ pick · esc clear the result";
+
+/* 시작하기 — 다섯 단계 (WelcomeView, 2026-09-21) */
+"내일 오후 3시 치과 @강남역" = "tomorrow 3pm dentist @Gangnam";
+"03 · 종이와 서랍" = "03 · Papers and the drawer";
+"04 · 달력과 다시 보기" = "04 · Calendar and revisits";
+"05 · 준비 완료" = "05 · Ready";
+"날짜도 자리도 말하듯 적어 보세요." = "Write dates and places the way you'd say them.";
+"종이는 바탕화면에 눕고, 치우면 서랍에 있어요." = "Papers lie on the desktop; tucked away, they're in the drawer.";
+"날짜가 붙으면 달력이 맡아요." = "Once a date is attached, the calendar takes over.";
+"어느 앱에서든 단축키 한 번으로 빠른 입력이 뜹니다. 치면 기존 메모가 걸러지고, ⌘↵ 로 남깁니다." = "One shortcut opens Quick Capture from any app. Typing filters your existing notes; ⌘↵ adds the new one.";
+"「내일 오후 3시 치과 @강남역」— 날짜·시각·자리를 앱이 읽어 달력에 놓습니다. 형식을 배울 일이 없어요." = "\"tomorrow 3pm dentist @Gangnam\" — the app reads the date, time and place and puts it on the calendar. Nothing to learn.";
+"종이는 다른 앱 창 뒤에 눕는 것이 이 앱의 뜻이에요. × 는 삭제가 아니라 서랍이고, 끝난 것은 스스로 물러납니다." = "Papers lying behind other apps' windows is the point of this app. × is the drawer, not delete, and finished things step back on their own.";
+"메모와 일정을 따로 만들지 않아요. 날짜가 붙은 메모가 곧 일정이고, 다시 볼 시각은 따로 정합니다." = "Notes and events aren't two things. A note with a date is an event, and when to see it again is set separately.";
+"메뉴바의 작은 아이콘이 언제나 메모로 돌아오는 길이에요. 메모는 내 Mac 과 iCloud Drive 의 파일입니다." = "The small menu bar icon is always the way back to your notes. Notes are files on your Mac and in your iCloud Drive.";
+"튜토리얼 %lld / %lld 단계" = "Tutorial step %1$lld of %2$lld";
+"빠른 입력은 ⌘↵ 또는 「메모 남기기」로 확정해요." = "Confirm Quick Capture with ⌘↵ or \"Add note\".";
+"같은 상자에 치면 기존 메모를 찾아요 — 「ㅈㅂㄱ」처럼 첫소리만 쳐도 「장보기」가 나옵니다. 바탕화면의 종이를 고칠 때는 자동으로 저장돼요." = "Typing in the same box finds existing notes — a few letters are enough. Edits on desktop papers save themselves.";
+"예: 내일 오후 3시 치과 @강남역" = "e.g. tomorrow 3pm dentist @Gangnam";
+"문장을 바꿔 보세요. 「@강남역」은 자리가 되고, 「매주 화요일」처럼 되풀이 낱말을 적으면 회차가 지날 때 다음으로 옮겨 둡니다. 날짜가 붙은 메모는 달력에서 만나요." = "Change the sentence. \"@Gangnam\" becomes a place, and a repeat word like \"every Tuesday\" moves the note on when an occurrence passes. Dated notes meet you in the calendar.";
+"교토 · 가을에" = "Kyoto · in autumn";
+"서랍 1" = "Drawer 1";
+"서랍 0" = "Drawer 0";
+"실제 종이의 × 나 esc 가 하는 일이 이것이에요 — 삭제가 아니라 바탕화면 왼쪽 아래 「서랍」 탭으로 들어가고, 탭이나 메뉴바 「서랍」에서 줄을 누르면 돌아옵니다." = "This is what × or esc does on a real paper — not delete, but into the \"Drawer\" tab at the bottom left of the desktop; tap a row in the tab or the menu bar's Drawer to bring it back.";
+"%@ — 브라우저 뒤에 누운 종이를 전부 잠깐 앞에 세워요. 몇 초 뒤 스스로 눕고, 그 사이 누른 종이만 남습니다." = "%@ — lifts every paper lying behind the browser for a moment. They lie back down after a few seconds; a paper you click meanwhile stays up.";
+"다 체크한 목록은 사흘 뒤, 지난 일정은 다음 날 스스로 물러나요. 파일에는 그대로 있고 메뉴가 「치워 둔 N장」이라고 적어 둡니다." = "A fully checked list steps back after three days, a past event the next day. The files stay, and the menu notes \"N tucked away\".";
+"치과" = "Dentist";
+"미루기 · 종이로" = "Push back · To paper";
+"종이 위 달력 아이콘 → 「달력에 놓기」— 칸을 하나 누르면 그 날로. 날짜가 붙으면 종이는 물러나고 달력이 맡아요." = "The calendar icon on a paper → \"Put on calendar\" — click a day and it goes there. Once dated, the paper steps back and the calendar takes over.";
+"칸을 누르면 그 날이 아래에 서고, 일정 줄의 「미루기」는 하루, 다른 칸으로 끌면 그 날로. 「종이로」는 날짜를 떼어 바탕화면으로 돌려보내요." = "Click a day and it opens below; \"Push back\" on an event row moves it a day, dragging to another cell moves it there. \"To paper\" removes the date and returns it to the desktop.";
+"종이 우클릭 「다시 보기…」— 「한 시간 뒤」「내일 아침 9시」를 누르면 그때 종이가 앞으로 나와요. 일정은 그대로. 알림은 설정에서 「이 기기에서 알림 받기」를 켤 때만." = "Right-click a paper → \"Revisit…\" — \"in an hour\" or \"tomorrow 9 am\" brings the paper forward at that time. The event stays put. Notifications only if you turn on \"Notifications on this device\" in Settings.";
+"빠른 입력 — 어디서든 한 줄 적기, 치면 찾기" = "Quick Capture — a line from anywhere; typing searches";
+"클립보드 즉시 메모 — 복사한 글·사진이 창 없이 종이가 돼요" = "Clipboard to note — copied text or a photo becomes a paper, no window";
+"종이 보기 — 다른 창 뒤의 종이를 전부 잠깐 앞에" = "Peek papers — every paper behind other windows, up front for a moment";
+"지금 여기 — 이 자리를 한 번 재어 메모에 붙여요 (누를 때만 위치를 묻습니다)" = "Here — reads your location once and attaches it (asks for location only when pressed)";
+"메뉴바 아이콘 클릭 → 빠른 입력 · 오른쪽 클릭 → 달력 · 서랍 · 종이 보기 · 설정" = "Click the menu bar icon → Quick Capture · right-click → Calendar · Drawer · Peek papers · Settings";
+"메모는 마크다운 파일이에요 — 가입 없이 바로 시작하세요. 아이폰과 같이 보려면 설정 → 「iCloud 로 동기화…」, 단축키도 거기서 바꿔요." = "Notes are Markdown files — start right away, no sign-up. To share them with your iPhone, Settings → \"Sync to iCloud…\"; shortcuts change there too.";

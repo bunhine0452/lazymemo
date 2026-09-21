@@ -1,4 +1,5 @@
 import LazyMemoCore
+import LazyMemoWidgetsCore
 import SwiftUI
 
 /// 달력 — 위에 달, 아래에 그 날 (MOBILE_DESIGN §6). 미루기는 한 손짓(오른쪽으로
@@ -10,6 +11,7 @@ struct CalendarView: View {
     let reveal: Reveal
 
     @Environment(\.undoManager) private var undoManager
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var grid = MonthGrid.current()
     @State private var picked = CalendarDate(Date())
     @State private var inRange: [Memo] = []
@@ -18,13 +20,12 @@ struct CalendarView: View {
 
     private var today: CalendarDate { CalendarDate(Date()) }
 
-    private var marks: [CalendarDate: Int] {
-        var counts: [CalendarDate: Int] = [:]
-        for memo in inRange {
-            guard let day = memo.scheduledDate() else { continue }
-            counts[day, default: 0] += 1
-        }
-        return counts
+    /// 날짜별 점 — 메모의 색, 그 날의 차례로. 위젯과 같은 셈(`WidgetAgenda.monthInks`)이라
+    /// 홈 화면의 달력과 이 격자가 같은 점을 찍는다.
+    private var marks: [CalendarDate: [MemoColor]] {
+        guard let from = grid.advanced(by: -1).range?.lowerBound, let to = grid.advanced(by: 1).range?.upperBound
+        else { return [:] }
+        return WidgetAgenda.monthInks(inRange, from: from, through: to)
     }
 
     private var rows: [AgendaRow] {
@@ -41,7 +42,7 @@ struct CalendarView: View {
                 grid: grid, selected: picked, marks: marks, today: today,
                 onPick: pick,
                 onStep: { grid = grid.advanced(by: $0) },
-                onToday: { grid = MonthGrid.current(); pick(today) },
+                onToday: { pick(today) },
                 onDrop: { day, ids in
                     let moved = ids.compactMap(ULID.init).compactMap { id in inRange.first { $0.id == id } }
                     for memo in moved { move(memo, to: day) }
@@ -138,7 +139,9 @@ struct CalendarView: View {
                 }
             } header: {
                 HStack {
+                    // 날이 바뀌면 숫자가 굴러간다 — 목록이 갈리는 것과 같은 박자 (`pick`).
                     Text(DayWords.long(picked)).font(.headline).foregroundStyle(Paper.ink)
+                        .contentTransition(.numericText())
                     Spacer()
                     Button {
                         pen.presetDay = picked
@@ -159,12 +162,16 @@ struct CalendarView: View {
 
     // MARK: 손짓
 
+    /// 날을 고른다 — 고른 날의 원이 옛 칸에서 새 칸으로 **미끄러지고**(`MonthPanel`), 아래 목록과
+    /// 머리의 날짜가 같은 박자로 갈린다. 뚝 바뀌면 어느 칸이 눌렸는지 눈이 다시 찾아야 한다.
     private func pick(_ day: CalendarDate) {
-        picked = day
-        pen.presetDay = day
-        if day.year != grid.year || day.month != grid.month {
-            grid = MonthGrid.make(year: day.year, month: day.month)
+        withAnimation(Motion.settle(reduceMotion)) {
+            picked = day
+            if day.year != grid.year || day.month != grid.month {
+                grid = MonthGrid.make(year: day.year, month: day.month)
+            }
         }
+        pen.presetDay = day
     }
 
     private func load() async {

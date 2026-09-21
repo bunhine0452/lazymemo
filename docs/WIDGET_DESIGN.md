@@ -23,6 +23,7 @@
 | 이유 한 줄 | 「다시 보기 · 오후 3:00」 — **1초에 읽히는 것** | `.caption2.weight(.medium).monospacedDigit()`, `accentInk` |
 | 제목 | **3초에 읽히는 것**. 가족마다 1~3줄 + `minimumScaleFactor(0.9)` | `.subheadline.weight(.semibold)`, `ink` |
 | 고정 칸 줄 (`AgendaRow`) | 날 46pt · 시각 58pt · 제목 — 줄마다 같은 자리 | `.caption.monospacedDigit()` |
+| 달력 칸의 점 | 점 하나가 메모 하나, **메모의 색** (`WidgetAgenda.monthInks`, 폰 달력과 같은 셈) — 셋까지, 색을 걷는 렌더에서는 계층색 하나 | 4pt (중간 3pt) |
 | 빈 자리 (`EmptyFace`) | 한 줄 + 「적기」 문 | `.subheadline` + accent 캡슐 |
 
 글자는 전부 **텍스트 스타일**이고 가장 작은 것이 `.caption2` = 11pt 다.
@@ -83,7 +84,7 @@
 - medium: 왼쪽 오늘 칸 + 오른쪽 격자.
 - large: 「2026년 9월 … 9월 18일 (금)」 머리 + 격자 + 「오늘부터」 4줄.
 
-**오늘은 채운 원이 아니라 손으로 그린 동그라미다** (`HandRing`) — 맥 달력의 `PenMarks` 와 같은 몸짓(설계문서 §10.3). 채우면 숫자가 종이를 떠나 「고른 칸」으로 읽히고, 자로 그은 선은 손으로 읽히지 않는다. `Canvas` 하나에 세 도막으로 굵기를 줄여 가며 한 바퀴를 조금 넘겨 긋는다 — 난수 없이 상수로, 장면마다 같은 그림. 숯색 종이에서는 획을 `accentInk`(밝은 세이지)로 바꾼다.
+**오늘은 채운 원이 아니라 숫자를 두른 정확한 원이다** (`Circle().strokeBorder`, 2026-09-21). 채우면 숫자가 종이를 떠나 「고른 칸」으로 읽힌다. 0.9.0 은 맥 달력의 손으로 그린 동그라미(`PenMarks.HandRing`)를 위젯 크기로 옮겼는데, 30pt 안에서 흔들림과 기울기는 손이 아니라 **찌그러진 타원**으로 읽혔다 — 사용자가 정확한 원을 요구했다. 위젯은 훑는 자리라 표시는 한눈에 도형으로 읽혀야 한다. 숯색 종이에서는 획을 `accentInk`(밝은 세이지)로 바꾼다.
 
 ### 「적기」 (`WriteWidget`) — small · accessoryCircular · accessoryInline
 
@@ -162,7 +163,7 @@ StandBy 는 검은 바탕 위의 두 장이다. `mono` 가 바탕색을 접으�
 - 「봤어요」에는 이름과 힌트를 따로 단다 (「지금」에서 내려놓습니다).
 - 달력 칸은 「18일 금요일, 일정 2」.
 - 대비 높임은 `Shade` 의 셋째·넷째 벌이 받는다. 둘째 줄·시각은 시스템 `.secondary`.
-- 글자를 그림으로 굽지 않는다 — 손으로 그린 동그라미는 **표시**이지 글자가 아니다.
+- 글자를 그림으로 굽지 않는다 — 오늘의 원은 **표시**이지 글자가 아니다.
   > "Avoid rasterizing text. Always use text elements and styles…" (HIG)
 
 ## 10. 검증

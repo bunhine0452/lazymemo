@@ -56,16 +56,20 @@ struct DateSheet: View {
                         grid: grid,
                         selected: day,
                         onPick: { picked in
-                            // 이웃 달의 칸을 누르면 격자도 그 달로 — 달력 탭과 같다.
-                            if picked.year != grid.year || picked.month != grid.month {
-                                grid = MonthGrid.make(year: picked.year, month: picked.month)
+                            // 이웃 달의 칸을 누르면 격자도 그 달로 — 달력 탭과 같다. 고른 날의 원은 미끄러진다.
+                            withAnimation(Motion.settle(reduceMotion)) {
+                                if picked.year != grid.year || picked.month != grid.month {
+                                    grid = MonthGrid.make(year: picked.year, month: picked.month)
+                                }
+                                onChange(schedule.moved(to: picked))
                             }
-                            onChange(schedule.moved(to: picked))
                         },
                         onStep: { grid = grid.advanced(by: $0) },
                         onToday: {
-                            grid = MonthGrid.current()
-                            onChange(schedule.moved(to: CalendarDate(Date())))
+                            withAnimation(Motion.settle(reduceMotion)) {
+                                grid = MonthGrid.current()
+                                onChange(schedule.moved(to: CalendarDate(Date())))
+                            }
                         }
                     )
                     timeRow

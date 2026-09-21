@@ -61,21 +61,42 @@ public enum WidgetAgenda {
 
     // MARK: 달력
 
-    /// 달 격자의 점 — 날짜별 일정 수. 폰 달력의 `marks`(`CalendarView`)와 같은 셈이다.
+    /// 달 격자의 점 — 날짜별 일정 수. `monthInks` 의 수만 센 것.
+    public static func monthMarks(
+        _ memos: [Memo], in grid: MonthGrid, calendar: Calendar = .current
+    ) -> [CalendarDate: Int] {
+        monthInks(memos, in: grid, calendar: calendar).mapValues(\.count)
+    }
+
+    /// 달 격자의 점 — 날짜별 **메모의 색**, 그 날의 차례(시각 순, 날짜만 있는 것이 먼저, 같으면 id)로.
+    /// 폰 달력의 `marks`(`CalendarView`)와 같은 셈이다 — 점 하나가 메모 하나이고 점의 색이 그 메모의 색이다.
     ///
     /// 여기서는 `Recall.eligible` 을 **쓰지 않는다.** 달력은 물러난(`tidied`) 종이도 그대로
     /// 보여 주는 자리라(README 「끝난 것은 스스로 물러난다」) 「지금」과 기준이 다르다 —
     /// 휴지통에 든 것만 뺀다 (`WidgetVault` 는 애초에 휴지통을 읽지 않지만, 견본과 시험은 든다).
-    public static func monthMarks(
+    public static func monthInks(
         _ memos: [Memo], in grid: MonthGrid, calendar: Calendar = .current
-    ) -> [CalendarDate: Int] {
+    ) -> [CalendarDate: [MemoColor]] {
         guard let range = grid.range else { return [:] }
-        var counts: [CalendarDate: Int] = [:]
+        return monthInks(memos, from: range.lowerBound, through: range.upperBound, calendar: calendar)
+    }
+
+    /// 같은 셈을 날짜 범위로 — 폰 달력은 옆 달 판까지 점을 찍으므로 석 달을 한 번에 센다.
+    public static func monthInks(
+        _ memos: [Memo], from: CalendarDate, through: CalendarDate, calendar: Calendar = .current
+    ) -> [CalendarDate: [MemoColor]] {
+        let range = from...through
+        var byDay: [CalendarDate: [Memo]] = [:]
         for memo in memos where memo.deleted == nil {
             guard let day = memo.scheduledDate(calendar: calendar), range.contains(day) else { continue }
-            counts[day, default: 0] += 1
+            byDay[day, default: []].append(memo)
         }
-        return counts
+        return byDay.mapValues { memos in
+            memos.sorted { left, right in
+                if left.at != right.at { return (left.at ?? .distantPast) < (right.at ?? .distantPast) }
+                return left.id < right.id
+            }.map(\.color)
+        }
     }
 
     /// 달력이 바뀌는 순간들 — `now` 와 그 뒤의 자정 `count` 개. 자정에 「오늘」이 옮겨 가고,

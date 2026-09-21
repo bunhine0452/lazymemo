@@ -781,7 +781,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc func showWelcome() {
         welcome.show(
-            shortcut: hotkey.current.displayName,
+            shortcuts: WelcomeShortcuts(
+                capture: hotkey.current.displayName, paste: pasteHotkey.displayName, peek: peekHotkey.displayName
+            ),
             onCapture: { [weak self] in self?.capture.toggle() },
             onCalendar: { [weak self] in self?.openCalendar() },
             onDrawer: { [weak self] in self?.drawer.toggle() }
