@@ -36,4 +36,16 @@ enum Motion {
     static func quick(_ reduced: Bool) -> Animation { reduced ? crossFade : quick }
     static func settle(_ reduced: Bool) -> Animation { reduced ? crossFade : settle }
     static func fly(_ reduced: Bool) -> Animation { reduced ? instant : fly }
+
+    /// 손을 뗀 자리에서 **그 속도로** 이어 자리 잡는다 — 속도 0 에서 다시 출발하면 놓는
+    /// 순간 한 번 멈칫한다 (달 판이 손가락을 따라오다 놓일 때). `velocity` 는 pt/s,
+    /// `distance` 는 남은 거리(pt, 부호 있음) — 갈 곳이 없거나 속도가 없으면 그냥 `settle`.
+    /// 초속은 ω·거리에서 자른다 — 튕기지 않는 스프링도 그보다 빠르면 목표를 지나친다
+    /// (ω = 2π/duration), 판 셋 너머는 빈 자리다.
+    static func settle(velocity: CGFloat, over distance: CGFloat) -> Animation {
+        guard distance != 0, velocity != 0 else { return settle }
+        let omega = 2 * Double.pi / settleDuration
+        let normalized = min(max(Double(velocity / distance), -omega), omega)
+        return .interpolatingSpring(duration: settleDuration, bounce: 0, initialVelocity: normalized)
+    }
 }

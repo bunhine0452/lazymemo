@@ -20,12 +20,21 @@ struct CalendarView: View {
 
     private var today: CalendarDate { CalendarDate(Date()) }
 
+    /// 점을 세는 범위 — 이 달의 앞뒤 **두 달씩**. 격자가 넘어가는 동안 보이는 것은 앞·이번·다음
+    /// 세 판인데, 한 달만 더 읽으면 넘기는 순간 나가는 판의 점이 꺼지고(범위 밖) 다 간 뒤
+    /// 새 옆 판의 점이 뒤늦게 돋는다. 두 달이면 한 번 넘기는 동안 보이는 달은 전부 앞 읽기에도
+    /// 들어 있어 미끄러지는 중에 점이 바뀌는 판이 없다.
+    private var span: ClosedRange<CalendarDate>? {
+        guard let from = grid.advanced(by: -2).range?.lowerBound, let to = grid.advanced(by: 2).range?.upperBound
+        else { return nil }
+        return from...to
+    }
+
     /// 날짜별 점 — 메모의 색, 그 날의 차례로. 위젯과 같은 셈(`WidgetAgenda.monthInks`)이라
     /// 홈 화면의 달력과 이 격자가 같은 점을 찍는다.
     private var marks: [CalendarDate: [MemoColor]] {
-        guard let from = grid.advanced(by: -1).range?.lowerBound, let to = grid.advanced(by: 1).range?.upperBound
-        else { return [:] }
-        return WidgetAgenda.monthInks(inRange, from: from, through: to)
+        guard let span else { return [:] }
+        return WidgetAgenda.monthInks(inRange, from: span.lowerBound, through: span.upperBound)
     }
 
     private var rows: [AgendaRow] {
@@ -176,11 +185,9 @@ struct CalendarView: View {
 
     private func load() async {
         // 옆 달까지 읽는다 — 격자를 밀면 옆 달이 손가락을 따라 들어오는데(`MonthGridView`),
-        // 그 판의 점이 비어 있다가 놓은 뒤에 돋으면 「넘어가서야 채워지는」 달력이 된다.
-        guard let from = grid.advanced(by: -1).range?.lowerBound,
-              let to = grid.advanced(by: 1).range?.upperBound
-        else { return }
-        inRange = await store.scheduled(from: from, to: to)
+        // 그 판의 점이 비어 있다가 놓은 뒤에 돋으면 「넘어가서야 채워지는」 달력이 된다 (`span`).
+        guard let span else { return }
+        inRange = await store.scheduled(from: span.lowerBound, to: span.upperBound)
     }
 
     private func move(_ memo: Memo, to day: CalendarDate) {
